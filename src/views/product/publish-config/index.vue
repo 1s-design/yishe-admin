@@ -57,7 +57,7 @@ const { height } = useWindowSize();
 const gridMaxHeight = ref<number>(0);
 
 watchEffect(() => {
-  gridMaxHeight.value = height.value - 300;
+  gridMaxHeight.value = Math.max(height.value - 280, 360);
 });
 
 const gridOptions = computed(() => ({

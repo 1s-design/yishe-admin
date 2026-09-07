@@ -107,6 +107,7 @@
             <div class="common-table">
               <vxe-grid
                 v-bind="gridOptions"
+                :max-height="gridOptions.maxHeight"
                 :data="dataSource"
                 :loading="loading"
                 @checkbox-change="checkboxChange"
@@ -506,7 +507,7 @@ const filterDialogVisible = ref(false);
 
 const gridOptions = ref({
   ...commonGridOptions,
-  maxHeight: null,
+  maxHeight: Math.max(height.value - 280, 360),
   rowConfig: {
     keyField: "id",
   },
@@ -550,7 +551,7 @@ const gridOptions = ref({
 });
 
 watchEffect(() => {
-  gridOptions.value.maxHeight = height.value - 260;
+  gridOptions.value.maxHeight = Math.max(height.value - 280, 360);
 });
 
 const dataSource = ref<any[]>([]);

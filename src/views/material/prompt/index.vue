@@ -106,6 +106,7 @@
             <div class="common-table">
               <vxe-grid
                 v-bind="gridOptions"
+                :max-height="gridOptions.maxHeight"
                 :data="dataSource"
                 :loading="loading"
                 @checkbox-change="checkboxChange"
@@ -363,7 +364,7 @@ function getRowClassName({ row }) {
 
 const gridOptions = ref({
   ...commonGridOptions,
-  maxHeight: null,
+  maxHeight: Math.max(height.value - 280, 360),
   rowConfig: { keyField: "id" },
   checkboxConfig: { reserve: true },
   columns: [
@@ -432,7 +433,7 @@ const gridOptions = ref({
 } as any);
 
 watchEffect(() => {
-  gridOptions.value.maxHeight = height.value - 300;
+  gridOptions.value.maxHeight = Math.max(height.value - 280, 360);
 });
 
 const dataSource = ref<any[]>([]);

@@ -293,12 +293,13 @@ const queryParams = reactive({
 });
 
 const userStore = useUserStore();
+const { height } = useWindowSize();
 
 const gridRef = ref();
 
 const gridOptions = ref({
   ...commonGridOptions,
-  maxHeight: null,
+  maxHeight: Math.max(height.value - 280, 360),
   rowConfig: {
     keyField: "id",
   },
@@ -350,10 +351,8 @@ const gridOptions = ref({
   ],
 });
 
-const { height } = useWindowSize();
-
 watchEffect(() => {
-  gridOptions.value.maxHeight = height.value - 240;
+  gridOptions.value.maxHeight = Math.max(height.value - 280, 360);
 });
 
 const dataSource = ref([]);

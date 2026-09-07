@@ -175,7 +175,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onActivated, onMounted, reactive, ref, watch } from "vue";
+import { computed, onActivated, onMounted, reactive, ref, watch, watchEffect } from "vue";
+import { useWindowSize } from "@vueuse/core";
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElMessageBox, ElNotification } from "element-plus";
@@ -288,8 +289,11 @@ const getResultSummary = (task: EcomSelectionSupplyMatchTask) => {
   );
 };
 
+const { height } = useWindowSize();
+
 const gridOptions = ref<VxeGridProps<EcomSelectionSupplyMatchTask>>({
   ...(commonGridOptions as VxeGridProps<EcomSelectionSupplyMatchTask>),
+  maxHeight: Math.max(height.value - 280, 360),
   rowConfig: {
     ...(commonGridOptions as any).rowConfig,
     keyField: "id",
@@ -345,6 +349,10 @@ const gridOptions = ref<VxeGridProps<EcomSelectionSupplyMatchTask>>({
     },
     buildOperationColumn("operationSlot", 120),
   ],
+});
+
+watchEffect(() => {
+  gridOptions.value.maxHeight = Math.max(height.value - 280, 360);
 });
 
 const applyListData = (data: any) => {

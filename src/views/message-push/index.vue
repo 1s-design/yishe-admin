@@ -117,7 +117,8 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { onMounted, ref, watchEffect } from "vue";
+import { useWindowSize } from "@vueuse/core";
 import { ElMessage, ElMessageBox } from "element-plus";
 import {
   deleteMessagePush,
@@ -145,8 +146,11 @@ const platformLabelMap: Record<MessagePushPlatform, string> = {
   wecom: "企业微信",
 };
 
+const { height } = useWindowSize();
+
 const gridOptions = ref({
   ...commonGridOptions,
+  maxHeight: Math.max(height.value - 280, 360),
   columns: [
     { title: "渠道名称", field: "name", minWidth: 200, slots: { default: "nameSlot" } },
     {
@@ -169,6 +173,10 @@ const gridOptions = ref({
     buildTimeColumn("创建时间", "createTime"),
     buildOperationColumn("operationDefaultSlot"),
   ],
+});
+
+watchEffect(() => {
+  gridOptions.value.maxHeight = Math.max(height.value - 280, 360);
 });
 
 const maskWebhook = (url?: string) => {

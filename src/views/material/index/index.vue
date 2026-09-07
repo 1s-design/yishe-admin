@@ -1395,6 +1395,7 @@
           <div class="list-page-table-panel__body material-index-table-panel__body">
             <div class="common-table">
               <vxe-grid class="material-dnd-grid dnd-text-selectable" ref="gridRef" v-bind="gridOptions"
+                :max-height="maxHeight"
                 :data="dataSource" :loading="loading" :row-class-name="materialRowClassName"
                 @cell-click="handleMaterialCellClick" @checkbox-change="checkboxChange"
                 @checkbox-all="checkboxAllChange">
@@ -3087,10 +3088,10 @@ const getCutoutModeLabel = (mode: string) => {
 const form = ref({});
 
 const { height } = useWindowSize();
-const maxHeight = ref(0);
+const maxHeight = ref(Math.max(height.value - 280, 360));
 
 watchEffect(() => {
-  maxHeight.value = height.value - 260;
+  maxHeight.value = Math.max(height.value - 280, 360);
 });
 
 const queryParams = reactive({
@@ -3224,7 +3225,7 @@ function getPublishUsageStatusTag(status?: string) {
 
 const publishUsageGridOptions = computed(() => ({
   ...commonGridOptions,
-  maxHeight: Math.max(height.value - 260, 360),
+  maxHeight: Math.max(height.value - 280, 360),
   rowConfig: { isHover: true, keyField: "id" },
   columnConfig: { resizable: true },
   columns: [

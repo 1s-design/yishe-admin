@@ -1092,7 +1092,7 @@ const createSubmitHint = computed(() => {
 
 const gridOptions = computed(() => ({
   ...commonGridOptions,
-  maxHeight: Math.max(height.value - 250, 420),
+  maxHeight: Math.max(height.value - 280, 360),
   rowConfig: { keyField: "id" },
   columns: [
     { type: "checkbox", width: 50 },

@@ -524,6 +524,7 @@ const queryParams = reactive({
 const { height } = useWindowSize()
 const gridOptions = ref<any>({
   ...commonGridOptions,
+  maxHeight: Math.max(height.value - 280, 360),
   columns: [
     { type: 'checkbox', width: 50 },
     { type: 'seq', title: '#', width: 58 },
@@ -537,7 +538,7 @@ const gridOptions = ref<any>({
 })
 
 watchEffect(() => {
-  gridOptions.value.maxHeight = height.value - 255
+  gridOptions.value.maxHeight = Math.max(height.value - 280, 360);
 })
 
 const form = reactive({

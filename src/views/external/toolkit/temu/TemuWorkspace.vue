@@ -416,6 +416,7 @@
           <div class="common-table">
             <vxe-grid
               v-bind="taskRunGridOptions"
+              :max-height="taskRunGridOptions.maxHeight"
               :data="taskRunList"
               :loading="taskRunLoading"
               class="temu-workspace__task-table"
@@ -2269,8 +2270,9 @@ import {
   reactive,
   ref,
   watch,
+  watchEffect,
 } from "vue";
-import { useLocalStorage } from "@vueuse/core";
+import { useLocalStorage, useWindowSize } from "@vueuse/core";
 import { useI18n } from "@/hooks/web/useI18n";
 import type { VxeGridInstance, VxeGridProps } from "vxe-table";
 import type { ToolkitToolItem } from "@/api/external/toolkit";
@@ -2800,8 +2802,11 @@ const complianceTemplateResponse = ref<TemuActionResponse | null>(null);
 const complianceEditorForm = reactive<Record<string, any>>({});
 let taskRunPollTimer: number | null = null;
 
+const { height } = useWindowSize();
+
 const taskRunGridOptions = ref<VxeGridProps<TemuTaskRunSummary>>({
   ...(commonGridOptions as VxeGridProps<TemuTaskRunSummary>),
+  maxHeight: Math.max(height.value - 280, 360),
   rowConfig: {
     ...(commonGridOptions as any).rowConfig,
     keyField: "id",
@@ -2869,6 +2874,12 @@ const taskRunGridOptions = ref<VxeGridProps<TemuTaskRunSummary>>({
       slots: { default: "taskRunOperationSlot" },
     },
   ],
+});
+
+watchEffect(() => {
+  if (taskRunGridOptions.value) {
+    taskRunGridOptions.value.maxHeight = Math.max(height.value - 280, 360);
+  }
 });
 
 const priceReviewPreviewGridOptions = ref<VxeGridProps<PriceReviewPreviewRow>>({

@@ -294,9 +294,11 @@ const queryParams = reactive({
 });
 
 const gridRef = ref();
+const { height } = useWindowSize();
+
 const gridOptions = ref({
   ...commonGridOptions,
-  maxHeight: null,
+  maxHeight: Math.max(height.value - 280, 360),
   rowConfig: { keyField: "id" },
   columns: [
     { title: "套图ID", field: "psdSetId", minWidth: 180 },
@@ -310,9 +312,8 @@ const gridOptions = ref({
   ],
 });
 
-const { height } = useWindowSize();
 watchEffect(() => {
-  gridOptions.value.maxHeight = height.value - 240;
+  gridOptions.value.maxHeight = Math.max(height.value - 280, 360);
 });
 
 const dataSource = ref([]);

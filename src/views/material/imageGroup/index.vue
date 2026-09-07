@@ -343,7 +343,7 @@ const emit = defineEmits<{
 const IMAGE_GROUP_FOLDER_CATEGORY = "imagegroup";
 
 const { height } = useWindowSize();
-const maxHeight = computed(() => Math.max(height.value - 260, 360));
+const maxHeight = computed(() => Math.max(height.value - 280, 360));
 
 const gridRef = ref<VxeGridInstance<ImageGroupItem>>();
 const loading = ref(false);

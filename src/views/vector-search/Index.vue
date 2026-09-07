@@ -117,6 +117,7 @@
             <div class="common-table">
               <vxe-grid
                 v-bind="gridOptions"
+                :max-height="gridOptions.maxHeight"
                 :data="records"
                 :loading="loading"
                 @checkbox-change="checkboxChange"
@@ -497,6 +498,7 @@ import { computed, onMounted, onUnmounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from "element-plus";
 import type { VxeGridProps } from "vxe-table";
 import ContentWrap from "@/components/ContentWrap/src/ContentWrap.vue";
+import { useWindowSize } from "@vueuse/core";
 import ListPageLayout from "@/components/ListPageLayout/index.vue";
 import Pagination from "@/components/Pagination/index.vue";
 import { buildOperationColumn, buildTimeColumn, commonGridOptions } from "@/common/table";
@@ -575,9 +577,12 @@ const pagination = reactive({
   total: 0,
 });
 
+const { height } = useWindowSize();
+
 // ============ vxe-grid 配置 ============
 const gridOptions = computed<VxeGridProps>(() => ({
   ...commonGridOptions,
+  maxHeight: Math.max(height.value - 280, 360),
   columns: [
     { type: "checkbox", width: 50 },
     { field: "id", title: "ID", width: 70 },

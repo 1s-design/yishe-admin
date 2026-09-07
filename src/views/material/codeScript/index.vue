@@ -62,6 +62,7 @@
             <div class="common-table">
               <vxe-grid
                 v-bind="gridOptions"
+                :max-height="gridOptions.maxHeight"
                 :data="dataSource"
                 :loading="loading"
                 @checkbox-change="checkboxChange"
@@ -407,6 +408,7 @@
       <div class="common-table flex-1 min-h-0">
         <vxe-grid
           v-bind="runGridOptions"
+          :max-height="runGridOptions.maxHeight"
           :data="runDataSource"
           :loading="runLoading"
           @checkbox-change="runCheckboxChange"
@@ -523,7 +525,7 @@ const runQuery = reactive({
 
 const gridOptions = ref({
   ...commonGridOptions,
-  maxHeight: null,
+  maxHeight: Math.max(height.value - 280, 360),
   rowConfig: { keyField: "id" },
   checkboxConfig: { reserve: true },
   columns: [
@@ -548,7 +550,7 @@ const gridOptions = ref({
 
 const runGridOptions = ref({
   ...commonGridOptions,
-  maxHeight: null,
+  maxHeight: Math.max(height.value - 280, 360),
   rowConfig: { keyField: "id" },
   checkboxConfig: { reserve: true },
   columns: [
@@ -571,8 +573,8 @@ const runGridOptions = ref({
 } as any);
 
 watchEffect(() => {
-  gridOptions.value.maxHeight = height.value - 260;
-  runGridOptions.value.maxHeight = height.value - 240;
+  gridOptions.value.maxHeight = Math.max(height.value - 280, 360);
+  runGridOptions.value.maxHeight = Math.max(height.value - 280, 360);
 });
 
 const loading = ref(false);

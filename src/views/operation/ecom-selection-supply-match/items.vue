@@ -348,7 +348,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onActivated, onMounted, reactive, ref, watch } from "vue";
+import { computed, onActivated, onMounted, reactive, ref, watch, watchEffect } from "vue";
+import { useWindowSize } from "@vueuse/core";
 import { useI18n } from 'vue-i18n';
 import { useRoute } from "vue-router";
 import {
@@ -432,8 +433,11 @@ const detailSnapshots = computed(() => normalizeSnapshotList(currentDetail.value
 
 const getSnapshotCount = (value: any) => normalizeSnapshotList(value).length;
 
+const { height } = useWindowSize();
+
 const gridOptions = ref<VxeGridProps<EcomSelectionSupplyMatchItem>>({
   ...(commonGridOptions as VxeGridProps<EcomSelectionSupplyMatchItem>),
+  maxHeight: Math.max(height.value - 280, 360),
   rowConfig: {
     ...(commonGridOptions as any).rowConfig,
     keyField: "id",
@@ -478,6 +482,10 @@ const gridOptions = ref<VxeGridProps<EcomSelectionSupplyMatchItem>>({
     },
     buildOperationColumn("operationSlot", 88),
   ],
+});
+
+watchEffect(() => {
+  gridOptions.value.maxHeight = Math.max(height.value - 280, 360);
 });
 
 const applyListData = (data: any) => {

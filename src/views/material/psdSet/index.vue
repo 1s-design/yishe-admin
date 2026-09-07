@@ -140,7 +140,7 @@
         <div
           class="common-table list-page-panel list-page-panel--flat list-page-table-panel list-page-table-panel--flat">
           <div class="list-page-table-panel__body psd-set-page__table-body">
-            <vxe-grid ref="psdSetGridRef" v-bind="gridOptions" :data="dataSource" :loading="loading"
+            <vxe-grid ref="psdSetGridRef" v-bind="gridOptions" :max-height="gridOptions.maxHeight" :data="dataSource" :loading="loading"
               :row-class-name="psdSetRowClassName" @checkbox-change="onSelectionChange"
               @checkbox-all="onSelectionChange" @cell-click="handlePsdSetCellClick">
               <template #idSlot="{ row }">
@@ -2039,9 +2039,11 @@ function getColumns() {
   return [...baseColumns, ...operationColumn];
 }
 
+const { height } = useWindowSize();
+
 const gridOptions = ref<any>({
   ...commonGridOptions,
-  maxHeight: null,
+  maxHeight: Math.max(height.value - 280, 360),
   rowConfig: {
     keyField: "id",
   },
@@ -2070,10 +2072,8 @@ function handlePsdSetCellClick({ row, column }: any) {
   }
 }
 
-const { height } = useWindowSize();
-
 watchEffect(() => {
-  gridOptions.value.maxHeight = height.value - 240;
+  gridOptions.value.maxHeight = Math.max(height.value - 280, 360);
 });
 
 async function getList(silent = false) {

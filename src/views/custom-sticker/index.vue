@@ -147,9 +147,14 @@
                 </template>
                 <template #folderSlot="{ row }"><span>{{ row.folder || '未分组' }}</span></template>
                 <template #importSlot="{ row }">
-                  <el-tag :type="row.imported ? 'success' : 'info'" size="small" effect="plain">
-                    {{ row.imported ? '已复制' : '未复制' }}
-                  </el-tag>
+                  <div class="import-cell">
+                    <el-tag :type="row.imported ? 'success' : 'info'" size="small" effect="plain">
+                      {{ row.imported ? '已复制' : '未复制' }}
+                    </el-tag>
+                    <div v-if="row.imported && row.importedSticker?.code" class="import-cell__code mono" :title="`素材库编码: ${row.importedSticker.code}`">
+                      {{ row.importedSticker.code }}
+                    </div>
+                  </div>
                 </template>
                 <template #shareSlot="{ row }">
                   <el-tag :type="row.isShared ? 'success' : 'info'" size="small" effect="plain">
@@ -286,6 +291,13 @@
             <div class="cs-sidebar-row">
               <span class="label">更新时间</span>
               <span class="value">{{ formatTime(activeSticker.updateTime) }}</span>
+            </div>
+            <div v-if="activeSticker.importedSticker?.code" class="cs-sidebar-row">
+              <span class="label">素材库编码</span>
+              <span class="value mono font-bold text-primary" style="display: flex; align-items: center; gap: 6px;">
+                {{ activeSticker.importedSticker.code }}
+                <el-button link type="primary" size="small" @click="copyText(activeSticker.importedSticker.code, '素材库编码')">复制</el-button>
+              </span>
             </div>
             <div v-if="activeSticker.importedStickerId" class="cs-sidebar-row">
               <span class="label">素材库副本 ID</span>
@@ -556,7 +568,7 @@ const gridOptions = computed(() => ({
     { title: '名称', minWidth: 180, slots: { default: 'nameSlot' } },
     { title: '文件夹', minWidth: 130, slots: { default: 'folderSlot' } },
     { title: '所属用户', width: 150, slots: { default: 'ownerSlot' } },
-    { title: '素材库', width: 105, align: 'center', slots: { default: 'importSlot' } },
+    { title: '素材库', width: 120, align: 'center', slots: { default: 'importSlot' } },
     { title: '素材中心', width: 100, align: 'center', slots: { default: 'shareSlot' } },
     { title: '最近更新', width: 164, slots: { default: 'timeSlot' } },
     buildOperationColumn('operationSlot'),
@@ -742,11 +754,20 @@ async function copyToLibrary(item: CustomSticker) {
     return
   }
   try {
-    await CustomStickerApi.copyToStickerLibrary({ customStickerId: item.id })
-    ElMessage.success(`贴纸「${item.name || '未命名'}」已成功复制到素材库`)
+    const res = await CustomStickerApi.copyToStickerLibrary({ customStickerId: item.id })
+    const codeText = res?.code ? `（编码：${res.code}）` : ''
+    ElMessage.success(`贴纸「${item.name || '未命名'}」已成功复制到素材库${codeText}`)
     item.imported = true
+    if (res?.id) {
+      item.importedStickerId = res.id
+      item.importedSticker = res
+    }
     if (activeSticker.value?.id === item.id) {
       activeSticker.value.imported = true
+      if (res?.id) {
+        activeSticker.value.importedStickerId = res.id
+        activeSticker.value.importedSticker = res
+      }
     }
     await loadData()
   } catch (error: any) {
@@ -923,6 +944,23 @@ loadData()
   font-size: 13px;
   color: var(--el-text-color-primary);
   font-weight: 500;
+}
+
+.import-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+
+  &__code {
+    font-size: 11px;
+    line-height: 1.2;
+    color: var(--el-color-primary);
+    background: var(--el-color-primary-light-9);
+    padding: 1px 4px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+  }
 }
 
 /* ================== 用户分发/共享弹窗（与素材库/图库完全一致） ================== */

@@ -83,6 +83,7 @@
             <div class="common-table">
               <vxe-grid
                 v-bind="gridOptions"
+                :max-height="gridOptions.maxHeight"
                 :data="tableData"
                 :loading="loading"
                 @checkbox-change="handleCheckboxChange"
@@ -244,7 +245,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onActivated, onMounted, reactive, ref, watch } from "vue";
+import { computed, onActivated, onMounted, reactive, ref, watch, watchEffect } from "vue";
+import { useWindowSize } from "@vueuse/core";
 import { useI18n } from 'vue-i18n';
 import { useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
@@ -328,8 +330,11 @@ const tableData = computed(() => {
   return list.value.slice(start, start + filters.pageSize);
 });
 
+const { height } = useWindowSize();
+
 const gridOptions = ref<VxeGridProps<EcomPlatformRawRecord>>({
   ...(commonGridOptions as VxeGridProps<EcomPlatformRawRecord>),
+  maxHeight: Math.max(height.value - 280, 360),
   rowConfig: {
     ...(commonGridOptions as any).rowConfig,
     keyField: "id",
@@ -383,6 +388,10 @@ const gridOptions = ref<VxeGridProps<EcomPlatformRawRecord>>({
     },
     buildOperationColumn("operationSlot", 120),
   ],
+});
+
+watchEffect(() => {
+  gridOptions.value.maxHeight = Math.max(height.value - 280, 360);
 });
 
 const applyCatalog = (data: any) => {

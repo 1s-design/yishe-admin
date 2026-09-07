@@ -1270,9 +1270,11 @@ const stats = ref<QueueStats>({
   total: 0,
 });
 
+const { height } = useWindowSize();
+
 const gridOptions = ref({
   ...commonGridOptions,
-  maxHeight: null,
+  maxHeight: Math.max(height.value - 280, 360),
   rowClassName: ({ row }) => getQueueRowClassName(row),
   rowConfig: {
     keyField: "id",
@@ -1361,8 +1363,6 @@ const gridOptions = ref({
     buildOperationColumn("operationDefaultSlot"),
   ],
 });
-
-const { height } = useWindowSize();
 
 const dataSource = ref<QueueMessage[]>([]);
 const loading = ref(false);
@@ -1799,7 +1799,10 @@ const canConfirmPublishDispatch = computed(
 );
 
 watchEffect(() => {
-  gridOptions.value.maxHeight = height.value - (showPublishDispatchPanel.value ? 320 : 292);
+  gridOptions.value.maxHeight = Math.max(
+    height.value - (showPublishDispatchPanel.value ? 320 : 280),
+    360,
+  );
 });
 
 function isPublishTaskRow(row?: QueueMessage | null) {

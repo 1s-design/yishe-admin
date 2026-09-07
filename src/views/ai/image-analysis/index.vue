@@ -283,6 +283,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
+import { useWindowSize } from "@vueuse/core";
 import { ElMessage, ElMessageBox } from "element-plus";
 import {
   Loading,
@@ -361,8 +362,11 @@ const canAnalyze = computed(() => {
 const renderedResult = computed(() => renderMarkdown(result.value));
 const renderedDetailResult = computed(() => renderMarkdown(detailRecord.value?.result || ""));
 
+const { height } = useWindowSize();
+
 const historyGridOptions = computed(() => ({
   ...commonGridOptions,
+  maxHeight: Math.max(height.value - 280, 360),
   columns: [
     { type: "checkbox", width: 50 },
     { type: "seq", title: "#", width: 50 },

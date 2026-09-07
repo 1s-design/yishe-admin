@@ -28,7 +28,7 @@
     </div>
     <!-- 表格展示 -->
     <div class="common-table">
-      <vxe-grid v-bind="(gridOptions as any)" :data="dataSource" :loading="loading" @checkbox-change="checkboxChange"
+      <vxe-grid v-bind="(gridOptions as any)" :max-height="(gridOptions as any).maxHeight" :data="dataSource" :loading="loading" @checkbox-change="checkboxChange"
         @checkbox-all="checkboxAllChange">
         <template #operationDefaultSlot="{ row }">
           <div class="operation-buttons">
@@ -545,8 +545,12 @@ const queryParams = reactive({
   isTemplate: false, // 初始为false
   publishStatus: '' // 发布状态过滤
 })
+
+const { height } = useWindowSize()
+
 const gridOptions = ref({
   ...commonGridOptions,
+  maxHeight: Math.max(height.value - 280, 360),
   rowConfig: {
     keyField: 'id'
   },
@@ -571,10 +575,8 @@ const gridOptions = ref({
   ]
 })
 
-const { height } = useWindowSize()
-
 watchEffect(() => {
-  (gridOptions.value as any).maxHeight = height.value - 250
+  (gridOptions.value as any).maxHeight = Math.max(height.value - 280, 360)
 })
 
 const dataSource = ref([])

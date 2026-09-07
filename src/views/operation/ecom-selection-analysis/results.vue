@@ -293,7 +293,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onActivated, onMounted, reactive, ref, watch } from "vue";
+import { computed, onActivated, onMounted, reactive, ref, watch, watchEffect } from "vue";
+import { useWindowSize } from "@vueuse/core";
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
@@ -460,8 +461,11 @@ const getListResultCount = (row: EcomSelectionAnalysisResult) => {
   return Number(row?.output?.customResult?.items?.length || 0);
 };
 
+const { height } = useWindowSize();
+
 const gridOptions = ref<VxeGridProps<EcomSelectionAnalysisResult>>({
   ...(commonGridOptions as VxeGridProps<EcomSelectionAnalysisResult>),
+  maxHeight: Math.max(height.value - 280, 360),
   rowConfig: {
     ...(commonGridOptions as any).rowConfig,
     keyField: "id",
@@ -516,6 +520,10 @@ const gridOptions = ref<VxeGridProps<EcomSelectionAnalysisResult>>({
     },
     buildOperationColumn("operationSlot", 132),
   ],
+});
+
+watchEffect(() => {
+  gridOptions.value.maxHeight = Math.max(height.value - 280, 360);
 });
 
 const applyListData = (data: any) => {

@@ -93,7 +93,13 @@
         >
           <div class="list-page-table-panel__body">
             <div class="common-table">
-              <vxe-grid ref="gridRef" v-bind="gridOptions" :data="dataSource" :loading="loading">
+              <vxe-grid
+                ref="gridRef"
+                v-bind="gridOptions"
+                :max-height="gridOptions.maxHeight"
+                :data="dataSource"
+                :loading="loading"
+              >
                 <template #actionDefaultSlot="{ row }">
                   <div class="break-all text-sm leading-6">
                     {{ row.action }}
@@ -166,9 +172,11 @@ const userOptionsLoading = ref(false);
 const userOptionsLoaded = ref(false);
 const userOptions = ref<Array<{ id: number; label: string }>>([]);
 
+const { height } = useWindowSize();
+
 const gridOptions = ref({
   ...commonGridOptions,
-  maxHeight: null,
+  maxHeight: Math.max(height.value - 280, 360),
   rowConfig: {
     keyField: "id",
   },
@@ -233,8 +241,6 @@ const gridOptions = ref({
     },
   ],
 });
-
-const { height } = useWindowSize();
 
 function formatUserAgent(ua?: string): string {
   if (!ua) return "-";
@@ -344,7 +350,7 @@ async function handleClear() {
 
 watchEffect(() => {
   if (gridOptions.value) {
-    gridOptions.value.maxHeight = height.value - 300;
+    gridOptions.value.maxHeight = Math.max(height.value - 280, 360);
   }
 });
 

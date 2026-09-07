@@ -351,10 +351,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, reactive, ref } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watchEffect } from "vue";
 import { ElMessage, ElMessageBox, type FormInstance } from "element-plus";
 import { DArrowLeft, DArrowRight, Delete, Document, Plus, Refresh, Search, StarFilled } from "@element-plus/icons-vue";
-import { useLocalStorage } from "@vueuse/core";
+import { useLocalStorage, useWindowSize } from "@vueuse/core";
 import ContentWrap from "@/components/ContentWrap/src/ContentWrap.vue";
 import ListPageLayout from "@/components/ListPageLayout/index.vue";
 import FolderTree from "@/components/material/FolderTree.vue";
@@ -488,9 +488,12 @@ const rules = {
     },
   ],
 };
+
+const { height } = useWindowSize();
+
 const gridOptions = ref({
   ...commonGridOptions,
-  maxHeight: null,
+  maxHeight: Math.max(height.value - 280, 360),
   rowConfig: { keyField: "id" },
   checkboxConfig: {
     reserve: true,
@@ -545,6 +548,10 @@ const gridOptions = ref({
     buildTimeColumn("更新时间", "updateTime"),
     buildOperationColumn("operationDefaultSlot", 120),
   ],
+});
+
+watchEffect(() => {
+  gridOptions.value.maxHeight = Math.max(height.value - 280, 360);
 });
 
 async function load() {

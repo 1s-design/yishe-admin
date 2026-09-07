@@ -118,7 +118,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref } from "vue";
+import { computed, onMounted, onUnmounted, reactive, ref, watchEffect } from "vue";
+import { useWindowSize } from "@vueuse/core";
 import type { VxeGridProps } from "vxe-table";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { buildOperationColumn, buildTimeColumn, commonGridOptions } from "@/common/table";
@@ -156,9 +157,11 @@ const queryParams = reactive({
   pageSize: 20,
 });
 
+const { height } = useWindowSize();
+
 const gridOptions = ref<VxeGridProps<NotifyMessageVO>>({
   ...commonGridOptions,
-  maxHeight: null,
+  maxHeight: Math.max(height.value - 280, 360),
   rowConfig: {
     keyField: "id",
   },
@@ -189,6 +192,10 @@ const gridOptions = ref<VxeGridProps<NotifyMessageVO>>({
     buildTimeColumn("时间", "createTime"),
     buildOperationColumn("operationDefaultSlot", 100),
   ],
+});
+
+watchEffect(() => {
+  gridOptions.value.maxHeight = Math.max(height.value - 280, 360);
 });
 
 const getContentTitle = (row: NotifyMessageVO): string => {

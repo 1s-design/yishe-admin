@@ -80,6 +80,7 @@
             <div class="common-table">
               <vxe-grid
                 v-bind="gridOptions"
+                :max-height="gridOptions.maxHeight"
                 :data="tableData"
                 :loading="loading"
                 @checkbox-change="handleCheckboxChange"
@@ -197,7 +198,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onActivated, onMounted, reactive, ref } from "vue";
+import { computed, onActivated, onMounted, reactive, ref, watchEffect } from "vue";
+import { useWindowSize } from "@vueuse/core";
 import { useI18n } from 'vue-i18n';
 import { ElMessage, ElMessageBox, ElNotification } from "element-plus";
 import { Delete, Edit, VideoPlay } from "@element-plus/icons-vue";
@@ -310,8 +312,11 @@ const getTaskConfigParts = (task: EcomPlatformCollectTask) => {
   ].filter(Boolean) as Array<{ label: string; value: string }>;
 };
 
+const { height } = useWindowSize();
+
 const gridOptions = ref<VxeGridProps<EcomPlatformCollectTask>>({
   ...(commonGridOptions as VxeGridProps<EcomPlatformCollectTask>),
+  maxHeight: Math.max(height.value - 280, 360),
   rowConfig: {
     ...(commonGridOptions as any).rowConfig,
     keyField: "id",
@@ -353,6 +358,10 @@ const gridOptions = ref<VxeGridProps<EcomPlatformCollectTask>>({
     },
     buildOperationColumn("operationSlot", 120),
   ],
+});
+
+watchEffect(() => {
+  gridOptions.value.maxHeight = Math.max(height.value - 280, 360);
 });
 
 const applyCatalog = (data: any) => {

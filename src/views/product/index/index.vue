@@ -3046,7 +3046,7 @@ const { height } = useWindowSize();
 const gridMaxHeight = ref<number>(0);
 
 watchEffect(() => {
-  gridMaxHeight.value = height.value - 250;
+  gridMaxHeight.value = Math.max(height.value - 280, 360);
 });
 
 const dataSource = ref([]);

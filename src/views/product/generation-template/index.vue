@@ -34,7 +34,7 @@ const { height } = useWindowSize();
 const gridMaxHeight = ref(0);
 const psdTemplatePickerTableHeight = computed(() => Math.max(420, height.value - 188));
 watchEffect(() => {
-  gridMaxHeight.value = height.value - 220;
+  gridMaxHeight.value = Math.max(height.value - 280, 360);
 });
 
 const formatMoney = (value: any) => {

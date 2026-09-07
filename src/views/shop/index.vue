@@ -22,6 +22,7 @@
             <div class="common-table">
               <vxe-grid
                 v-bind="gridOptions"
+                :max-height="gridOptions.maxHeight"
                 :data="list"
                 :loading="loading"
                 @checkbox-change="handleCheckboxChange"
@@ -96,7 +97,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watchEffect } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { buildOperationColumn, buildTimeColumn, commonGridOptions } from '@/common/table'
 import { batchDeleteShop, deleteShop, getShopList } from '@/api/shop'
@@ -104,6 +105,7 @@ import ShopDialog from './components/ShopDialog.vue'
 import { formatDate } from '@/utils/formatTime'
 import ListPageLayout from '@/components/ListPageLayout/index.vue'
 import { useI18n } from 'vue-i18n'
+import { useWindowSize } from '@vueuse/core'
 
 const { t } = useI18n()
 
@@ -116,8 +118,11 @@ const updateSelectedIds = (records: any[]) => {
   selectedIds.value = (records || []).map((item) => Number(item.id)).filter((id) => Number.isInteger(id) && id > 0)
 }
 
+const { height } = useWindowSize()
+
 const gridOptions = ref({
   ...commonGridOptions,
+  maxHeight: Math.max(height.value - 280, 360),
   rowConfig: {
     keyField: 'id'
   },
@@ -134,6 +139,10 @@ const gridOptions = ref({
     { ...buildTimeColumn(t('common.createTime'), 'createTime', 180), slots: { default: 'createTimeSlot' } },
     buildOperationColumn('operationSlot')
   ]
+})
+
+watchEffect(() => {
+  gridOptions.value.maxHeight = Math.max(height.value - 280, 360)
 })
 
 const getList = async () => {

@@ -638,7 +638,7 @@ const handleConfirmSendMessage = async () => {
 
 const runtimeGridOptions = ref<VxeGridProps<WebsocketConnectionRow>>({
   ...commonGridOptions,
-  maxHeight: null,
+  maxHeight: Math.max(height.value - 280, 360),
   rowConfig: {
     keyField: "id",
   },
@@ -722,8 +722,7 @@ const runtimeGridOptions = ref<VxeGridProps<WebsocketConnectionRow>>({
 });
 
 watchEffect(() => {
-  const maxHeight = height.value - 240;
-  runtimeGridOptions.value.maxHeight = maxHeight;
+  runtimeGridOptions.value.maxHeight = Math.max(height.value - 280, 360);
 });
 
 watch(autoRefresh, (value) => {

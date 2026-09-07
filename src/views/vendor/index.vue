@@ -165,7 +165,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref, watchEffect } from "vue";
+import { useWindowSize } from "@vueuse/core";
 import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Delete, Goods, Plus, Refresh, Search } from "@element-plus/icons-vue";
@@ -211,8 +212,11 @@ const buildProductSummary = (products: VendorProductItem[] = []) => {
   };
 };
 
+const { height } = useWindowSize();
+
 const gridOptions = ref({
   ...commonGridOptions,
+  maxHeight: Math.max(height.value - 280, 360),
   rowConfig: {
     keyField: "id",
   },
@@ -234,6 +238,10 @@ const gridOptions = ref({
     { ...buildTimeColumn("创建时间", "createTime", 180), slots: { default: "createTimeSlot" } },
     buildOperationColumn("operationSlot"),
   ],
+});
+
+watchEffect(() => {
+  gridOptions.value.maxHeight = Math.max(height.value - 280, 360);
 });
 
 const getList = async () => {

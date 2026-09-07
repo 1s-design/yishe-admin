@@ -71,7 +71,7 @@ const { height: windowHeight } = useWindowSize();
 
 const gridOptions = computed(() => ({
   ...commonGridOptions,
-  height: Math.max(360, windowHeight.value - 300),
+  maxHeight: Math.max(windowHeight.value - 280, 360),
   columns: [
     { type: "seq", width: 60, title: "序号" },
     { field: "fileName", title: "文件名", minWidth: 180, slots: { default: "fileNameDefaultSlot" } },

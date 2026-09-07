@@ -241,8 +241,11 @@ const formattedMetadata = computed(() => {
   return JSON.stringify(currentMetadata.value, null, 2);
 });
 
+const { height } = useWindowSize();
+
 const gridOptions = ref({
   ...commonGridOptions,
+  maxHeight: Math.max(height.value - 280, 360),
   columns: [
     { type: "checkbox", width: 50 },
     { field: "action", title: "行为动作", width: 170, slots: { default: "actionSlot" } },
@@ -255,10 +258,9 @@ const gridOptions = ref({
   ],
 });
 
-const { height } = useWindowSize();
 watchEffect(() => {
   if (gridOptions.value) {
-    gridOptions.value.maxHeight = height.value - 240;
+    gridOptions.value.maxHeight = Math.max(height.value - 280, 360);
   }
 });
 

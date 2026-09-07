@@ -274,7 +274,7 @@ const sceneLabelMap: Record<string, string> = {
 const { height } = useWindowSize();
 const gridOptions = computed(() => ({
   ...commonGridOptions,
-  maxHeight: Math.max(height.value - 250, 420),
+  maxHeight: Math.max(height.value - 280, 360),
   rowConfig: { keyField: "id" },
   checkboxConfig: { reserve: true },
   columns: [

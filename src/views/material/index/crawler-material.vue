@@ -105,6 +105,7 @@
           <vxe-grid
             ref="gridRef"
             v-bind="gridOptions"
+            :max-height="maxHeight"
             :data="dataSource"
             :loading="loading"
             @checkbox-change="checkboxChange"
@@ -396,6 +397,14 @@ const queryParams = reactive({
   id: "", // 新增ID精确查询参数
 });
 const gridRef = ref();
+
+const { height } = useWindowSize();
+const maxHeight = ref(Math.max(height.value - 280, 360));
+
+watchEffect(() => {
+  maxHeight.value = Math.max(height.value - 280, 360);
+});
+
 const gridOptions = computed(() => {
   const baseColumns = [
     {
@@ -470,12 +479,6 @@ const gridOptions = computed(() => {
       operationColumn
     ] as any,
   }
-});
-const { height } = useWindowSize();
-const maxHeight = ref(null);
-
-watchEffect(() => {
-  maxHeight.value = height.value - 260;
 });
 const dataSource = ref([]);
 const loading = ref(false);

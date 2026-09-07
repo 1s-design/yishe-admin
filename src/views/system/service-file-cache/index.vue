@@ -135,7 +135,7 @@ const total = computed(() => items.value.length);
 
 const gridOptions = computed(() => ({
   ...commonGridOptions,
-  maxHeight: Math.max(360, height.value - 310),
+  maxHeight: Math.max(height.value - 280, 360),
   rowConfig: {
     keyField: "key",
   },

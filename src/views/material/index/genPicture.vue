@@ -321,9 +321,11 @@ async function initTitleTemplate(psdTemplateId?) {
   titleTemplateList.value = res.list
 }
 
+const { height } = useWindowSize();
 
 const gridOptions = ref({
   ...commonGridOptions,
+  maxHeight: Math.max(height.value - 280, 360),
   columns: [
     { title: "店铺", field: "shopName", minWidth: 100, showOverflow: true },
     {
@@ -338,10 +340,8 @@ const gridOptions = ref({
   ],
 });
 
-const { height } = useWindowSize();
-
 watchEffect(() => {
-  gridOptions.value.maxHeight = height.value - 260;
+  gridOptions.value.maxHeight = Math.max(height.value - 280, 360);
 });
 
 const dataSource = ref([]);

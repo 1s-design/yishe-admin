@@ -70,7 +70,12 @@
               <span v-else class="muted">{{ t('browserAutomation.noManagedEnvironmentHint') }}</span>
             </div>
             <div class="common-table common-table--full">
-              <vxe-grid v-bind="profileGridOptions" :data="profileTableRows" class="profile-grid">
+              <vxe-grid
+                v-bind="profileGridOptions"
+                :max-height="profileGridOptions.maxHeight"
+                :data="profileTableRows"
+                class="profile-grid"
+              >
                 <template #lastUsedAt_default="{ row }">
                   {{ dateText(row.lastUsedAt) }}
                 </template>
@@ -614,7 +619,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch, watchEffect } from "vue";
+import { useWindowSize } from "@vueuse/core";
 import { ElMessage, ElMessageBox } from "element-plus";
 import type { FormInstance, FormRules } from "element-plus";
 import type { VxeGridProps } from "vxe-table";
@@ -844,8 +850,11 @@ const profileTableRows = computed(() =>
     };
   }),
 );
+const { height } = useWindowSize();
+
 const profileGridOptions = ref<VxeGridProps<any>>({
   ...commonGridOptions,
+  maxHeight: Math.max(height.value - 280, 360),
   rowConfig: {
     keyField: "id",
     isHover: true,
@@ -922,6 +931,12 @@ const profileGridOptions = ref<VxeGridProps<any>>({
       headerAlign: "left",
     }),
   ],
+});
+
+watchEffect(() => {
+  if (profileGridOptions.value) {
+    profileGridOptions.value.maxHeight = Math.max(height.value - 280, 360);
+  }
 });
 const activeProfileId = computed(
   () =>

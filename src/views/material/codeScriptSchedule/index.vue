@@ -78,6 +78,7 @@
             <div class="common-table">
               <vxe-grid
                 v-bind="gridOptions"
+                :max-height="gridOptions.maxHeight"
                 :data="dataSource"
                 :loading="loading"
                 @checkbox-change="checkboxChange"
@@ -332,6 +333,7 @@
       <div class="common-table flex-1 min-h-0">
         <vxe-grid
           v-bind="executionGridOptions"
+          :max-height="executionGridOptions.maxHeight"
           :data="executionDataSource"
           :loading="executionLoading"
           @checkbox-change="executionCheckboxChange"
@@ -584,7 +586,7 @@ const cronTemplates = [
 
 const gridOptions = ref({
   ...commonGridOptions,
-  maxHeight: null,
+  maxHeight: Math.max(height.value - 280, 360),
   rowConfig: { keyField: "id" },
   checkboxConfig: { reserve: true },
   columns: [
@@ -616,7 +618,7 @@ const gridOptions = ref({
 
 const executionGridOptions = ref({
   ...commonGridOptions,
-  maxHeight: null,
+  maxHeight: Math.max(height.value - 280, 360),
   rowConfig: { keyField: "id" },
   checkboxConfig: { reserve: true },
   columns: [
@@ -652,8 +654,8 @@ const executionGridOptions = ref({
 } as any);
 
 watchEffect(() => {
-  gridOptions.value.maxHeight = height.value - 260;
-  executionGridOptions.value.maxHeight = height.value - 240;
+  gridOptions.value.maxHeight = Math.max(height.value - 280, 360);
+  executionGridOptions.value.maxHeight = Math.max(height.value - 280, 360);
 });
 
 watch(

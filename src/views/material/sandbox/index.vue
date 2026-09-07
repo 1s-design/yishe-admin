@@ -315,7 +315,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, watchEffect } from 'vue'
+import { useWindowSize } from '@vueuse/core'
 import Pagination from '@/components/Pagination/index.vue'
 import { Refresh, Document, ArrowDown } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -429,11 +430,14 @@ const currentPage = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
 
+const { height } = useWindowSize()
+
 const runGridOptions = reactive({
   border: true,
   stripe: true,
   size: 'small',
-  height: 650,
+  minHeight: 360,
+  maxHeight: Math.max(height.value - 280, 360),
   rowConfig: { isHover: true },
   checkboxConfig: { range: true },
   pagerConfig: { enabled: false },
@@ -446,6 +450,10 @@ const runGridOptions = reactive({
     { field: 'createdAt', title: '执行时间', width: 170 },
     { title: '操作', width: 160, fixed: 'right', slots: { default: 'actionsSlot' } },
   ],
+})
+
+watchEffect(() => {
+  runGridOptions.maxHeight = Math.max(height.value - 280, 360)
 })
 
 function runStatusType(status: string) {

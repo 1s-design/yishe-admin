@@ -330,8 +330,11 @@ const currentReplyRow = ref<ProductCommentVO | null>(null);
 const replyText = ref("");
 const replySubmitting = ref(false);
 
+const { height } = useWindowSize();
+
 const gridOptions = ref({
   ...commonGridOptions,
+  maxHeight: Math.max(height.value - 280, 360),
   columns: [
     { type: "checkbox", width: 50 },
     { field: "publicUser", title: "C端买家", width: 180, slots: { default: "userSlot" } },
@@ -346,10 +349,9 @@ const gridOptions = ref({
   ],
 });
 
-const { height } = useWindowSize();
 watchEffect(() => {
   if (gridOptions.value) {
-    gridOptions.value.maxHeight = height.value - 240;
+    gridOptions.value.maxHeight = Math.max(height.value - 280, 360);
   }
 });
 

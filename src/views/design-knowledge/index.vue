@@ -179,7 +179,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watchEffect } from 'vue'
+import { useWindowSize } from '@vueuse/core'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Plus, Delete } from '@element-plus/icons-vue'
 import ContentWrap from '@/components/ContentWrap/src/ContentWrap.vue'
@@ -245,9 +246,11 @@ const categoryOptions = [
 ]
 
 // 表格配置
+const { height } = useWindowSize()
+
 const gridOptions = ref({
   ...commonGridOptions,
-  maxHeight: null,
+  maxHeight: Math.max(height.value - 280, 360),
   rowConfig: { keyField: 'id' },
   checkboxConfig: { reserve: true },
   columns: [
@@ -260,6 +263,10 @@ const gridOptions = ref({
     buildTimeColumn('创建时间', 'createTime', 150),
     buildOperationColumn('operationDefaultSlot', 120)
   ]
+})
+
+watchEffect(() => {
+  gridOptions.value.maxHeight = Math.max(height.value - 280, 360)
 })
 
 // 获取列表

@@ -468,6 +468,7 @@ html.dark {
 .common-table .vxe-grid,
 .vxe-table,
 .vxe-grid {
+  min-height: 360px;
   --vxe-ui-font-size-default: 11px;
   --vxe-ui-font-size-mini: 11px;
   --vxe-ui-font-size-small: 11px;

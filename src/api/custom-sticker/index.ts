@@ -21,6 +21,12 @@ export interface CustomSticker {
   folder?: string | null
   imported?: boolean
   importedStickerId?: string | null
+  importedSticker?: {
+    id: string
+    code?: string | null
+    name?: string | null
+    url?: string | null
+  } | null
   isShared?: boolean
   sharedBy?: number | null
   sharedTime?: string | null
@@ -78,7 +84,13 @@ export const CustomStickerApi = {
     request.post<CustomStickerTransferResult>({ url: '/custom-sticker/transfer-to-user', data: { ...data, action: 'move' } }),
 
   copyToStickerLibrary: (data: { customStickerId: string; folderId?: string | null }) =>
-    request.post({ url: '/custom-sticker/import-to-sticker', data }),
+    request.post<{
+      id: string
+      code?: string | null
+      name?: string | null
+      url?: string | null
+      [key: string]: any
+    }>({ url: '/custom-sticker/import-to-sticker', data }),
 
   delete: (id: string) =>
     request.delete({ url: `/custom-sticker/${id}` }),

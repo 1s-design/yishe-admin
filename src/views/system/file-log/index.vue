@@ -520,7 +520,7 @@ const selectedClientLabel = computed(
 
 const gridOptions = ref({
   ...commonGridOptions,
-  maxHeight: 560,
+  maxHeight: Math.max(height.value - 280, 360),
   rowConfig: {
     keyField: "id",
   },
@@ -543,7 +543,7 @@ const gridOptions = ref({
 });
 
 watchEffect(() => {
-  gridOptions.value.maxHeight = Math.max(500, height.value - 310);
+  gridOptions.value.maxHeight = Math.max(height.value - 280, 360);
 });
 
 function getDateParams() {

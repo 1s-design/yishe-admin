@@ -59,6 +59,7 @@
               <vxe-grid
                 :key="activeTab"
                 v-bind="currentGridOptions"
+                :max-height="tableMaxHeight"
                 :data="currentList"
                 :loading="loading"
               >
@@ -194,6 +195,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
+import { useWindowSize } from "@vueuse/core";
 import { ElMessage, ElMessageBox } from "element-plus";
 import {
   applyAiApiKeyToAllFeatures,
@@ -235,8 +237,12 @@ const queryParams = reactive({
   enabled: "",
 });
 
+const { height } = useWindowSize();
+const tableMaxHeight = computed(() => Math.max(height.value - 280, 360));
+
 const mineGridOptions = computed(() => ({
   ...commonGridOptions,
+  maxHeight: tableMaxHeight.value,
   columns: [
     { title: "ID", field: "id", width: 80 },
     { title: "名称", field: "name", minWidth: 180 },
@@ -272,6 +278,7 @@ const mineGridOptions = computed(() => ({
 
 const publicGridOptions = computed(() => ({
   ...commonGridOptions,
+  maxHeight: tableMaxHeight.value,
   columns: [
     { title: "ID", field: "id", width: 80 },
     { title: "名称", field: "name", minWidth: 180 },

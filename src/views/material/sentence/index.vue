@@ -124,6 +124,7 @@
       <vxe-grid
         class="sentence-dnd-grid dnd-text-selectable"
         v-bind="gridOptions"
+        :max-height="gridOptions.maxHeight"
         :data="dataSource"
         :loading="loading"
         @checkbox-change="checkboxChange"
@@ -489,7 +490,7 @@ const queryParams = reactive({
 
 const gridOptions = ref({
   ...commonGridOptions,
-  maxHeight: null,
+  maxHeight: Math.max(height.value - 280, 360),
   rowConfig: { keyField: "id" },
   checkboxConfig: { reserve: true },
   columns: [
@@ -555,10 +556,8 @@ const gridOptions = ref({
   ],
 } as any);
 
-// 监听窗口大小变化，动态调整表格高度
 watchEffect(() => {
-  // 计算表格最大高度：窗口高度 - 头部区域(p-4上下32px + py-4上下32px + 内容高度约80px) - 分页区域(约80px) - 其他边距(约40px)
-  gridOptions.value.maxHeight = height.value - 280;
+  gridOptions.value.maxHeight = Math.max(height.value - 280, 360);
 });
 
 const dataSource = ref([]);

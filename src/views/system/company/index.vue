@@ -42,6 +42,7 @@
               <vxe-grid
                 ref="gridRef"
                 v-bind="gridOptions"
+                :max-height="gridOptions.maxHeight"
                 :data="dataSource"
                 :loading="loading"
                 @checkbox-change="checkboxChange"
@@ -159,9 +160,11 @@ const userStore = useUserStore();
 
 const gridRef = ref();
 
+const { height } = useWindowSize();
+
 const gridOptions = ref({
   ...commonGridOptions,
-  maxHeight: null,
+  maxHeight: Math.max(height.value - 280, 360),
   rowConfig: {
     keyField: "id",
   },
@@ -195,10 +198,8 @@ const gridOptions = ref({
   ],
 });
 
-const { height } = useWindowSize();
-
 watchEffect(() => {
-  gridOptions.value.maxHeight = height.value - 240;
+  gridOptions.value.maxHeight = Math.max(height.value - 280, 360);
 });
 
 const dataSource = ref([]);

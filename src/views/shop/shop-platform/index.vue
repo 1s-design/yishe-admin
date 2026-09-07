@@ -27,6 +27,7 @@
             <div class="common-table">
               <vxe-grid
                 v-bind="gridOptions"
+                :max-height="gridOptions.maxHeight"
                 :data="dataSource"
                 :loading="loading"
                 @checkbox-change="checkboxChange"
@@ -106,8 +107,11 @@ const queryParams = reactive({
   sortingFields: defaultSortingValue(),
 });
 
+const { height } = useWindowSize();
+
 const gridOptions = ref({
   ...commonGridOptions,
+  maxHeight: Math.max(height.value - 280, 360),
   columns: [
     { type: "checkbox", width: 50, showOverflow: true },
     buildOperationColumn("operationDefaultSlot", undefined, {
@@ -116,10 +120,8 @@ const gridOptions = ref({
   ],
 });
 
-const { height } = useWindowSize();
-
 watchEffect(() => {
-  gridOptions.value.maxHeight = height.value - 260;
+  gridOptions.value.maxHeight = Math.max(height.value - 280, 360);
 });
 
 const dataSource = ref([]);

@@ -210,6 +210,7 @@
                 <vxe-grid
                   class="psd-template-dnd-grid dnd-text-selectable"
                   v-bind="gridOptions"
+                  :max-height="gridOptions.maxHeight"
                   :data="dataSource"
                   :loading="loading"
                   :row-class-name="getRowClassName"
@@ -1214,9 +1215,11 @@ const queryParams = reactive({
   folderId: FOLDER_FILTER.ALL as string | null, // 文件夹ID（默认显示全部）
 });
 
+const { height } = useWindowSize();
+
 const gridOptions = ref<VxeGridProps<any>>({
   ...(commonGridOptions as VxeGridProps<any>),
-  maxHeight: null,
+  maxHeight: Math.max(height.value - 280, 360),
   columns: [
     {
       title: "",
@@ -1379,10 +1382,8 @@ const gridOptions = ref<VxeGridProps<any>>({
   ],
 } as VxeGridProps<any>);
 
-const { height } = useWindowSize();
-
 watchEffect(() => {
-  gridOptions.value.maxHeight = height.value - 260;
+  gridOptions.value.maxHeight = Math.max(height.value - 280, 360);
 });
 
 const dataSource = ref([]);

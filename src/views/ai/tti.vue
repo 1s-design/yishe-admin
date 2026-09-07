@@ -386,7 +386,7 @@ const queryParams = reactive({
 const { height } = useWindowSize();
 const gridOptions = reactive({
   ...commonGridOptions,
-  maxHeight: null as any,
+  maxHeight: Math.max(height.value - 280, 360),
   checkboxConfig: {
     reserve: true,
   },
@@ -413,7 +413,7 @@ const gridOptions = reactive({
 });
 
 watchEffect(() => {
-  gridOptions.maxHeight = height.value - 260;
+  gridOptions.maxHeight = Math.max(height.value - 280, 360);
 });
 
 const form = reactive({

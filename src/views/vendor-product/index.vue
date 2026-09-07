@@ -243,7 +243,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, unref, watch } from "vue";
+import { computed, onMounted, reactive, ref, unref, watch, watchEffect } from "vue";
+import { useWindowSize } from "@vueuse/core";
 import { useRoute } from "vue-router";
 import {
   ElMessage,
@@ -330,8 +331,11 @@ const filteredList = computed(() => {
   });
 });
 
+const { height } = useWindowSize();
+
 const gridOptions = ref({
   ...commonGridOptions,
+  maxHeight: Math.max(height.value - 280, 360),
   rowConfig: { keyField: "id" },
   checkboxConfig: {
     reserve: true,
@@ -386,6 +390,10 @@ const gridOptions = ref({
     },
     buildOperationColumn("operationSlot"),
   ],
+});
+
+watchEffect(() => {
+  gridOptions.value.maxHeight = Math.max(height.value - 280, 360);
 });
 
 const getVendorName = (vendorId?: number) =>

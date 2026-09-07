@@ -97,6 +97,7 @@
               <vxe-grid
                 class="common-url-dnd-grid dnd-text-selectable"
                 v-bind="gridOptions"
+                :max-height="gridOptions.maxHeight"
                 :data="dataSource"
                 :loading="loading"
                 @checkbox-change="checkboxChange"
@@ -325,6 +326,7 @@ const { height } = useWindowSize()
 
 const gridOptions = ref({
   ...commonGridOptions,
+  maxHeight: Math.max(height.value - 280, 360),
   columns: [
     {
       title: '',
@@ -352,10 +354,8 @@ const gridOptions = ref({
   ]
 })
 
-// 监听窗口尺寸变化，动态调整表格高度
 watchEffect(() => {
-  // 计算表格最大高度：窗口高度 - 头部区域 - 分页区域 - 其他边距
-  gridOptions.value.maxHeight = height.value - 250
+  gridOptions.value.maxHeight = Math.max(height.value - 280, 360)
 })
 
 const dataSource = ref([])

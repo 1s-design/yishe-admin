@@ -189,7 +189,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onActivated, onMounted, reactive, ref } from "vue";
+import { computed, onActivated, onMounted, reactive, ref, watchEffect } from "vue";
+import { useWindowSize } from "@vueuse/core";
 import { useI18n } from 'vue-i18n';
 import { ElMessage, ElMessageBox, ElNotification } from "element-plus";
 import { Delete, Edit, VideoPlay } from "@element-plus/icons-vue";
@@ -321,8 +322,11 @@ const getResultSummary = (task: EcomSelectionAnalysisTask) => {
   );
 };
 
+const { height } = useWindowSize();
+
 const gridOptions = ref<VxeGridProps<EcomSelectionAnalysisTask>>({
   ...(commonGridOptions as VxeGridProps<EcomSelectionAnalysisTask>),
+  maxHeight: Math.max(height.value - 280, 360),
   rowConfig: {
     ...(commonGridOptions as any).rowConfig,
     keyField: "id",
@@ -378,6 +382,10 @@ const gridOptions = ref<VxeGridProps<EcomSelectionAnalysisTask>>({
     },
     buildOperationColumn("operationSlot", 120),
   ],
+});
+
+watchEffect(() => {
+  gridOptions.value.maxHeight = Math.max(height.value - 280, 360);
 });
 
 const applyCatalog = (data: any) => {

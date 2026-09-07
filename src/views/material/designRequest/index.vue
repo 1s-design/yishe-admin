@@ -168,12 +168,14 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Plus, Search, Refresh, Phone, Message, EditPen } from '@element-plus/icons-vue'
 import { getDesignRequestList, createDesignRequest, updateDesignRequest, deleteDesignRequest } from '@/api/designRequest'
 import { buildOperationColumn, buildTimeColumn, commonGridOptions } from '@/common/table'
+import { useWindowSize } from '@vueuse/core'
 import ContentWrap from '@/components/ContentWrap/src/ContentWrap.vue'
 import ListPageLayout from '@/components/ListPageLayout/index.vue'
 import Pagination from '@/components/Pagination/index.vue'
 
 // 搜索过滤查询词
 const searchQuery = ref('')
+const { height } = useWindowSize()
 
 const queryParams = reactive({
   currentPage: 1,
@@ -182,6 +184,7 @@ const queryParams = reactive({
 
 const gridOptions = ref({
   ...commonGridOptions,
+  maxHeight: Math.max(height.value - 280, 360),
   columns: [
     { type: 'checkbox', width: 50 },
     { title: 'ID', field: 'id', width: 80 },
@@ -194,6 +197,10 @@ const gridOptions = ref({
     { ...buildTimeColumn('更新时间', 'updateTime', 160), slots: { default: 'updateTimeSlot' } },
     buildOperationColumn('operationDefaultSlot')
   ]
+})
+
+watchEffect(() => {
+  gridOptions.value.maxHeight = Math.max(height.value - 280, 360)
 })
 
 const dataSource = ref<any[]>([])

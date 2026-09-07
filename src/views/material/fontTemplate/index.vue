@@ -184,6 +184,7 @@
                 <vxe-grid
                   class="font-template-dnd-grid dnd-text-selectable"
                   v-bind="gridOptions"
+                  :max-height="gridOptions.maxHeight"
                   :data="dataSource"
                   :loading="loading"
                   @checkbox-change="checkboxChange"
@@ -1110,8 +1111,11 @@ const queryParams = reactive({
   folderId: null as string | null, // 文件夹筛选
 });
 
+const { height } = useWindowSize();
+
 const gridOptions = ref({
   ...commonGridOptions,
+  maxHeight: Math.max(height.value - 280, 360),
   columns: [
     {
       title: "",
@@ -1178,13 +1182,10 @@ const gridOptions = ref({
     },
     buildOperationColumn("operationDefaultSlot"),
   ],
-  maxHeight: 400,
 });
 
-const { height } = useWindowSize();
-
 watchEffect(() => {
-  gridOptions.value.maxHeight = height.value - 220;
+  gridOptions.value.maxHeight = Math.max(height.value - 280, 360);
 });
 
 const dataSource = ref([]);
