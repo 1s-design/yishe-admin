@@ -1,4 +1,4 @@
-﻿import { computed, ref } from "vue";
+import { computed, ref } from "vue";
 
 export type GlobalUploadTaskStatus = "running" | "success" | "error";
 
@@ -74,6 +74,14 @@ export const updateGlobalUploadTask = (
 
     return updatedTask;
   });
+};
+
+export const removeGlobalUploadTask = (taskId: string) => {
+  const task = tasks.value.find((t) => t.id === taskId);
+  if (task?.autoRemoveTimer) {
+    clearTimeout(task.autoRemoveTimer);
+  }
+  tasks.value = tasks.value.filter((t) => t.id !== taskId);
 };
 
 export const clearFinishedGlobalUploadTasks = () => {
