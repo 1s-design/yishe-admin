@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed, watchEffect, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
+import { Plus } from "@element-plus/icons-vue";
 import { useUserStore } from "@/store/modules/user";
 import {
   getPublishConfigListApi,
@@ -63,43 +64,79 @@ watchEffect(() => {
 const gridOptions = computed(() => ({
   ...commonGridOptions,
   maxHeight: gridMaxHeight.value,
+  rowConfig: { keyField: "id" },
+  rowClassName: ({ row }: any) => (row?.isActive === false ? "publish-config-row--disabled" : ""),
   columns: [
-    { type: "checkbox", width: 50, fixed: "left" as const },
-    { field: "name", title: t("publishConfig.configName"), minWidth: 150 },
+    { type: "checkbox", width: 48, fixed: "left" as const },
+    { field: "name", title: t("publishConfig.configName"), minWidth: 170, slots: { default: "nameSlot" } },
     {
       field: "taskType",
       title: t("publishConfig.taskType"),
-      minWidth: 180,
-      formatter: ({ row }) =>
-        getTaskTypeLabel(
-          row?.taskType || derivePublishTaskTypeByPlatform(row?.platform),
-          row?.platform,
-        ),
+      minWidth: 160,
+      slots: { default: "taskTypeSlot" },
     },
-    { field: "description", title: t("common.description"), minWidth: 200, showOverflow: true },
+    { field: "vendor", title: "关联厂家/商品", minWidth: 160, slots: { default: "vendorSlot" } },
+    { field: "templateBinding", title: "关联主图模板", minWidth: 150, slots: { default: "templateSlot" } },
+    { field: "description", title: t("common.description"), minWidth: 160, showOverflow: "tooltip" },
     {
       field: "isActive",
       title: t("common.status"),
-      width: 90,
-      formatter: ({ cellValue }) =>
-        cellValue === false ? t("publishConfig.disabled") : t("publishConfig.enabled"),
+      width: 95,
+      slots: { default: "statusSlot" },
     },
     {
       field: "uploader",
       title: t("publishConfig.creator"),
-      minWidth: 120,
-      formatter: ({ row }) =>
-        row?.uploader?.account || row?.uploader?.name || row?.creator || row?.userId || "-",
+      width: 120,
+      slots: { default: "uploaderSlot" },
     },
     {
       field: "createTime",
       title: t("common.createTime"),
-      width: 160,
-      formatter: ({ cellValue }) => formatTime(cellValue, "yyyy-MM-dd HH:mm"),
+      width: 150,
+      slots: { default: "createTimeSlot" },
     },
     buildOperationColumn("action"),
   ],
 }));
+
+const getPlatformBadgeStyle = (platform?: string) => {
+  const p = String(platform || "").toLowerCase();
+  if (p.includes("douyin") || p.includes("doudian")) {
+    return { bg: "rgba(254, 44, 85, 0.12)", color: "#fe2c55", border: "rgba(254, 44, 85, 0.3)" };
+  }
+  if (p.includes("temu")) {
+    return { bg: "rgba(251, 119, 1, 0.12)", color: "#fb7701", border: "rgba(251, 119, 1, 0.3)" };
+  }
+  if (p.includes("xhs") || p.includes("xiaohongshu")) {
+    return { bg: "rgba(255, 36, 66, 0.12)", color: "#ff2442", border: "rgba(255, 36, 66, 0.3)" };
+  }
+  if (p.includes("wechat") || p.includes("shipinhao")) {
+    return { bg: "rgba(7, 193, 96, 0.12)", color: "#07c160", border: "rgba(7, 193, 96, 0.3)" };
+  }
+  if (p.includes("taobao") || p.includes("tmall")) {
+    return { bg: "rgba(255, 80, 0, 0.12)", color: "#ff5000", border: "rgba(255, 80, 0, 0.3)" };
+  }
+  if (p.includes("kuaishou")) {
+    return { bg: "rgba(255, 54, 0, 0.12)", color: "#ff3600", border: "rgba(255, 54, 0, 0.3)" };
+  }
+  return { bg: "var(--el-fill-color-light)", color: "var(--el-color-primary)", border: "var(--el-color-primary-light-5)" };
+};
+
+const handleToggleActive = async (row: any) => {
+  const nextStatus = !row.isActive;
+  const actionText = nextStatus ? t("publishConfig.enabled") : t("publishConfig.disabled");
+  try {
+    await updatePublishConfigApi(row.id, {
+      ...row,
+      isActive: nextStatus,
+    });
+    row.isActive = nextStatus;
+    ElMessage.success(`${actionText}成功`);
+  } catch (err: any) {
+    ElMessage.error(err?.message || "切换状态失败");
+  }
+};
 
 const normalizeText = (value: any) => String(value ?? "").trim().toLowerCase();
 
@@ -1280,6 +1317,92 @@ onMounted(() => {
                 @checkbox-change="handleSelectionChange"
                 @checkbox-all="handleSelectionChange"
               >
+                <!-- 配置名称 -->
+                <template #nameSlot="{ row }">
+                  <div class="publish-config-name-cell">
+                    <div
+                      class="publish-config-name-text cursor-pointer hover:text-[var(--el-color-primary)] font-medium"
+                      @click="handleEdit(row)"
+                    >
+                      {{ row.name || '-' }}
+                    </div>
+                    <div v-if="row.platform" class="publish-config-sub-platform mt-0.5">
+                      <span
+                        class="publish-config-platform-pill"
+                        :style="getPlatformBadgeStyle(row.platform)"
+                      >
+                        {{ row.platform }}
+                      </span>
+                    </div>
+                  </div>
+                </template>
+
+                <!-- 任务类型 -->
+                <template #taskTypeSlot="{ row }">
+                  <div class="publish-config-tasktype-cell">
+                    <el-tag size="small" type="primary" effect="plain" class="font-medium">
+                      {{ getTaskTypeLabel(row?.taskType || derivePublishTaskTypeByPlatform(row?.platform), row?.platform) }}
+                    </el-tag>
+                  </div>
+                </template>
+
+                <!-- 关联厂家 / 旗下商品 -->
+                <template #vendorSlot="{ row }">
+                  <div class="publish-config-vendor-cell text-xs">
+                    <template v-if="row?.configData?.vendorName || row?.configData?.vendorCode">
+                      <div class="flex items-center gap-1 font-medium text-[var(--el-text-color-primary)]">
+                        <span>{{ row.configData.vendorName || '未命名厂家' }}</span>
+                        <span v-if="row.configData.vendorCode" class="text-[var(--el-text-color-secondary)] font-mono text-[11px]">
+                          ({{ row.configData.vendorCode }})
+                        </span>
+                      </div>
+                      <div v-if="row?.configData?.vendorProductMappings?.length" class="text-[11px] text-[var(--el-text-color-secondary)] mt-0.5">
+                        绑定 {{ row.configData.vendorProductMappings.length }} 款商品
+                      </div>
+                    </template>
+                    <span v-else class="text-[var(--el-text-color-placeholder)]">-</span>
+                  </div>
+                </template>
+
+                <!-- 关联套图模板 -->
+                <template #templateSlot="{ row }">
+                  <div class="publish-config-template-cell text-xs">
+                    <template v-if="row?.configData?.templateBinding?.psdTemplateId">
+                      <el-tag size="small" type="warning" effect="light" class="inline-flex items-center gap-1">
+                        <span>PSD 模板</span>
+                        <span class="font-mono text-[10px]">#{{ String(row.configData.templateBinding.psdTemplateId).slice(0, 8) }}</span>
+                      </el-tag>
+                    </template>
+                    <span v-else class="text-[var(--el-text-color-placeholder)]">-</span>
+                  </div>
+                </template>
+
+                <!-- 状态与开关 -->
+                <template #statusSlot="{ row }">
+                  <el-switch
+                    :model-value="row.isActive !== false"
+                    size="small"
+                    inline-prompt
+                    active-text="启"
+                    inactive-text="停"
+                    @change="handleToggleActive(row)"
+                  />
+                </template>
+
+                <!-- 创建人 -->
+                <template #uploaderSlot="{ row }">
+                  <div class="text-xs text-[var(--el-text-color-regular)]">
+                    {{ row?.uploader?.account || row?.uploader?.name || row?.creator || row?.userId || '-' }}
+                  </div>
+                </template>
+
+                <!-- 创建时间 -->
+                <template #createTimeSlot="{ row }">
+                  <span class="table-time-text text-xs text-[var(--el-text-color-secondary)]">
+                    {{ formatTime(row.createTime, 'yyyy-MM-dd HH:mm') }}
+                  </span>
+                </template>
+
                 <template #action="{ row }">
                   <el-dropdown class="operation-dropdown" placement="bottom-end">
                     <el-button type="primary" link size="small" class="operation-trigger-button"
@@ -1623,9 +1746,9 @@ onMounted(() => {
                               </el-button>
                             </div>
                           </div>
-                          <el-button text type="primary" @click="addUrlListItem(String(field.key))"
-                            >{{ t('publishConfig.addAddress') }}</el-button
-                          >
+                          <el-button text type="primary" :icon="Plus" @click="addUrlListItem(String(field.key))">
+                            {{ field.buttonText || (field.key === 'appendImageUrls' ? '添加附加图片' : `${t('common.add')} ${field.label || ''}`) }}
+                          </el-button>
                           <div v-if="field.tooltip" class="publish-config-field-tip">
                             {{ field.tooltip }}
                           </div>
@@ -2144,6 +2267,42 @@ onMounted(() => {
 
 :deep(.publish-config-page .common-table .common-table__body-cell .vxe-cell--wrapper) {
   width: 100%;
+}
+
+.publish-config-name-cell {
+  line-height: 1.35;
+}
+
+.publish-config-name-text {
+  font-size: 13px;
+  color: var(--el-text-color-primary, #e2e8f0);
+}
+
+.publish-config-platform-pill {
+  display: inline-block;
+  padding: 1px 7px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+}
+
+.publish-config-vendor-cell {
+  line-height: 1.35;
+}
+
+/* 停用配置行的半透明淡化效果 */
+:deep(.publish-config-row--disabled) {
+  opacity: 0.45;
+  filter: grayscale(20%);
+  transition: opacity 0.2s ease, filter 0.2s ease;
+
+  &:hover {
+    opacity: 0.88;
+    filter: grayscale(0%);
+  }
 }
 
 .publish-config-dialog {

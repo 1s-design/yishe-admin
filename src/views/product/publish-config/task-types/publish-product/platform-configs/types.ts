@@ -10,6 +10,7 @@ export interface FieldConfig {
   span?: number
   required?: boolean
   tooltip?: string
+  buttonText?: string
 }
 
 export interface PlatformConfig {
