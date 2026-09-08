@@ -82,6 +82,11 @@ html.light {
   background-color: transparent !important;
 }
 
+/* 修复 Windows 系统下 vxe-grid body 内容容器产生多余滚动条的问题 */
+.vxe-grid--layout-body-content-wrapper {
+  overflow: hidden !important;
+}
+
 /* 2. Header Row Styling (Compact 36px height, Ultra-Thin Bottom Border) */
 .vxe-table .vxe-table--header-wrapper,
 .vxe-grid .vxe-table--header-wrapper,
