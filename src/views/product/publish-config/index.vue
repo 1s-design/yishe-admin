@@ -628,8 +628,28 @@ function handleTitlePromptSelect(promptId: string | number | null) {
   ElMessage.success(t("publishConfig.promptFilled"));
 }
 
+function getAppendImageMaxLimit(fieldKey: string) {
+  if (fieldKey !== "appendImageUrls") return Infinity;
+  const platform = resolveTaskTypePlatform(form.taskType);
+  return platform === "doudian" ? 5 : 9;
+}
+
+function isAppendImageLimitReached(fieldKey: string) {
+  if (fieldKey !== "appendImageUrls") return false;
+  const maxLimit = getAppendImageMaxLimit(fieldKey);
+  const currentCount = Array.isArray(platformConfigData.value?.[fieldKey])
+    ? platformConfigData.value[fieldKey].length
+    : 0;
+  return currentCount >= maxLimit;
+}
+
 function addUrlListItem(fieldKey: string) {
   ensureUrlListField(fieldKey);
+  if (isAppendImageLimitReached(fieldKey)) {
+    const maxLimit = getAppendImageMaxLimit(fieldKey);
+    ElMessage.warning(`最多添加 ${maxLimit} 张附加图片`);
+    return;
+  }
   platformConfigData.value[fieldKey].push("");
 }
 
@@ -1710,8 +1730,17 @@ onMounted(() => {
                               </el-button>
                             </div>
                           </div>
-                          <el-button text type="primary" :icon="Plus" @click="addUrlListItem(String(field.key))">
+                          <el-button
+                            text
+                            type="primary"
+                            :icon="Plus"
+                            :disabled="isAppendImageLimitReached(String(field.key))"
+                            @click="addUrlListItem(String(field.key))"
+                          >
                             {{ field.buttonText || (field.key === 'appendImageUrls' ? '添加附加图片' : `${t('common.add')} ${field.label || ''}`) }}
+                            <span v-if="field.key === 'appendImageUrls' && isAppendImageLimitReached(String(field.key))" class="ml-1 text-xs opacity-75">
+                              (已达上限 {{ getAppendImageMaxLimit(String(field.key)) }} 张)
+                            </span>
                           </el-button>
                           <div v-if="field.tooltip" class="publish-config-field-tip">
                             {{ field.tooltip }}
@@ -2818,10 +2847,17 @@ onMounted(() => {
   margin-top: 8px;
   padding: 8px 10px;
   border-radius: 8px;
-  background: var(--el-color-primary-light-9);
+  background: color-mix(in srgb, var(--el-color-primary) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--el-color-primary) 18%, transparent);
   color: var(--el-color-primary);
   font-size: 12px;
   line-height: 1.5;
+
+  :global(html.dark) & {
+    background: color-mix(in srgb, var(--el-color-primary) 15%, transparent);
+    border-color: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
+    color: var(--el-color-primary-light-3);
+  }
 }
 
 .publish-config-template-config-toolbar {

@@ -3026,7 +3026,7 @@ export default {
     descriptionPlaceholder: 'Enter configuration description',
     disabled: 'Disabled',
     disabledStatus: 'Disabled Status',
-    doudianImageLimit: 'Doudian main images recommended 1:1 ratio, max 9 images',
+    doudianImageLimit: 'Doudian main images recommended 1:1 ratio, max 5 images',
     editConfig: 'Edit Publish Config',
     enabled: 'Enabled',
     enabledStatus: 'Enabled Status',

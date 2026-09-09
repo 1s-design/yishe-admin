@@ -1,47 +1,55 @@
 <template>
   <ContentWrap :plain="true">
-    <div class="session-toolkit">
-      <section class="session-toolbar">
-        <div class="session-field">
-          <span>客户端</span>
-          <el-select
-            v-model="selectedClientId"
-            class="session-select"
-            size="small"
-            placeholder="请选择客户端"
-            :loading="loading"
-            clearable
-            filterable
-          >
-            <el-option
-              v-for="option in clientOptions"
-              :key="option.value"
-              :label="option.label"
-              :value="option.value"
-            />
-          </el-select>
+    <div class="toolkit-container">
+      <!-- 1. 顶部控制条：平台名称、状态标签、客户端与环境选择 -->
+      <div class="toolkit-header">
+        <div class="toolkit-header__title-area">
+          <span class="toolkit-title">{{ platformLabel }}工具集</span>
+          <el-tag :type="sessionTagType" effect="light" round size="small">
+            {{ sessionLabel }}
+          </el-tag>
         </div>
 
-        <div class="session-field">
-          <span>环境</span>
-          <el-select
-            v-model="selectedProfileValue"
-            class="session-select"
-            size="small"
-            placeholder="请选择环境"
-            :disabled="!selectedClientId"
-            clearable
-          >
-            <el-option
-              v-for="option in profileOptions"
-              :key="option.value"
-              :label="option.label"
-              :value="option.value"
-            />
-          </el-select>
-        </div>
+        <div class="toolkit-header__controls">
+          <div class="control-item">
+            <span class="control-label">客户端</span>
+            <el-select
+              v-model="selectedClientId"
+              size="small"
+              placeholder="选择客户端"
+              :loading="loading"
+              clearable
+              filterable
+              style="width: 150px"
+            >
+              <el-option
+                v-for="option in clientOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
+          </div>
 
-        <div class="session-toolbar__actions">
+          <div class="control-item">
+            <span class="control-label">环境</span>
+            <el-select
+              v-model="selectedProfileValue"
+              size="small"
+              placeholder="选择环境"
+              :disabled="!selectedClientId"
+              clearable
+              style="width: 150px"
+            >
+              <el-option
+                v-for="option in profileOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
+          </div>
+
           <el-button size="small" :loading="loading" :icon="Refresh" @click="refreshClientList">
             刷新客户端
           </el-button>
@@ -55,24 +63,25 @@
             刷新工具
           </el-button>
         </div>
-      </section>
+      </div>
 
-      <section class="session-status">
-        <div class="session-status__main">
-          <div class="session-status__title">{{ platformLabel }}会话</div>
-          <div class="session-status__desc">
-            {{ selectedProfileId ? `当前环境 ${selectedEnvironmentLabel}` : "请选择浏览器环境" }}
-          </div>
-        </div>
-        <div class="session-status__chips">
-          <span class="session-chip" :class="`is-${sessionTone}`">{{ sessionLabel }}</span>
-          <span class="session-chip">账号 {{ accountText }}</span>
-          <span class="session-chip">店铺 {{ shopText }}</span>
-          <span class="session-chip">Cookie {{ cookieCount }}</span>
-        </div>
-      </section>
+      <!-- 2. 会话简要数据行（极简紧凑，无卡片） -->
+      <div class="toolkit-meta-line">
+        <span><span class="meta-label">账号：</span>{{ accountText }}</span>
+        <span class="meta-dot">·</span>
+        <span><span class="meta-label">店铺：</span>{{ shopText }}</span>
+        <span class="meta-dot">·</span>
+        <span><span class="meta-label">Cookie：</span>{{ cookieCount }} 个</span>
+        <span class="meta-dot">·</span>
+        <span><span class="meta-label">更新时间：</span>{{ formatTime(storedSession.updatedAt) || "未采集" }}</span>
+        <template v-if="validationMessage">
+          <span class="meta-dot">·</span>
+          <span class="meta-msg">{{ validationMessage }}</span>
+        </template>
+      </div>
 
-      <section class="session-actions">
+      <!-- 3. 操作按钮行（直接一字排开） -->
+      <div class="toolkit-actions-row">
         <el-button
           type="primary"
           :loading="runningFeatureKey === sessionToolKey"
@@ -107,9 +116,6 @@
         >
           打开工作台
         </el-button>
-        <el-button :loading="storedSessionLoading" :disabled="!selectedProfileId" :icon="Refresh" @click="loadStoredSession">
-          刷新会话
-        </el-button>
         <el-button
           :loading="sessionActionLoading === 'validate'"
           :disabled="!selectedProfileId || !hasStoredSession"
@@ -117,6 +123,14 @@
           @click="validateStoredSession"
         >
           校验会话
+        </el-button>
+        <el-button
+          :loading="storedSessionLoading"
+          :disabled="!selectedProfileId"
+          :icon="Refresh"
+          @click="loadStoredSession"
+        >
+          刷新会话
         </el-button>
         <el-button
           :disabled="!hasStoredSession && !lastRunResult"
@@ -135,67 +149,25 @@
         >
           删除会话
         </el-button>
-      </section>
+      </div>
 
-      <section v-if="credentialPanelEnabled" class="session-credentials">
-        <div class="session-credentials__head">
-          <div>
-            <div class="session-credentials__title">账号密码</div>
-            <div class="session-credentials__desc">
-              当前环境 {{ selectedProfileId ? selectedEnvironmentLabel : "未选择" }}
-            </div>
-          </div>
-          <el-button
-            size="small"
-            type="primary"
-            :loading="sessionActionLoading === 'saveCredential'"
-            :disabled="!selectedProfileId"
-            @click="saveCredentials"
-          >
-            保存账号密码
-          </el-button>
-        </div>
-        <div class="session-credentials__form">
-          <el-form-item :error="credentialErrors.account">
-            <template #label>账号</template>
-            <el-input
-              v-model="credentialForm.account"
-              clearable
-              placeholder="请输入账号"
-              @blur="validateCredentialField('account')"
-            />
-          </el-form-item>
-          <el-form-item :error="credentialErrors.password">
-            <template #label>密码</template>
-            <el-input
-              v-model="credentialForm.password"
-              type="password"
-              show-password
-              clearable
-              placeholder="请输入密码"
-              @blur="validateCredentialField('password')"
-            />
-          </el-form-item>
-        </div>
-      </section>
+      <!-- 4. 账号密码凭据管理（按需启用） -->
+      <div v-if="credentialPanelEnabled" class="toolkit-credentials-row">
+        <span class="control-label">账号</span>
+        <el-input v-model="credentialForm.account" size="small" placeholder="账号" clearable style="width: 150px" />
+        <span class="control-label">密码</span>
+        <el-input v-model="credentialForm.password" type="password" show-password size="small" placeholder="密码" clearable style="width: 150px" />
+        <el-button size="small" type="primary" plain :loading="sessionActionLoading === 'saveCredential'" :disabled="!selectedProfileId" @click="saveCredentials">
+          保存账号密码
+        </el-button>
+      </div>
 
-      <section class="session-summary">
-        <div class="session-summary__main">
-          <div class="session-summary__title">
-            {{ hasStoredSession ? "当前环境会话已保存" : emptyDescription }}
-          </div>
-          <div class="session-summary__desc">
-            {{ hasStoredSession ? validationMessage || userInfoMessage || "会话已保存" : "先选择客户端和环境，再采集登录信息。" }}
-          </div>
-        </div>
-        <span class="session-summary__time">{{ formatTime(storedSession.updatedAt) || "-" }}</span>
-      </section>
-
+      <!-- 会话详情弹窗 -->
       <el-dialog
         v-model="detailDialogVisible"
         class="session-detail-dialog"
         :title="`${platformLabel}会话详情`"
-        width="920px"
+        width="860px"
         append-to-body
       >
         <div class="session-detail">
@@ -360,6 +332,12 @@ const validationLabel = computed(() => {
 });
 const sessionTone = computed(() => {
   if (!hasStoredSession.value) return "danger";
+  if (validationStatus.value === "valid") return "success";
+  if (validationStatus.value === "invalid") return "danger";
+  return "warning";
+});
+const sessionTagType = computed<"" | "success" | "warning" | "danger" | "info">(() => {
+  if (!hasStoredSession.value) return "info";
   if (validationStatus.value === "valid") return "success";
   if (validationStatus.value === "invalid") return "danger";
   return "warning";
@@ -827,154 +805,90 @@ onUnmounted(() => {
 </script>
 
 <style scoped lang="scss">
-.session-toolkit {
+.toolkit-container {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding-bottom: 10px;
+  gap: 14px;
+  padding: 4px 0;
 }
 
-.session-toolbar,
-.session-status,
-.session-actions,
-.session-credentials,
-.session-summary {
-  background: var(--el-bg-color);
-  border: 1px solid var(--el-border-color-light);
-  border-radius: 8px;
-  box-shadow: var(--el-box-shadow-light);
-}
-
-.session-toolbar {
+.toolkit-header {
   display: flex;
-  align-items: flex-end;
-  flex-wrap: wrap;
-  gap: 12px;
-  padding: 12px;
-}
-
-.session-field {
-  flex: 1 1 220px;
-  min-width: 0;
-}
-
-.session-field span {
-  display: block;
-  margin-bottom: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--el-text-color-regular);
-}
-
-.session-select {
-  width: 100%;
-}
-
-.session-toolbar__actions,
-.session-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.session-actions {
-  padding: 12px;
-}
-
-.session-credentials {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 12px;
-}
-
-.session-credentials__head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.session-credentials__title {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--el-text-color-primary);
-}
-
-.session-credentials__desc {
-  margin-top: 4px;
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
-}
-
-.session-credentials__form {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.session-credentials__form :deep(.el-form-item) {
-  margin-bottom: 0;
-}
-
-.session-status,
-.session-summary {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 14px;
-}
-
-.session-status__title,
-.session-summary__title {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--el-text-color-primary);
-}
-
-.session-status__desc,
-.session-summary__desc,
-.session-summary__time {
-  margin-top: 4px;
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
-}
-
-.session-status__chips {
-  display: flex;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.session-chip {
-  display: inline-flex;
-  min-height: 26px;
-  padding: 0 10px;
-  font-size: 12px;
-  color: var(--el-text-color-regular);
-  background: var(--el-fill-color-light);
-  border: 1px solid var(--el-border-color-light);
-  border-radius: 999px;
   align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+
+  &__title-area {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  &__controls {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
 }
 
-.session-chip.is-success {
-  color: var(--el-color-success);
-  background: var(--el-color-success-light-9);
-  border-color: var(--el-color-success-light-5);
+.toolkit-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
 }
 
-.session-chip.is-warning {
-  color: var(--el-color-warning);
-  background: var(--el-color-warning-light-9);
-  border-color: var(--el-color-warning-light-5);
+.control-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.session-chip.is-danger {
-  color: var(--el-color-danger);
-  background: var(--el-color-danger-light-9);
-  border-color: var(--el-color-danger-light-5);
+.control-label {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  white-space: nowrap;
+}
+
+.toolkit-meta-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--el-text-color-regular);
+  padding: 8px 12px;
+  background: var(--el-fill-color-light);
+  border-radius: 6px;
+
+  .meta-label {
+    color: var(--el-text-color-secondary);
+  }
+
+  .meta-dot {
+    color: var(--el-border-color-dark);
+    font-weight: bold;
+  }
+
+  .meta-msg {
+    color: var(--el-color-info);
+    font-size: 12px;
+  }
+}
+
+.toolkit-actions-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.toolkit-credentials-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .session-detail {
@@ -990,61 +904,46 @@ onUnmounted(() => {
 }
 
 .session-meta {
-  min-width: 0;
-  padding: 10px;
-  background: var(--el-fill-color-blank);
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 8px;
-}
+  padding: 8px 12px;
+  background: var(--el-fill-color-light);
+  border-radius: 6px;
 
-.session-meta span {
-  display: block;
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
-}
+  span {
+    display: block;
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
+  }
 
-.session-meta strong {
-  display: block;
-  margin-top: 6px;
-  font-size: 13px;
-  color: var(--el-text-color-primary);
-  overflow-wrap: anywhere;
+  strong {
+    display: block;
+    margin-top: 4px;
+    font-size: 13px;
+    color: var(--el-text-color-primary);
+    overflow-wrap: anywhere;
+  }
 }
 
 .session-json {
-  max-height: 460px;
+  max-height: 440px;
   padding: 12px;
   margin: 0;
   overflow: auto;
   font-size: 12px;
-  line-height: 1.55;
+  line-height: 1.5;
   color: var(--el-text-color-regular);
   white-space: pre-wrap;
   background: var(--el-fill-color-light);
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 8px;
+  border-radius: 6px;
 }
 
-@media (width <= 900px) {
-  .session-status,
-  .session-summary {
+@media (max-width: 900px) {
+  .toolkit-header {
     flex-direction: column;
-  }
-
-  .session-status__chips {
-    justify-content: flex-start;
-  }
-
-  .session-credentials__head {
-    flex-direction: column;
-  }
-
-  .session-credentials__form {
-    grid-template-columns: 1fr;
+    align-items: flex-start;
   }
 
   .session-meta-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 </style>

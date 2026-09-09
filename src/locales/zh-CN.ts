@@ -3022,7 +3022,7 @@ export default {
     descriptionPlaceholder: '请输入配置描述说明',
     disabled: '已禁用',
     disabledStatus: '禁用状态',
-    doudianImageLimit: '抖店主图建议为 1:1 比例，最多 9 张',
+    doudianImageLimit: '抖店主图建议为 1:1 比例，最多 5 张',
     editConfig: '编辑发布配置',
     enabled: '已启用',
     enabledStatus: '启用状态',

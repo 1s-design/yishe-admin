@@ -53,7 +53,7 @@ export const doudianPlatformConfig: PlatformConfig = {
       placeholder: '请输入 http/https 图片 URL',
       defaultValue: [],
       span: 24,
-      tooltip: '适合材质图、说明图等固定复用图片'
+      tooltip: '适合材质图、说明图等固定复用图片（抖店主图最多支持 5 张）'
     }
   ]
 }
