@@ -48,26 +48,26 @@
                 :loading="loading"
                 @click="handleSearch"
               >
-                搜索
+                {{ t('common.search') }}
               </el-button>
-              <el-button size="small" :icon="Refresh" @click="resetQuery">重置</el-button>
+              <el-button size="small" :icon="Refresh" @click="resetQuery">{{ t('common.reset') }}</el-button>
               <el-button size="small" type="success" :icon="Plus" @click="handleCreateGroup">
-                新建组图
+                {{ t('material.newGroup') }}
               </el-button>
               <el-dropdown trigger="click" popper-class="material-tool-dropdown" :disabled="loading || !selectedIds.length">
                 <el-button size="small" type="primary" :disabled="loading || !selectedIds.length">
-                  工具 ({{ selectedIds.length }})
+                  {{ t('material.toolsCount', { count: selectedIds.length }) }}
                 </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
                     <el-dropdown-item @click="handleCreatePsdSets">
-                      <span>多图套图制作</span>
+                      <span>{{ t('material.multiImagePsdSet') }}</span>
                     </el-dropdown-item>
                     <el-dropdown-item @click="handlePublishConfigSets">
-                      <span>选择发布配置</span>
+                      <span>{{ t('material.selectPublishConfig') }}</span>
                     </el-dropdown-item>
                     <el-dropdown-item @click="handleProductConfigSets">
-                      <span>生成独立站商品</span>
+                      <span>{{ t('material.generateSiteProduct') }}</span>
                     </el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
@@ -79,7 +79,7 @@
                 :icon="Delete"
                 @click="handleBatchDelete"
               >
-                批量删除 ({{ selectedIds.length }})
+                {{ t('material.batchDelete', { count: selectedIds.length }) }}
               </el-button>
             </div>
           </el-form>
@@ -314,7 +314,6 @@ import {
   DArrowRight,
   Delete,
   Edit,
-  MagicStick,
   Picture,
   Plus,
   Rank,
@@ -332,6 +331,9 @@ import { FOLDER_FILTER } from "@/constants/folder";
 import { useLocalStorage, useWindowSize } from "@vueuse/core";
 import { useFolderRowDrag } from "@/hooks/useFolderRowDrag";
 import TableRowDragHandle from "@/components/TableRowDragHandle/index.vue";
+import { useI18n } from "@/hooks/web/useI18n";
+
+const { t } = useI18n();
 
 const emit = defineEmits<{
   addStickers: [group: ImageGroupItem];
@@ -538,13 +540,13 @@ function handlePublishConfigSets() {
   const selectedIdSet = new Set(selectedIds.value.map(String));
   const groups = dataSource.value.filter((group) => selectedIdSet.has(String(group.id)));
   if (!groups.length) {
-    ElMessage.warning("请选择要关联发布配置的组图");
+    ElMessage.warning(t("material.selectGroupForPublishConfig"));
     return;
   }
 
   const emptyGroups = groups.filter((group) => !group.stickers?.length);
   if (emptyGroups.length) {
-    ElMessage.warning(`组图“${emptyGroups.map((group) => group.name).join("、")}”没有图片成员`);
+    ElMessage.warning(t("material.groupEmptyStickersTip", { names: emptyGroups.map((group) => group.name).join("、") }));
     return;
   }
 
@@ -555,13 +557,13 @@ function handleProductConfigSets() {
   const selectedIdSet = new Set(selectedIds.value.map(String));
   const groups = dataSource.value.filter((group) => selectedIdSet.has(String(group.id)));
   if (!groups.length) {
-    ElMessage.warning("请选择要生成独立站商品的组图");
+    ElMessage.warning(t("material.selectGroupForProductConfig"));
     return;
   }
 
   const emptyGroups = groups.filter((group) => !group.stickers?.length);
   if (emptyGroups.length) {
-    ElMessage.warning(`组图“${emptyGroups.map((group) => group.name).join("、")}”没有图片成员`);
+    ElMessage.warning(t("material.groupEmptyStickersTip", { names: emptyGroups.map((group) => group.name).join("、") }));
     return;
   }
 

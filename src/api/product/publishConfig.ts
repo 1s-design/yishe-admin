@@ -16,6 +16,20 @@ export const getPublishConfigListApi = () => {
   return request.get({ url: "/publish-config" });
 };
 
+export type PublishConfigPageParams = {
+  pageNo?: number;
+  pageSize?: number;
+  searchKeyword?: string;
+  taskType?: string;
+  platform?: string;
+  isActive?: boolean;
+  onlyUsable?: boolean;
+};
+
+export const getPublishConfigPageApi = (params: PublishConfigPageParams = {}) => {
+  return request.get({ url: "/publish-config/page", params });
+};
+
 export const getPublishConfigApi = (id: string) => {
   return request.get({ url: "/publish-config/" + id });
 };

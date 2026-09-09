@@ -4,7 +4,7 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import { Plus } from "@element-plus/icons-vue";
 import { useUserStore } from "@/store/modules/user";
 import {
-  getPublishConfigListApi,
+  getPublishConfigPageApi,
   createPublishConfigApi,
   updatePublishConfigApi,
   deletePublishConfigApi,
@@ -41,7 +41,6 @@ const { t } = useI18n();
 const userStore = useUserStore();
 const loading = ref(false);
 const deleteLoading = ref(false);
-const allTableData = ref<any[]>([]);
 const tableData = ref<any[]>([]);
 const total = ref(0);
 const selectedIds = ref<(string | number)[]>([]);
@@ -138,8 +137,6 @@ const handleToggleActive = async (row: any) => {
   }
 };
 
-const normalizeText = (value: any) => String(value ?? "").trim().toLowerCase();
-
 const normalizePublishConfigListResponse = (res: any) => {
   if (Array.isArray(res)) return res;
   if (Array.isArray(res?.list)) return res.list;
@@ -147,54 +144,21 @@ const normalizePublishConfigListResponse = (res: any) => {
   return [];
 };
 
-const getRowTaskType = (row: any) =>
-  String(row?.taskType || derivePublishTaskTypeByPlatform(row?.platform) || "").trim();
-
-const applyLocalQuery = () => {
-  const keyword = normalizeText(queryParams.keyword);
-  const taskType = String(queryParams.taskType || "").trim();
-  const isActive =
-    queryParams.isActive === undefined || queryParams.isActive === null ? "" : queryParams.isActive;
-
-  const filtered = allTableData.value.filter((row: any) => {
-    const rowTaskType = getRowTaskType(row);
-    const searchableText = [
-      row?.name,
-      row?.description,
-      row?.platform,
-      rowTaskType,
-      getTaskTypeLabel(rowTaskType, row?.platform),
-      row?.uploader?.account,
-      row?.uploader?.name,
-      row?.creator,
-      row?.userId,
-    ]
-      .map(normalizeText)
-      .filter(Boolean)
-      .join(" ");
-
-    return (
-      (!keyword || searchableText.includes(keyword)) &&
-      (!taskType || rowTaskType === taskType) &&
-      (isActive === "" || (row?.isActive !== false) === isActive)
-    );
-  });
-
-  total.value = filtered.length;
-  const maxPage = Math.max(1, Math.ceil(filtered.length / queryParams.pageSize));
-  if (queryParams.page > maxPage) {
-    queryParams.page = maxPage;
-  }
-  const start = (queryParams.page - 1) * queryParams.pageSize;
-  tableData.value = filtered.slice(start, start + queryParams.pageSize);
-};
-
 const getList = async () => {
   loading.value = true;
   try {
-    const res = await getPublishConfigListApi();
-    allTableData.value = normalizePublishConfigListResponse(res);
-    applyLocalQuery();
+    const res: any = await getPublishConfigPageApi({
+      pageNo: queryParams.page,
+      pageSize: queryParams.pageSize,
+      searchKeyword: queryParams.keyword.trim() || undefined,
+      taskType: queryParams.taskType || undefined,
+      isActive: queryParams.isActive === "" ? undefined : queryParams.isActive,
+    });
+    const payload = res?.data && !Array.isArray(res.data) ? res.data : res;
+    tableData.value = Array.isArray(payload?.list)
+      ? payload.list
+      : normalizePublishConfigListResponse(payload);
+    total.value = Number(payload?.total ?? tableData.value.length);
     selectedIds.value = [];
   } catch (err) {
     console.error(err);
@@ -227,7 +191,7 @@ const loadVendorOptions = async () => {
 
 const handleSearch = () => {
   queryParams.page = 1;
-  applyLocalQuery();
+  getList();
 };
 
 const resetQuery = () => {
@@ -243,7 +207,7 @@ const handleRefresh = () => {
 };
 
 const handlePagination = () => {
-  applyLocalQuery();
+  getList();
 };
 
 const handleSelectionChange = (e: any) => {

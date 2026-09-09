@@ -270,7 +270,7 @@
                   :disabled="loading || !ids.length"
                   @click="handleBatchPublishToLibrary"
                 >
-                  发布到库 ({{ ids.length }})
+                  {{ t('material.publishToLibraryWithCount', { count: ids.length }) }}
                 </el-button>
               <el-dropdown trigger="click" popper-class="material-tool-dropdown" :disabled="loading || !ids.length">
                 <el-button size="small" type="primary" :disabled="loading || !ids.length">
@@ -482,36 +482,54 @@
         <!-- PC 顶部筛选栅格布局样式 -->
         <!--（放在这里是为了避免全局影响，保持只作用于本页） -->
 
-        <el-dialog v-model="materialPublishConfigDialogVisible" fullscreen align-center :destroy-on-close="false"
-          class="material-publish-config-dialog" @close="handleCloseMaterialPublishConfigDialog">
+        <!-- 选择发布配置弹窗 -->
+        <el-dialog v-model="materialPublishConfigDialogVisible" fullscreen align-center append-to-body :destroy-on-close="true"
+          class="psd-set-dialog" @close="handleCloseMaterialPublishConfigDialog">
           <template #header>
-            <div class="material-publish-config-dialog__header">
-              <div class="material-publish-config-dialog__header-main">
-                <div class="material-publish-config-dialog__header-title">{{ t('material.selectPublishConfig') }}</div>
+            <div class="psd-set-dialog__header">
+              <div class="psd-set-dialog__header-main">
+                <div class="psd-set-dialog__header-title">{{ t('material.selectPublishConfig') }}</div>
               </div>
-
-              <div class="material-publish-config-dialog__header-chips">
-                <span class="material-publish-config-dialog__header-chip">
+              <div class="psd-set-dialog__header-chips">
+                <span v-if="isImageGroupPsdSet" class="psd-set-dialog__header-chip">
+                  {{ t('material.groupCount', { count: psdSetImageGroups.length }) }}
+                </span>
+                <span class="psd-set-dialog__header-chip">
                   {{ t('material.materialCount', { count: selectedMaterialsForPublishConfig.length }) }}
                 </span>
-                <span class="material-publish-config-dialog__header-chip">
-                  {{ t('material.usableConfigCount', { count: materialPublishConfigUsableCount }) }}
+                <span class="psd-set-dialog__header-chip">
+                  {{ t('material.publishConfigCount', { count: materialPublishConfigSelectedIds.length }) }}
+                </span>
+                <span class="psd-set-dialog__header-chip is-accent">
+                  {{ t('material.expectedTasks', { count: materialPublishConfigTaskCount }) }}
                 </span>
               </div>
             </div>
           </template>
 
-          <div v-loading="materialPublishConfigLoading" class="material-publish-config-dialog__body">
-            <div class="material-publish-config-dialog__panel material-publish-config-dialog__panel--materials">
-              <div class="material-publish-config-dialog__section-head">
+          <div class="psd-set-body">
+            <!-- 左侧已选素材面板 -->
+            <div class="psd-set-materials">
+              <div class="psd-set-panel__head">
                 <div>
-                  <div class="material-publish-config-dialog__section-eyebrow">{{ t('material.step1') }}</div>
-                  <div class="material-publish-config-dialog__section-title">{{ t('material.selectedImages') }}</div>
-                  <div class="material-publish-config-dialog__section-desc">
-                    {{ t('material.materialCountConfirm', { count: selectedMaterialsForPublishConfig.length }) }}
+                  <div class="psd-set-panel__eyebrow">{{ t('material.step1') }}</div>
+                  <div class="section-title">
+                    {{ isImageGroupPsdSet
+                      ? t('material.selectedGroups')
+                      : t('material.selectedMaterials', { count: selectedMaterialsForPublishConfig.length }) }}
+                    <template v-if="isImageGroupPsdSet">
+                      ({{ psdSetImageGroups.length }})
+                    </template>
+                  </div>
+                  <div class="psd-set-panel__desc">
+                    {{
+                      isImageGroupPsdSet
+                        ? t('material.groupTaskDesc')
+                        : t('material.materialTaskDesc')
+                    }}
                   </div>
                 </div>
-                <div class="material-publish-config-dialog__tag-list">
+                <div class="psd-set-panel__tags">
                   <el-tag :type="hasInvalidFormatMaterials ? 'warning' : 'success'" effect="plain">
                     {{
                       hasInvalidFormatMaterials
@@ -526,153 +544,363 @@
               </div>
 
               <el-alert v-if="hasInvalidFormatMaterials" type="warning" :closable="false" show-icon
-                class="material-publish-config-dialog__warning">
+                class="psd-set-panel__alert">
                 <template #title>
-                  {{ t('material.invalidFormatAlert', {
+                  {{ t('material.incompatibleFormatAlert', {
                     count: invalidFormatMaterialsList.length,
                     names: invalidFormatMaterialsList.map((item) => item.name).join("、")
                   }) }}
                 </template>
               </el-alert>
 
-              <div class="material-publish-config-dialog__material-list">
-                <div v-for="material in selectedMaterialsForPublishConfig" :key="material.id"
-                  class="material-publish-config-dialog__material-item" :class="{
-                    'material-publish-config-dialog__material-item--invalid':
-                      isMaterialFormatInvalid(material.id),
-                  }">
-                  <button type="button" class="material-publish-config-dialog__material-remove" :title="t('material.removeImage')"
+              <div v-if="isImageGroupPsdSet" class="psd-set-source-groups">
+                <div v-for="group in psdSetImageGroups" :key="group.id" class="psd-set-source-group">
+                  <div class="psd-set-source-group__head">
+                    <span class="psd-set-source-group__name">{{ group.name }}</span>
+                    <el-tag size="small" type="info" effect="plain">
+                      {{ t('material.imageCount', { count: group.stickers.length }) }}
+                    </el-tag>
+                  </div>
+                  <div class="psd-set-source-group__members">
+                    <div v-for="(sticker, index) in group.stickers" :key="sticker.id"
+                      class="psd-set-source-group__member">
+                      <span class="psd-set-source-group__order">#{{ index + 1 }}</span>
+                      <img :src="getFastPreviewImageUrl(getMaterialPreviewSource(sticker), { width: 120 })"
+                        :alt="sticker.name || t('material.imageIndex', { index: index + 1 })" loading="lazy" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div v-else class="thumbs">
+                <div v-for="material in selectedMaterialsForPublishConfig" :key="material.id" class="thumb"
+                  :class="{ 'thumb-invalid-format': isMaterialFormatInvalid(material.id) }">
+                  <button type="button" class="thumb-remove" :title="t('material.removeImage')"
                     @click.stop="removeSelectedMaterial(material.id)">
                     ×
                   </button>
-                  <div class="material-publish-config-dialog__material-preview">
+                  <div class="thumb-image-wrapper">
                     <img v-if="getMaterialPreviewSource(material)"
-                      :src="getFastPreviewImageUrl(getMaterialPreviewSource(material), { width: 220 })"
-                      :alt="material.name || t('material.materialId', { id: material.id })" :title="material.name || t('material.materialId', { id: material.id })" />
+                      :src="getFastPreviewImageUrl(getMaterialPreviewSource(material), { width: 150 })"
+                      class="thumb-img" :alt="material.name || t('material.materialId', { id: material.id })" loading="lazy" />
                     <div v-else class="material-publish-config-dialog__material-placeholder">
                       {{ t('material.noPreview') }}
                     </div>
+                    <div v-if="isMaterialFormatInvalid(material.id)" class="thumb-format-badge">
+                      <el-icon><Warning /></el-icon>
+                      <span>{{ getMaterialSuffix(material.id) || t('material.unknown') }}</span>
+                    </div>
+                    <div v-else-if="getMaterialSuffix(material.id)" class="thumb-format-badge valid">
+                      <span>{{ getMaterialSuffix(material.id) }}</span>
+                    </div>
                   </div>
-
-                  <div class="material-publish-config-dialog__material-meta">
-                    <span class="material-publish-config-dialog__material-name">
+                  <div class="thumb-info-row">
+                    <el-tag size="small" type="info" class="thumb-info-tag">
                       {{ material.name || t('material.materialId', { id: material.id }) }}
-                    </span>
-                    <span class="material-publish-config-dialog__material-suffix">
-                      {{ getMaterialSuffix(material.id) || t('material.unknownFormat') }}
-                    </span>
+                    </el-tag>
                   </div>
                 </div>
-
                 <el-empty v-if="!selectedMaterialsForPublishConfig.length" :description="t('material.selectMaterialFirst')" :image-size="84" />
               </div>
             </div>
 
-            <div class="material-publish-config-dialog__panel material-publish-config-dialog__panel--configs">
-              <div
-                class="material-publish-config-dialog__section-head material-publish-config-dialog__section-head--configs">
+            <!-- 右侧配置选择面板 -->
+            <div class="psd-set-templates">
+              <div class="psd-set-panel__head">
                 <div>
-                  <div class="material-publish-config-dialog__section-eyebrow">{{ t('material.step2') }}</div>
-                  <div class="material-publish-config-dialog__section-title">{{ t('material.publishConfig') }}</div>
-                  <div class="material-publish-config-dialog__section-desc">
+                  <div class="psd-set-panel__eyebrow">{{ t('material.step2') }}</div>
+                  <div class="section-title">
+                    {{ t('material.publishConfig') }}
+                    <span v-if="materialPublishConfigTotal > 0" class="template-count-info">
+                      ({{ materialPublishConfigTotal }})
+                    </span>
+                  </div>
+                  <div class="psd-set-panel__desc">
                     {{ t('material.publishConfigSectionDesc') }}
                   </div>
                 </div>
-                <div class="material-publish-config-dialog__section-tools">
-                  <el-tag type="success" effect="plain">
-                    {{ t('material.usable') }} {{ materialPublishConfigUsableCount }} / {{ filteredMaterialPublishConfigs.length }}
+                <div class="psd-set-panel__tags">
+                  <el-tag type="primary" effect="plain">
+                    {{ t('material.selectedCount', { count: materialPublishConfigSelectedIds.length }) }}
                   </el-tag>
-                  <div class="material-publish-config-dialog__search">
-                    <el-input v-model="materialPublishConfigSearchText" clearable :placeholder="t('material.searchConfigPlaceholder')"
-                      @input="materialPublishConfigCurrentPage = 1">
-                      <template #prefix>
-                        <el-icon>
-                          <Search />
-                        </el-icon>
-                      </template>
-                    </el-input>
-                  </div>
+                  <el-tag type="success" effect="plain">
+                    {{ t('material.usable') }}: {{ materialPublishConfigUsableCount }} / {{ materialPublishConfigTotal }}
+                  </el-tag>
+                  <el-tag type="info" effect="plain">
+                    {{ t('material.expectedTasks', { count: materialPublishConfigTaskCount }) }}
+                  </el-tag>
                 </div>
               </div>
 
-              <div class="common-table material-publish-config-dialog__table">
-                <vxe-grid ref="materialPublishConfigGridRef" v-bind="materialPublishConfigGridOptions"
-                  :data="materialPublishConfigDataSource" @checkbox-change="handleMaterialPublishConfigCheckboxChange"
-                  @checkbox-all="handleMaterialPublishConfigCheckboxAllChange" />
-              </div>
+              <div class="config-panel-main">
+                <div class="psd-set-template-toolbar">
+                  <el-input v-model="materialPublishConfigSearchText" :placeholder="t('material.searchConfigPlaceholder')" clearable
+                    class="psd-set-template-toolbar__search" @input="handlePublishConfigFilterChange">
+                    <template #prefix>
+                      <el-icon><Search /></el-icon>
+                    </template>
+                  </el-input>
 
-              <div v-if="filteredMaterialPublishConfigs.length > 0" class="material-publish-config-dialog__pagination">
-                <pagination v-model:page="materialPublishConfigCurrentPage"
-                  v-model:limit="materialPublishConfigPageSize" :total="filteredMaterialPublishConfigs.length" />
+                  <el-select
+                    v-if="materialPublishConfigPlatformOptions.length > 1"
+                    v-model="materialPublishConfigPlatformFilter"
+                    clearable
+                    :placeholder="t('material.allPlatforms')"
+                    style="width: 130px"
+                    @change="handlePublishConfigFilterChange"
+                  >
+                    <el-option :label="t('material.allPlatforms')" value="" />
+                    <el-option
+                      v-for="platform in materialPublishConfigPlatformOptions"
+                      :key="platform"
+                      :label="platform"
+                      :value="platform"
+                    />
+                  </el-select>
+
+                  <el-checkbox
+                    v-model="materialPublishConfigOnlyUsable"
+                    @change="handlePublishConfigFilterChange"
+                  >
+                    {{ t('material.onlyShowUsable') }}
+                  </el-checkbox>
+
+                  <el-button size="default" class="psd-template-toolbar-button" @click="handleToggleCurrentPagePublishConfigs">
+                    {{ isAllCurrentPagePublishConfigsSelected ? t('material.deselectAll') : t('material.selectAll') }}
+                  </el-button>
+                  <el-button size="default" class="psd-template-toolbar-button" @click="handleSelectAllUsablePublishConfigs">
+                    {{ t('material.selectAllUsable') }}
+                  </el-button>
+                  <el-button size="default" class="psd-template-toolbar-button" :disabled="!materialPublishConfigSelectedIds.length" @click="handleClearAllPublishConfigSelection">
+                    {{ t('material.clearSelection') }}
+                  </el-button>
+                  <span v-if="materialPublishConfigSelectedIds.length > 0" class="selected-count">
+                    {{ t('material.selectedCount', { count: materialPublishConfigSelectedIds.length }) }}
+                  </span>
+                </div>
+
+                <div class="config-table-container" v-loading="materialPublishConfigLoading">
+                  <el-table
+                    ref="materialPublishConfigTableRef"
+                    :data="materialPublishConfigDataSource"
+                    height="100%"
+                    row-key="id"
+                    stripe
+                    class="config-el-table"
+                    :row-class-name="getPublishConfigRowClassName"
+                    @selection-change="handlePublishConfigSelectionChange"
+                  >
+                    <el-table-column
+                      type="selection"
+                      width="50"
+                      align="center"
+                      reserve-selection
+                      :selectable="isMaterialPublishConfigSelectable"
+                    >
+                      <template #header>
+                        <el-checkbox
+                          :model-value="isAllCurrentPagePublishConfigsSelected"
+                          :indeterminate="isSomeCurrentPagePublishConfigsSelected"
+                          @change="handleToggleCurrentPagePublishConfigs"
+                        />
+                      </template>
+                    </el-table-column>
+
+                    <!-- 平台列 -->
+                    <el-table-column prop="platform" :label="t('material.platform')" width="110" align="center" show-overflow-tooltip>
+                      <template #default="{ row }">
+                        <span v-if="row.platform" class="platform-badge" :style="getPublishConfigPlatformBadgeStyle(row.platform)">
+                          {{ row.platform }}
+                        </span>
+                        <span v-else class="text-secondary text-xs">-</span>
+                      </template>
+                    </el-table-column>
+
+                    <!-- 配置名称 -->
+                    <el-table-column prop="name" :label="t('material.taskConfigName')" min-width="200" show-overflow-tooltip>
+                      <template #default="{ row }">
+                        <div class="config-table-title-cell">
+                          <div class="flex items-center gap-1.5">
+                            <span class="font-medium text-sm text-[var(--el-text-color-primary)] truncate" :title="row.name">
+                              {{ row.name || t('material.unnamedConfig') }}
+                            </span>
+                            <el-tag size="small" type="primary" effect="plain" class="scale-90 origin-left shrink-0">
+                              {{ getTaskTypeLabel(row?.taskType || derivePublishTaskTypeByPlatform(row?.platform), row?.platform) }}
+                            </el-tag>
+                          </div>
+                          <div v-if="row.description" class="text-xs text-[var(--el-text-color-secondary)] truncate" :title="row.description">
+                            {{ row.description }}
+                          </div>
+                        </div>
+                      </template>
+                    </el-table-column>
+
+                    <!-- 关联 PSD 模板 -->
+                    <el-table-column :label="t('material.boundPsdTemplate')" min-width="160" show-overflow-tooltip>
+                      <template #default="{ row }">
+                        <div v-if="isMaterialPublishConfigUsable(row)" class="flex items-center gap-1.5">
+                          <el-tag size="small" type="success" effect="plain">PSD</el-tag>
+                          <span
+                            class="text-xs text-[var(--el-text-color-regular)] truncate max-w-[160px]"
+                            :title="getPublishConfigTemplateName(row)"
+                          >
+                            {{ getPublishConfigTemplateName(row) }}
+                          </span>
+                        </div>
+                        <span v-else class="text-xs text-[var(--el-color-danger)] font-medium">{{ t('material.notBound') }}</span>
+                      </template>
+                    </el-table-column>
+
+                    <!-- 关联厂家 / 店铺 -->
+                    <el-table-column :label="t('material.vendorAndProduct')" min-width="160" show-overflow-tooltip>
+                      <template #default="{ row }">
+                        <div class="flex flex-col gap-0.5 text-xs text-[var(--el-text-color-regular)]">
+                          <div v-if="getPublishConfigConfigData(row)?.vendorName || getPublishConfigConfigData(row)?.vendorCode" class="truncate">
+                            <span class="text-secondary">{{ t('material.vendor') }}: </span>
+                            <span class="font-medium">{{ getPublishConfigConfigData(row).vendorName || getPublishConfigConfigData(row).vendorCode }}</span>
+                          </div>
+                          <div v-if="row.shops?.length" class="flex items-center gap-1 flex-wrap">
+                            <span class="text-secondary">{{ t('material.targetShops') }}: </span>
+                            <el-tag v-for="shop in row.shops.slice(0, 2)" :key="shop.id" size="small" effect="plain">
+                              {{ shop.shopName || t('material.shop') }}
+                            </el-tag>
+                            <el-tag v-if="row.shops.length > 2" size="small" effect="plain">+{{ row.shops.length - 2 }}</el-tag>
+                          </div>
+                          <span v-if="!getPublishConfigConfigData(row)?.vendorName && !getPublishConfigConfigData(row)?.vendorCode && !row.shops?.length" class="text-secondary">-</span>
+                        </div>
+                      </template>
+                    </el-table-column>
+
+                    <!-- 可用状态 -->
+                    <el-table-column :label="t('material.usableStatus')" width="100" align="center" show-overflow-tooltip>
+                      <template #default="{ row }">
+                        <el-tag v-if="isMaterialPublishConfigUsable(row)" size="small" type="success" effect="light">
+                          <el-icon class="mr-0.5"><Check /></el-icon>
+                          <span>{{ t('material.usable') }}</span>
+                        </el-tag>
+                        <el-tooltip v-else :content="t('material.unusableNotBoundTip')" placement="top">
+                          <el-tag size="small" type="danger" effect="plain" class="cursor-help">
+                            <el-icon class="mr-0.5"><Close /></el-icon>
+                            <span>{{ t('material.unusable') }}</span>
+                          </el-tag>
+                        </el-tooltip>
+                      </template>
+                    </el-table-column>
+
+                    <!-- 操作 -->
+                    <el-table-column :label="t('common.operation')" width="95" align="center" fixed="right">
+                      <template #default="{ row }">
+                        <el-button link type="primary" size="small" @click.stop="handleViewPublishConfigDetail(row)">
+                          {{ t('material.viewDetail') }}
+                        </el-button>
+                      </template>
+                    </el-table-column>
+
+                    <template #empty>
+                      <el-empty
+                        :description="materialPublishConfigSearchText ? t('material.noMatchingPublishConfig') : t('material.noPublishConfig')"
+                        :image-size="80"
+                      />
+                    </template>
+                  </el-table>
+                </div>
+
+                <div v-if="materialPublishConfigTotal > 0" class="config-table-pagination">
+                  <el-pagination
+                    v-model:current-page="materialPublishConfigCurrentPage"
+                    v-model:page-size="materialPublishConfigPageSize"
+                    :page-sizes="[10, 20, 50, 100]"
+                    :total="materialPublishConfigTotal"
+                    background
+                    layout="total, sizes, prev, pager, next, jumper"
+                    @current-change="handlePublishConfigPageChange"
+                    @size-change="handlePublishConfigSizeChange"
+                  />
+                </div>
               </div>
             </div>
           </div>
 
-          <template #footer>
-            <div class="material-publish-config-dialog__footer">
-              <div class="material-publish-config-dialog__footer-info">
-                <span class="material-publish-config-dialog__footer-chip">
-                  {{ isImageGroupPsdSet ? t('material.groupCount', { count: psdSetImageGroups.length }) : t('material.materialCount', { count: ids.length }) }}
-                </span>
-                <span class="material-publish-config-dialog__footer-chip">
-                  {{ t('material.publishConfigCount', { count: materialPublishConfigSelectedIds.length }) }}
-                </span>
-                <span class="material-publish-config-dialog__footer-chip">
-                  {{ t('material.expectedPsdTasks', { count: materialPublishConfigTaskCount }) }}
-                </span>
-                <span v-if="hasInvalidFormatMaterials" class="material-publish-config-dialog__footer-tip">
-                  {{ t('material.incompatibleFormatTip') }}
-                </span>
-                <span v-else
-                  class="material-publish-config-dialog__footer-tip material-publish-config-dialog__footer-tip--muted">
-                  {{ t('material.publishConfigFooterMuted') }}
-                </span>
+          <div class="psd-set-footer">
+            <div class="psd-set-footer-main">
+              <div class="psd-set-info">
+                <el-icon><InfoFilled /></el-icon>
+                <div class="psd-set-info-content">
+                  <span class="psd-set-info-chip">
+                    {{ isImageGroupPsdSet ? t('material.groupCount', { count: psdSetImageGroups.length }) : t('material.materialWithCount', { count: ids.length }) }}
+                  </span>
+                  <span class="psd-set-info-chip" :class="{ 'is-accent': materialPublishConfigSelectedIds.length }">
+                    {{ t('material.publishConfigCount', { count: materialPublishConfigSelectedIds.length }) }}
+                  </span>
+                  <span class="psd-set-info-chip is-accent">
+                    {{ t('material.expectedPsdTasks', { count: materialPublishConfigTaskCount }) }}
+                  </span>
+                  <span v-if="hasInvalidFormatMaterials" class="psd-set-info-chip psd-set-info-chip--warning">
+                    {{ t('material.incompatibleFormatTip') }}
+                  </span>
+                  <span v-else-if="!materialPublishConfigSelectedIds.length" class="psd-set-info-chip psd-set-info-chip--subtle">
+                    {{ t('material.publishConfigFooterMuted') }}
+                  </span>
+                </div>
               </div>
-              <div class="material-publish-config-dialog__footer-actions">
+
+              <div class="psd-set-footer-actions">
                 <el-button @click="handleCloseMaterialPublishConfigDialog">{{ t('material.cancel') }}</el-button>
                 <el-button type="primary" :loading="materialPublishConfigSubmitting" :disabled="!(isImageGroupPsdSet ? psdSetImageGroups.length : ids.length) ||
                   !materialPublishConfigSelectedIds.length ||
                   hasInvalidFormatMaterials
                   " @click="handleCreatePsdSetsByPublishConfig">
-                  {{ t('material.createPublishTask') }}
+                  {{ t('material.createPublishTask') }} ({{ materialPublishConfigTaskCount }})
                 </el-button>
               </div>
             </div>
-          </template>
+          </div>
         </el-dialog>
 
-        <el-dialog v-model="materialProductConfigDialogVisible" fullscreen align-center :destroy-on-close="false"
-          class="material-publish-config-dialog" @close="handleCloseMaterialProductConfigDialog">
+        <!-- 生成独立站商品配置弹窗 -->
+        <el-dialog v-model="materialProductConfigDialogVisible" fullscreen align-center append-to-body :destroy-on-close="true"
+          class="psd-set-dialog" @close="handleCloseMaterialProductConfigDialog">
           <template #header>
-            <div class="material-publish-config-dialog__header">
-              <div class="material-publish-config-dialog__header-main">
-                <div class="material-publish-config-dialog__header-title">
-                  {{ t('material.generateSiteProduct') }}
-                </div>
+            <div class="psd-set-dialog__header">
+              <div class="psd-set-dialog__header-main">
+                <div class="psd-set-dialog__header-title">{{ t('material.generateSiteProduct') }}</div>
               </div>
-
-              <div class="material-publish-config-dialog__header-chips">
-                <span class="material-publish-config-dialog__header-chip">
+              <div class="psd-set-dialog__header-chips">
+                <span v-if="isImageGroupPsdSet" class="psd-set-dialog__header-chip">
+                  {{ t('material.groupCount', { count: psdSetImageGroups.length }) }}
+                </span>
+                <span class="psd-set-dialog__header-chip">
                   {{ t('material.materialCount', { count: selectedMaterialsForPublishConfig.length }) }}
                 </span>
-                <span class="material-publish-config-dialog__header-chip">
-                  {{ t('material.usableConfigCount', { count: materialProductConfigUsableCount }) }}
+                <span class="psd-set-dialog__header-chip">
+                  {{ t('material.productConfigCount', { count: materialProductConfigSelectedIds.length }) }}
+                </span>
+                <span class="psd-set-dialog__header-chip is-accent">
+                  {{ t('material.expectedSiteProducts', { count: materialProductConfigTaskCount }) }}
                 </span>
               </div>
             </div>
           </template>
 
-          <div v-loading="materialProductConfigLoading" class="material-publish-config-dialog__body">
-            <div class="material-publish-config-dialog__panel material-publish-config-dialog__panel--materials">
-              <div class="material-publish-config-dialog__section-head">
+          <div class="psd-set-body">
+            <!-- 左侧已选素材面板 -->
+            <div class="psd-set-materials">
+              <div class="psd-set-panel__head">
                 <div>
-                  <div class="material-publish-config-dialog__section-eyebrow">{{ t('material.step1') }}</div>
-                  <div class="material-publish-config-dialog__section-title">{{ t('material.selectedImages') }}</div>
-                  <div class="material-publish-config-dialog__section-desc">
-                    {{ t('material.materialCountSimple', { count: selectedMaterialsForPublishConfig.length }) }}
+                  <div class="psd-set-panel__eyebrow">{{ t('material.step1') }}</div>
+                  <div class="section-title">
+                    {{ isImageGroupPsdSet ? t('material.selectedGroups') : t('material.selectedMaterials') }}
+                    ({{ isImageGroupPsdSet ? psdSetImageGroups.length : selectedMaterialsForPublishConfig.length }})
+                  </div>
+                  <div class="psd-set-panel__desc">
+                    {{
+                      isImageGroupPsdSet
+                        ? t('material.groupTaskDesc')
+                        : t('material.materialTaskDesc')
+                    }}
                   </div>
                 </div>
-                <div class="material-publish-config-dialog__tag-list">
+                <div class="psd-set-panel__tags">
                   <el-tag :type="hasInvalidFormatMaterials ? 'warning' : 'success'" effect="plain">
                     {{
                       hasInvalidFormatMaterials
@@ -687,7 +915,7 @@
               </div>
 
               <el-alert v-if="hasInvalidFormatMaterials" type="warning" :closable="false" show-icon
-                class="material-publish-config-dialog__warning">
+                class="psd-set-panel__alert">
                 <template #title>
                   {{ t('material.invalidFormatAlert', {
                     count: invalidFormatMaterialsList.length,
@@ -696,112 +924,442 @@
                 </template>
               </el-alert>
 
-              <div class="material-publish-config-dialog__material-list">
-                <div v-for="material in selectedMaterialsForPublishConfig" :key="material.id"
-                  class="material-publish-config-dialog__material-item" :class="{
-                    'material-publish-config-dialog__material-item--invalid':
-                      isMaterialFormatInvalid(material.id),
-                  }">
-                  <button type="button" class="material-publish-config-dialog__material-remove" :title="t('material.removeImage')"
+              <div v-if="isImageGroupPsdSet" class="psd-set-source-groups">
+                <div v-for="group in psdSetImageGroups" :key="group.id" class="psd-set-source-group">
+                  <div class="psd-set-source-group__head">
+                    <span class="psd-set-source-group__name">{{ group.name }}</span>
+                    <el-tag size="small" type="info" effect="plain">
+                      {{ t('material.imageCount', { count: group.stickers.length }) }}
+                    </el-tag>
+                  </div>
+                  <div class="psd-set-source-group__members">
+                    <div v-for="(sticker, index) in group.stickers" :key="sticker.id"
+                      class="psd-set-source-group__member">
+                      <span class="psd-set-source-group__order">#{{ index + 1 }}</span>
+                      <img :src="getFastPreviewImageUrl(getMaterialPreviewSource(sticker), { width: 120 })"
+                        :alt="sticker.name || t('material.imageIndex', { index: index + 1 })" loading="lazy" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div v-else class="thumbs">
+                <div v-for="material in selectedMaterialsForPublishConfig" :key="material.id" class="thumb"
+                  :class="{ 'thumb-invalid-format': isMaterialFormatInvalid(material.id) }">
+                  <button type="button" class="thumb-remove" :title="t('material.removeImage')"
                     @click.stop="removeSelectedMaterial(material.id)">
                     ×
                   </button>
-                  <div class="material-publish-config-dialog__material-preview">
+                  <div class="thumb-image-wrapper">
                     <img v-if="getMaterialPreviewSource(material)"
-                      :src="getFastPreviewImageUrl(getMaterialPreviewSource(material), { width: 220 })"
-                      :alt="material.name || t('material.materialId', { id: material.id })" :title="material.name || t('material.materialId', { id: material.id })" />
+                      :src="getFastPreviewImageUrl(getMaterialPreviewSource(material), { width: 150 })"
+                      class="thumb-img" :alt="material.name || t('material.materialId', { id: material.id })" loading="lazy" />
                     <div v-else class="material-publish-config-dialog__material-placeholder">
                       {{ t('material.noPreview') }}
                     </div>
+                    <div v-if="isMaterialFormatInvalid(material.id)" class="thumb-format-badge">
+                      <el-icon><Warning /></el-icon>
+                      <span>{{ getMaterialSuffix(material.id) || t('material.unknown') }}</span>
+                    </div>
+                    <div v-else-if="getMaterialSuffix(material.id)" class="thumb-format-badge valid">
+                      <span>{{ getMaterialSuffix(material.id) }}</span>
+                    </div>
                   </div>
-
-                  <div class="material-publish-config-dialog__material-meta">
-                    <span class="material-publish-config-dialog__material-name">
+                  <div class="thumb-info-row">
+                    <el-tag size="small" type="info" class="thumb-info-tag">
                       {{ material.name || t('material.materialId', { id: material.id }) }}
-                    </span>
-                    <span class="material-publish-config-dialog__material-suffix">
-                      {{ getMaterialSuffix(material.id) || t('material.unknownFormat') }}
-                    </span>
+                    </el-tag>
                   </div>
                 </div>
-
                 <el-empty v-if="!selectedMaterialsForPublishConfig.length" :description="t('material.selectMaterialFirst')" :image-size="84" />
               </div>
             </div>
 
-            <div class="material-publish-config-dialog__panel material-publish-config-dialog__panel--configs">
-              <div
-                class="material-publish-config-dialog__section-head material-publish-config-dialog__section-head--configs">
+            <!-- 右侧配置选择面板 -->
+            <div class="psd-set-templates">
+              <div class="psd-set-panel__head">
                 <div>
-                  <div class="material-publish-config-dialog__section-eyebrow">{{ t('material.step2') }}</div>
-                  <div class="material-publish-config-dialog__section-title">
+                  <div class="psd-set-panel__eyebrow">{{ t('material.step2') }}</div>
+                  <div class="section-title">
                     {{ t('material.siteProductConfig') }}
+                    <span v-if="filteredMaterialProductConfigs.length > 0" class="template-count-info">
+                      ({{ t('material.totalCount', { count: filteredMaterialProductConfigs.length }) }})
+                    </span>
                   </div>
-                  <div class="material-publish-config-dialog__section-desc">
+                  <div class="psd-set-panel__desc">
                     {{ t('material.siteProductSectionDesc') }}
                   </div>
                 </div>
-                <div class="material-publish-config-dialog__section-tools">
-                  <el-tag type="success" effect="plain">
-                    {{ t('material.usable') }} {{ materialProductConfigUsableCount }} /
-                    {{ filteredMaterialProductConfigs.length }}
+                <div class="psd-set-panel__tags">
+                  <el-tag type="primary" effect="plain">
+                    {{ t('material.selectedCount', { count: materialProductConfigSelectedIds.length }) }}
                   </el-tag>
-                  <div class="material-publish-config-dialog__search">
-                    <el-input v-model="materialProductConfigSearchText" clearable :placeholder="t('material.searchProductConfigPlaceholder')"
-                      @input="materialProductConfigCurrentPage = 1">
-                      <template #prefix>
-                        <el-icon>
-                          <Search />
-                        </el-icon>
-                      </template>
-                    </el-input>
-                  </div>
+                  <el-tag type="success" effect="plain">
+                    {{ t('material.usable') }}: {{ materialProductConfigUsableCount }} / {{ filteredMaterialProductConfigs.length }}
+                  </el-tag>
+                  <el-tag type="info" effect="plain">
+                    {{ t('material.expectedSiteProducts', { count: materialProductConfigTaskCount }) }}
+                  </el-tag>
                 </div>
               </div>
 
-              <div class="common-table material-publish-config-dialog__table">
-                <vxe-grid ref="materialProductConfigGridRef" v-bind="materialProductConfigGridOptions"
-                  :data="materialProductConfigDataSource" @checkbox-change="handleMaterialProductConfigCheckboxChange"
-                  @checkbox-all="handleMaterialProductConfigCheckboxAllChange" />
-              </div>
+              <div class="config-panel-main">
+                <div class="psd-set-template-toolbar">
+                  <el-input v-model="materialProductConfigSearchText" :placeholder="t('material.searchProductConfigPlaceholder')" clearable
+                    class="psd-set-template-toolbar__search" @input="materialProductConfigCurrentPage = 1">
+                    <template #prefix>
+                      <el-icon><Search /></el-icon>
+                    </template>
+                  </el-input>
 
-              <div v-if="filteredMaterialProductConfigs.length > 0" class="material-publish-config-dialog__pagination">
-                <pagination v-model:page="materialProductConfigCurrentPage"
-                  v-model:limit="materialProductConfigPageSize" :total="filteredMaterialProductConfigs.length" />
+                  <el-button size="default" class="psd-template-toolbar-button" @click="handleToggleCurrentPageProductConfigs">
+                    {{ isAllCurrentPageProductConfigsSelected ? t('material.deselectAll') : t('material.selectAll') }}
+                  </el-button>
+                  <el-button size="default" class="psd-template-toolbar-button" @click="handleSelectAllUsableProductConfigs">
+                    {{ t('material.selectAllUsable') }}
+                  </el-button>
+                  <el-button size="default" class="psd-template-toolbar-button" :disabled="!materialProductConfigSelectedIds.length" @click="handleClearAllProductConfigSelection">
+                    {{ t('material.clearSelection') }}
+                  </el-button>
+                  <span v-if="materialProductConfigSelectedIds.length > 0" class="selected-count">
+                    {{ t('material.selectedCount', { count: materialProductConfigSelectedIds.length }) }}
+                  </span>
+                </div>
+
+                <div class="config-table-container" v-loading="materialProductConfigLoading">
+                  <el-table
+                    :data="materialProductConfigDataSource"
+                    height="100%"
+                    row-key="id"
+                    stripe
+                    class="config-el-table"
+                    :row-class-name="getProductConfigRowClassName"
+                    @row-click="handleProductConfigRowClick"
+                  >
+                    <!-- 多选列 (无ID列) -->
+                    <el-table-column width="50" align="center">
+                      <template #header>
+                        <el-checkbox
+                          :model-value="isAllCurrentPageProductConfigsSelected"
+                          :indeterminate="isSomeCurrentPageProductConfigsSelected"
+                          @change="handleToggleCurrentPageProductConfigs"
+                        />
+                      </template>
+                      <template #default="{ row }">
+                        <el-checkbox
+                          :model-value="materialProductConfigSelectedIds.includes(String(row.id))"
+                          :disabled="!isMaterialProductConfigUsable(row)"
+                          @click.stop
+                          @change="toggleProductConfigSelection(row)"
+                        />
+                      </template>
+                    </el-table-column>
+
+                    <!-- 平台 / 类型 -->
+                    <el-table-column :label="t('material.platform')" width="110" align="center">
+                      <template #default>
+                        <span class="platform-badge site-badge">
+                          {{ t('material.independentSite') }}
+                        </span>
+                      </template>
+                    </el-table-column>
+
+                    <!-- 配置名称 -->
+                    <el-table-column prop="name" :label="t('material.taskConfigName')" min-width="200">
+                      <template #default="{ row }">
+                        <div class="config-table-title-cell">
+                          <div class="flex items-center gap-1.5">
+                            <span class="font-medium text-sm text-[var(--el-text-color-primary)] truncate" :title="row.name">
+                              {{ row.name || t('material.unnamedConfig') }}
+                            </span>
+                            <el-tag v-if="row.sourceCategoryName" size="small" type="info" effect="plain" class="scale-90 origin-left shrink-0">
+                              {{ row.sourceCategoryName }}
+                            </el-tag>
+                          </div>
+                          <div v-if="row.description" class="text-xs text-[var(--el-text-color-secondary)] truncate" :title="row.description">
+                            {{ row.description }}
+                          </div>
+                        </div>
+                      </template>
+                    </el-table-column>
+
+                    <!-- 关联 PSD 模板 -->
+                    <el-table-column :label="t('material.boundPsdTemplate')" min-width="160">
+                      <template #default="{ row }">
+                        <div v-if="isMaterialProductConfigUsable(row)" class="flex items-center gap-1.5">
+                          <el-tag size="small" type="success" effect="plain">PSD</el-tag>
+                          <span
+                            class="text-xs text-[var(--el-text-color-regular)] truncate max-w-[160px]"
+                            :title="row.psdTemplate?.name || t('material.boundPsdTemplate')"
+                          >
+                            {{ row.psdTemplate?.name || t('material.boundPsdTemplate') }}
+                          </span>
+                        </div>
+                        <span v-else class="text-xs text-[var(--el-color-danger)] font-medium">{{ t('material.notBound') }}</span>
+                      </template>
+                    </el-table-column>
+
+                    <!-- 效果图数量 -->
+                    <el-table-column :label="t('material.mockups')" width="100" align="center">
+                      <template #default="{ row }">
+                        <el-tag size="small" type="info" effect="plain">
+                          {{ row.mockupTemplates?.length || 0 }}
+                        </el-tag>
+                      </template>
+                    </el-table-column>
+
+                    <!-- 可用状态 -->
+                    <el-table-column :label="t('material.usableStatus')" width="100" align="center">
+                      <template #default="{ row }">
+                        <el-tag v-if="isMaterialProductConfigUsable(row)" size="small" type="success" effect="light">
+                          <el-icon class="mr-0.5"><Check /></el-icon>
+                          <span>{{ t('material.usable') }}</span>
+                        </el-tag>
+                        <el-tooltip v-else :content="t('material.unusableNotBoundTip')" placement="top">
+                          <el-tag size="small" type="danger" effect="plain" class="cursor-help">
+                            <el-icon class="mr-0.5"><Close /></el-icon>
+                            <span>{{ t('material.unusable') }}</span>
+                          </el-tag>
+                        </el-tooltip>
+                      </template>
+                    </el-table-column>
+
+                    <!-- 操作 -->
+                    <el-table-column :label="t('common.operation')" width="95" align="center" fixed="right">
+                      <template #default="{ row }">
+                        <el-button link type="primary" size="small" @click.stop="handleViewProductConfigDetail(row)">
+                          {{ t('material.viewDetail') }}
+                        </el-button>
+                      </template>
+                    </el-table-column>
+
+                    <template #empty>
+                      <el-empty
+                        :description="materialProductConfigSearchText ? t('material.noMatchingProductConfig') : t('material.noProductConfig')"
+                        :image-size="80"
+                      />
+                    </template>
+                  </el-table>
+                </div>
+
+                <div v-if="filteredMaterialProductConfigs.length > 0" class="config-table-pagination">
+                  <el-pagination
+                    v-model:current-page="materialProductConfigCurrentPage"
+                    v-model:page-size="materialProductConfigPageSize"
+                    :page-sizes="[10, 20, 50, 100]"
+                    :total="filteredMaterialProductConfigs.length"
+                    background
+                    layout="total, sizes, prev, pager, next, jumper"
+                    @current-change="handleProductConfigPageChange"
+                    @size-change="handleProductConfigSizeChange"
+                  />
+                </div>
               </div>
             </div>
           </div>
 
-          <template #footer>
-            <div class="material-publish-config-dialog__footer">
-              <div class="material-publish-config-dialog__footer-info">
-                <span class="material-publish-config-dialog__footer-chip">
-                  {{ isImageGroupPsdSet ? t('material.groupCount', { count: psdSetImageGroups.length }) : t('material.materialCount', { count: ids.length }) }}
-                </span>
-                <span class="material-publish-config-dialog__footer-chip">
-                  {{ t('material.productConfigCount', { count: materialProductConfigSelectedIds.length }) }}
-                </span>
-                <span class="material-publish-config-dialog__footer-chip">
-                  {{ t('material.expectedSiteProducts', { count: materialProductConfigTaskCount }) }}
-                </span>
-                <span v-if="hasInvalidFormatMaterials" class="material-publish-config-dialog__footer-tip">
-                  {{ t('material.incompatibleFormatTipProduct') }}
-                </span>
-                <span v-else
-                  class="material-publish-config-dialog__footer-tip material-publish-config-dialog__footer-tip--muted">
-                  {{ t('material.siteProductFooterMuted') }}
-                </span>
+          <div class="psd-set-footer">
+            <div class="psd-set-footer-main">
+              <div class="psd-set-info">
+                <el-icon><InfoFilled /></el-icon>
+                <div class="psd-set-info-content">
+                  <span class="psd-set-info-chip">
+                    {{ isImageGroupPsdSet ? t('material.groupCount', { count: psdSetImageGroups.length }) : t('material.materialCount', { count: ids.length }) }}
+                  </span>
+                  <span class="psd-set-info-chip" :class="{ 'is-accent': materialProductConfigSelectedIds.length }">
+                    {{ t('material.productConfigCount', { count: materialProductConfigSelectedIds.length }) }}
+                  </span>
+                  <span class="psd-set-info-chip is-accent">
+                    {{ t('material.expectedSiteProducts', { count: materialProductConfigTaskCount }) }}
+                  </span>
+                  <span v-if="hasInvalidFormatMaterials" class="psd-set-info-chip psd-set-info-chip--warning">
+                    {{ t('material.incompatibleFormatTipProduct') }}
+                  </span>
+                  <span v-else-if="!materialProductConfigSelectedIds.length" class="psd-set-info-chip psd-set-info-chip--subtle">
+                    {{ t('material.siteProductFooterMuted') }}
+                  </span>
+                </div>
               </div>
-              <div class="material-publish-config-dialog__footer-actions">
+
+              <div class="psd-set-footer-actions">
                 <el-button @click="handleCloseMaterialProductConfigDialog">{{ t('material.cancel') }}</el-button>
                 <el-button type="primary" :loading="materialProductConfigSubmitting" :disabled="!(isImageGroupPsdSet ? psdSetImageGroups.length : ids.length) ||
                   !materialProductConfigSelectedIds.length ||
                   hasInvalidFormatMaterials
                   " @click="handleCreatePsdSetsByProductConfig">
-                  {{ t('material.createProductTask') }}
+                  {{ t('material.generateSiteProduct') }} ({{ materialProductConfigTaskCount }})
                 </el-button>
               </div>
             </div>
+          </div>
+        </el-dialog>
+
+        <!-- 发布配置详情弹窗 -->
+        <el-dialog
+          v-model="publishConfigDetailVisible"
+          :title="t('material.configDetail')"
+          width="640px"
+          align-center
+          append-to-body
+          destroy-on-close
+          class="publish-config-detail-modal"
+        >
+          <div v-loading="publishConfigDetailLoading" class="py-1">
+            <el-descriptions v-if="currentPublishConfigDetail" :column="2" border size="small">
+              <el-descriptions-item :label="t('material.taskConfigName')" :span="2">
+                <span class="font-semibold text-sm text-[var(--el-text-color-primary)]">
+                  {{ currentPublishConfigDetail.name || t('material.unnamedConfig') }}
+                </span>
+              </el-descriptions-item>
+
+              <el-descriptions-item :label="t('material.platform')">
+                <span
+                  v-if="currentPublishConfigDetail.platform"
+                  class="platform-badge"
+                  :style="getPublishConfigPlatformBadgeStyle(currentPublishConfigDetail.platform)"
+                >
+                  {{ currentPublishConfigDetail.platform }}
+                </span>
+                <span v-else class="text-secondary">-</span>
+              </el-descriptions-item>
+
+              <el-descriptions-item :label="t('material.taskType')">
+                <el-tag size="small" type="primary" effect="plain">
+                  {{ getTaskTypeLabel(currentPublishConfigDetail.taskType || derivePublishTaskTypeByPlatform(currentPublishConfigDetail.platform), currentPublishConfigDetail.platform) }}
+                </el-tag>
+              </el-descriptions-item>
+
+              <el-descriptions-item :label="t('material.usableStatus')">
+                <el-tag :type="isMaterialPublishConfigUsable(currentPublishConfigDetail) ? 'success' : 'danger'" size="small">
+                  {{ isMaterialPublishConfigUsable(currentPublishConfigDetail) ? t('material.usable') : t('material.unusable') }}
+                </el-tag>
+              </el-descriptions-item>
+
+              <el-descriptions-item :label="t('material.boundPsdTemplate')">
+                <div v-if="isMaterialPublishConfigUsable(currentPublishConfigDetail)" class="flex items-center gap-1.5">
+                  <el-tag size="small" type="success" effect="plain">PSD</el-tag>
+                  <span class="font-medium text-xs text-[var(--el-text-color-regular)]">
+                    {{ getPublishConfigTemplateName(currentPublishConfigDetail) }}
+                  </span>
+                </div>
+                <span v-else class="text-[var(--el-color-danger)] font-medium text-xs">
+                  {{ t('material.notBound') }}
+                </span>
+              </el-descriptions-item>
+
+              <el-descriptions-item :label="t('material.vendorAndProduct')">
+                <span v-if="getPublishConfigConfigData(currentPublishConfigDetail)?.vendorName || getPublishConfigConfigData(currentPublishConfigDetail)?.vendorCode">
+                  {{ getPublishConfigConfigData(currentPublishConfigDetail).vendorName || getPublishConfigConfigData(currentPublishConfigDetail).vendorCode }}
+                </span>
+                <span v-else class="text-secondary">-</span>
+              </el-descriptions-item>
+
+              <el-descriptions-item :label="t('material.targetShops')">
+                <div v-if="currentPublishConfigDetail.shops?.length" class="flex items-center gap-1 flex-wrap">
+                  <el-tag v-for="shop in currentPublishConfigDetail.shops" :key="shop.id" size="small" effect="plain">
+                    {{ shop.shopName || t('material.shop') }}
+                  </el-tag>
+                </div>
+                <span v-else class="text-secondary">-</span>
+              </el-descriptions-item>
+
+              <el-descriptions-item :label="t('material.configDescription')" :span="2">
+                <span class="text-xs text-[var(--el-text-color-regular)]">
+                  {{ currentPublishConfigDetail.description || '-' }}
+                </span>
+              </el-descriptions-item>
+
+              <el-descriptions-item v-if="currentPublishConfigDetail.createTime" :label="t('common.createTime')">
+                <span class="text-xs text-secondary">{{ formatTimestamp(currentPublishConfigDetail.createTime) }}</span>
+              </el-descriptions-item>
+
+              <el-descriptions-item v-if="currentPublishConfigDetail.updateTime" :label="t('common.updateTime')">
+                <span class="text-xs text-secondary">{{ formatTimestamp(currentPublishConfigDetail.updateTime) }}</span>
+              </el-descriptions-item>
+            </el-descriptions>
+
+            <!-- 平台参数详情 -->
+            <div v-if="currentPublishConfigDetail && hasVisibleConfigParameters(currentPublishConfigDetail)" class="mt-3">
+              <div class="text-xs font-medium text-[var(--el-text-color-regular)] mb-1.5 flex items-center gap-1">
+                <el-icon><Operation /></el-icon>
+                <span>平台配置参数</span>
+              </div>
+              <div class="bg-[var(--el-fill-color-light)] p-2.5 rounded text-xs space-y-1 max-h-[200px] overflow-y-auto border border-[var(--el-border-color-lighter)] font-mono">
+                <div v-for="(val, key) in getDisplayableConfigData(currentPublishConfigDetail)" :key="key" class="flex items-start gap-2">
+                  <span class="text-secondary shrink-0 font-sans">{{ key }}:</span>
+                  <span class="text-[var(--el-text-color-regular)] break-all">{{ typeof val === 'object' ? JSON.stringify(val) : String(val) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <template #footer>
+            <el-button size="small" @click="publishConfigDetailVisible = false">{{ t('common.close') }}</el-button>
+          </template>
+        </el-dialog>
+
+        <!-- 独立站商品配置详情弹窗 -->
+        <el-dialog
+          v-model="productConfigDetailVisible"
+          :title="t('material.configDetail')"
+          width="640px"
+          align-center
+          append-to-body
+          destroy-on-close
+          class="publish-config-detail-modal"
+        >
+          <div v-if="currentProductConfigDetail" class="py-1">
+            <el-descriptions :column="2" border size="small">
+              <el-descriptions-item :label="t('material.productConfig')" :span="2">
+                <span class="font-semibold text-sm text-[var(--el-text-color-primary)]">
+                  {{ currentProductConfigDetail.name || t('material.unnamedConfig') }}
+                </span>
+              </el-descriptions-item>
+
+              <el-descriptions-item :label="t('material.productType')">
+                <span class="text-xs">{{ currentProductConfigDetail.sourceCategoryName || '-' }}</span>
+              </el-descriptions-item>
+
+              <el-descriptions-item :label="t('material.usableStatus')">
+                <el-tag :type="isMaterialProductConfigUsable(currentProductConfigDetail) ? 'success' : 'danger'" size="small">
+                  {{ isMaterialProductConfigUsable(currentProductConfigDetail) ? t('material.usable') : t('material.unusable') }}
+                </el-tag>
+              </el-descriptions-item>
+
+              <el-descriptions-item :label="t('material.boundPsdTemplate')">
+                <div v-if="isMaterialProductConfigUsable(currentProductConfigDetail)" class="flex items-center gap-1.5">
+                  <el-tag size="small" type="success" effect="plain">PSD</el-tag>
+                  <span class="font-medium text-xs text-[var(--el-text-color-regular)]">
+                    {{ currentProductConfigDetail.psdTemplate?.name || t('material.boundPsdTemplate') }}
+                  </span>
+                </div>
+                <span v-else class="text-[var(--el-color-danger)] font-medium text-xs">
+                  {{ t('material.notBound') }}
+                </span>
+              </el-descriptions-item>
+
+              <el-descriptions-item :label="t('material.mockups')">
+                <el-tag size="small" type="info" effect="plain">
+                  {{ currentProductConfigDetail.mockupTemplates?.length || 0 }}
+                </el-tag>
+              </el-descriptions-item>
+
+              <el-descriptions-item :label="t('material.configDescription')" :span="2">
+                <span class="text-xs text-[var(--el-text-color-regular)]">
+                  {{ currentProductConfigDetail.description || '-' }}
+                </span>
+              </el-descriptions-item>
+
+              <el-descriptions-item v-if="currentProductConfigDetail.createTime" :label="t('common.createTime')">
+                <span class="text-xs text-secondary">{{ formatTimestamp(currentProductConfigDetail.createTime) }}</span>
+              </el-descriptions-item>
+
+              <el-descriptions-item v-if="currentProductConfigDetail.updateTime" :label="t('common.updateTime')">
+                <span class="text-xs text-secondary">{{ formatTimestamp(currentProductConfigDetail.updateTime) }}</span>
+              </el-descriptions-item>
+            </el-descriptions>
+          </div>
+          <template #footer>
+            <el-button size="small" @click="productConfigDetailVisible = false">{{ t('common.close') }}</el-button>
           </template>
         </el-dialog>
 
@@ -2889,6 +3447,7 @@ import {
   Search,
   Loading,
   Check,
+  Close,
   More,
   InfoFilled,
   ArrowRight,
@@ -2907,6 +3466,7 @@ import {
   DArrowLeft,
   DArrowRight,
   Connection,
+  Operation,
 } from "@element-plus/icons-vue";
 import tree from "./tree.vue";
 import { materialStatusOptions } from ".";
@@ -2915,7 +3475,7 @@ import { formatDate } from "@/utils/formatTime";
 import { getTitleTemplateList } from "@/api/publish";
 import { downloadCrossOriginImage, downloadFileByElement, downloadImage } from "@/common/download";
 import { getConfigTemplateList } from "@/api/publish/config";
-import { getPublishConfigListApi } from "@/api/product/publishConfig";
+import { getPublishConfigPageApi, getPublishConfigApi } from "@/api/product/publishConfig";
 import { productGenerationTemplateApi } from "@/api/product-generation-template";
 import genPicture from "./genPicture.vue";
 import { getAccessToken } from "@/utils/auth";
@@ -3884,9 +4444,12 @@ const materialPublishConfigSubmitting = ref(false);
 const materialPublishConfigSearchText = ref("");
 const materialPublishConfigCurrentPage = ref(1);
 const materialPublishConfigPageSize = ref(10);
+const materialPublishConfigTotal = ref(0);
+const materialPublishConfigOnlyUsable = ref(false);
+const materialPublishConfigPlatformFilter = ref("");
 const materialPublishConfigOptions = ref<any[]>([]);
 const materialPublishConfigSelectedIds = ref<string[]>([]);
-const materialPublishConfigGridRef = ref<any>(null);
+const materialPublishConfigTableRef = ref<any>(null);
 const materialProductConfigDialogVisible = ref(false);
 const materialProductConfigLoading = ref(false);
 const materialProductConfigSubmitting = ref(false);
@@ -4006,37 +4569,12 @@ const materialPublishConfigMissingPreviewIds = computed(() =>
     .filter((material: any) => !getMaterialPreviewSource(material))
     .map((material: any) => String(material.id)),
 );
-const filteredMaterialPublishConfigs = computed(() => {
-  const keyword = materialPublishConfigSearchText.value.trim().toLowerCase();
-  return materialPublishConfigOptions.value
-    .filter((item: any) => item?.isActive !== false)
-    .filter((item: any) => {
-      if (!keyword) {
-        return true;
-      }
-
-      const taskTypeLabel = getTaskTypeLabel(
-        item?.taskType || derivePublishTaskTypeByPlatform(item?.platform),
-        item?.platform,
-      ).toLowerCase();
-      return (
-        String(item?.name || "")
-          .toLowerCase()
-          .includes(keyword) ||
-        String(item?.description || "")
-          .toLowerCase()
-          .includes(keyword) ||
-        String(item?.platform || "")
-          .toLowerCase()
-          .includes(keyword) ||
-        taskTypeLabel.includes(keyword)
-      );
-    });
+const materialPublishConfigDataSource = computed(() => materialPublishConfigOptions.value);
+const materialPublishConfigPlatformOptions = computed(() => {
+  return Array.from(new Set(materialPublishConfigOptions.value.map((item: any) => String(item?.platform || "").trim()).filter(Boolean)));
 });
-const materialPublishConfigDataSource = computed(() => {
-  const start = (materialPublishConfigCurrentPage.value - 1) * materialPublishConfigPageSize.value;
-  const end = start + materialPublishConfigPageSize.value;
-  return filteredMaterialPublishConfigs.value.slice(start, end);
+watch(materialPublishConfigDataSource, () => {
+  nextTick(syncPublishConfigTableSelection);
 });
 const materialPublishConfigTaskCount = computed(() =>
   isImageGroupPsdSet.value
@@ -4045,76 +4583,10 @@ const materialPublishConfigTaskCount = computed(() =>
 );
 const materialPublishConfigUsableCount = computed(
   () =>
-    filteredMaterialPublishConfigs.value.filter((item: any) => isMaterialPublishConfigUsable(item))
-      .length,
+    materialPublishConfigOptions.value.filter(
+      (item: any) => item?.isActive !== false && isMaterialPublishConfigUsable(item),
+    ).length,
 );
-const materialPublishConfigGridOptions = computed(() => ({
-  ...commonGridOptions,
-  loading: false,
-  rowConfig: { isHover: true, keyField: "id" },
-  rowClassName: ({ row }: any) =>
-    isMaterialPublishConfigUsable(row) ? "" : "material-publish-config-dialog__row--disabled",
-  columnConfig: { resizable: true },
-  checkboxConfig: {
-    checkRowKeys: materialPublishConfigSelectedIds.value,
-    highlight: true,
-    trigger: "row" as const,
-    checkMethod: ({ row }: any) => isMaterialPublishConfigUsable(row),
-  },
-  columns: [
-    {
-      type: "checkbox",
-      width: 50,
-      align: "center",
-      headerAlign: "center",
-    },
-    {
-      title: t('material.taskConfigName'),
-      field: "name",
-      minWidth: 200,
-      showOverflow: true,
-      slots: {
-        default: "nameSlot",
-      },
-    },
-    {
-      title: t('material.platform'),
-      field: "platform",
-      width: 120,
-      align: "center",
-      headerAlign: "center",
-      slots: {
-        default: "platformSlot",
-      },
-    },
-    {
-      title: t('material.boundPsdTemplate'),
-      field: "templateBinding",
-      minWidth: 220,
-      showOverflow: true,
-      slots: {
-        default: "templateBindingSlot",
-      },
-    },
-    {
-      title: t('material.taskType'),
-      field: "taskType",
-      width: 130,
-      align: "center",
-      headerAlign: "center",
-      slots: {
-        default: "taskTypeSlot",
-      },
-    },
-    {
-      title: t('material.configDescription'),
-      field: "description",
-      minWidth: 160,
-      showOverflow: true,
-      formatter: ({ cellValue }) => cellValue || "-",
-    },
-  ],
-}));
 const filteredMaterialProductConfigs = computed(() => {
   const keyword = materialProductConfigSearchText.value.trim().toLowerCase();
   return materialProductConfigOptions.value
@@ -4144,15 +4616,14 @@ const materialProductConfigUsableCount = computed(
 );
 const materialProductConfigGridOptions = computed(() => ({
   ...commonGridOptions,
+  autoResize: true,
   loading: false,
   rowConfig: { isHover: true, keyField: "id" },
   rowClassName: ({ row }: any) =>
     isMaterialProductConfigUsable(row) ? "" : "material-publish-config-dialog__row--disabled",
   columnConfig: { resizable: true },
   checkboxConfig: {
-    checkRowKeys: materialProductConfigSelectedIds.value,
     highlight: true,
-    trigger: "row" as const,
     checkMethod: ({ row }: any) => isMaterialProductConfigUsable(row),
   },
   columns: [
@@ -5571,7 +6042,7 @@ async function openMaterialPublishConfigDialog() {
     return;
   }
 
-  isImageGroupPsdSet.value = false;
+  psdSetImageGroups.value = [];
   clearMaterialPublishConfigSelection();
   materialPublishConfigDialogVisible.value = true;
   materialPublishConfigSearchText.value = "";
@@ -5598,7 +6069,6 @@ async function openImageGroupPublishConfigDialog(groups: ImageGroupItem[]) {
   cacheSelectedMaterialRows(
     psdSetImageGroups.value.flatMap((group) => group.stickers || []),
   );
-  isImageGroupPsdSet.value = true;
   clearMaterialPublishConfigSelection();
   materialPublishConfigDialogVisible.value = true;
   materialPublishConfigSearchText.value = "";
@@ -5612,7 +6082,7 @@ async function openMaterialProductConfigDialog() {
     return;
   }
 
-  isImageGroupPsdSet.value = false;
+  psdSetImageGroups.value = [];
   clearMaterialProductConfigSelection();
   materialProductConfigDialogVisible.value = true;
   materialProductConfigSearchText.value = "";
@@ -5639,7 +6109,6 @@ async function openImageGroupProductConfigDialog(groups: ImageGroupItem[]) {
   cacheSelectedMaterialRows(
     psdSetImageGroups.value.flatMap((group) => group.stickers || []),
   );
-  isImageGroupPsdSet.value = true;
   clearMaterialProductConfigSelection();
   materialProductConfigDialogVisible.value = true;
   materialProductConfigSearchText.value = "";
@@ -5676,16 +6145,34 @@ async function loadProductConfigsForMaterialDialog() {
   }
 }
 
+function clearMaterialPublishConfigSelection() {
+  materialPublishConfigSelectedIds.value = [];
+  materialPublishConfigTableRef.value?.clearSelection?.();
+}
+
+function handlePublishConfigPageChange(page: number) {
+  materialPublishConfigCurrentPage.value = page;
+  loadPublishConfigsForMaterialPublishDialog();
+}
+
+function handlePublishConfigSizeChange(size: number) {
+  materialPublishConfigPageSize.value = size;
+  materialPublishConfigCurrentPage.value = 1;
+  loadPublishConfigsForMaterialPublishDialog();
+}
+
+function handlePublishConfigFilterChange() {
+  materialPublishConfigCurrentPage.value = 1;
+  loadPublishConfigsForMaterialPublishDialog();
+}
+
 function handleCloseMaterialPublishConfigDialog() {
   materialPublishConfigDialogVisible.value = false;
   clearMaterialPublishConfigSelection();
   materialPublishConfigSearchText.value = "";
   materialPublishConfigCurrentPage.value = 1;
-}
-
-function clearMaterialPublishConfigSelection() {
-  materialPublishConfigSelectedIds.value = [];
-  materialPublishConfigGridRef.value?.clearCheckboxRow?.();
+  materialPublishConfigOnlyUsable.value = false;
+  materialPublishConfigPlatformFilter.value = "";
 }
 
 async function ensureSelectedMaterialPreviews() {
@@ -5706,74 +6193,296 @@ async function ensureSelectedMaterialPreviews() {
   );
 }
 
+function getPublishConfigConfigData(row: any) {
+  if (!row?.configData) return {};
+  if (typeof row.configData === "object") return row.configData;
+  if (typeof row.configData === "string") {
+    try {
+      return JSON.parse(row.configData);
+    } catch {
+      return {};
+    }
+  }
+  return {};
+}
+
+function getPublishConfigTemplateName(row: any) {
+  const templateBinding = getPublishConfigConfigData(row)?.templateBinding;
+  const templateName = String(
+    templateBinding?.psdTemplateName ||
+      templateBinding?.templateName ||
+      templateBinding?.psdTemplate?.name ||
+      "",
+  ).trim();
+  if (templateName) return templateName;
+
+  const templateId = String(templateBinding?.psdTemplateId || "").trim();
+  return templateId ? `#${templateId.slice(0, 12)}` : t("material.notBound");
+}
+
+function getPublishConfigPlatformBadgeStyle(platform?: string) {
+  const p = String(platform || "").toLowerCase();
+  if (p.includes("douyin") || p.includes("doudian")) {
+    return { background: "rgba(254, 44, 85, 0.12)", color: "#fe2c55", borderColor: "rgba(254, 44, 85, 0.3)" };
+  }
+  if (p.includes("temu")) {
+    return { background: "rgba(251, 119, 1, 0.12)", color: "#fb7701", borderColor: "rgba(251, 119, 1, 0.3)" };
+  }
+  if (p.includes("xhs") || p.includes("xiaohongshu")) {
+    return { background: "rgba(255, 36, 66, 0.12)", color: "#ff2442", borderColor: "rgba(255, 36, 66, 0.3)" };
+  }
+  if (p.includes("wechat") || p.includes("shipinhao")) {
+    return { background: "rgba(7, 193, 96, 0.12)", color: "#07c160", borderColor: "rgba(7, 193, 96, 0.3)" };
+  }
+  if (p.includes("taobao") || p.includes("tmall")) {
+    return { background: "rgba(255, 80, 0, 0.12)", color: "#ff5000", borderColor: "rgba(255, 80, 0, 0.3)" };
+  }
+  if (p.includes("kuaishou")) {
+    return { background: "rgba(255, 54, 0, 0.12)", color: "#ff3600", borderColor: "rgba(255, 54, 0, 0.3)" };
+  }
+  return { background: "var(--el-fill-color-light)", color: "var(--el-color-primary)", borderColor: "var(--el-color-primary-light-5)" };
+}
+
 function isMaterialPublishConfigUsable(row: any) {
-  return Boolean(String(row?.configData?.templateBinding?.psdTemplateId || "").trim());
+  if (row?.isActive === false) return false;
+  const configData = getPublishConfigConfigData(row);
+  return Boolean(String(configData?.templateBinding?.psdTemplateId || "").trim());
 }
 
 function isMaterialProductConfigUsable(row: any) {
   return row?.isActive !== false && Boolean(String(row?.psdTemplateId || "").trim());
 }
 
-function handleMaterialPublishConfigCheckboxChange({ checked, row }) {
-  if (!isMaterialPublishConfigUsable(row)) {
-    return;
-  }
-  if (checked) {
-    if (!materialPublishConfigSelectedIds.value.includes(row.id)) {
-      materialPublishConfigSelectedIds.value.push(row.id);
-    }
-  } else {
-    materialPublishConfigSelectedIds.value = materialPublishConfigSelectedIds.value.filter(
-      (id) => id !== row.id,
-    );
-  }
+function isMaterialPublishConfigSelectable(row: any) {
+  return isMaterialPublishConfigUsable(row);
 }
 
-function handleMaterialPublishConfigCheckboxAllChange({ checked }) {
-  const currentPageIds = materialPublishConfigDataSource.value
+function handlePublishConfigSelectionChange(rows: any[]) {
+  const visibleIds = new Set(
+    materialPublishConfigDataSource.value.map((item: any) => String(item.id)),
+  );
+  const selectedSet = new Set(materialPublishConfigSelectedIds.value.map(String));
+  visibleIds.forEach((id) => selectedSet.delete(id));
+  rows
+    .filter((row) => isMaterialPublishConfigUsable(row))
+    .forEach((row) => selectedSet.add(String(row.id)));
+  materialPublishConfigSelectedIds.value = Array.from(selectedSet);
+}
+
+function syncPublishConfigTableSelection() {
+  const table = materialPublishConfigTableRef.value;
+  if (!table) return;
+  materialPublishConfigDataSource.value.forEach((row) => {
+    table.toggleRowSelection?.(
+      row,
+      materialPublishConfigSelectedIds.value.includes(String(row.id)),
+    );
+  });
+}
+
+const isAllCurrentPagePublishConfigsSelected = computed(() => {
+  const currentUsableIds = materialPublishConfigDataSource.value
     .filter((item: any) => isMaterialPublishConfigUsable(item))
-    .map((item: any) => item.id);
-  if (checked) {
-    currentPageIds.forEach((id: string) => {
-      if (!materialPublishConfigSelectedIds.value.includes(id)) {
-        materialPublishConfigSelectedIds.value.push(id);
-      }
-    });
+    .map((item: any) => String(item.id));
+  if (!currentUsableIds.length) return false;
+  return currentUsableIds.every((id) => materialPublishConfigSelectedIds.value.includes(id));
+});
+
+const isSomeCurrentPagePublishConfigsSelected = computed(() => {
+  const currentUsableIds = materialPublishConfigDataSource.value
+    .filter((item: any) => isMaterialPublishConfigUsable(item))
+    .map((item: any) => String(item.id));
+  if (!currentUsableIds.length) return false;
+  const count = currentUsableIds.filter((id) => materialPublishConfigSelectedIds.value.includes(id)).length;
+  return count > 0 && count < currentUsableIds.length;
+});
+
+function handleToggleCurrentPagePublishConfigs() {
+  const currentUsableIds = materialPublishConfigDataSource.value
+    .filter((item: any) => isMaterialPublishConfigUsable(item))
+    .map((item: any) => String(item.id));
+  if (!currentUsableIds.length) return;
+  const selectedSet = new Set(materialPublishConfigSelectedIds.value.map(String));
+  if (isAllCurrentPagePublishConfigsSelected.value) {
+    currentUsableIds.forEach((id) => selectedSet.delete(id));
   } else {
-    materialPublishConfigSelectedIds.value = materialPublishConfigSelectedIds.value.filter(
-      (id) => !currentPageIds.includes(id),
-    );
+    currentUsableIds.forEach((id) => selectedSet.add(id));
   }
+  materialPublishConfigSelectedIds.value = Array.from(selectedSet);
+  nextTick(syncPublishConfigTableSelection);
 }
 
-function handleMaterialProductConfigCheckboxChange({ checked, row }) {
+function getPublishConfigRowClassName({ row }: { row: any }) {
+  const classes: string[] = [];
+  if (!isMaterialPublishConfigUsable(row)) {
+    classes.push("is-disabled-row");
+  }
+  if (materialPublishConfigSelectedIds.value.includes(String(row.id))) {
+    classes.push("is-selected-row");
+  }
+  return classes.join(" ");
+}
+
+function handleSelectAllUsablePublishConfigs() {
+  const usableIds = materialPublishConfigOptions.value
+    .filter((item: any) => isMaterialPublishConfigUsable(item))
+    .map((item: any) => String(item.id));
+  materialPublishConfigSelectedIds.value = usableIds;
+  nextTick(syncPublishConfigTableSelection);
+}
+
+function handleClearAllPublishConfigSelection() {
+  materialPublishConfigSelectedIds.value = [];
+  materialPublishConfigTableRef.value?.clearSelection?.();
+}
+
+function toggleProductConfigSelection(row: any) {
   if (!isMaterialProductConfigUsable(row)) return;
   const rowId = String(row.id);
-  if (checked) {
-    if (!materialProductConfigSelectedIds.value.includes(rowId)) {
-      materialProductConfigSelectedIds.value.push(rowId);
-    }
+  const selectedSet = new Set(materialProductConfigSelectedIds.value.map(String));
+  if (selectedSet.has(rowId)) {
+    selectedSet.delete(rowId);
   } else {
-    materialProductConfigSelectedIds.value = materialProductConfigSelectedIds.value.filter(
-      (id) => id !== rowId,
-    );
+    selectedSet.add(rowId);
+  }
+  materialProductConfigSelectedIds.value = Array.from(selectedSet);
+}
+
+const isAllCurrentPageProductConfigsSelected = computed(() => {
+  const currentUsableIds = materialProductConfigDataSource.value
+    .filter((item: any) => isMaterialProductConfigUsable(item))
+    .map((item: any) => String(item.id));
+  if (!currentUsableIds.length) return false;
+  return currentUsableIds.every((id) => materialProductConfigSelectedIds.value.includes(id));
+});
+
+const isSomeCurrentPageProductConfigsSelected = computed(() => {
+  const currentUsableIds = materialProductConfigDataSource.value
+    .filter((item: any) => isMaterialProductConfigUsable(item))
+    .map((item: any) => String(item.id));
+  if (!currentUsableIds.length) return false;
+  const count = currentUsableIds.filter((id) => materialProductConfigSelectedIds.value.includes(id)).length;
+  return count > 0 && count < currentUsableIds.length;
+});
+
+function handleToggleCurrentPageProductConfigs() {
+  const currentUsableIds = materialProductConfigDataSource.value
+    .filter((item: any) => isMaterialProductConfigUsable(item))
+    .map((item: any) => String(item.id));
+  if (!currentUsableIds.length) return;
+  const selectedSet = new Set(materialProductConfigSelectedIds.value.map(String));
+  if (isAllCurrentPageProductConfigsSelected.value) {
+    currentUsableIds.forEach((id) => selectedSet.delete(id));
+  } else {
+    currentUsableIds.forEach((id) => selectedSet.add(id));
+  }
+  materialProductConfigSelectedIds.value = Array.from(selectedSet);
+}
+
+function handleProductConfigRowClick(row: any) {
+  if (!isMaterialProductConfigUsable(row)) return;
+  toggleProductConfigSelection(row);
+}
+
+function getProductConfigRowClassName({ row }: { row: any }) {
+  const classes: string[] = [];
+  if (!isMaterialProductConfigUsable(row)) {
+    classes.push("is-disabled-row");
+  }
+  if (materialProductConfigSelectedIds.value.includes(String(row.id))) {
+    classes.push("is-selected-row");
+  }
+  return classes.join(" ");
+}
+
+function handleSelectAllUsableProductConfigs() {
+  const usableIds = filteredMaterialProductConfigs.value
+    .filter((item: any) => isMaterialProductConfigUsable(item))
+    .map((item: any) => String(item.id));
+  materialProductConfigSelectedIds.value = usableIds;
+}
+
+function handleClearAllProductConfigSelection() {
+  materialProductConfigSelectedIds.value = [];
+}
+
+function handleProductConfigPageChange(page: number) {
+  materialProductConfigCurrentPage.value = page;
+}
+
+function handleProductConfigSizeChange(size: number) {
+  materialProductConfigPageSize.value = size;
+  materialProductConfigCurrentPage.value = 1;
+}
+
+const publishConfigDetailVisible = ref(false);
+const publishConfigDetailLoading = ref(false);
+const currentPublishConfigDetail = ref<any>(null);
+
+const productConfigDetailVisible = ref(false);
+const currentProductConfigDetail = ref<any>(null);
+
+async function handleViewPublishConfigDetail(row: any) {
+  if (!row) return;
+  currentPublishConfigDetail.value = { ...row };
+  publishConfigDetailVisible.value = true;
+  if (row.id) {
+    try {
+      publishConfigDetailLoading.value = true;
+      const res: any = await getPublishConfigApi(String(row.id));
+      if (res) {
+        currentPublishConfigDetail.value = {
+          ...currentPublishConfigDetail.value,
+          ...(typeof res === "object" && "data" in res && res.data ? res.data : res),
+        };
+      }
+    } catch (e) {
+      console.warn("Failed to fetch detailed publish config:", e);
+    } finally {
+      publishConfigDetailLoading.value = false;
+    }
   }
 }
 
-function handleMaterialProductConfigCheckboxAllChange({ checked }) {
-  const currentPageIds = materialProductConfigDataSource.value
-    .filter((item: any) => isMaterialProductConfigUsable(item))
-    .map((item: any) => String(item.id));
-  if (checked) {
-    currentPageIds.forEach((id) => {
-      if (!materialProductConfigSelectedIds.value.includes(id)) {
-        materialProductConfigSelectedIds.value.push(id);
-      }
-    });
-  } else {
-    materialProductConfigSelectedIds.value = materialProductConfigSelectedIds.value.filter(
-      (id) => !currentPageIds.includes(id),
-    );
+function handleViewProductConfigDetail(row: any) {
+  if (!row) return;
+  currentProductConfigDetail.value = { ...row };
+  productConfigDetailVisible.value = true;
+}
+
+function hasVisibleConfigParameters(config: any): boolean {
+  const data = getDisplayableConfigData(config);
+  return Boolean(data && Object.keys(data).length > 0);
+}
+
+function getDisplayableConfigData(config: any): Record<string, any> {
+  const data = getPublishConfigConfigData(config);
+  if (!data || typeof data !== "object") return {};
+  const result: Record<string, any> = {};
+  for (const [k, v] of Object.entries(data)) {
+    if (v !== undefined && v !== null && v !== "" && !["secret", "token", "password"].some((s) => k.toLowerCase().includes(s))) {
+      result[k] = v;
+    }
+  }
+  return result;
+}
+
+function formatTimestamp(val: any) {
+  if (!val) return "-";
+  try {
+    return formatDate(val);
+  } catch {
+    return String(val);
+  }
+}
+
+async function handleCopyPsdId(id: string | number) {
+  if (!id) return;
+  try {
+    await navigator.clipboard.writeText(String(id));
+    ElMessage.success(t("material.copySuccess"));
+  } catch {
+    ElMessage.error(t("common.copyFailed") || "复制失败");
   }
 }
 
@@ -6037,8 +6746,19 @@ async function loadProductTemplatesForPsdAutomation() {
 }
 
 async function fetchPublishConfigOptions() {
-  const res = await getPublishConfigListApi();
-  return Array.isArray(res) ? res : Array.isArray((res as any)?.list) ? (res as any).list : [];
+  const res = await getPublishConfigPageApi({ pageNo: 1, pageSize: 100 });
+  let list: any[] = [];
+  if (Array.isArray(res)) {
+    list = res;
+  } else if (Array.isArray((res as any)?.list)) {
+    list = (res as any).list;
+  } else if (Array.isArray((res as any)?.data?.list)) {
+    list = (res as any).data.list;
+  }
+  return list.map((item: any) => ({
+    ...item,
+    id: String(item?.id ?? ""),
+  }));
 }
 
 async function loadPublishConfigsForPsdAutomation() {
@@ -6064,7 +6784,21 @@ async function loadPublishConfigsForPsdAutomation() {
 async function loadPublishConfigsForMaterialPublishDialog() {
   materialPublishConfigLoading.value = true;
   try {
-    materialPublishConfigOptions.value = await fetchPublishConfigOptions();
+    const res: any = await getPublishConfigPageApi({
+      pageNo: materialPublishConfigCurrentPage.value,
+      pageSize: materialPublishConfigPageSize.value,
+      searchKeyword: materialPublishConfigSearchText.value.trim() || undefined,
+      platform: materialPublishConfigPlatformFilter.value || undefined,
+      isActive: true,
+      onlyUsable: materialPublishConfigOnlyUsable.value || undefined,
+    });
+    const payload = res?.data && !Array.isArray(res.data) ? res.data : res;
+    materialPublishConfigOptions.value = (Array.isArray(payload?.list) ? payload.list : []).map((item: any) => ({
+      ...item,
+      id: String(item?.id ?? ""),
+    }));
+    materialPublishConfigTotal.value = Number(payload?.total ?? materialPublishConfigOptions.value.length);
+    nextTick(syncPublishConfigTableSelection);
   } catch (error) {
     console.error("加载发布配置失败:", error);
     ElMessage.error(t("material.publishConfigLoadFailed"));
@@ -8183,7 +8917,8 @@ async function handleUrlUpload() {
   width: 100%;
   height: 100vh;
   height: 100dvh;
-  min-height: 760px;
+  max-height: 100vh;
+  max-height: 100dvh;
   flex-direction: column;
   margin: 0;
   overflow: hidden;
@@ -8199,12 +8934,12 @@ async function handleUrlUpload() {
 :global(.psd-set-dialog.el-dialog .el-dialog__body) {
   flex: 1 1 0;
   display: grid;
-  grid-template-rows: minmax(var(--psd-set-workbench-min-height), 1fr) auto;
+  grid-template-rows: minmax(0, 1fr) auto;
   gap: 10px;
   height: 0;
   min-height: 0;
   padding: 0 16px 16px;
-  overflow: auto;
+  overflow: hidden;
   background: var(--el-bg-color-page);
 }
 
@@ -9154,27 +9889,32 @@ h1 {
 .material-publish-config-dialog {
   :deep(.el-dialog) {
     display: flex;
-    width: 1100px;
-    height: 100vh;
-    margin: 0;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100vh !important;
+    margin: 0 !important;
     background: var(--el-dialog-bg-color, var(--el-bg-color));
     flex-direction: column;
+    border-radius: 0;
   }
 
   :deep(.el-dialog__header) {
-    padding: 14px 16px 0;
+    padding: 12px 20px;
     margin-right: 0;
+    border-bottom: 1px solid var(--el-border-color-lighter);
+    background: var(--el-bg-color);
   }
 
   :deep(.el-dialog__body) {
-    padding: 0 16px 14px;
+    padding: 14px 20px;
     overflow: hidden;
     background: var(--el-bg-color-page);
     flex: 1;
+    min-height: 0;
   }
 
   :deep(.el-dialog__footer) {
-    padding: 10px 16px 14px;
+    padding: 10px 20px 12px;
     background: var(--el-dialog-bg-color, var(--el-bg-color));
     border-top: 1px solid var(--el-border-color-lighter);
     flex-shrink: 0;
@@ -9210,38 +9950,53 @@ h1 {
   border: 1px solid var(--el-border-color-lighter);
   border-radius: 999px;
   align-items: center;
+  transition: all 0.2s ease;
+}
+
+.material-publish-config-dialog__header-chip--active {
+  background: var(--el-color-primary-light-9) !important;
+  color: var(--el-color-primary) !important;
+  border-color: var(--el-color-primary-light-5) !important;
+  font-weight: 600;
 }
 
 .material-publish-config-dialog__header-title {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--el-text-color-primary);
 }
 
 .material-publish-config-dialog__body {
   display: grid;
-  grid-template-columns: 520px minmax(0, 1fr);
-  gap: 12px;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 16px;
   height: 100%;
-  min-height: calc(100vh - 144px);
   box-sizing: border-box;
 }
 
 .material-publish-config-dialog__panel {
   display: flex;
   min-height: 0;
+  height: 100%;
   padding: 14px;
-  overflow: auto;
-  background: linear-gradient(180deg, var(--el-bg-color), var(--el-fill-color-extra-light));
-  border: 1px solid color-mix(in srgb, var(--el-color-primary) 8%, transparent);
-  border-radius: 16px;
-  box-shadow: 0 10px 28px rgb(15 23 42 / 4%);
+  background: var(--el-bg-color);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 12px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.04);
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
+  box-sizing: border-box;
+}
+
+.material-publish-config-dialog__panel--materials {
+  width: 320px;
+  max-width: 320px;
+  overflow: hidden;
 }
 
 .material-publish-config-dialog__panel--configs {
-  align-self: start;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .material-publish-config-dialog__section-head {
@@ -9250,14 +10005,20 @@ h1 {
   justify-content: space-between;
   gap: 8px;
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
 .material-publish-config-dialog__section-head--configs {
-  align-items: flex-end;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.material-publish-config-dialog__section-title-wrap {
+  min-width: 0;
 }
 
 .material-publish-config-dialog__section-title {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--el-text-color-primary);
 }
@@ -9265,7 +10026,7 @@ h1 {
 .material-publish-config-dialog__section-eyebrow {
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   color: var(--el-color-primary);
   text-transform: uppercase;
 }
@@ -9277,16 +10038,45 @@ h1 {
   color: var(--el-text-color-secondary);
 }
 
-.material-publish-config-dialog__tag-list,
-.material-publish-config-dialog__section-tools {
+.material-publish-config-dialog__tag-list {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
 }
 
+.material-publish-config-dialog__section-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.material-publish-config-dialog__chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.material-publish-config-dialog__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.material-publish-config-dialog__search {
+  width: 200px;
+}
+
+.material-publish-config-dialog__search :deep(.el-input) {
+  width: 100%;
+}
+
 .material-publish-config-dialog__warning {
   margin: 0;
+  flex-shrink: 0;
 }
 
 .material-publish-config-dialog__warning :deep(.el-alert__title) {
@@ -9294,52 +10084,72 @@ h1 {
 }
 
 .material-publish-config-dialog__material-list {
-  display: flex;
-  max-height: 100vh;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  overflow-y: auto;
+  flex: 1;
   min-height: 0;
   padding-right: 2px;
-  overflow: hidden auto;
-  flex-wrap: wrap;
-  gap: 12px;
-  flex: 1 1 auto;
   align-content: start;
 }
 
 .material-publish-config-dialog__material-item {
   position: relative;
   display: flex;
-  width: 140px;
+  width: 100%;
   padding: 0;
   overflow: hidden;
-  background: var(--el-bg-color);
+  background: var(--el-fill-color-blank);
   border: 1px solid var(--el-border-color-lighter);
-  border-radius: 12px;
-  transition:
-    transform 0.16s ease,
-    box-shadow 0.16s ease,
-    border-color 0.16s ease;
+  border-radius: 8px;
+  transition: all 0.16s ease;
   flex-direction: column;
-  flex-shrink: 0;
+  box-sizing: border-box;
 }
 
 .material-publish-config-dialog__material-item:hover {
-  border-color: color-mix(in srgb, var(--el-color-primary) 16%, transparent);
+  border-color: var(--el-color-primary-light-3);
   transform: translateY(-1px);
-  box-shadow: 0 10px 20px rgb(15 23 42 / 6%);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .material-publish-config-dialog__material-item--invalid {
   border-color: var(--el-color-danger);
-  box-shadow: 0 0 0 1px rgb(245 108 108 / 12%);
+  box-shadow: 0 0 0 1px rgb(245 108 108 / 16%);
+}
+
+.material-publish-config-dialog__material-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 2;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 18px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.45);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s;
+}
+
+.material-publish-config-dialog__material-remove:hover {
+  background: var(--el-color-danger);
 }
 
 .material-publish-config-dialog__material-preview {
   display: flex;
   width: 100%;
-  height: 120px;
+  height: 96px;
   overflow: hidden;
   background: var(--el-fill-color-lighter);
-  border-radius: 0;
   align-items: center;
   justify-content: center;
 
@@ -9355,8 +10165,8 @@ h1 {
   display: flex;
   width: 100%;
   height: 100%;
-  padding: 0 8px;
-  font-size: 12px;
+  padding: 0 6px;
+  font-size: 11px;
   color: var(--el-text-color-placeholder);
   text-align: center;
   align-items: center;
@@ -9367,18 +10177,19 @@ h1 {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 4px;
   width: 100%;
-  padding: 8px 10px;
+  padding: 6px 8px;
   background: var(--el-fill-color-extra-light);
   border-top: 1px solid var(--el-border-color-lighter);
+  box-sizing: border-box;
 }
 
 .material-publish-config-dialog__material-name {
   min-width: 0;
   overflow: hidden;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 500;
   color: var(--el-text-color-primary);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -9386,22 +10197,20 @@ h1 {
 }
 
 .material-publish-config-dialog__material-suffix {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--el-text-color-secondary);
   text-transform: uppercase;
-}
-
-.material-publish-config-dialog__search {
-  width: min(280px, 100%);
-}
-
-.material-publish-config-dialog__search :deep(.el-input) {
-  width: 100%;
+  flex-shrink: 0;
 }
 
 .material-publish-config-dialog__table {
-  flex: none;
+  width: 100%;
+  flex: 1;
   min-height: 0;
+  overflow: hidden;
+  border-radius: 6px;
+  border: 1px solid var(--el-border-color-lighter);
+  background: var(--el-bg-color);
 }
 
 .material-publish-config-dialog__table :deep(.material-publish-config-dialog__row--disabled .vxe-body--column) {
@@ -9411,7 +10220,7 @@ h1 {
 .material-publish-config-dialog__table :deep(.material-publish-config-dialog__row--disabled .vxe-cell),
 .material-publish-config-dialog__table :deep(.material-publish-config-dialog__row--disabled .vxe-cell--wrapper),
 .material-publish-config-dialog__table :deep(.material-publish-config-dialog__row--disabled .vxe-cell--label) {
-  opacity: 0.58;
+  opacity: 0.65;
 }
 
 .material-publish-config-dialog__table :deep(.material-publish-config-dialog__row--disabled:hover .vxe-body--column) {
@@ -9419,22 +10228,51 @@ h1 {
 }
 
 .material-publish-config-dialog__table :deep(.material-publish-config-dialog__row--disabled .vxe-cell--checkbox.is--disabled) {
-  opacity: 0.5;
+  opacity: 0.45;
 }
 
-.material-publish-config-dialog__pagination,
-.material-publish-config-dialog__footer,
-.material-publish-config-dialog__footer-actions {
-  display: flex;
+.publish-config-name-cell {
+  padding: 2px 0;
+  line-height: 1.35;
+}
+
+.publish-config-name-text {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.publish-config-platform-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  line-height: 1.3;
+}
+
+.publish-config-template-cell {
+  padding: 2px 0;
+  line-height: 1.35;
+}
+
+.publish-config-vendor-cell {
+  padding: 2px 0;
+  line-height: 1.35;
 }
 
 .material-publish-config-dialog__pagination {
+  display: flex;
   justify-content: flex-end;
   padding-top: 6px;
   border-top: 1px solid var(--el-border-color-lighter);
+  flex-shrink: 0;
 }
 
 .material-publish-config-dialog__footer {
+  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
@@ -9443,21 +10281,29 @@ h1 {
 .material-publish-config-dialog__footer-info {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex-wrap: wrap;
   min-width: 0;
 }
 
 .material-publish-config-dialog__footer-chip {
   display: inline-flex;
-  min-height: 22px;
-  padding: 1px 7px;
+  min-height: 24px;
+  padding: 2px 10px;
   font-size: 12px;
   color: var(--el-text-color-regular);
   background: var(--el-fill-color-light);
   border: 1px solid var(--el-border-color-lighter);
   border-radius: 999px;
   align-items: center;
+  transition: all 0.2s ease;
+}
+
+.material-publish-config-dialog__footer-chip--active {
+  background: var(--el-color-primary-light-9) !important;
+  color: var(--el-color-primary) !important;
+  border-color: var(--el-color-primary-light-5) !important;
+  font-weight: 600;
 }
 
 .material-publish-config-dialog__footer-tip {
@@ -9470,6 +10316,8 @@ h1 {
 }
 
 .material-publish-config-dialog__footer-actions {
+  display: flex;
+  align-items: center;
   gap: 8px;
   flex-shrink: 0;
 }
@@ -10500,17 +11348,55 @@ h1 {
 
 .psd-set-template-toolbar {
   display: flex;
+  min-width: 0;
   padding-bottom: 10px;
   margin-bottom: 10px;
   border-bottom: 1px solid var(--el-border-color-lighter);
   flex-shrink: 0;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .psd-set-template-toolbar__search {
-  flex: 1;
-  max-width: 260px;
+  min-width: 180px;
+  flex: 1 1 220px;
+  max-width: 320px;
+}
+
+.config-panel-main {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  flex: 1 1 0;
+  flex-direction: column;
+}
+
+.config-table-pagination {
+  display: flex;
+  min-height: 32px;
+  padding-top: 10px;
+  border-top: 1px solid var(--el-border-color-lighter);
+  flex-shrink: 0;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.config-el-table :deep(.el-table__header-wrapper),
+.config-el-table :deep(.el-table__body-wrapper) {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.config-el-table :deep(.el-table__cell) {
+  min-width: 0;
+}
+
+.config-el-table :deep(.cell) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .psd-template-toolbar-button,
@@ -10697,6 +11583,251 @@ h1 {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
+}
+
+.config-card-item {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 14px;
+  background: var(--el-bg-color);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.config-card-item:hover:not(.is-disabled) {
+  border-color: var(--el-color-primary-light-3);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.07);
+  transform: translateY(-1px);
+}
+
+.config-card-item.is-checked {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--el-color-primary) 6%, var(--el-bg-color)), var(--el-bg-color));
+  border-color: var(--el-color-primary);
+  box-shadow: 0 0 0 1.5px var(--el-color-primary), 0 4px 12px color-mix(in srgb, var(--el-color-primary) 12%, transparent);
+}
+
+.config-card-item.is-disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: var(--el-fill-color-lighter);
+}
+
+.config-card-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.config-card-select {
+  padding-top: 2px;
+  flex-shrink: 0;
+}
+
+.config-card-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.config-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.config-card-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.config-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  line-height: 1.3;
+}
+
+.config-platform-badge {
+  border: 1px solid transparent;
+}
+
+.config-badge-dim {
+  background: var(--el-fill-color-light);
+  color: var(--el-text-color-secondary);
+}
+
+.config-badge-warning {
+  background: rgba(230, 162, 60, 0.12);
+  color: #e6a23c;
+  border: 1px solid rgba(230, 162, 60, 0.3);
+}
+
+.config-badge-id {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--el-text-color-secondary);
+  background: var(--el-fill-color);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.config-copy-btn {
+  padding: 0;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.config-copy-btn:hover {
+  color: var(--el-color-primary);
+}
+
+.config-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.config-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  line-height: 1.4;
+}
+
+.config-card-desc {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.config-details-box {
+  margin-top: 4px;
+  padding: 6px 10px;
+  background: var(--el-fill-color-light);
+  border-radius: 6px;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.config-detail-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.config-detail-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.config-detail-label {
+  color: var(--el-text-color-secondary);
+  flex-shrink: 0;
+}
+
+.config-detail-value {
+  color: var(--el-text-color-primary);
+  font-weight: 500;
+}
+
+.config-detail-value--code {
+  font-family: monospace;
+  font-size: 11px;
+  background: var(--el-fill-color-darker);
+  padding: 1px 4px;
+  border-radius: 3px;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.config-empty-alert {
+  padding: 24px 0;
+}
+
+.config-table-container {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.config-el-table :deep(.el-table__header-wrapper),
+.config-el-table :deep(.el-table__body-wrapper) {
+  overflow-x: auto;
+}
+
+.config-el-table :deep(.el-table__header),
+.config-el-table :deep(.el-table__body) {
+  min-width: 980px;
+}
+
+.config-el-table {
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.config-el-table .el-table__body tr {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.config-el-table tr.is-selected-row > td.el-table__cell {
+  background-color: var(--el-color-primary-light-9) !important;
+}
+
+.config-el-table tr.is-disabled-row > td.el-table__cell {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: var(--el-fill-color-lighter) !important;
+}
+
+.config-table-title-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.custom-platform-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  line-height: 1.4;
+  white-space: nowrap;
 }
 
 .psd-set-footer {
