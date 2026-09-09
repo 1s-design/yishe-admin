@@ -428,36 +428,28 @@
                       >
                       <template #dropdown>
                         <el-dropdown-menu class="operation-menu-compact">
+                          <el-dropdown-item command="copy-link">
+                            <span>复制地址</span>
+                          </el-dropdown-item>
                           <el-dropdown-item command="edit">
-                            <el-icon><Edit /></el-icon>
                             <span>{{ t('common.edit') }}</span>
                           </el-dropdown-item>
                           <el-dropdown-item command="download">
-                            <el-icon><Download /></el-icon>
                             <span>{{ t('fileResource.download') }}</span>
                           </el-dropdown-item>
                           <el-dropdown-item command="preview" v-if="isPreviewableFile(row.suffix)">
-                            <el-icon
-                              ><VideoPlay v-if="isVideoFile(row.suffix)" /><Headset
-                                v-else-if="isAudioFile(row.suffix)" /><Document
-                                v-else-if="isPdfFile(row.suffix) || isTextFile(row.suffix)" /><Picture v-else
-                            /></el-icon>
                             <span>{{ t('fileResource.preview') }}</span>
                           </el-dropdown-item>
                           <el-dropdown-item command="share-to-user">
-                            <el-icon><Share /></el-icon>
                             <span>{{ t('fileResource.share') }}</span>
                           </el-dropdown-item>
                           <el-dropdown-item command="copy-to-user">
-                            <el-icon><DocumentCopy /></el-icon>
                             <span>{{ t('fileResource.copy') }}</span>
                           </el-dropdown-item>
                           <el-dropdown-item v-if="isAdmin" command="move-to-user">
-                            <el-icon><TopRight /></el-icon>
                             <span>{{ t('fileResource.transfer') }}</span>
                           </el-dropdown-item>
                           <el-dropdown-item command="view-shared">
-                            <el-icon><Connection /></el-icon>
                             <span>{{ t('fileResource.viewShare') }}</span>
                           </el-dropdown-item>
                           <!-- toggle public/private removed -->
@@ -466,7 +458,6 @@
                             divided
                             class="operation-menu-item--danger"
                           >
-                            <el-icon><Delete /></el-icon>
                             <span>{{ t('common.delete') }}</span>
                           </el-dropdown-item>
                         </el-dropdown-menu>
@@ -723,6 +714,7 @@ import {
   TopRight,
 } from "@element-plus/icons-vue";
 import { downloadFileByElement } from "@/common/download";
+import { copyLink } from "@/utils/clipboard";
 import { useFolderRowDrag } from "@/hooks/useFolderRowDrag";
 import { FOLDER_FILTER, convertFolderIdToApiParam } from "@/constants/folder";
 
@@ -1476,6 +1468,13 @@ function getCategoryTagType(category: string) {
 // 处理dropdown操作命令
 function handleOperationCommand(command: string, row: any) {
   switch (command) {
+    case "copy-link":
+      if (!row?.url) {
+        ElMessage.warning("该文件暂无可复制的文件地址");
+        return;
+      }
+      copyLink(row.url);
+      break;
     case "edit":
       handleEdit(row);
       break;

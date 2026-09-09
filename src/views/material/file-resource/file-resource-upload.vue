@@ -5,15 +5,15 @@
         <div v-for="(file, index) in fileList" :key="file.uid" class="file-preview-item">
           <div class="preview-media">
             <video
-              v-if="file.url && isVideoFile(file.suffix)"
-              :src="file.url"
+              v-if="(file.previewUrl || file.url) && isVideoFile(file.suffix)"
+              :src="file.previewUrl || file.url"
               class="preview-video"
               controls
               preload="metadata"
             />
             <el-image
-              v-else-if="file.url && isImageFile(file.suffix)"
-              :src="file.url"
+              v-else-if="(file.previewUrl || file.url) && isImageFile(file.suffix)"
+              :src="file.previewUrl || file.url"
               class="preview-image"
               fit="cover"
             >
@@ -192,7 +192,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onBeforeUnmount, ref } from "vue";
 import type { PropType } from "vue";
 import { ElMessage, ElNotification } from "element-plus";
 import {
@@ -233,6 +233,7 @@ interface FileUploadItem {
   status: UploadStatus;
   file: File;
   url: string;
+  previewUrl?: string;
   relativePath?: string;
   id?: string | number;
 }
@@ -298,6 +299,12 @@ function buildFileUid(file: File, fallback?: string | number) {
   return fallback || `${relativePath || file.name}-${file.size}-${file.lastModified}`;
 }
 
+function revokeFilePreview(fileItem?: FileUploadItem) {
+  if (fileItem?.previewUrl && fileItem.previewUrl.startsWith("blob:")) {
+    URL.revokeObjectURL(fileItem.previewUrl);
+  }
+}
+
 function appendRawFile(actualFile: File, uid?: string | number) {
   if (!actualFile) return false;
 
@@ -309,6 +316,10 @@ function appendRawFile(actualFile: File, uid?: string | number) {
 
   const suffix = actualFile.name.split(".").pop()?.toLowerCase() || "unknown";
   const relativePath = String((actualFile as any).webkitRelativePath || "").trim();
+  const previewUrl =
+    isImageFile(suffix) || isVideoFile(suffix)
+      ? URL.createObjectURL(actualFile)
+      : "";
 
   fileList.value.push({
     uid: buildFileUid(actualFile, uid),
@@ -322,6 +333,7 @@ function appendRawFile(actualFile: File, uid?: string | number) {
     status: UploadStatus.Waiting,
     file: actualFile,
     url: "",
+    previewUrl,
     relativePath,
   });
 
@@ -359,7 +371,8 @@ function handleFolderChange(event: Event) {
 }
 
 function handleRemove(index: number) {
-  fileList.value.splice(index, 1);
+  const removed = fileList.value.splice(index, 1)[0];
+  revokeFilePreview(removed);
 }
 
 function handleRetry(index: number) {
@@ -371,8 +384,13 @@ function handleRetry(index: number) {
 }
 
 function handleClear() {
+  fileList.value.forEach((file) => revokeFilePreview(file));
   fileList.value = [];
 }
+
+onBeforeUnmount(() => {
+  fileList.value.forEach((file) => revokeFilePreview(file));
+});
 
 async function handleUpload() {
   if (totalCount.value === 0) {
