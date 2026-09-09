@@ -78,14 +78,6 @@
                 size="small"
                 placeholder="关键词（用英文逗号分隔）"
               />
-              <el-select v-model="file.category" size="small" placeholder="选择分类">
-                <el-option label="风景" value="风景" />
-                <el-option label="人物" value="人物" />
-                <el-option label="动物" value="动物" />
-                <el-option label="建筑" value="建筑" />
-                <el-option label="动画" value="动画" />
-                <el-option label="其他" value="其他" />
-              </el-select>
               <el-input v-model="file.tags" size="small" placeholder="标签（用英文逗号分隔）" />
             </div>
 
@@ -96,9 +88,6 @@
                 </el-tag>
                 <el-tag round size="small" type="info" effect="light">
                   {{ file.suffix.toUpperCase() }}
-                </el-tag>
-                <el-tag v-if="file.category" round size="small" type="primary" effect="light">
-                  {{ file.category }}
                 </el-tag>
               </div>
             </div>
@@ -114,7 +103,7 @@
         </div>
         <div class="empty-state-title">还没有待上传的文件</div>
         <div class="empty-state-desc">
-          点击右侧“选择文件”后，可在这里批量填写名称、描述、分类和关键词。
+          点击右侧“选择文件”后，可在这里批量填写名称、描述、关键词和标签。
         </div>
       </div>
     </div>
@@ -226,7 +215,7 @@ interface FileUploadItem {
   name: string;
   description: string;
   keywords: string;
-  category: string;
+  category?: string;
   tags: string;
   suffix: string;
   size: number;
@@ -326,7 +315,6 @@ function appendRawFile(actualFile: File, uid?: string | number) {
     name: actualFile.name.replace(/\.[^/.]+$/, ""),
     description: "",
     keywords: "",
-    category: "",
     tags: "",
     suffix,
     size: actualFile.size,
@@ -437,7 +425,6 @@ async function uploadSingleFile(fileItem: FileUploadItem) {
       description: fileItem.description,
       keywords: fileItem.keywords,
       suffix: fileItem.suffix,
-      category: fileItem.category,
       tags: fileItem.tags,
       url: cosResult.url,
       isPublic: true,

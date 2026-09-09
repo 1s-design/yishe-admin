@@ -56,25 +56,6 @@
                 </el-form-item>
               </el-col>
               <el-col class="list-page-search-form__col--narrow" :xs="24" :sm="12" :md="8" :lg="4">
-                <el-form-item :label="t('fileResource.category')">
-                  <el-select
-                    v-model="queryParams.category"
-                    size="small"
-                    :placeholder="t('fileResource.selectCategoryPlaceholder')"
-                    clearable
-                    @change="getList"
-                  >
-                    <el-option :label="t('fileResource.all')" value="" />
-                    <el-option :label="t('fileResource.categoryScenery')" value="风景" />
-                    <el-option :label="t('fileResource.categoryPeople')" value="人物" />
-                    <el-option :label="t('fileResource.categoryAnimal')" value="动物" />
-                    <el-option :label="t('fileResource.categoryBuilding')" value="建筑" />
-                    <el-option :label="t('fileResource.categoryAnimation')" value="动画" />
-                    <el-option :label="t('fileResource.categoryOther')" value="其他" />
-                  </el-select>
-                </el-form-item>
-              </el-col>
-              <el-col class="list-page-search-form__col--narrow" :xs="24" :sm="12" :md="8" :lg="3">
                 <el-form-item :label="t('fileResource.idExactQuery')">
                   <el-input
                     v-model="queryParams.id"
@@ -89,7 +70,7 @@
                   />
                 </el-form-item>
               </el-col>
-              <el-col class="list-page-search-form__col--wide" :xs="24" :sm="12" :md="8" :lg="5">
+              <el-col class="list-page-search-form__col--wide" :xs="24" :sm="12" :md="8" :lg="6">
                 <el-form-item :label="t('fileResource.timeRange')">
                   <DateRangePicker
                     @change="
@@ -189,17 +170,6 @@
               <el-select v-model="queryParams.sortingFields" :placeholder="t('fileResource.selectSortPlaceholder')">
                 <el-option :label="t('fileResource.createTimeDesc')" value="createTime DESC" />
                 <el-option :label="t('fileResource.createTimeAsc')" value="createTime ASC" />
-              </el-select>
-            </el-form-item>
-            <el-form-item :label="t('fileResource.category')">
-              <el-select v-model="queryParams.category" :placeholder="t('fileResource.selectCategoryPlaceholder')">
-                <el-option :label="t('fileResource.all')" value="" />
-                <el-option :label="t('fileResource.categoryScenery')" value="风景" />
-                <el-option :label="t('fileResource.categoryPeople')" value="人物" />
-                <el-option :label="t('fileResource.categoryAnimal')" value="动物" />
-                <el-option :label="t('fileResource.categoryBuilding')" value="建筑" />
-                <el-option :label="t('fileResource.categoryAnimation')" value="动画" />
-                <el-option :label="t('fileResource.categoryOther')" value="其他" />
               </el-select>
             </el-form-item>
             <el-form-item :label="t('fileResource.suffix')">
@@ -398,13 +368,6 @@
                   <el-tag v-else type="info" size="small" effect="plain">{{ t('fileResource.myUpload') }}</el-tag>
                 </template>
 
-                <template #categorySlot="{ row }">
-                  <el-tag v-if="row.category" :type="getCategoryTagType(row.category)" size="small">
-                    {{ row.category }}
-                  </el-tag>
-                  <span v-else>-</span>
-                </template>
-
                 <template #tagsSlot="{ row }">
                   <div v-if="row.tags" class="flex flex-wrap gap-1">
                     <el-tag v-for="tag in row.tags.split(',')" :key="tag" size="small" type="info">
@@ -525,16 +488,6 @@
             :placeholder="t('fileResource.keywordsPlaceholder')"
             class="w-full"
           />
-        </el-form-item>
-        <el-form-item :label="t('fileResource.category')">
-          <el-select v-model="editForm.category" :placeholder="t('fileResource.selectCategoryPlaceholder')" class="w-full">
-            <el-option :label="t('fileResource.categoryScenery')" value="风景" />
-            <el-option :label="t('fileResource.categoryPeople')" value="人物" />
-            <el-option :label="t('fileResource.categoryAnimal')" value="动物" />
-            <el-option :label="t('fileResource.categoryBuilding')" value="建筑" />
-            <el-option :label="t('fileResource.categoryAnimation')" value="动画" />
-            <el-option :label="t('fileResource.categoryOther')" value="其他" />
-          </el-select>
         </el-form-item>
         <el-form-item :label="t('fileResource.tags')">
           <el-input v-model="editForm.tags" :placeholder="t('fileResource.tagsPlaceholder')" class="w-full" />
@@ -743,7 +696,6 @@ const queryParams = reactive({
   endTime: "",
   suffix: "",
   id: "",
-  category: "",
   sortingFields: "createTime DESC",
   folderId: FOLDER_FILTER.ALL as string | null,
 });
@@ -806,7 +758,6 @@ const gridOptions = ref({
     { title: t("common.description"), field: "description", minWidth: 200 },
     { title: t("fileResource.keywords"), field: "keywords", minWidth: 160 },
     { title: t("fileResource.suffix"), field: "suffix", width: 80 },
-    { title: t("fileResource.category"), field: "category", width: 100, slots: { default: "categorySlot" } },
     { title: t("fileResource.tags"), field: "tags", minWidth: 150, slots: { default: "tagsSlot" } },
     {
       title: t("fileResource.uploader"),
@@ -1310,7 +1261,6 @@ const editForm = ref({
   name: "",
   description: "",
   keywords: "",
-  category: "",
   tags: "",
   folderId: null as string | null,
 });
@@ -1325,7 +1275,6 @@ function handleEdit(row) {
     name: row.name,
     description: row.description,
     keywords: row.keywords,
-    category: row.category || "",
     tags: row.tags || "",
     folderId: row.folderId ?? row.folder?.id ?? null,
   };
@@ -1448,19 +1397,6 @@ function getFileIcon(suffix: string) {
   } else {
     return Folder;
   }
-}
-
-// 分类标签颜色
-function getCategoryTagType(category: string) {
-  const typeMap = {
-    风景: "success",
-    人物: "primary",
-    动物: "warning",
-    建筑: "info",
-    动画: "danger",
-    其他: "",
-  };
-  return typeMap[category] || "";
 }
 
 // public/private toggle and batch functions removed
