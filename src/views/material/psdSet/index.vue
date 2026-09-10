@@ -689,7 +689,7 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="publishConfigDialogVisible" fullscreen :show-close="true" :destroy-on-close="false"
+    <el-dialog v-model="publishConfigDialogVisible" fullscreen :show-close="true" :destroy-on-close="true"
       class="generate-product-dialog publish-config-dialog" @close="handleClosePublishConfigDialog">
       <template #header>
         <div class="generate-product-dialog-header">
@@ -706,32 +706,21 @@
         <div class="generate-product-panel generate-product-panel--wide publish-config-panel-wrap">
           <div class="publish-config-toolbar">
             <div class="publish-config-toolbar__stats">
-              <div class="publish-config-stat-card">
-                <div class="publish-config-stat-card__label">{{ t('psdSet.targetPsdSets') }}</div>
-                <div class="publish-config-stat-card__value">
-                  {{ publishConfigTargetIds.length }}
-                </div>
-              </div>
-              <div class="publish-config-stat-card">
-                <div class="publish-config-stat-card__label">{{ t('psdSet.availableTaskConfigs') }}</div>
-                <div class="publish-config-stat-card__value">
-                  {{ filteredPublishConfigs.length }}
-                </div>
-              </div>
-              <div class="publish-config-stat-card">
-                <div class="publish-config-stat-card__label">{{ t('psdSet.selectedTaskConfigs') }}</div>
-                <div class="publish-config-stat-card__value">
-                  {{ publishConfigSelectedIds.length }}
-                </div>
-              </div>
+              <span class="publish-config-stat-item">
+                <span class="publish-config-stat-label">{{ t('psdSet.targetPsdSets') }}</span>
+                <span class="publish-config-stat-value">{{ publishConfigTargetIds.length }}</span>
+              </span>
+              <span class="publish-config-stat-divider">|</span>
+              <span class="publish-config-stat-item">
+                <span class="publish-config-stat-label">{{ t('psdSet.availableTaskConfigs') }}</span>
+                <span class="publish-config-stat-value">{{ filteredPublishConfigs.length }}</span>
+              </span>
+              <span class="publish-config-stat-divider">|</span>
+              <span class="publish-config-stat-item">
+                <span class="publish-config-stat-label">{{ t('psdSet.selectedTaskConfigs') }}</span>
+                <span class="publish-config-stat-value">{{ publishConfigSelectedIds.length }}</span>
+              </span>
             </div>
-            <el-alert
-              class="publish-config-template-alert"
-              :type="publishConfigTargetTemplateAlert.type"
-              :title="publishConfigTargetTemplateAlert.title"
-              show-icon
-              :closable="false"
-            />
             <div class="publish-config-toolbar__actions">
               <el-input v-model="publishConfigSearchText" :placeholder="t('psdSet.searchTaskConfigPlaceholder')" clearable
                 @input="publishConfigCurrentPage = 1" class="publish-config-search" />
@@ -742,7 +731,7 @@
           </div>
 
           <div class="common-table publish-config-grid-wrap">
-            <vxe-grid v-bind="publishConfigGridOptions" :data="publishConfigDataSource"
+            <vxe-grid :key="publishConfigDialogKey" v-bind="publishConfigGridOptions" :data="publishConfigDataSource"
               @checkbox-change="handlePublishConfigCheckboxChange"
               @checkbox-all="handlePublishConfigCheckboxAllChange">
               <template #publishConfigTemplateSlot="{ row }">
@@ -1249,6 +1238,7 @@ const generateProductTemplateColumns: any[] = [
   },
 ];
 const publishConfigDialogVisible = ref(false);
+const publishConfigDialogKey = ref(0);
 const publishConfigDialogLoading = ref(false);
 const publishConfigSubmitting = ref(false);
 const publishConfigOptions = ref<any[]>([]);
@@ -1469,7 +1459,8 @@ const publishConfigDataSource = computed(() => {
 
 const publishConfigGridOptions = computed(() => ({
   ...commonGridOptions,
-  height: 520,
+  autoResize: false,
+  maxHeight: Math.max(height.value - 220, 400),
   loading: false,
   rowConfig: { isHover: true, keyField: "id" },
   columnConfig: { resizable: true },
@@ -1507,7 +1498,8 @@ const publishConfigGridOptions = computed(() => ({
 
 const publishTasksGridOptions = computed(() => ({
   ...commonGridOptions,
-  maxHeight: Math.max(height.value - 260, 360),
+  autoResize: false,
+  maxHeight: 700,
   rowConfig: { isHover: true, keyField: "id" },
   columnConfig: { resizable: true },
   columns: [
@@ -3505,6 +3497,7 @@ async function openPublishConfigDialog(ids: string[]) {
   publishConfigSelectedIds.value = [];
   publishConfigSearchText.value = "";
   publishConfigCurrentPage.value = 1;
+  publishConfigDialogKey.value += 1;
   publishConfigDialogVisible.value = true;
   await ensurePublishConfigOptions();
 }
@@ -4487,14 +4480,25 @@ getList();
     font-size: 12px;
   }
 
+  .publish-task-list-dialog :deep(.el-dialog) {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+  }
+
   .publish-task-list-dialog :deep(.el-dialog__body) {
-    height: auto;
-    min-height: calc(100vh - 78px);
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
 
   .publish-task-list-body {
-    height: auto;
-    min-height: calc(100vh - 200px);
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .publish-config-search {
@@ -5434,13 +5438,31 @@ getList();
 }
 
 .generate-product-dialog-body {
-  min-height: calc(100vh - 140px);
-  padding: 8px 0 24px;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.publish-config-dialog :deep(.el-dialog) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.publish-config-dialog :deep(.el-dialog__body) {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+  padding: 12px 20px;
 }
 
 .publish-config-dialog-body {
   display: flex;
-  min-height: calc(100vh - 140px);
+  flex-direction: column;
+  height: 100%;
   overflow: hidden;
 }
 
@@ -5472,48 +5494,54 @@ getList();
 .publish-config-panel-wrap {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  min-height: 100%;
+  gap: 12px;
+  height: 100%;
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
 }
 
 .publish-config-toolbar {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
 .publish-config-toolbar__stats {
   display: flex;
-  gap: 12px;
+  align-items: center;
+  gap: 8px;
   flex-wrap: wrap;
+}
+
+.publish-config-stat-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.publish-config-stat-label {
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+
+.publish-config-stat-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.publish-config-stat-divider {
+  color: var(--el-border-color);
+  margin: 0 4px;
 }
 
 .publish-config-template-alert {
   flex: 1 1 360px;
   min-width: 280px;
-}
-
-.publish-config-stat-card {
-  min-width: 132px;
-  padding: 14px 16px;
-  background: var(--el-bg-color);
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 12px;
-}
-
-.publish-config-stat-card__label {
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
-}
-
-.publish-config-stat-card__value {
-  margin-top: 8px;
-  font-size: 22px;
-  font-weight: 600;
-  line-height: 1;
-  color: var(--el-text-color-primary);
 }
 
 .publish-config-toolbar__actions {
@@ -5531,12 +5559,21 @@ getList();
 .publish-config-grid-wrap {
   flex: 1;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.publish-config-grid-wrap :deep(.vxe-grid) {
+  height: 100% !important;
+  overflow: hidden;
 }
 
 .publish-config-pagination {
   display: flex;
   justify-content: flex-end;
   padding-top: 4px;
+  flex-shrink: 0;
 }
 
 .publish-config-tip {
@@ -5668,19 +5705,30 @@ getList();
   width: 100%;
 }
 
-.publish-task-list-body {
+.publish-task-list-dialog :deep(.el-dialog) {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  height: calc(100vh - 150px);
-  min-height: 0;
+  height: 100%;
   overflow: hidden;
 }
 
 .publish-task-list-dialog :deep(.el-dialog__body) {
-  height: calc(100vh - 78px);
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 20px;
+}
+
+.publish-task-list-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .publish-task-list-toolbar {
@@ -5700,6 +5748,13 @@ getList();
 .publish-task-list-grid {
   flex: 1;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.publish-task-list-grid :deep(.vxe-grid) {
+  height: 100% !important;
   overflow: hidden;
 }
 

@@ -265,9 +265,14 @@ const templateBindingDialogPageSize = ref(12);
 const templateBindingDialogTotal = ref(0);
 const templateBindingDialogRows = ref<any[]>([]);
 const templateBindingDialogTableHeight = computed(() => Math.max(420, height.value - 188));
-const titlePromptPickerValue = ref<string | number | null>(null);
-const titlePromptPickerLoading = ref(false);
-const titlePromptOptions = ref<any[]>([]);
+const titlePromptDialogVisible = ref(false);
+const titlePromptDialogLoading = ref(false);
+const titlePromptDialogSearchText = ref("");
+const titlePromptDialogPage = ref(1);
+const titlePromptDialogPageSize = ref(10);
+const titlePromptDialogTotal = ref(0);
+const titlePromptDialogRows = ref<any[]>([]);
+const titlePromptDialogTableHeight = computed(() => Math.max(360, Math.min(720, height.value - 300)));
 
 // 动态平台配置
 const currentPlatformConfig = ref<TaskTypeConfig | null>(null);
@@ -583,49 +588,71 @@ function ensureUrlListField(fieldKey: string) {
   }
 }
 
-async function loadTitlePromptOptions() {
-  if (titlePromptPickerLoading.value || titlePromptOptions.value.length > 0) {
-    return;
-  }
-
-  titlePromptPickerLoading.value = true;
+async function loadTitlePromptDialogPrompts() {
+  titlePromptDialogLoading.value = true;
   try {
-    const res = await getPromptList({
-      currentPage: 1,
-      pageSize: 1000,
+    const res: any = await getPromptList({
+      currentPage: titlePromptDialogPage.value,
+      pageSize: titlePromptDialogPageSize.value,
+      search: titlePromptDialogSearchText.value.trim() || undefined,
     });
-    titlePromptOptions.value = Array.isArray((res as any)?.list) ? (res as any).list : [];
+    const payload = res?.data && !Array.isArray(res.data) ? res.data : res;
+    const list = Array.isArray(payload) ? payload : Array.isArray(payload?.list) ? payload.list : [];
+    titlePromptDialogRows.value = list;
+    titlePromptDialogTotal.value = Number(payload?.total ?? list.length);
   } catch (error) {
     console.error("加载标题提示词失败:", error);
     ElMessage.error(t("publishConfig.loadTitlePromptFailed"));
   } finally {
-    titlePromptPickerLoading.value = false;
+    titlePromptDialogLoading.value = false;
   }
 }
 
-function handleTitlePromptDropdownVisible(visible: boolean) {
-  if (visible) {
-    loadTitlePromptOptions();
-  }
+function openTitlePromptDialog() {
+  titlePromptDialogPage.value = 1;
+  titlePromptDialogVisible.value = true;
+  void loadTitlePromptDialogPrompts();
 }
 
-function handleTitlePromptSelect(promptId: string | number | null) {
-  const selectedPrompt = titlePromptOptions.value.find(
-    (item: any) => String(item.id) === String(promptId || ""),
-  );
-  const content = String(selectedPrompt?.content || "").trim();
+function handleTitlePromptDialogSearch() {
+  titlePromptDialogPage.value = 1;
+  void loadTitlePromptDialogPrompts();
+}
 
+function resetTitlePromptDialogSearch() {
+  titlePromptDialogSearchText.value = "";
+  titlePromptDialogPage.value = 1;
+  void loadTitlePromptDialogPrompts();
+}
+
+function handleTitlePromptDialogPageChange(page: number) {
+  titlePromptDialogPage.value = page;
+  void loadTitlePromptDialogPrompts();
+}
+
+function handleTitlePromptDialogSizeChange(size: number) {
+  titlePromptDialogPageSize.value = size;
+  titlePromptDialogPage.value = 1;
+  void loadTitlePromptDialogPrompts();
+}
+
+function selectTitlePrompt(prompt: any) {
+  const content = String(prompt?.content || "").trim();
   if (!content) {
-    if (promptId) {
-      ElMessage.warning(t("publishConfig.promptEmpty"));
-    }
-    titlePromptPickerValue.value = null;
+    ElMessage.warning(t("publishConfig.promptEmpty"));
     return;
   }
-
   titleConfigForm.templateContent = content;
-  titlePromptPickerValue.value = null;
+  titlePromptDialogVisible.value = false;
   ElMessage.success(t("publishConfig.promptFilled"));
+}
+
+function resetTitlePromptDialogState() {
+  titlePromptDialogVisible.value = false;
+  titlePromptDialogSearchText.value = "";
+  titlePromptDialogPage.value = 1;
+  titlePromptDialogRows.value = [];
+  titlePromptDialogTotal.value = 0;
 }
 
 function getAppendImageMaxLimit(fieldKey: string) {
@@ -700,6 +727,7 @@ watch(
 watch(dialogVisible, (value) => {
   if (!value) {
     temuTemplateInspectorVisible.value = false;
+    titlePromptDialogVisible.value = false;
   }
 });
 
@@ -947,6 +975,7 @@ const handleAdd = () => {
   titleConfigForm.includeEmoji = null;
   titleConfigForm.requiredKeywords = [];
   titleConfigForm.avoidWords = [];
+  resetTitlePromptDialogState();
   platformConfigData.value = {};
   currentPlatformConfig.value = null;
   temuTemplateInspectorVisible.value = false;
@@ -1927,36 +1956,20 @@ onMounted(() => {
                       class="publish-config-ai-grid__editor publish-config-form-item--stacked"
                     >
                       <div class="publish-config-title-prompt-picker">
-                        <el-select
-                          v-model="titlePromptPickerValue"
-                          filterable
-                          clearable
-                          :loading="titlePromptPickerLoading"
-                          :placeholder="t('publishConfig.selectPromptPlaceholder')"
-                          @visible-change="handleTitlePromptDropdownVisible"
-                          @change="handleTitlePromptSelect"
+                        <el-button
+                          type="primary"
+                          plain
+                          :loading="titlePromptDialogLoading"
+                          @click="openTitlePromptDialog"
                         >
-                          <el-option
-                            v-for="prompt in titlePromptOptions"
-                            :key="prompt.id"
-                            :label="
-                              prompt.title || t('publishConfig.promptWithId', { id: prompt.id })
-                            "
-                            :value="prompt.id"
-                          >
-                            <div class="publish-config-title-prompt-option">
-                              <span class="publish-config-title-prompt-option__title">
-                                {{ prompt.title || t('publishConfig.promptWithId', { id: prompt.id }) }}
-                              </span>
-                              <span
-                                v-if="prompt.description"
-                                class="publish-config-title-prompt-option__desc"
-                              >
-                                {{ prompt.description }}
-                              </span>
-                            </div>
-                          </el-option>
-                        </el-select>
+                          {{ t('publishConfig.selectPromptPlaceholder') }}
+                        </el-button>
+                        <span
+                          v-if="titleConfigForm.templateContent"
+                          class="publish-config-title-prompt-picker__status"
+                        >
+                          {{ t('publishConfig.promptConfigured') }}
+                        </span>
                       </div>
                       <el-input
                         v-model="titleConfigForm.templateContent"
@@ -2043,6 +2056,91 @@ onMounted(() => {
               >{{ t('publishConfig.saveConfig') }}</el-button
             >
           </div>
+        </div>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="titlePromptDialogVisible"
+      :title="t('publishConfig.selectTitlePrompt')"
+      :fullscreen="true"
+      append-to-body
+      class="publish-config-title-prompt-dialog"
+    >
+      <div class="publish-config-title-prompt-dialog__toolbar">
+        <el-input
+          v-model="titlePromptDialogSearchText"
+          clearable
+          :placeholder="t('publishConfig.searchTitlePromptPlaceholder')"
+          @keyup.enter="handleTitlePromptDialogSearch"
+          @clear="resetTitlePromptDialogSearch"
+        />
+        <el-button
+          type="primary"
+          :loading="titlePromptDialogLoading"
+          @click="handleTitlePromptDialogSearch"
+        >
+          {{ t('common.search') }}
+        </el-button>
+        <el-button
+          :disabled="titlePromptDialogLoading"
+          @click="resetTitlePromptDialogSearch"
+        >
+          {{ t('common.reset') }}
+        </el-button>
+      </div>
+      <div class="publish-config-title-prompt-dialog__table common-table">
+        <vxe-table
+          border="inner"
+          size="mini"
+          :height="titlePromptDialogTableHeight"
+          :loading="titlePromptDialogLoading"
+          :data="titlePromptDialogRows"
+          :empty-text="t('publishConfig.noTitlePromptFound')"
+          row-id="id"
+          header-cell-class-name="common-table__header-cell"
+          cell-class-name="common-table__body-cell"
+        >
+          <vxe-column :title="t('publishConfig.titlePromptName')" field="title" min-width="260">
+            <template #default="{ row }">
+              <div class="publish-config-title-prompt-dialog__name">
+                {{ row.title || t('publishConfig.promptWithId', { id: row.id }) }}
+              </div>
+              <div v-if="row.description" class="publish-config-title-prompt-dialog__desc">
+                {{ row.description }}
+              </div>
+            </template>
+          </vxe-column>
+          <vxe-column :title="t('publishConfig.titlePromptPreview')" min-width="520">
+            <template #default="{ row }">
+              <div class="publish-config-title-prompt-dialog__content" :title="row.content">
+                {{ row.content || '-' }}
+              </div>
+            </template>
+          </vxe-column>
+          <vxe-column :title="t('common.operation')" width="120" fixed="right" align="center">
+            <template #default="{ row }">
+              <el-button size="small" type="primary" @click="selectTitlePrompt(row)">
+                {{ t('publishConfig.select') }}
+              </el-button>
+            </template>
+          </vxe-column>
+        </vxe-table>
+      </div>
+      <template #footer>
+        <div class="publish-config-title-prompt-dialog__footer">
+          <span>{{ t('publishConfig.totalTitlePrompts', { count: titlePromptDialogTotal }) }}</span>
+          <el-pagination
+            v-model:current-page="titlePromptDialogPage"
+            v-model:page-size="titlePromptDialogPageSize"
+            background
+            layout="sizes, prev, pager, next, jumper"
+            :page-sizes="[10, 20, 40]"
+            :total="titlePromptDialogTotal"
+            @current-change="handleTitlePromptDialogPageChange"
+            @size-change="handleTitlePromptDialogSizeChange"
+          />
+          <el-button @click="titlePromptDialogVisible = false">{{ t('common.close') }}</el-button>
         </div>
       </template>
     </el-dialog>
@@ -2757,38 +2855,108 @@ onMounted(() => {
 }
 
 .publish-config-title-prompt-picker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   width: min(100%, 420px);
   margin-bottom: 8px;
 }
 
-.publish-config-title-prompt-picker :deep(.el-select) {
-  width: 100%;
+.publish-config-title-prompt-picker__status {
+  color: var(--el-color-success);
+  font-size: 12px;
 }
 
-.publish-config-title-prompt-option {
+:deep(.publish-config-title-prompt-dialog) {
+  height: 100vh;
+  margin: 0;
   display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
+  flex-direction: column;
 }
 
-.publish-config-title-prompt-option__title {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  color: var(--el-text-color-primary);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+:deep(.publish-config-title-prompt-dialog .el-dialog__header) {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--el-border-color-lighter);
 }
 
-.publish-config-title-prompt-option__desc {
+:deep(.publish-config-title-prompt-dialog .el-dialog__body) {
   flex: 1;
-  min-width: 0;
+  min-height: 0;
+  padding: 16px 20px;
+  overflow: hidden;
+  background: var(--el-fill-color-light);
+}
+
+:deep(.publish-config-title-prompt-dialog .el-dialog__footer) {
+  flex-shrink: 0;
+  padding: 12px 20px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.publish-config-title-prompt-dialog__toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.publish-config-title-prompt-dialog__toolbar :deep(.el-input) {
+  flex: 1;
+}
+
+.publish-config-title-prompt-dialog__table {
+  height: calc(100% - 52px);
+  min-height: 360px;
+}
+
+.publish-config-title-prompt-dialog__name {
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.publish-config-title-prompt-dialog__desc {
+  margin-top: 4px;
   overflow: hidden;
   color: var(--el-text-color-secondary);
   font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.publish-config-title-prompt-dialog__content {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--el-text-color-primary);
+  text-overflow: ellipsis;
+  white-space: pre-wrap;
+  word-break: break-word;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.publish-config-title-prompt-dialog__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.publish-config-title-prompt-dialog__footer > span {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+@media (max-width: 700px) {
+  .publish-config-title-prompt-dialog__toolbar {
+    flex-wrap: wrap;
+  }
+
+  .publish-config-title-prompt-dialog__toolbar :deep(.el-input) {
+    flex-basis: 100%;
+  }
+
+  .publish-config-title-prompt-dialog__footer {
+    flex-wrap: wrap;
+  }
 }
 
 .publish-config-field-tip {

@@ -739,105 +739,29 @@
       width="1220px"
       :center="false"
       align-center
-      class="publish-dispatch-dialog"
+      class="start-publish-dialog"
       @open="handleOpenPublishDispatchDialog"
     >
-      <div class="publish-dispatch-dialog__body">
-        <div
-          v-loading="publishDispatchDialogLoading"
-          :element-loading-text="DISPATCH_DIALOG_LOADING_TEXT"
-          class="publish-dispatch-dialog__panel"
-        >
-          <div class="publish-dispatch-dialog__panel-title">{{ t('queue.browserAutomationNode') }}</div>
-          <div
+      <div
+        v-loading="publishDispatchDialogLoading"
+        :element-loading-text="DISPATCH_DIALOG_LOADING_TEXT"
+        class="start-publish-dialog__body"
+      >
+          <PublishDispatchTargetTable
             v-if="!publishDispatchDialogLoading && dispatchAvailableRows.length"
-            class="publish-dispatch-dialog__table"
-          >
-            <el-table
-              :data="dispatchAvailableRows"
-              border
-              size="small"
-              row-key="optionKey"
-              class="publish-dispatch-dialog__table-main"
-              :row-class-name="getDispatchOptionRowClassName"
-              @row-click="handleDispatchOptionRowClick"
-            >
-              <el-table-column :label="t('queue.select')" width="56" align="center">
-                <template #default="{ row }">
-                  <el-radio
-                    :value="row.optionKey"
-                    v-model="selectedDispatchOptionKey"
-                    :disabled="!row.selectable"
-                    @click.stop
-                  />
-                </template>
-              </el-table-column>
-              <el-table-column :label="t('queue.clientNode')" min-width="124" show-overflow-tooltip>
-                <template #default="{ row }">
-                  <div class="publish-dispatch-dialog__primary">{{ row.clientLabel }}</div>
-                </template>
-              </el-table-column>
-              <el-table-column :label="t('queue.online')" width="76" align="center">
-                <template #default="{ row }">
-                  <span
-                    class="publish-dispatch-dialog__state-text"
-                    :class="resolveDispatchStatusTextClass(row.onlineTag.type)"
-                  >
-                    {{ row.onlineTag.text }}
-                  </span>
-                </template>
-              </el-table-column>
-              <el-table-column :label="t('queue.service')" width="82" align="center">
-                <template #default="{ row }">
-                  <span
-                    class="publish-dispatch-dialog__state-text"
-                    :class="resolveDispatchStatusTextClass(row.serviceTag.type)"
-                  >
-                    {{ row.serviceTag.text }}
-                  </span>
-                </template>
-              </el-table-column>
-              <el-table-column :label="t('queue.mode')" width="76" align="center">
-                <template #default="{ row }">
-                  <span
-                    class="publish-dispatch-dialog__state-text"
-                    :class="resolveDispatchStatusTextClass(row.runtimeModeTag.type)"
-                  >
-                    {{ row.runtimeModeTag.text }}
-                  </span>
-                </template>
-              </el-table-column>
-              <el-table-column
-                prop="profileLabel"
-                :label="t('queue.supportedEnvironment')"
-                min-width="120"
-                show-overflow-tooltip
-              />
-              <el-table-column :label="t('queue.execute')" width="76" align="center">
-                <template #default="{ row }">
-                  <span
-                    class="publish-dispatch-dialog__state-text"
-                    :class="resolveDispatchStatusTextClass(row.profileTag.type)"
-                  >
-                    {{ row.profileTag.text }}
-                  </span>
-                </template>
-              </el-table-column>
-              <el-table-column
-                prop="description"
-                :label="t('queue.description')"
-                min-width="180"
-                show-overflow-tooltip
-              />
-            </el-table>
-          </div>
-          <div v-else class="publish-dispatch-dialog__empty">
-            {{ t('queue.noExecutableNode') }}
-          </div>
+            v-model="selectedDispatchOptionKey"
+            :rows="dispatchAvailableRows"
+          :empty-text="t('queue.noExecutableNode')"
+        />
+        <div
+          v-if="!publishDispatchDialogLoading && !dispatchAvailableRows.length"
+          class="start-publish-dialog__empty"
+        >
+          {{ t('queue.noExecutableNode') }}
         </div>
       </div>
       <template #footer>
-        <div class="publish-dispatch-dialog__footer">
+        <div class="start-publish-dialog__footer">
           <el-button
             :disabled="publishDispatchSubmitting"
             @click="publishDispatchDialogVisible = false"
@@ -920,94 +844,16 @@
           class="publish-dispatch-dialog__panel"
         >
           <div class="publish-dispatch-dialog__panel-title">{{ t('queue.targetClient') }}</div>
-          <div
+          <PublishDispatchTargetTable
             v-if="!autoDispatchTargetDialogLoading && autoDispatchClientRows.length"
-            class="publish-dispatch-dialog__table"
+            v-model="selectedAutoDispatchOptionKey"
+            :rows="autoDispatchClientRows"
+            :empty-text="t('queue.noBindableNode')"
+          />
+          <div
+            v-if="!autoDispatchTargetDialogLoading && !autoDispatchClientRows.length"
+            class="publish-dispatch-dialog__empty"
           >
-            <el-table
-              :data="autoDispatchClientRows"
-              border
-              size="small"
-              row-key="optionKey"
-              class="publish-dispatch-dialog__table-main"
-              :row-class-name="getDispatchOptionRowClassName"
-              @row-click="handleAutoDispatchClientRowClick"
-            >
-              <el-table-column :label="t('queue.select')" width="56" align="center">
-                <template #default="{ row }">
-                  <el-radio
-                    :value="row.optionKey"
-                    v-model="selectedAutoDispatchOptionKey"
-                    :disabled="!row.selectable"
-                    @click.stop
-                  />
-                </template>
-              </el-table-column>
-              <el-table-column :label="t('queue.clientNode')" min-width="124" show-overflow-tooltip>
-                <template #default="{ row }">
-                  <div class="publish-dispatch-dialog__primary">{{ row.clientLabel }}</div>
-                </template>
-              </el-table-column>
-              <el-table-column :label="t('queue.browserEnvironment')" min-width="180" show-overflow-tooltip>
-                <template #default="{ row }">
-                  <div class="publish-dispatch-dialog__primary">{{ row.profileLabel }}</div>
-                  <div
-                    class="publish-dispatch-dialog__secondary"
-                    :class="resolveDispatchStatusTextClass(row.profileTag.type)"
-                  >
-                    {{ row.profileTag.text }}
-                  </div>
-                </template>
-              </el-table-column>
-              <el-table-column :label="t('queue.online')" width="76" align="center">
-                <template #default="{ row }">
-                  <span
-                    class="publish-dispatch-dialog__state-text"
-                    :class="resolveDispatchStatusTextClass(row.onlineTag.type)"
-                  >
-                    {{ row.onlineTag.text }}
-                  </span>
-                </template>
-              </el-table-column>
-              <el-table-column :label="t('queue.service')" width="82" align="center">
-                <template #default="{ row }">
-                  <span
-                    class="publish-dispatch-dialog__state-text"
-                    :class="resolveDispatchStatusTextClass(row.serviceTag.type)"
-                  >
-                    {{ row.serviceTag.text }}
-                  </span>
-                </template>
-              </el-table-column>
-              <el-table-column :label="t('queue.mode')" width="76" align="center">
-                <template #default="{ row }">
-                  <span
-                    class="publish-dispatch-dialog__state-text"
-                    :class="resolveDispatchStatusTextClass(row.runtimeModeTag.type)"
-                  >
-                    {{ row.runtimeModeTag.text }}
-                  </span>
-                </template>
-              </el-table-column>
-              <el-table-column :label="t('queue.acceptOrder')" width="76" align="center">
-                <template #default="{ row }">
-                  <span
-                    class="publish-dispatch-dialog__state-text"
-                    :class="resolveDispatchStatusTextClass(row.acceptTag.type)"
-                  >
-                    {{ row.acceptTag.text }}
-                  </span>
-                </template>
-              </el-table-column>
-              <el-table-column
-                prop="description"
-                :label="t('queue.description')"
-                min-width="180"
-                show-overflow-tooltip
-              />
-            </el-table>
-          </div>
-          <div v-else class="publish-dispatch-dialog__empty">
             {{ t('queue.noBindableNode') }}
           </div>
         </div>
@@ -1089,6 +935,7 @@ import {
   type PublishTaskAutoDispatchSetting,
 } from "@/services/publishTaskAutoDispatch";
 import { getClientServiceRuntime } from "@/store/modules/clientNode";
+import PublishDispatchTargetTable from "./components/PublishDispatchTargetTable.vue";
 
 type QueueTagType = "success" | "warning" | "info" | "primary" | "danger";
 
@@ -1866,36 +1713,6 @@ function parseDispatchOptionKey(value: any) {
   };
 }
 
-function handleDispatchOptionRowClick(row?: ManualDispatchOptionRow | null) {
-  if (!row?.optionKey || !row.selectable) {
-    return;
-  }
-  selectedDispatchOptionKey.value = row.optionKey;
-}
-
-function handleAutoDispatchClientRowClick(row?: DispatchOptionRow | null) {
-  if (!row?.optionKey || !row.selectable) {
-    return;
-  }
-  selectedAutoDispatchOptionKey.value = row.optionKey;
-}
-
-function resolveDispatchStatusTextClass(type?: QueueTagType) {
-  if (type === "success") {
-    return "is-success";
-  }
-  if (type === "warning") {
-    return "is-warning";
-  }
-  if (type === "danger") {
-    return "is-danger";
-  }
-  if (type === "info" || type === "primary") {
-    return "is-info";
-  }
-  return "is-muted";
-}
-
 function getClientDispatchProfileInstances(client: any) {
   const runtime = getBrowserAutomationRuntime(client) as Record<string, any>;
   const instances = runtime?.details?.instances;
@@ -2100,10 +1917,6 @@ function getClientMachineCode(client: any) {
 
 function isBrowserAutomationClientBusy(client: any) {
   return isBrowserAutomationRuntimeBusyByRuntime(getBrowserAutomationRuntime(client));
-}
-
-function getDispatchOptionRowClassName({ row }: { row?: { selectable?: boolean } | null }) {
-  return row?.selectable ? "" : "is-disabled";
 }
 
 function getClientTaskTypeState(client: any, taskType?: string) {
@@ -4408,6 +4221,7 @@ onUnmounted(() => {
   min-height: 28px;
 }
 
+
 .publish-dispatch-dialog__body {
   display: flex;
   flex-direction: column;
@@ -5431,4 +5245,66 @@ onUnmounted(() => {
     opacity: 1;
   }
 }
+</style>
+
+<style lang="less">
+.start-publish-dialog {
+  border-radius: 8px;
+  overflow: hidden;
+
+  .el-dialog__header {
+    margin-right: 0;
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--el-border-color-lighter);
+  }
+
+  .el-dialog__title {
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .el-dialog__body {
+    padding: 12px 16px;
+  }
+
+  .el-dialog__footer {
+    padding: 12px 20px 16px;
+    border-top: 1px solid var(--el-border-color-lighter);
+  }
+
+  &__body {
+    min-height: 120px;
+    max-height: 480px;
+    overflow-y: auto;
+  }
+
+  &__empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 140px;
+    color: var(--el-text-color-secondary);
+    font-size: 13px;
+  }
+
+  &__footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+}
+
+// 暗色模式样式
+html.dark {
+  .start-publish-dialog {
+    .el-dialog__header {
+      border-bottom-color: rgba(255, 255, 255, 0.08);
+    }
+    .el-dialog__footer {
+      border-top-color: rgba(255, 255, 255, 0.08);
+    }
+  }
+
+}
+
 </style>
