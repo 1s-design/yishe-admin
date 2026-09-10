@@ -2986,7 +2986,7 @@ export default {
     templateInfo: '模板信息',
     titleMode: '标题模式',
     titleTemplate: '标题模板',
-    titleTemplatePlaceholder: '例如：{品牌} {品名} {卖点} {规格}',
+    titleTemplatePlaceholder: '例如：{brand} {name} {sellingPoint} {spec}',
     tone: '语调偏好',
     tonePlaceholder: '请选择或输入语调偏好',
     unavailable: '不可用',

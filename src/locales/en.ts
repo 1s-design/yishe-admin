@@ -2990,7 +2990,7 @@ export default {
     templateInfo: 'Template Info',
     titleMode: 'Title Mode',
     titleTemplate: 'Title Template',
-    titleTemplatePlaceholder: 'E.g. {Brand} {Name} {SellingPoint} {Spec}',
+    titleTemplatePlaceholder: 'E.g. {brand} {name} {sellingPoint} {spec}',
     tone: 'Tone Preference',
     tonePlaceholder: 'Select or enter tone preference',
     unavailable: 'Unavailable',
