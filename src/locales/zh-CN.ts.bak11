@@ -3412,7 +3412,7 @@ export default {
     generateProductTip: '生成商品提示',
     generateProductTitle: '生成商品标题',
     generatePublishTask: '生成发布任务',
-    generatePublishTaskTitle: '生成发布任务标题',
+    generatePublishTaskTitle: '生成发布任务',
     generatingInBackground: '正在后台生成',
     imageId: '图片ID',
     imageIdPlaceholder: '请输入图片ID',

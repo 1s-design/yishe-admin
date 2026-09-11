@@ -1,5 +1,5 @@
 import type { PlatformHandler } from './types'
-import { normalizePsdImageIndexes, validatePsdImageIndexes, normalizeVendorProductMappings } from './shared'
+import { normalizeHttpUrlList, normalizePsdImageIndexes, validatePsdImageIndexes, normalizeVendorProductMappings } from './shared'
 
 export const kuaishouShopHandler: PlatformHandler = {
   platform: 'kuaishou_shop',
@@ -17,6 +17,26 @@ export const kuaishouShopHandler: PlatformHandler = {
     }
     if (!validatePsdImageIndexes(configData?.psdImageIndexes)) {
       errors.push('套图图片序号格式不正确，请填写 1、1,3 或 2-5')
+    }
+
+    const rawAppendValue = configData?.appendImageUrls
+    if (typeof rawAppendValue === 'string' && rawAppendValue.trim()) {
+      const lines = rawAppendValue
+        .split(/\r?\n/)
+        .map((item) => item.trim())
+        .filter(Boolean)
+      const invalidLines = lines.filter((item) => !/^https?:\/\//i.test(item))
+      if (invalidLines.length > 0) {
+        errors.push('附加图片只支持 http/https URL，且每行一条')
+      }
+    } else if (Array.isArray(rawAppendValue)) {
+      const invalidItems = rawAppendValue
+        .map((item) => String(item || '').trim())
+        .filter(Boolean)
+        .filter((item) => !/^https?:\/\//i.test(item))
+      if (invalidItems.length > 0) {
+        errors.push('附加图片只支持 http/https URL')
+      }
     }
 
     return {
@@ -37,6 +57,7 @@ export const kuaishouShopHandler: PlatformHandler = {
       formatted.vendorId = undefined
     }
     formatted.psdImageIndexes = normalizePsdImageIndexes(formatted.psdImageIndexes) || undefined
+    formatted.appendImageUrls = normalizeHttpUrlList(formatted.appendImageUrls)
     formatted.vendorCode = String(formatted.vendorCode || '').trim() || undefined
     formatted.vendorName = String(formatted.vendorName || '').trim() || undefined
     formatted.vendorProductMappings = normalizeVendorProductMappings(formatted.vendorProductMappings)
@@ -53,6 +74,7 @@ export const kuaishouShopHandler: PlatformHandler = {
       formatted.vendorId = Number(formatted.vendorId)
     }
     formatted.psdImageIndexes = normalizePsdImageIndexes(formatted.psdImageIndexes)
+    formatted.appendImageUrls = normalizeHttpUrlList(formatted.appendImageUrls)
     return formatted
   },
 
@@ -61,6 +83,7 @@ export const kuaishouShopHandler: PlatformHandler = {
       '支持配置快手小店模板 sameId，发布端会优先进入 add?sameId=... 页面',
       '支持绑定厂家，生成 productCode 时会按“素材码-厂家码”拼接',
       '支持按序号选择套图图片，例如 1、1,3 或 2-5；留空默认使用全部套图图片',
+      '支持附加图片，会在生成发布任务时追加到商品图片后面',
       '当前先支持标题、描述、图片和少量可选参数透传'
     ]
   }

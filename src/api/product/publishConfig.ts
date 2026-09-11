@@ -24,6 +24,8 @@ export type PublishConfigPageParams = {
   platform?: string;
   isActive?: boolean;
   onlyUsable?: boolean;
+  sortField?: "createTime" | "updateTime";
+  sortOrder?: "ASC" | "DESC";
 };
 
 export const getPublishConfigPageApi = (params: PublishConfigPageParams = {}) => {

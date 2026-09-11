@@ -51,6 +51,7 @@ const queryParams = reactive({
   keyword: "",
   taskType: "",
   isActive: "" as "" | boolean,
+  sortType: "" as "" | "createTime_DESC" | "createTime_ASC" | "updateTime_DESC" | "updateTime_ASC",
 });
 
 const { height } = useWindowSize();
@@ -65,6 +66,12 @@ const gridOptions = computed(() => ({
   maxHeight: gridMaxHeight.value,
   rowConfig: { keyField: "id" },
   rowClassName: ({ row }: any) => (row?.isActive === false ? "publish-config-row--disabled" : ""),
+  sortConfig: {
+    trigger: "cell" as const,
+    orders: ["ascending" as const, "descending" as const, null],
+    showIcon: true,
+    remote: true,
+  },
   columns: [
     { type: "checkbox", width: 48, fixed: "left" as const },
     { field: "name", title: t("publishConfig.configName"), minWidth: 170, slots: { default: "nameSlot" } },
@@ -74,7 +81,7 @@ const gridOptions = computed(() => ({
       minWidth: 160,
       slots: { default: "taskTypeSlot" },
     },
-    { field: "vendor", title: "关联厂家/商品", minWidth: 160, slots: { default: "vendorSlot" } },
+    { field: "vendor", title: "关联厂家/商品", minWidth: 220, slots: { default: "vendorSlot" } },
     { field: "templateBinding", title: "关联主图模板", minWidth: 150, slots: { default: "templateSlot" } },
     { field: "description", title: t("common.description"), minWidth: 160, showOverflow: "tooltip" },
     {
@@ -93,7 +100,15 @@ const gridOptions = computed(() => ({
       field: "createTime",
       title: t("common.createTime"),
       width: 150,
+      sortable: true,
       slots: { default: "createTimeSlot" },
+    },
+    {
+      field: "updateTime",
+      title: t("common.updateTime"),
+      width: 150,
+      sortable: true,
+      slots: { default: "updateTimeSlot" },
     },
     buildOperationColumn("action"),
   ],
@@ -144,15 +159,46 @@ const normalizePublishConfigListResponse = (res: any) => {
   return [];
 };
 
+const sortType = ref<"" | "createTime_DESC" | "createTime_ASC" | "updateTime_DESC" | "updateTime_ASC">("");
+
+watchEffect(() => {
+  sortType.value = queryParams.sortType || "";
+});
+
+const handleSortTypeChange = (val: "" | "createTime_DESC" | "createTime_ASC" | "updateTime_DESC" | "updateTime_ASC") => {
+  queryParams.sortType = val || "";
+  queryParams.page = 1;
+  getList();
+};
+
+const handleSortChange = (sortInfo: any) => {
+  const field = sortInfo?.field;
+  const order = sortInfo?.order;
+  if (field === "createTime" || field === "updateTime") {
+    const suffix = order === "ascending" ? "ASC" : "DESC";
+    queryParams.sortType = `${field}_${suffix}`;
+  } else {
+    queryParams.sortType = "";
+  }
+  sortType.value = queryParams.sortType;
+  queryParams.page = 1;
+  getList();
+};
+
 const getList = async () => {
   loading.value = true;
   try {
+    const [sortField, sortOrder] = queryParams.sortType
+      ? (queryParams.sortType.split("_") as [string, "ASC" | "DESC"])
+      : [undefined, undefined];
     const res: any = await getPublishConfigPageApi({
       pageNo: queryParams.page,
       pageSize: queryParams.pageSize,
       searchKeyword: queryParams.keyword.trim() || undefined,
       taskType: queryParams.taskType || undefined,
       isActive: queryParams.isActive === "" ? undefined : queryParams.isActive,
+      sortField: sortField as "createTime" | "updateTime" | undefined,
+      sortOrder,
     });
     const payload = res?.data && !Array.isArray(res.data) ? res.data : res;
     tableData.value = Array.isArray(payload?.list)
@@ -198,6 +244,7 @@ const resetQuery = () => {
   queryParams.keyword = "";
   queryParams.taskType = "";
   queryParams.isActive = "";
+  queryParams.sortType = "";
   handleSearch();
 };
 
@@ -695,6 +742,11 @@ function getUrlListItemError(fieldKey: string, index: number) {
     (item) => item.index === index,
   );
   return invalidItem ? t("publishConfig.onlyHttpUrl") : "";
+}
+
+function onImagePreviewError(event: Event, fieldKey: string, index: number) {
+  const img = event.target as HTMLImageElement;
+  img.style.display = "none";
 }
 
 function isTemuProductTemplateField(field: { key?: string; type?: string }) {
@@ -1288,6 +1340,21 @@ onMounted(() => {
                   </el-select>
                 </el-form-item>
               </el-col>
+              <el-col class="list-page-search-form__col--wide" :xs="24" :sm="12" :md="8" :lg="7" :xl="8">
+                <el-form-item :label="t('publishConfig.sortType')">
+                  <el-select
+                    v-model="sortType"
+                    size="small"
+                    :placeholder="t('publishConfig.selectSort')"
+                    @change="handleSortTypeChange"
+                  >
+                    <el-option :label="t('publishConfig.createTimeDesc')" value="createTime_DESC" />
+                    <el-option :label="t('publishConfig.createTimeAsc')" value="createTime_ASC" />
+                    <el-option :label="t('publishConfig.updateTimeDesc')" value="updateTime_DESC" />
+                    <el-option :label="t('publishConfig.updateTimeAsc')" value="updateTime_ASC" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
             </el-row>
             <div class="list-page-search-form__actions">
               <el-button size="small" type="primary" :loading="loading" @click="handleSearch"
@@ -1329,6 +1396,7 @@ onMounted(() => {
                 :loading="loading"
                 @checkbox-change="handleSelectionChange"
                 @checkbox-all="handleSelectionChange"
+                @sort-change="handleSortChange"
               >
                 <!-- 配置名称 -->
                 <template #nameSlot="{ row }">
@@ -1413,6 +1481,13 @@ onMounted(() => {
                 <template #createTimeSlot="{ row }">
                   <span class="table-time-text text-xs text-[var(--el-text-color-secondary)]">
                     {{ formatTime(row.createTime, 'yyyy-MM-dd HH:mm') }}
+                  </span>
+                </template>
+
+                <!-- 修改时间 -->
+                <template #updateTimeSlot="{ row }">
+                  <span class="table-time-text text-xs text-[var(--el-text-color-secondary)]">
+                    {{ formatTime(row.updateTime, 'yyyy-MM-dd HH:mm') }}
                   </span>
                 </template>
 
@@ -1738,7 +1813,7 @@ onMounted(() => {
                               :key="`${field.key}-${index}`"
                               class="publish-config-url-list__item"
                             >
-                              <div>
+                              <div class="publish-config-url-list__input-wrap">
                                 <el-input
                                   v-model="platformConfigData[field.key][index]"
                                   :placeholder="field.placeholder"
@@ -1749,6 +1824,14 @@ onMounted(() => {
                                 >
                                   {{ getUrlListItemError(String(field.key), Number(index)) }}
                                 </div>
+                              </div>
+                              <div class="publish-config-url-list__preview">
+                                <img
+                                  v-if="platformConfigData[field.key][index]"
+                                  :src="platformConfigData[field.key][index]"
+                                  class="publish-config-url-list__thumb"
+                                  @error="onImagePreviewError($event, String(field.key), index)"
+                                />
                               </div>
                               <el-button
                                 text
@@ -3043,9 +3126,33 @@ onMounted(() => {
 
 .publish-config-url-list__item {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) 96px auto;
   gap: 10px;
-  align-items: start;
+  align-items: center;
+}
+
+.publish-config-url-list__input-wrap {
+  min-width: 0;
+}
+
+.publish-config-url-list__preview {
+  width: 90px;
+  height: 90px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--el-fill-color-blank);
+  flex-shrink: 0;
+}
+
+.publish-config-url-list__thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .publish-config-field-error {
