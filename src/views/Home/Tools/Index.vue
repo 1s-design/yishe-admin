@@ -54,7 +54,7 @@
             <el-button
               v-for="action in item.actions"
               :key="action.key"
-              type="primary"
+              :type="action.key.includes('backup') ? 'default' : 'primary'"
               round
               :disabled="!action.downloadUrl"
               @click="handleDownload(action.downloadUrl)"

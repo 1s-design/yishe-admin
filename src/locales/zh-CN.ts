@@ -1152,6 +1152,8 @@ export default {
         description: '统一版客户端，浏览器自动化已内置，直接下载对应系统安装包即可。',
         windowsInstaller: 'Windows 安装包',
         macosInstaller: 'macOS 安装包',
+        windowsInstallerBackup: 'Windows 备用下载',
+        macosInstallerBackup: 'macOS 备用下载',
       },
       extension: {
         title: 'YiShe 浏览器插件',

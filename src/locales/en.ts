@@ -1157,6 +1157,8 @@ export default {
         description: 'Unified client with built-in browser automation. Download the installer for your system.',
         windowsInstaller: 'Windows Installer',
         macosInstaller: 'macOS Installer',
+        windowsInstallerBackup: 'Windows (Mirror)',
+        macosInstallerBackup: 'macOS (Mirror)',
       },
       extension: {
         title: 'YiShe Browser Extension',
