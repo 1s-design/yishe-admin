@@ -41,6 +41,11 @@ const LABELS: Record<string, string> = {
   format: "格式",
   channelId: "渠道",
   triggerType: "触发方式",
+  scoreId: "评分ID",
+  sortby: "排序",
+  executionMode: "执行端",
+  page: "页码",
+  pageSize: "每页",
 };
 
 const VALUE_LABELS: Record<string, string> = {
@@ -78,6 +83,14 @@ const VALUE_LABELS: Record<string, string> = {
   manual: "手动",
   cron: "定时",
   webhook: "Webhook",
+  general: "综合",
+  createtime: "最新",
+  createtimeasc: "最早",
+  replytime: "回复",
+  light: "最亮",
+  reply: "热门",
+  server: "服务端",
+  client: "客户端",
 };
 const entries = computed(() =>
   Object.entries(props.data?.config || {})

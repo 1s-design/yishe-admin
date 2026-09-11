@@ -11,13 +11,16 @@ const props = defineProps<{
 }>();
 
 const nodeMeta = computed(() => {
-  const rawType = props.type || props.data?.type || "";
+  const rawType = (props.data as any)?.capabilityType || props.data?.type || props.type || "";
   const manifest = getManifestByType(rawType);
+  const isImageCategory = manifest?.category === "material" || rawType.includes("image");
+  const typeText = manifest?.badge || (isImageCategory ? "图片采集" : (manifest?.name?.replace(/搜索采集|采集|搜索/, "") || "数据采集"));
   return {
     icon: manifest?.iconImage || manifest?.icon,
     color: manifest?.color || "#4f46e5",
-    label: props.data?.label || manifest?.name || "图片搜索",
-    type: manifest?.name?.replace(/搜索采集|采集|搜索/, "") || "图片",
+    label: props.data?.label || manifest?.name || "采集节点",
+    type: typeText,
+    showType: isImageCategory || Boolean(manifest?.badge),
   };
 });
 
@@ -33,7 +36,7 @@ const maxCount = computed(() => props.data?.config?.maxCount || props.data?.conf
       <span class="wf-node__title">{{ data.label || nodeMeta.label }}</span>
     </div>
     <div v-if="keyword" class="wf-node__subtitle">{{ keyword }}</div>
-    <div class="wf-node__type">图片采集</div>
+    <div v-if="nodeMeta.showType" class="wf-node__type">{{ nodeMeta.type }}</div>
     <NodeParameterSummary :data="data" />
     <Handle type="source" :position="Position.Bottom" />
   </div>

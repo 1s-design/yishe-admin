@@ -11,7 +11,12 @@ const props = defineProps<{
 }>();
 
 const nodeMeta = computed(() => {
-  const rawType = props.type || props.data?.type || "";
+  const rawType =
+    (props.type && props.type !== "default" ? props.type : "") ||
+    (props.data as any)?.capabilityType ||
+    props.data?.type ||
+    props.type ||
+    "";
   const manifest = getManifestByType(rawType);
   return {
     icon: manifest?.iconImage || manifest?.icon,

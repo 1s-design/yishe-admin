@@ -104,7 +104,7 @@ import { useWorkflowAiContext } from "@/composables/useWorkflowAiContext";
 import { websocketClient } from "@/services/websocketClient";
 import AssistantChat from "@/components/AiAssistant/AssistantChat.vue";
 import { useAiAssistantStore } from "@/store/modules/aiAssistant";
-import type { NodeManifest } from "./config/node-manifest";
+import { NODE_MANIFEST_REGISTRY, type NodeManifest } from "./config/node-manifest";
 import { createWorkflowVariableKey, getWorkflowVariableKey } from "./config/workflowVariableKey";
 import { useUserStore } from "@/store/modules/user";
 import { publishWorkflowToLibraryApi } from "@/api/workflow";
@@ -279,6 +279,7 @@ const nodeTypes = {
   hotsearch_shopify_trending: markRaw(HotsearchNode),
   hotsearch_xiaohongshu: markRaw(HotsearchNode),
   xiaohongshu_note_detail: markRaw(HotsearchNode),
+  hupu_post_search: markRaw(HotsearchNode),
   message_push_feishu: markRaw(FeishuNode),
   message_push_wecom: markRaw(WecomNode),
   google_arts_culture: markRaw(GoogleArtsCultureNode),
@@ -393,12 +394,24 @@ const nodeTypes = {
   cls_telegraph_search: markRaw(ImageEngineNode),
   coinmarketcap_search: markRaw(ImageEngineNode),
   zhibo8_search: markRaw(ImageEngineNode),
-  hupu_search: markRaw(ImageEngineNode),
   bbc_sport_search: markRaw(ImageEngineNode),
   flashscore_search: markRaw(ImageEngineNode),
   weather_cn_search: markRaw(ImageEngineNode),
   weather_com_search: markRaw(ImageEngineNode),
 };
+
+// 自动为 manifest 中属于 hotsearch 分类或前缀匹配的节点补充 HotsearchNode 映射（防漏配通用保障）
+NODE_MANIFEST_REGISTRY.forEach((item) => {
+  if (!(nodeTypes as any)[item.type]) {
+    if (
+      item.category === "hotsearch" ||
+      item.type.startsWith("hotsearch_") ||
+      item.type.startsWith("hupu_")
+    ) {
+      (nodeTypes as any)[item.type] = markRaw(HotsearchNode);
+    }
+  }
+});
 
 // ─── 撤销/重做历史 ─────────────────────────────────────────────
 const { undo, redo, pushHistory, canUndo, canRedo } = useWorkflowHistory(
@@ -445,9 +458,16 @@ const handleAddNodeFromLibrary = (capability: NodeManifest) => {
     };
   }
 
-  // 热搜平台节点：从类型中提取 platform 字段传递给 UI 组件
-  const isHotsearch = capability.type.startsWith("hotsearch_");
-  const platformKey = isHotsearch ? capability.type.replace("hotsearch_", "") : undefined;
+  // 热搜平台节点：从类型或分类中提取 platform 字段传递给 UI 组件
+  const isHotsearch =
+    capability.category === "hotsearch" ||
+    capability.type.startsWith("hotsearch_") ||
+    capability.type.startsWith("hupu_");
+  const platformKey = isHotsearch
+    ? capability.type.startsWith("hupu_")
+      ? "hupu"
+      : capability.type.replace("hotsearch_", "")
+    : undefined;
 
   const newNode: Node = {
     id: `${capability.type}_${Date.now().toString(36)}`,
@@ -455,6 +475,7 @@ const handleAddNodeFromLibrary = (capability: NodeManifest) => {
     position: centerPos,
     data: {
       label: capability.name,
+      type: capability.type,
       capabilityType: capability.type,
       variableKey: createWorkflowVariableKey(capability.type, nodes.value as Node[]),
       config: { ...(capability.defaultData?.config || capability.defaultData || {}) },
@@ -490,8 +511,15 @@ const onDrop = (event: DragEvent) => {
   const mappedType = nodeTypes[type as keyof typeof nodeTypes] ? type : "default";
 
   // 热搜平台节点：从类型中提取 platform 字段
-  const isHotsearchDrop = type.startsWith("hotsearch_");
-  const platformKeyDrop = isHotsearchDrop ? type.replace("hotsearch_", "") : undefined;
+  const isHotsearchDrop =
+    type.startsWith("hotsearch_") ||
+    type.startsWith("hupu_") ||
+    (type in nodeTypes && (nodeTypes as any)[type] === HotsearchNode);
+  const platformKeyDrop = isHotsearchDrop
+    ? type.startsWith("hupu_")
+      ? "hupu"
+      : type.replace("hotsearch_", "")
+    : undefined;
 
   pushHistory();
   const newNode: Node = {
@@ -500,6 +528,7 @@ const onDrop = (event: DragEvent) => {
     position,
     data: {
       label: label || type,
+      type: type,
       capabilityType: type,
       variableKey: createWorkflowVariableKey(type, nodes.value as Node[]),
       config: { ...defaultData },
@@ -711,17 +740,31 @@ const handleDeleteEdge = (edgeId: string) => {
   ElMessage.success(t("workflow.edgeDeleted"));
 };
 
-// 所有进入画布的旧数据统一补齐稳定变量名，变量引用不再暴露随机节点 id。
+// 所有进入画布的旧数据统一补齐稳定变量名与类型自愈，保证变量引用稳定且节点卡片正常渲染
 const normalizeCanvasNodes = (rawNodes: any[]) => {
   const source = Array.isArray(rawNodes) ? rawNodes : [];
   const used = new Set<string>();
   return source.map((node: any) => {
-    const base = getWorkflowVariableKey(node, source as Node[]);
+    let actualType = node.type;
+    const capType = node.data?.capabilityType;
+    if ((actualType === "default" || !actualType) && capType && (nodeTypes as any)[capType]) {
+      actualType = capType;
+    }
+    const base = getWorkflowVariableKey({ ...node, type: actualType }, source as Node[]);
     let variableKey = base;
     let suffix = 1;
     while (used.has(variableKey)) variableKey = `${base}_${suffix++}`;
     used.add(variableKey);
-    return { ...node, data: { ...(node.data || {}), variableKey } };
+    return {
+      ...node,
+      type: actualType,
+      data: {
+        ...(node.data || {}),
+        capabilityType: capType || actualType,
+        type: node.data?.type || capType || actualType,
+        variableKey,
+      },
+    };
   });
 };
 

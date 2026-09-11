@@ -241,7 +241,7 @@ export type NodeType =
   | 'cls_telegraph_search'
   | 'coinmarketcap_search'
   | 'zhibo8_search'
-  | 'hupu_search'
+  | 'hupu_post_search'
   | 'bbc_sport_search'
   | 'flashscore_search'
   | 'weather_cn_search'
@@ -3750,25 +3750,66 @@ export const NODE_MANIFEST_REGISTRY: NodeManifest[] = [
     ],
   },
   {
-    type: 'hupu_search',
-    name: '虎扑 体育社区与话题 (Hupu Sports Community)',
-    category: 'news_data',
-    description: '【功能】采集国内知名男性与体育社区“虎扑”的步行街热帖、NBA/足球专区讨论、转会流言板与赛事评分投票。【用法】配置 keyword 球队/球星/话题关键词（如 "勇士"、"阿森纳"、"交易"、"步行街"）与采集数量 maxCount（1-100）。【场景与输出】需客户端在线。输出包含帖子标题、发帖作者、浏览量、亮评回复数与帖子链接，适用于球迷社区舆情监测、热梗话题挖掘与体育互动内容策划。',
+    type: 'hupu_post_search',
+    name: '虎扑帖子搜索',
+    category: 'hotsearch',
+    description: '搜索虎扑论坛帖子，支持关键词搜索、多种排序方式（综合/最新发布/最早发布/亮回复数/回复数）。支持服务端执行（默认，稳定可靠）或客户端执行（使用本地网络）。核心逻辑由服务端统一维护，客户端动态拉取。',
     iconImage: hupuIcon,
     color: '#C01A20',
-    defaultData: { label: '虎扑 体育社区', config: { keyword: '', maxCount: 10 } },
+    badge: '多端运行',
+    defaultData: { name: '虎扑帖子搜索', config: { keyword: '', maxCount: 20, sortby: 'general', executionMode: 'server' } },
     inputSchema: [
-      { field: 'keyword', label: '话题/球队/球员', type: 'string', required: true, placeholder: '例如: NBA / 湖人 / 詹姆斯' },
-      { field: 'maxCount', label: '采集数量', type: 'number', defaultValue: 10, description: '每次最多采集数量 (1-100)' },
+      {
+        field: 'keyword',
+        label: '搜索关键词',
+        type: 'string',
+        required: true,
+        placeholder: '例如: NBA / 电竞 / 步行街',
+      },
+      {
+        field: 'maxCount',
+        label: '获取数量',
+        type: 'number',
+        defaultValue: 20,
+        description: '最多返回多少条帖子（1-100）',
+      },
+      {
+        field: 'sortby',
+        label: '排序方式',
+        type: 'select',
+        defaultValue: 'general',
+        description: '帖子的排序方式',
+        options: [
+          { label: '综合排序', value: 'general' },
+          { label: '最新发布', value: 'createtime' },
+          { label: '最早发布', value: 'createtimeasc' },
+          { label: '最新回复', value: 'replytime' },
+          { label: '亮回复数(近1月)', value: 'light' },
+          { label: '回复数(近1月)', value: 'reply' },
+        ],
+      },
+      {
+        field: 'executionMode',
+        label: '执行位置',
+        type: 'select',
+        defaultValue: 'server',
+        description: '服务端执行（默认）：由服务端直接采集，无需客户端在线；客户端执行：由客户端本地网络采集，适合需要客户端IP的场景。',
+        options: [
+          { label: '服务端执行', value: 'server' },
+          { label: '客户端执行', value: 'client' },
+        ],
+      },
     ],
     outputSchema: [
-      { field: 'successCount', label: '成功数量', type: 'number' },
-      { field: 'failCount', label: '失败数量', type: 'number' },
-      { field: 'items', label: '数据列表', type: 'array' },
+      { field: 'platform', label: '平台标识', type: 'string' },
+      { field: 'name', label: '平台名称', type: 'string' },
+      { field: 'keyword', label: '搜索关键词', type: 'string' },
+      { field: 'itemCount', label: '帖子数', type: 'number' },
+      { field: 'items', label: '帖子列表', type: 'array' },
+      { field: 'fetchedAt', label: '采集时间', type: 'string' },
     ],
     requirements: [
-      { type: 'client', label: '需客户端在线' },
-      { type: 'internet', label: '需外网' },
+      { type: 'multi-end', label: '多端运行' },
     ],
   },
   {

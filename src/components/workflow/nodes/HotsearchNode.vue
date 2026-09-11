@@ -16,11 +16,12 @@ import {
   ithomeIcon,
   xiaohongshuIcon,
 } from "@/assets/icons/apps";
+import { hupuIcon } from "@/assets/icons/news";
 
 const props = defineProps<{
   id?: string;
   type?: string;
-  data: { label?: string; config?: any; platform?: string; type?: string; name?: string };
+  data: { label?: string; config?: any; platform?: string; type?: string; name?: string; capabilityType?: string };
 }>();
 
 const platformIcons: Record<string, string> = {
@@ -36,14 +37,21 @@ const platformIcons: Record<string, string> = {
   ithome: ithomeIcon,
   xiaohongshu: xiaohongshuIcon,
   xiaohongshu_note_detail: xiaohongshuIcon,
+  hupu: hupuIcon,
+  hupu_post_search: hupuIcon,
 };
 
 const resolvedInfo = computed(() => {
-  const rawType = props.type || props.data?.type || "";
+  const rawType =
+    (props.type && props.type !== "default" ? props.type : "") ||
+    (props.data as any)?.capabilityType ||
+    props.data?.type ||
+    props.type ||
+    "";
   const platform =
     props.data?.platform ||
     props.data?.config?.platform ||
-    rawType.replace(/^hotsearch_/, "") ||
+    (rawType.startsWith("hupu_") ? "hupu" : rawType.replace(/^hotsearch_/, "")) ||
     "weibo";
 
   // 1. 优先从全局 manifest 获取官方配置
@@ -58,7 +66,7 @@ const resolvedInfo = computed(() => {
     manifest?.iconImage ||
     manifest?.icon;
 
-  const color = manifest?.color || "#4f46e5";
+  const color = manifest?.color || (platform === "hupu" ? "#C01A20" : "#4f46e5");
   const name = manifest?.name || props.data?.label || platform;
 
   return {
@@ -109,6 +117,8 @@ const resolvedInfo = computed(() => {
   width: 20px;
   height: 20px;
   flex-shrink: 0;
+  object-fit: contain;
+  border-radius: 2px;
 }
 
 .wf-node__text {
