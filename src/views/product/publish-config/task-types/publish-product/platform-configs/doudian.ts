@@ -24,19 +24,19 @@ export const doudianPlatformConfig: PlatformConfig = {
       span: 24
     },
     {
-      key: 'vendorProducts',
-      label: '供应商商品',
-      type: 'vendor-products',
-      span: 24,
-      tooltip: '选择厂家后可选商品。编码规则：有商品时"素材码-商品码"，无商品时"素材码"。'
-    },
-    {
       key: 'stock',
       label: '库存',
       type: 'number',
       placeholder: '请输入库存',
       span: 24,
-      tooltip: '发布端会将库存填入每个 SKU 行'
+      tooltip: '发布端会将库存填入每个 SKU 行（SKU 配置为空时使用）'
+    },
+    {
+      key: 'skuConfig',
+      label: 'SKU 配置',
+      type: 'sku-list',
+      span: 24,
+      tooltip: '按 SKU 顺序配置库存、价格和商家编码，留空则跳过'
     },
     {
       key: 'psdImageIndexes',

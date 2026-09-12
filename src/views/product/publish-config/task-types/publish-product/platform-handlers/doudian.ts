@@ -1,5 +1,5 @@
 import type { PlatformHandler } from './types'
-import { normalizeHttpUrlList, normalizePsdImageIndexes, validatePsdImageIndexes, normalizeVendorProductMappings } from './shared'
+import { normalizeHttpUrlList, normalizePsdImageIndexes, validatePsdImageIndexes, normalizeVendorProductMappings, normalizeSkuConfig } from './shared'
 
 export const doudianHandler: PlatformHandler = {
   platform: 'doudian',
@@ -75,6 +75,7 @@ export const doudianHandler: PlatformHandler = {
     formatted.vendorCode = String(formatted.vendorCode || '').trim() || undefined
     formatted.vendorName = String(formatted.vendorName || '').trim() || undefined
     formatted.vendorProductMappings = normalizeVendorProductMappings(formatted.vendorProductMappings)
+    formatted.skuConfig = normalizeSkuConfig(formatted.skuConfig)
 
     return formatted
   },
@@ -89,6 +90,7 @@ export const doudianHandler: PlatformHandler = {
     }
     formatted.appendImageUrls = normalizeHttpUrlList(formatted.appendImageUrls)
     formatted.psdImageIndexes = normalizePsdImageIndexes(formatted.psdImageIndexes)
+    formatted.skuConfig = normalizeSkuConfig(formatted.skuConfig)
     return formatted
   },
 

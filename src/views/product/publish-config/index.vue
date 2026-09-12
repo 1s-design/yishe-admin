@@ -668,6 +668,10 @@ function normalizePublishConfigData(taskType: string, value: Record<string, any>
       if (field.type === "url-list" && !Array.isArray(normalized[field.key])) {
         normalized[field.key] = normalized[field.key] ? [String(normalized[field.key])] : [];
       }
+
+      if (field.type === "sku-list" && !Array.isArray(normalized[field.key])) {
+        normalized[field.key] = [];
+      }
     });
   }
 
@@ -808,6 +812,24 @@ function removeUrlCandidate(fieldKey: string, index: number, candidateIndex: num
   const candidates = splitUrlCandidates(raw);
   candidates.splice(candidateIndex, 1);
   platformConfigData.value[fieldKey][index] = candidates.join("|");
+}
+
+function addSkuItem(fieldKey: string) {
+  if (!Array.isArray(platformConfigData.value?.[fieldKey])) {
+    platformConfigData.value[fieldKey] = [];
+  }
+  platformConfigData.value[fieldKey].push({
+    stock: undefined as number | undefined,
+    price: undefined as number | undefined,
+    vendorProductId: undefined as number | undefined,
+  });
+}
+
+function removeSkuItem(fieldKey: string, index: number) {
+  if (!Array.isArray(platformConfigData.value?.[fieldKey])) return;
+  const nextList = [...platformConfigData.value[fieldKey]];
+  nextList.splice(index, 1);
+  platformConfigData.value[fieldKey] = nextList;
 }
 
 function onImagePreviewError(event: Event, fieldKey: string, index: number) {
@@ -1983,6 +2005,60 @@ onMounted(() => {
                           :placeholder="field.placeholder"
                         />
 
+                        <div v-else-if="field.type === 'sku-list'" class="publish-config-sku-list">
+                          <div
+                            v-for="(_, index) in Array.isArray(platformConfigData[field.key])
+                              ? platformConfigData[field.key]
+                              : []"
+                            :key="`${field.key}-${index}`"
+                            class="publish-config-sku-list__item"
+                          >
+                            <span class="publish-config-sku-list__index">SKU {{ index + 1 }}</span>
+                            <el-input-number
+                              v-model="platformConfigData[field.key][index].stock"
+                              :min="0"
+                              :placeholder="t('publishConfig.skuStockPlaceholder')"
+                              class="publish-config-sku-list__input"
+                            />
+                            <el-input-number
+                              v-model="platformConfigData[field.key][index].price"
+                              :min="0"
+                              :precision="2"
+                              :placeholder="t('publishConfig.skuPricePlaceholder')"
+                              class="publish-config-sku-list__input"
+                            />
+                            <el-select
+                              v-model="platformConfigData[field.key][index].vendorProductId"
+                              :placeholder="t('publishConfig.skuVendorProductPlaceholder')"
+                              clearable
+                              filterable
+                              class="publish-config-sku-list__input"
+                            >
+                              <el-option
+                                v-for="option in vendorProductsList"
+                                :key="option.id"
+                                :label="option.name"
+                                :value="option.id"
+                              />
+                            </el-select>
+                            <el-button
+                              text
+                              type="danger"
+                              @click="removeSkuItem(String(field.key), Number(index))"
+                            >
+                              {{ t('common.delete') }}
+                            </el-button>
+                          </div>
+                          <el-button
+                            text
+                            type="primary"
+                            :icon="Plus"
+                            @click="addSkuItem(String(field.key))"
+                          >
+                            {{ t('publishConfig.addSku') }}
+                          </el-button>
+                        </div>
+
                         <template v-else-if="field.type === 'select'">
                           <el-select
                             v-model="platformConfigData[field.key]"
@@ -2925,6 +3001,36 @@ onMounted(() => {
   border-radius: 4px;
   color: var(--el-text-color-primary);
   font-size: 13px;
+}
+
+.publish-config-sku-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.publish-config-sku-list__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 6px;
+  background: var(--el-fill-color-blank);
+}
+
+.publish-config-sku-list__index {
+  flex-shrink: 0;
+  width: 56px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  font-weight: 500;
+}
+
+.publish-config-sku-list__input {
+  flex: 1;
+  min-width: 0;
 }
 
 .publish-config-ai-grid {

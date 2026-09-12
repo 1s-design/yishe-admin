@@ -194,3 +194,31 @@ export function normalizeTemuCategoryPath(input: unknown): string[] {
     )
   )
 }
+
+export function normalizeSkuConfig(input: unknown): Array<{
+  stock?: number
+  price?: number
+  vendorProductId?: number
+}> {
+  if (!Array.isArray(input)) return []
+  return input
+    .map((item: any) => {
+      if (!item || typeof item !== 'object') return null
+      const result: {
+        stock?: number
+        price?: number
+        vendorProductId?: number
+      } = {}
+      if (Number.isFinite(Number(item.stock)) && Number(item.stock) >= 0) {
+        result.stock = Number(item.stock)
+      }
+      if (Number.isFinite(Number(item.price)) && Number(item.price) >= 0) {
+        result.price = Number(item.price)
+      }
+      if (Number.isFinite(Number(item.vendorProductId)) && Number(item.vendorProductId) > 0) {
+        result.vendorProductId = Number(item.vendorProductId)
+      }
+      return result
+    })
+    .filter(Boolean)
+}
