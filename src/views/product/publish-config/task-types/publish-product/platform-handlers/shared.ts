@@ -5,12 +5,17 @@ export function normalizeHttpUrlList(input: unknown): string[] {
       ? input.split(/\r?\n/)
       : []
 
+  // 保留 urlA|urlB 随机语法，仅过滤掉无效行
   return Array.from(
     new Set(
       values
         .map((item) => String(item || '').trim())
         .filter(Boolean)
-        .filter((item) => /^https?:\/\//i.test(item))
+        .filter((item) => {
+          // 支持 urlA|urlB 格式：只要其中至少一个片段是有效 URL 即可
+          const parts = item.split('|').map((s) => s.trim()).filter(Boolean)
+          return parts.some((p) => /^https?:\/\//i.test(p))
+        })
     )
   )
 }
@@ -195,6 +200,16 @@ export function normalizeTemuCategoryPath(input: unknown): string[] {
   )
 }
 
+/** 解析 urlA|urlB 随机语法，返回选中的单个 URL */
+export function resolveRandomUrl(input: string): string {
+  const raw = String(input || '').trim()
+  if (!raw) return ''
+  const parts = raw.split('|').map((s) => s.trim()).filter(Boolean)
+  if (parts.length === 0) return ''
+  if (parts.length === 1) return parts[0]
+  return parts[Math.floor(Math.random() * parts.length)]
+}
+
 /** 常用价格尾数，可随机选取 */
 export const DEFAULT_PRICE_DECIMALS = [0.19, 0.5, 0.88, 0.99, 0.69, 0, 0.08, 0.66, 0.89, 0.9]
 
@@ -223,9 +238,11 @@ export function generateRandomPrice(
 }
 
 export function normalizeSkuConfig(input: unknown): Array<{
+  stockMode?: 'fixed' | 'random'
   stock?: number
   stockMin?: number
   stockMax?: number
+  priceMode?: 'fixed' | 'random'
   price?: number
   priceMin?: number
   priceMax?: number
@@ -237,15 +254,24 @@ export function normalizeSkuConfig(input: unknown): Array<{
     .map((item: any) => {
       if (!item || typeof item !== 'object') return null
       const result: {
+        stockMode?: 'fixed' | 'random'
         stock?: number
         stockMin?: number
         stockMax?: number
+        priceMode?: 'fixed' | 'random'
         price?: number
         priceMin?: number
         priceMax?: number
         priceDecimals?: number[]
         vendorProductId?: number
       } = {}
+      // 保留模式字段
+      if (item.stockMode === 'random' || item.stockMode === 'fixed') {
+        result.stockMode = item.stockMode
+      }
+      if (item.priceMode === 'random' || item.priceMode === 'fixed') {
+        result.priceMode = item.priceMode
+      }
       if (item.stockMode === 'random') {
         const min = Number(item.stockMin)
         const max = Number(item.stockMax)
