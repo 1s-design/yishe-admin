@@ -195,11 +195,41 @@ export function normalizeTemuCategoryPath(input: unknown): string[] {
   )
 }
 
+/** 常用价格尾数，可随机选取 */
+export const DEFAULT_PRICE_DECIMALS = [0.19, 0.5, 0.88, 0.99, 0.69, 0, 0.08, 0.66, 0.89, 0.9]
+
+/**
+ * 根据范围和尾数列表生成随机价格
+ * @param min 最小值（元）
+ * @param max 最大值（元）
+ * @param decimals 可选尾数数组，默认使用 DEFAULT_PRICE_DECIMALS
+ * @returns 形如 34.99 的价格
+ */
+export function generateRandomPrice(
+  min: number,
+  max: number,
+  decimals: number[] = DEFAULT_PRICE_DECIMALS
+): number {
+  if (!Number.isFinite(min) || !Number.isFinite(max) || min < 0 || max < min) {
+    return 0
+  }
+  const validDecimals = Array.isArray(decimals)
+    ? decimals.filter((d) => Number.isFinite(d) && d >= 0 && d < 1)
+    : []
+  const pool = validDecimals.length > 0 ? validDecimals : [0]
+  const integerPart = Math.floor(Math.random() * (Math.floor(max) - Math.ceil(min) + 1)) + Math.ceil(min)
+  const decimal = pool[Math.floor(Math.random() * pool.length)]
+  return Number((integerPart + decimal).toFixed(2))
+}
+
 export function normalizeSkuConfig(input: unknown): Array<{
   stock?: number
   stockMin?: number
   stockMax?: number
   price?: number
+  priceMin?: number
+  priceMax?: number
+  priceDecimals?: number[]
   vendorProductId?: number
 }> {
   if (!Array.isArray(input)) return []
@@ -211,6 +241,9 @@ export function normalizeSkuConfig(input: unknown): Array<{
         stockMin?: number
         stockMax?: number
         price?: number
+        priceMin?: number
+        priceMax?: number
+        priceDecimals?: number[]
         vendorProductId?: number
       } = {}
       if (item.stockMode === 'random') {
@@ -225,8 +258,25 @@ export function normalizeSkuConfig(input: unknown): Array<{
           result.stock = Number(item.stock)
         }
       }
-      if (Number.isFinite(Number(item.price)) && Number(item.price) >= 0) {
-        result.price = Number(item.price)
+      if (item.priceMode === 'random') {
+        const pMin = Number(item.priceMin)
+        const pMax = Number(item.priceMax)
+        if (Number.isFinite(pMin) && pMin >= 0 && Number.isFinite(pMax) && pMax >= pMin) {
+          result.priceMin = pMin
+          result.priceMax = pMax
+          if (Array.isArray(item.priceDecimals)) {
+            const validDecimals = item.priceDecimals
+              .filter((d: any) => Number.isFinite(Number(d)) && Number(d) >= 0 && Number(d) < 1)
+              .map((d: any) => Number(d))
+            if (validDecimals.length > 0) {
+              result.priceDecimals = validDecimals
+            }
+          }
+        }
+      } else {
+        if (Number.isFinite(Number(item.price)) && Number(item.price) >= 0) {
+          result.price = Number(item.price)
+        }
       }
       if (Number.isFinite(Number(item.vendorProductId)) && Number(item.vendorProductId) > 0) {
         result.vendorProductId = Number(item.vendorProductId)

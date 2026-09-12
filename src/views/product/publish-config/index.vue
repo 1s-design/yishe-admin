@@ -485,6 +485,20 @@ const selectedVendor = computed(() => {
 const vendorProductsList = ref<VendorProductItem[]>([]);
 const vendorProductsLoading = ref(false);
 
+// 常用价格尾数选项
+const defaultPriceDecimals = [
+  { value: 0.19, label: '.19' },
+  { value: 0.5, label: '.50' },
+  { value: 0.88, label: '.88' },
+  { value: 0.99, label: '.99' },
+  { value: 0.69, label: '.69' },
+  { value: 0, label: '.00' },
+  { value: 0.08, label: '.08' },
+  { value: 0.66, label: '.66' },
+  { value: 0.89, label: '.89' },
+  { value: 0.9, label: '.90' },
+];
+
 async function loadVendorProducts(vendorId: number) {
   if (!Number.isFinite(vendorId) || vendorId <= 0) {
     vendorProductsList.value = [];
@@ -823,7 +837,11 @@ function addSkuItem(fieldKey: string) {
     stock: undefined as number | undefined,
     stockMin: undefined as number | undefined,
     stockMax: undefined as number | undefined,
+    priceMode: 'fixed' as 'fixed' | 'random',
     price: undefined as number | undefined,
+    priceMin: undefined as number | undefined,
+    priceMax: undefined as number | undefined,
+    priceDecimals: [] as number[],
     vendorProductId: undefined as number | undefined,
   });
 }
@@ -2048,13 +2066,56 @@ onMounted(() => {
                                 />
                               </template>
                             </div>
-                            <el-input-number
-                              v-model="platformConfigData[field.key][index].price"
-                              :min="0"
-                              :precision="2"
-                              :placeholder="t('publishConfig.skuPricePlaceholder')"
-                              class="publish-config-sku-list__input"
-                            />
+                            <div class="publish-config-sku-list__price">
+                              <el-radio-group
+                                v-model="platformConfigData[field.key][index].priceMode"
+                                size="small"
+                              >
+                                <el-radio-button label="fixed">{{ t('publishConfig.skuPriceFixed') }}</el-radio-button>
+                                <el-radio-button label="random">{{ t('publishConfig.skuPriceRandom') }}</el-radio-button>
+                              </el-radio-group>
+                              <el-input-number
+                                v-if="platformConfigData[field.key][index].priceMode === 'fixed'"
+                                v-model="platformConfigData[field.key][index].price"
+                                :min="0"
+                                :precision="2"
+                                :placeholder="t('publishConfig.skuPricePlaceholder')"
+                                class="publish-config-sku-list__price-input"
+                              />
+                              <template v-else>
+                                <el-input-number
+                                  v-model="platformConfigData[field.key][index].priceMin"
+                                  :min="0"
+                                  :precision="2"
+                                  :placeholder="t('publishConfig.skuPriceMin')"
+                                  class="publish-config-sku-list__price-input"
+                                />
+                                <span class="publish-config-sku-list__stock-sep">-</span>
+                                <el-input-number
+                                  v-model="platformConfigData[field.key][index].priceMax"
+                                  :min="0"
+                                  :precision="2"
+                                  :placeholder="t('publishConfig.skuPriceMax')"
+                                  class="publish-config-sku-list__price-input"
+                                />
+                                <el-select
+                                  v-model="platformConfigData[field.key][index].priceDecimals"
+                                  :placeholder="t('publishConfig.skuPriceDecimal')"
+                                  multiple
+                                  filterable
+                                  allow-create
+                                  default-first-option
+                                  class="publish-config-sku-list__price-decimal"
+                                >
+                                  <el-option
+                                    v-for="d in defaultPriceDecimals"
+                                    :key="d.value"
+                                    :label="d.label"
+                                    :value="d.value"
+                                  />
+                                </el-select>
+                              </template>
+                            </div>
                             <el-select
                               v-model="platformConfigData[field.key][index].vendorProductId"
                               :placeholder="t('publishConfig.skuVendorProductPlaceholder')"
@@ -3078,6 +3139,24 @@ onMounted(() => {
   flex-shrink: 0;
   color: var(--el-text-color-secondary);
   font-size: 12px;
+}
+
+.publish-config-sku-list__price {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 2;
+  min-width: 0;
+}
+
+.publish-config-sku-list__price-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.publish-config-sku-list__price-decimal {
+  flex: 1.2;
+  min-width: 0;
 }
 
 .publish-config-ai-grid {
