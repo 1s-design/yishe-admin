@@ -1146,6 +1146,7 @@ export default {
       download: '下载',
       available: '可用',
       unconfigured: '未配置',
+      mirrorTip: '备用下载源',
       client: {
         title: 'YiShe 客户端',
         platform: 'Windows / macOS',

@@ -1151,6 +1151,7 @@ export default {
       download: 'Download',
       available: 'Available',
       unconfigured: 'Unconfigured',
+      mirrorTip: 'Mirror Downloads',
       client: {
         title: 'YiShe Client',
         platform: 'Windows / macOS',
