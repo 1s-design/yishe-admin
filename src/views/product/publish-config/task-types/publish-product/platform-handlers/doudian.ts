@@ -28,18 +28,22 @@ export const doudianHandler: PlatformHandler = {
         .map((item) => item.trim())
         .filter(Boolean)
 
-      const invalidLines = lines.filter((item) => !/^https?:\/\//i.test(item))
+      const invalidLines = lines.filter(
+        (item) => !item.split('|').every((s) => /^https?:\/\//i.test(s.trim())),
+      )
       if (invalidLines.length > 0) {
-        errors.push('附加图片只支持 http/https URL，且每行一条')
+        errors.push('附加图片只支持 http/https URL，多个用 | 分隔随机')
       }
     } else if (Array.isArray(rawValue)) {
       const invalidItems = rawValue
         .map((item) => String(item || '').trim())
         .filter(Boolean)
-        .filter((item) => !/^https?:\/\//i.test(item))
+        .filter(
+          (item) => !item.split('|').every((s) => /^https?:\/\//i.test(s.trim())),
+        )
 
       if (invalidItems.length > 0) {
-        errors.push('附加图片只支持 http/https URL')
+        errors.push('附加图片只支持 http/https URL，多个用 | 分隔随机')
       }
     }
 

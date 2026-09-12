@@ -359,12 +359,6 @@ const titleConfigForm = reactive({
   mode: "ai" as "ai" | "fixed",
   fixedTitle: "",
   templateContent: "",
-  maxLength: undefined as number | undefined,
-  style: "",
-  tone: "",
-  includeEmoji: null as boolean | null,
-  requiredKeywords: [] as string[],
-  avoidWords: [] as string[],
 });
 
 const supportsFixedTitle = computed(() =>
@@ -374,6 +368,15 @@ const supportsFixedTitle = computed(() =>
 const isFixedTitleMode = computed(
   () => supportsFixedTitle.value && titleConfigForm.mode === "fixed",
 );
+
+const platformTitleOutputFields = computed(() => {
+  const platform = resolveTaskTypePlatform(form.taskType);
+  const fields: Array<{ key: string; label: string }> = [{ key: "title", label: "标题" }];
+  if (platform === "doudian") {
+    fields.push({ key: "shortTitle", label: "短标题" });
+  }
+  return fields;
+});
 
 const titleConfigPanelTitle = computed(() =>
   supportsFixedTitle.value ? t("publishConfig.titleConfig") : t("publishConfig.aiTitleConfig"),
@@ -387,7 +390,7 @@ const titleConfigPanelDesc = computed(() => {
 });
 
 const appendImageUrlValidation = computed(() => {
-  if (!["doudian", "taobao"].includes(resolveTaskTypePlatform(form.taskType))) {
+  if (!["doudian", "taobao", "kuaishou_shop", "pdd"].includes(resolveTaskTypePlatform(form.taskType))) {
     return {
       hasError: false,
       invalidUrls: [] as Array<{ index: number; value: string }>,
@@ -395,25 +398,68 @@ const appendImageUrlValidation = computed(() => {
   }
 
   const rawValue = platformConfigData.value?.appendImageUrls;
-  const lines = Array.isArray(rawValue)
-    ? rawValue
-    : typeof rawValue === "string"
-      ? rawValue.split(/\r?\n/)
-      : [];
+  const items = Array.isArray(rawValue) ? rawValue : [];
 
-  const invalidUrls = lines
-    .map((item: any, index: number) => ({
-      index,
-      value: String(item || "").trim(),
-    }))
-    .filter((item) => item.value)
-    .filter((item) => !/^https?:\/\//i.test(item.value));
+  const invalidUrls = [] as Array<{ index: number; value: string }>;
+  items.forEach((item: any, index: number) => {
+    const candidates = splitUrlCandidates(String(item || ""));
+    if (candidates.length === 0) return;
+    const hasInvalid = candidates.some((url) => !/^https?:\/\//i.test(url));
+    if (hasInvalid) {
+      invalidUrls.push({ index, value: String(item) });
+    }
+  });
 
   return {
     hasError: invalidUrls.length > 0,
     invalidUrls,
   };
 });
+
+const psdImageIndexesValidation = computed(() => {
+  const rawValue = platformConfigData.value?.psdImageIndexes;
+  const value = typeof rawValue === "string" ? rawValue.trim() : "";
+  if (!value) {
+    return { hasError: false };
+  }
+  const normalized = value
+    .replace(/，/g, ",")
+    .replace(/（/g, "(")
+    .replace(/）/g, ")")
+    .replace(/\s+/g, "");
+  const valid = normalized
+    .split(",")
+    .filter(Boolean)
+    .every((segment) => {
+      if (/^\d+$/.test(segment)) {
+        return Number(segment) > 0;
+      }
+      const rangeMatch = segment.match(/^(\d+)-(\d+)$/);
+      if (rangeMatch) {
+        const start = Number(rangeMatch[1]);
+        const end = Number(rangeMatch[2]);
+        return start > 0 && end >= start;
+      }
+      const randomMatch = segment.match(/^random\((\d+(?:,\d+)*)\)$/);
+      if (randomMatch) {
+        return randomMatch[1]
+          .split(",")
+          .filter(Boolean)
+          .every((n) => /^\d+$/.test(n) && Number(n) > 0);
+      }
+      return false;
+    });
+  return { hasError: !valid };
+});
+
+function getPsdImageIndexesError(fieldKey: string) {
+  if (fieldKey !== "psdImageIndexes") {
+    return "";
+  }
+  return psdImageIndexesValidation.value.hasError
+    ? t("publishConfig.psdImageIndexesInvalid")
+    : "";
+}
 
 const platformImageLimitTip = computed(() => {
   const platform = resolveTaskTypePlatform(form.taskType);
@@ -744,9 +790,31 @@ function getUrlListItemError(fieldKey: string, index: number) {
   return invalidItem ? t("publishConfig.onlyHttpUrl") : "";
 }
 
+function splitUrlCandidates(raw: string): string[] {
+  return String(raw || "")
+    .split("|")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function pickRandomCandidate(raw: string): string {
+  const candidates = splitUrlCandidates(raw);
+  if (candidates.length === 0) return "";
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
+function removeUrlCandidate(fieldKey: string, index: number, candidateIndex: number) {
+  const raw = platformConfigData.value?.[fieldKey]?.[index] || "";
+  const candidates = splitUrlCandidates(raw);
+  candidates.splice(candidateIndex, 1);
+  platformConfigData.value[fieldKey][index] = candidates.join("|");
+}
+
 function onImagePreviewError(event: Event, fieldKey: string, index: number) {
   const img = event.target as HTMLImageElement;
-  img.style.display = "none";
+  img.style.objectFit = "none";
+  img.style.backgroundColor = "var(--el-fill-color-lighter)";
+  img.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='1.5'%3E%3Crect x='3' y='3' width='18' height='18' rx='2'/%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'/%3E%3Cpath d='m21 15-5-5L5 21'/%3E%3C/svg%3E";
 }
 
 function isTemuProductTemplateField(field: { key?: string; type?: string }) {
@@ -1021,12 +1089,6 @@ const handleAdd = () => {
   titleConfigForm.mode = "ai";
   titleConfigForm.fixedTitle = "";
   titleConfigForm.templateContent = "";
-  titleConfigForm.maxLength = undefined;
-  titleConfigForm.style = "";
-  titleConfigForm.tone = "";
-  titleConfigForm.includeEmoji = null;
-  titleConfigForm.requiredKeywords = [];
-  titleConfigForm.avoidWords = [];
   resetTitlePromptDialogState();
   platformConfigData.value = {};
   currentPlatformConfig.value = null;
@@ -1048,24 +1110,6 @@ const handleEdit = async (row: any) => {
     configData.titleConfig?.mode === "fixed" || configData.titleConfig?.fixedTitle ? "fixed" : "ai";
   titleConfigForm.fixedTitle = configData.titleConfig?.fixedTitle || "";
   titleConfigForm.templateContent = configData.titleTemplate || "";
-  titleConfigForm.maxLength =
-    typeof configData.titleConfig?.maxLength === "number"
-      ? configData.titleConfig.maxLength
-      : undefined;
-  titleConfigForm.style = configData.titleConfig?.style || "";
-  titleConfigForm.tone = configData.titleConfig?.tone || "";
-  titleConfigForm.includeEmoji =
-    typeof configData.titleConfig?.includeEmoji === "boolean"
-      ? configData.titleConfig.includeEmoji
-      : null;
-  titleConfigForm.requiredKeywords = Array.isArray(configData.titleConfig?.requiredKeywords)
-    ? configData.titleConfig.requiredKeywords
-    : Array.isArray(configData.titleConfig?.keywords)
-      ? configData.titleConfig.keywords
-      : [];
-  titleConfigForm.avoidWords = Array.isArray(configData.titleConfig?.avoidWords)
-    ? configData.titleConfig.avoidWords
-    : [];
 
   // 加载任务类型配置数据
   currentPlatformConfig.value = getTaskTypeConfig(form.taskType);
@@ -1108,6 +1152,11 @@ const submitForm = async () => {
       return;
     }
 
+    if (psdImageIndexesValidation.value.hasError) {
+      ElMessage.error(t("publishConfig.psdImageIndexesInvalid"));
+      return;
+    }
+
     // 格式化任务类型配置
     const formattedConfigData = formatTaskTypeConfigForSubmit(
       form.taskType,
@@ -1143,24 +1192,6 @@ const submitForm = async () => {
       fixedTitle: isFixedTitleMode.value
         ? titleConfigForm.fixedTitle?.trim() || undefined
         : undefined,
-      maxLength:
-        !isFixedTitleMode.value && typeof titleConfigForm.maxLength === "number"
-          ? titleConfigForm.maxLength
-          : undefined,
-      style: !isFixedTitleMode.value ? titleConfigForm.style?.trim() || undefined : undefined,
-      tone: !isFixedTitleMode.value ? titleConfigForm.tone?.trim() || undefined : undefined,
-      includeEmoji:
-        !isFixedTitleMode.value && typeof titleConfigForm.includeEmoji === "boolean"
-          ? titleConfigForm.includeEmoji
-          : undefined,
-      requiredKeywords:
-        !isFixedTitleMode.value && Array.isArray(titleConfigForm.requiredKeywords)
-          ? titleConfigForm.requiredKeywords
-          : undefined,
-      avoidWords:
-        !isFixedTitleMode.value && Array.isArray(titleConfigForm.avoidWords)
-          ? titleConfigForm.avoidWords
-          : undefined,
     };
 
     let data = {
@@ -1219,24 +1250,6 @@ const handleCopy = async (row: any) => {
     configData.titleConfig?.mode === "fixed" || configData.titleConfig?.fixedTitle ? "fixed" : "ai";
   titleConfigForm.fixedTitle = configData.titleConfig?.fixedTitle || "";
   titleConfigForm.templateContent = configData.titleTemplate || "";
-  titleConfigForm.maxLength =
-    typeof configData.titleConfig?.maxLength === "number"
-      ? configData.titleConfig.maxLength
-      : undefined;
-  titleConfigForm.style = configData.titleConfig?.style || "";
-  titleConfigForm.tone = configData.titleConfig?.tone || "";
-  titleConfigForm.includeEmoji =
-    typeof configData.titleConfig?.includeEmoji === "boolean"
-      ? configData.titleConfig.includeEmoji
-      : null;
-  titleConfigForm.requiredKeywords = Array.isArray(configData.titleConfig?.requiredKeywords)
-    ? configData.titleConfig.requiredKeywords
-    : Array.isArray(configData.titleConfig?.keywords)
-      ? configData.titleConfig.keywords
-      : [];
-  titleConfigForm.avoidWords = Array.isArray(configData.titleConfig?.avoidWords)
-    ? configData.titleConfig.avoidWords
-    : [];
 
   // 加载任务类型配置数据
   currentPlatformConfig.value = getTaskTypeConfig(form.taskType);
@@ -1774,12 +1787,28 @@ onMounted(() => {
                               Boolean(field.tooltip)),
                         }"
                       >
-                        <el-input
+                        <div
                           v-if="field.type === 'input'"
-                          v-model="platformConfigData[field.key]"
-                          :type="field.inputType || 'text'"
-                          :placeholder="field.placeholder"
-                        />
+                          class="publish-config-input-row"
+                        >
+                          <el-input
+                            v-model="platformConfigData[field.key]"
+                            :type="field.inputType || 'text'"
+                            :placeholder="field.placeholder"
+                          />
+                          <span
+                            v-if="field.tooltip"
+                            class="publish-config-input-tip"
+                          >
+                            {{ field.tooltip }}
+                          </span>
+                        </div>
+                        <div
+                          v-if="field.type === 'input' && getPsdImageIndexesError(String(field.key))"
+                          class="publish-config-field-error"
+                        >
+                          {{ getPsdImageIndexesError(String(field.key)) }}
+                        </div>
 
                         <template v-else-if="field.type === 'textarea'">
                           <el-input
@@ -1816,6 +1845,8 @@ onMounted(() => {
                               <div class="publish-config-url-list__input-wrap">
                                 <el-input
                                   v-model="platformConfigData[field.key][index]"
+                                  type="textarea"
+                                  :rows="3"
                                   :placeholder="field.placeholder"
                                 />
                                 <div
@@ -1825,14 +1856,41 @@ onMounted(() => {
                                   {{ getUrlListItemError(String(field.key), Number(index)) }}
                                 </div>
                               </div>
-                              <div class="publish-config-url-list__preview">
-                                <img
-                                  v-if="platformConfigData[field.key][index]"
-                                  :src="platformConfigData[field.key][index]"
-                                  class="publish-config-url-list__thumb"
-                                  @error="onImagePreviewError($event, String(field.key), index)"
-                                />
-                              </div>
+                              <template v-if="field.key === 'appendImageUrls'">
+                                <div
+                                  v-if="splitUrlCandidates(String(platformConfigData[field.key][index] || '')).length > 1"
+                                  class="publish-config-url-list__random-tag"
+                                >
+                                  随机 {{ splitUrlCandidates(String(platformConfigData[field.key][index] || '')).length }} 选 1
+                                </div>
+                                <div class="publish-config-url-list__candidates">
+                                  <div
+                                    v-for="(url, ci) in splitUrlCandidates(String(platformConfigData[field.key][index] || ''))"
+                                    :key="ci"
+                                    class="publish-config-url-list__candidate"
+                                  >
+                                    <img
+                                      :src="url"
+                                      class="publish-config-url-list__candidate-img"
+                                      @error="onImagePreviewError($event, String(field.key), index)"
+                                    />
+                                    <span
+                                      class="publish-config-url-list__candidate-remove"
+                                      @click="removeUrlCandidate(String(field.key), Number(index), ci)"
+                                    >×</span>
+                                  </div>
+                                </div>
+                              </template>
+                              <template v-else>
+                                <div class="publish-config-url-list__preview">
+                                  <img
+                                    v-if="platformConfigData[field.key][index]"
+                                    :src="platformConfigData[field.key][index]"
+                                    class="publish-config-url-list__thumb"
+                                    @error="onImagePreviewError($event, String(field.key), index)"
+                                  />
+                                </div>
+                              </template>
                               <el-button
                                 text
                                 type="danger"
@@ -1856,12 +1914,6 @@ onMounted(() => {
                           </el-button>
                           <div v-if="field.tooltip" class="publish-config-field-tip">
                             {{ field.tooltip }}
-                          </div>
-                          <div
-                            v-if="field.key === 'appendImageUrls'"
-                            class="publish-config-field-note"
-                          >
-                            {{ t('publishConfig.appendImageTip') }}
                           </div>
                         </div>
 
@@ -1965,6 +2017,7 @@ onMounted(() => {
                         <div
                           v-if="
                             field.tooltip &&
+                            field.type !== 'input' &&
                             field.type !== 'url-list' &&
                             field.type !== 'vendor-products' &&
                             field.type !== 'switch' &&
@@ -2072,57 +2125,16 @@ onMounted(() => {
                         }}
                       </div>
                     </el-form-item>
+
+                    <el-form-item
+                      v-if="!isFixedTitleMode && platformTitleOutputFields.length > 0"
+                      :label="t('publishConfig.titleOutputStruct')"
+                      class="publish-config-title-output"
+                    >
+                      <span class="publish-config-title-output__code">{ {{ platformTitleOutputFields.map(f => f.key).join(', ') }} }</span>
+                    </el-form-item>
                   </div>
 
-                  <div v-if="!isFixedTitleMode" class="publish-config-ai-grid__side">
-                    <el-form-item :label="t('publishConfig.maxWords')">
-                      <el-input-number
-                        v-model="titleConfigForm.maxLength"
-                        :min="1"
-                        :max="200"
-                        :placeholder="t('publishConfig.maxWordsPlaceholder')"
-                      />
-                    </el-form-item>
-                    <el-form-item :label="t('publishConfig.style')">
-                      <el-input
-                        v-model="titleConfigForm.style"
-                        :placeholder="t('publishConfig.stylePlaceholder')"
-                      />
-                    </el-form-item>
-                    <el-form-item :label="t('publishConfig.tone')">
-                      <el-input
-                        v-model="titleConfigForm.tone"
-                        :placeholder="t('publishConfig.tonePlaceholder')"
-                      />
-                    </el-form-item>
-                    <el-form-item :label="t('publishConfig.includeEmoji')">
-                      <el-radio-group v-model="titleConfigForm.includeEmoji">
-                        <el-radio :label="true">{{ t('publishConfig.allow') }}</el-radio>
-                        <el-radio :label="false">{{ t('publishConfig.forbid') }}</el-radio>
-                        <el-radio :label="null">{{ t('publishConfig.unlimited') }}</el-radio>
-                      </el-radio-group>
-                    </el-form-item>
-                    <el-form-item :label="t('publishConfig.requiredKeywords')">
-                      <el-select
-                        v-model="titleConfigForm.requiredKeywords"
-                        multiple
-                        filterable
-                        allow-create
-                        default-first-option
-                        :placeholder="t('publishConfig.enterToAdd')"
-                      />
-                    </el-form-item>
-                    <el-form-item :label="t('publishConfig.avoidWords')">
-                      <el-select
-                        v-model="titleConfigForm.avoidWords"
-                        multiple
-                        filterable
-                        allow-create
-                        default-first-option
-                        :placeholder="t('publishConfig.enterToAdd')"
-                      />
-                    </el-form-item>
-                  </div>
                 </div>
               </section>
             </div>
@@ -2906,6 +2918,15 @@ onMounted(() => {
   margin-bottom: 12px;
 }
 
+.publish-config-title-output__code {
+  font-family: monospace;
+  padding: 2px 8px;
+  background: var(--el-fill-color-light);
+  border-radius: 4px;
+  color: var(--el-text-color-primary);
+  font-size: 13px;
+}
+
 .publish-config-ai-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -2921,13 +2942,6 @@ onMounted(() => {
     flex: 0 0 auto;
     width: min(100%, 680px);
   }
-}
-
-.publish-config-ai-grid__side {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 320px));
-  justify-content: flex-start;
-  gap: 0 12px;
 }
 
 .publish-config-ai-grid__editor {
@@ -3117,27 +3131,100 @@ onMounted(() => {
   margin-bottom: 8px;
 }
 
+.publish-config-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.publish-config-input-row .el-input {
+  width: 260px;
+  flex-shrink: 0;
+}
+
+.publish-config-input-tip {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  line-height: 1.4;
+}
+
 .publish-config-url-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  max-width: 560px;
+  gap: 16px;
+  width: 100%;
 }
 
 .publish-config-url-list__item {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 96px auto;
-  gap: 10px;
-  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
+  width: 100%;
+  max-width: 100%;
 }
 
 .publish-config-url-list__input-wrap {
   min-width: 0;
 }
 
-.publish-config-url-list__preview {
+.publish-config-url-list__random-tag {
+  font-size: 12px;
+  color: var(--el-color-warning);
+  line-height: 1.4;
+}
+
+.publish-config-url-list__candidates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.publish-config-url-list__candidate {
+  position: relative;
   width: 90px;
   height: 90px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 6px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.publish-config-url-list__candidate-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.publish-config-url-list__candidate-remove {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-size: 14px;
+  line-height: 1;
+  border-radius: 50%;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.publish-config-url-list__candidate:hover .publish-config-url-list__candidate-remove {
+  opacity: 1;
+}
+
+.publish-config-url-list__preview {
+  width: 100%;
+  height: 140px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3145,13 +3232,12 @@ onMounted(() => {
   border-radius: 6px;
   overflow: hidden;
   background: var(--el-fill-color-blank);
-  flex-shrink: 0;
 }
 
 .publish-config-url-list__thumb {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
   display: block;
 }
 
@@ -3190,17 +3276,7 @@ onMounted(() => {
   margin-left: auto;
 }
 
-@media (max-width: 1200px) {
-  .publish-config-ai-grid__side {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
 @media (max-width: 768px) {
-  .publish-config-ai-grid__side {
-    grid-template-columns: 1fr;
-  }
-
   .publish-config-template-binding__selected,
   .publish-config-template-binding__empty,
   .publish-config-template-picker__toolbar,

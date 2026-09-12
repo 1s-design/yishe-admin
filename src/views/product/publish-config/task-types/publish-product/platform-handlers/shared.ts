@@ -41,13 +41,21 @@ export function validatePsdImageIndexes(input: unknown): boolean {
       }
 
       const rangeMatch = segment.match(/^(\d+)-(\d+)$/)
-      if (!rangeMatch) {
-        return false
+      if (rangeMatch) {
+        const start = Number(rangeMatch[1])
+        const end = Number(rangeMatch[2])
+        return start > 0 && end >= start
       }
 
-      const start = Number(rangeMatch[1])
-      const end = Number(rangeMatch[2])
-      return start > 0 && end >= start
+      const randomMatch = segment.match(/^random\((\d+(?:,\d+)*)\)$/)
+      if (randomMatch) {
+        return randomMatch[1]
+          .split(',')
+          .filter(Boolean)
+          .every((n) => /^\d+$/.test(n) && Number(n) > 0)
+      }
+
+      return false
     })
 }
 
@@ -71,22 +79,33 @@ export function parsePsdImageIndexes(input: unknown): number[] {
       }
 
       const rangeMatch = segment.match(/^(\d+)-(\d+)$/)
-      if (!rangeMatch) {
+      if (rangeMatch) {
+        const start = Number(rangeMatch[1])
+        const end = Number(rangeMatch[2])
+        if (start <= 0 || end < start) {
+          return
+        }
+        for (let index = start; index <= end; index += 1) {
+          indexes.push(index)
+        }
         return
       }
 
-      const start = Number(rangeMatch[1])
-      const end = Number(rangeMatch[2])
-      if (start <= 0 || end < start) {
-        return
-      }
-
-      for (let index = start; index <= end; index += 1) {
-        indexes.push(index)
+      const randomMatch = segment.match(/^random\((\d+(?:,\d+)*)\)$/)
+      if (randomMatch) {
+        const pool = randomMatch[1]
+          .split(',')
+          .filter(Boolean)
+          .map((n) => Number(n))
+          .filter((n) => n > 0)
+        if (pool.length > 0) {
+          const picked = pool[Math.floor(Math.random() * pool.length)]
+          indexes.push(picked)
+        }
       }
     })
 
-  return Array.from(new Set(indexes))
+  return indexes
 }
 
 export function normalizeIndexList(input: unknown): string {

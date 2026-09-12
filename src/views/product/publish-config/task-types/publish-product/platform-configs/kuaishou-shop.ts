@@ -34,15 +34,15 @@ export const kuaishouShopPlatformConfig: PlatformConfig = {
       key: 'psdImageIndexes',
       label: '套图图片序号',
       type: 'input',
-      placeholder: '留空使用全部，例如：1 或 1,3 或 2-5',
+      placeholder: '留空使用全部，例如：1, 1,3, 2-5, random(1,3,5)',
       span: 24,
-      tooltip: '按套图成品图片顺序选择要发布的图片，序号从 1 开始'
+      tooltip: '支持：序号 1、多选 1,3、范围 2-5、随机 random(1,3,5)，逗号组合'
     },
     {
       key: 'appendImageUrls',
       label: '附加图片',
       type: 'url-list',
-      placeholder: '请输入 http/https 图片 URL',
+      placeholder: '请输入 http/https URL，多个用 | 分隔随机（如 urlA|urlB|urlC）',
       defaultValue: [],
       span: 24,
       tooltip: '适合材质图、说明图等固定复用图片，会在生成发布任务时追加到商品图片后面'
