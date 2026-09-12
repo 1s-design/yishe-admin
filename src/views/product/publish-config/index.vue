@@ -819,7 +819,10 @@ function addSkuItem(fieldKey: string) {
     platformConfigData.value[fieldKey] = [];
   }
   platformConfigData.value[fieldKey].push({
+    stockMode: 'fixed' as 'fixed' | 'random',
     stock: undefined as number | undefined,
+    stockMin: undefined as number | undefined,
+    stockMax: undefined as number | undefined,
     price: undefined as number | undefined,
     vendorProductId: undefined as number | undefined,
   });
@@ -2014,12 +2017,37 @@ onMounted(() => {
                             class="publish-config-sku-list__item"
                           >
                             <span class="publish-config-sku-list__index">SKU {{ index + 1 }}</span>
-                            <el-input-number
-                              v-model="platformConfigData[field.key][index].stock"
-                              :min="0"
-                              :placeholder="t('publishConfig.skuStockPlaceholder')"
-                              class="publish-config-sku-list__input"
-                            />
+                            <div class="publish-config-sku-list__stock">
+                              <el-radio-group
+                                v-model="platformConfigData[field.key][index].stockMode"
+                                size="small"
+                              >
+                                <el-radio-button label="fixed">{{ t('publishConfig.skuStockFixed') }}</el-radio-button>
+                                <el-radio-button label="random">{{ t('publishConfig.skuStockRandom') }}</el-radio-button>
+                              </el-radio-group>
+                              <el-input-number
+                                v-if="platformConfigData[field.key][index].stockMode === 'fixed'"
+                                v-model="platformConfigData[field.key][index].stock"
+                                :min="0"
+                                :placeholder="t('publishConfig.skuStockPlaceholder')"
+                                class="publish-config-sku-list__stock-input"
+                              />
+                              <template v-else>
+                                <el-input-number
+                                  v-model="platformConfigData[field.key][index].stockMin"
+                                  :min="0"
+                                  :placeholder="t('publishConfig.skuStockMin')"
+                                  class="publish-config-sku-list__stock-input"
+                                />
+                                <span class="publish-config-sku-list__stock-sep">-</span>
+                                <el-input-number
+                                  v-model="platformConfigData[field.key][index].stockMax"
+                                  :min="0"
+                                  :placeholder="t('publishConfig.skuStockMax')"
+                                  class="publish-config-sku-list__stock-input"
+                                />
+                              </template>
+                            </div>
                             <el-input-number
                               v-model="platformConfigData[field.key][index].price"
                               :min="0"
@@ -3031,6 +3059,25 @@ onMounted(() => {
 .publish-config-sku-list__input {
   flex: 1;
   min-width: 0;
+}
+
+.publish-config-sku-list__stock {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1.5;
+  min-width: 0;
+}
+
+.publish-config-sku-list__stock-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.publish-config-sku-list__stock-sep {
+  flex-shrink: 0;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
 }
 
 .publish-config-ai-grid {

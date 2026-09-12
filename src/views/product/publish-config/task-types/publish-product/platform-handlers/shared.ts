@@ -197,6 +197,8 @@ export function normalizeTemuCategoryPath(input: unknown): string[] {
 
 export function normalizeSkuConfig(input: unknown): Array<{
   stock?: number
+  stockMin?: number
+  stockMax?: number
   price?: number
   vendorProductId?: number
 }> {
@@ -206,11 +208,22 @@ export function normalizeSkuConfig(input: unknown): Array<{
       if (!item || typeof item !== 'object') return null
       const result: {
         stock?: number
+        stockMin?: number
+        stockMax?: number
         price?: number
         vendorProductId?: number
       } = {}
-      if (Number.isFinite(Number(item.stock)) && Number(item.stock) >= 0) {
-        result.stock = Number(item.stock)
+      if (item.stockMode === 'random') {
+        const min = Number(item.stockMin)
+        const max = Number(item.stockMax)
+        if (Number.isFinite(min) && min >= 0 && Number.isFinite(max) && max >= min) {
+          result.stockMin = min
+          result.stockMax = max
+        }
+      } else {
+        if (Number.isFinite(Number(item.stock)) && Number(item.stock) >= 0) {
+          result.stock = Number(item.stock)
+        }
       }
       if (Number.isFinite(Number(item.price)) && Number(item.price) >= 0) {
         result.price = Number(item.price)
