@@ -853,6 +853,17 @@ function removeSkuItem(fieldKey: string, index: number) {
   platformConfigData.value[fieldKey] = nextList;
 }
 
+function moveSkuItem(fieldKey: string, index: number, direction: -1 | 1) {
+  if (!Array.isArray(platformConfigData.value?.[fieldKey])) return;
+  const targetIndex = index + direction;
+  if (targetIndex < 0 || targetIndex >= platformConfigData.value[fieldKey].length) return;
+  const nextList = [...platformConfigData.value[fieldKey]];
+  const temp = nextList[index];
+  nextList[index] = nextList[targetIndex];
+  nextList[targetIndex] = temp;
+  platformConfigData.value[fieldKey] = nextList;
+}
+
 function onImagePreviewError(event: Event, fieldKey: string, index: number) {
   const img = event.target as HTMLImageElement;
   img.style.objectFit = "none";
@@ -2035,6 +2046,22 @@ onMounted(() => {
                             class="publish-config-sku-list__item"
                           >
                             <span class="publish-config-sku-list__index">SKU {{ index + 1 }}</span>
+                            <div class="publish-config-sku-list__order">
+                              <button
+                                type="button"
+                                class="publish-config-sku-list__order-btn"
+                                :disabled="index === 0"
+                                title="上移"
+                                @click.stop="moveSkuItem(String(field.key), Number(index), -1)"
+                              >↑</button>
+                              <button
+                                type="button"
+                                class="publish-config-sku-list__order-btn"
+                                :disabled="index === (Array.isArray(platformConfigData[field.key]) ? platformConfigData[field.key].length : 0) - 1"
+                                title="下移"
+                                @click.stop="moveSkuItem(String(field.key), Number(index), 1)"
+                              >↓</button>
+                            </div>
                             <div class="publish-config-sku-list__stock">
                               <el-radio-group
                                 v-model="platformConfigData[field.key][index].stockMode"
@@ -3115,6 +3142,40 @@ onMounted(() => {
   font-size: 12px;
   color: var(--el-text-color-secondary);
   font-weight: 500;
+}
+
+.publish-config-sku-list__order {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.publish-config-sku-list__order-btn {
+  width: 22px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--el-text-color-secondary);
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+  padding: 0;
+}
+
+.publish-config-sku-list__order-btn:hover:not(:disabled) {
+  color: var(--el-color-primary);
+  background: var(--el-fill-color);
+}
+
+.publish-config-sku-list__order-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .publish-config-sku-list__input {
