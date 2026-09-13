@@ -3020,6 +3020,7 @@ export default {
     skuPriceMin: '最低价',
     skuPriceMax: '最高价',
     skuPriceDecimal: '尾数',
+    skuRemarkPlaceholder: '备注',
     skuVendorProductPlaceholder: '绑定供应商商品',
     psdImageIndexesInvalid: '套图序号格式不正确，请填写 1、1,3、2-5 或 random(1,3,5)',
     appendImageTip: '支持在已有主图后追加指定图片',

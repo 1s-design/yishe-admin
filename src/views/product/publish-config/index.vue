@@ -833,6 +833,7 @@ function addSkuItem(fieldKey: string) {
     platformConfigData.value[fieldKey] = [];
   }
   platformConfigData.value[fieldKey].push({
+    remark: '',
     stockMode: 'fixed' as 'fixed' | 'random',
     stock: undefined as number | undefined,
     stockMin: undefined as number | undefined,
@@ -2157,6 +2158,11 @@ onMounted(() => {
                                 :value="option.id"
                               />
                             </el-select>
+                            <el-input
+                              v-model="platformConfigData[field.key][index].remark"
+                              :placeholder="t('publishConfig.skuRemarkPlaceholder')"
+                              class="publish-config-sku-list__remark"
+                            />
                             <el-button
                               text
                               type="danger"
@@ -3217,6 +3223,11 @@ onMounted(() => {
 
 .publish-config-sku-list__price-decimal {
   flex: 1.2;
+  min-width: 0;
+}
+
+.publish-config-sku-list__remark {
+  flex: 0.8;
   min-width: 0;
 }
 

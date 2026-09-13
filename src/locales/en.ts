@@ -3024,6 +3024,7 @@ export default {
     skuPriceMin: 'Min Price',
     skuPriceMax: 'Max Price',
     skuPriceDecimal: 'Decimal',
+    skuRemarkPlaceholder: 'Remark',
     skuVendorProductPlaceholder: 'Bind Vendor Product',
     psdImageIndexesInvalid: 'Invalid image index format, use e.g. 1, 1,3, 2-5 or random(1,3,5)',
     appendImageTip: 'Allows appending custom images to existing product main images',

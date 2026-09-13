@@ -238,6 +238,7 @@ export function generateRandomPrice(
 }
 
 export function normalizeSkuConfig(input: unknown): Array<{
+  remark?: string
   stockMode?: 'fixed' | 'random'
   stock?: number
   stockMin?: number
@@ -254,6 +255,7 @@ export function normalizeSkuConfig(input: unknown): Array<{
     .map((item: any) => {
       if (!item || typeof item !== 'object') return null
       const result: {
+        remark?: string
         stockMode?: 'fixed' | 'random'
         stock?: number
         stockMin?: number
@@ -265,6 +267,10 @@ export function normalizeSkuConfig(input: unknown): Array<{
         priceDecimals?: number[]
         vendorProductId?: number
       } = {}
+      // 保留备注
+      if (typeof item.remark === 'string' && item.remark.trim()) {
+        result.remark = item.remark.trim()
+      }
       // 保留模式字段
       if (item.stockMode === 'random' || item.stockMode === 'fixed') {
         result.stockMode = item.stockMode
