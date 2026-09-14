@@ -1348,9 +1348,8 @@ html.dark .el-empty__image::before {
 .el-input-number .el-input-number__increase {
   background: transparent;
   border: none;
-  border-left: 1px solid var(--ep-cover-border-color);
   color: var(--ep-cover-muted-color);
-  width: 22px;
+  width: 20px;
   transition:
     color var(--ep-cover-motion-fast),
     background-color var(--ep-cover-motion-fast),
@@ -1358,13 +1357,11 @@ html.dark .el-empty__image::before {
 }
 
 .el-input-number .el-input-number__decrease {
-  border-top: 1px solid var(--ep-cover-border-color);
-  border-radius: 0 var(--ep-cover-radius-sm) 0 0;
+  border-radius: 0;
 }
 
 .el-input-number .el-input-number__increase {
-  border-bottom: 1px solid var(--ep-cover-border-color);
-  border-radius: 0 0 var(--ep-cover-radius-sm) 0;
+  border-radius: 0;
 }
 
 .el-input-number .el-input-number__decrease:hover,

@@ -254,6 +254,7 @@ export function normalizeSkuConfig(input: unknown): Array<{
   pddGroupPriceMin?: number
   pddGroupPriceMax?: number
   vendorProductId?: number
+  vendorProductCode?: string
 }> {
   if (!Array.isArray(input)) return []
   return input
@@ -276,6 +277,7 @@ export function normalizeSkuConfig(input: unknown): Array<{
         pddGroupPriceMin?: number
         pddGroupPriceMax?: number
         vendorProductId?: number
+        vendorProductCode?: string
       } = {}
       // 保留备注
       if (typeof item.remark === 'string' && item.remark.trim()) {
@@ -335,6 +337,11 @@ export function normalizeSkuConfig(input: unknown): Array<{
           result.pddGroupPriceMin = gMin
           result.pddGroupPriceMax = gMax
         }
+        if (Array.isArray(item.priceDecimals) && item.priceDecimals.length > 0) {
+          result.priceDecimals = item.priceDecimals
+            .map((d: any) => Number(d))
+            .filter((d: number) => Number.isFinite(d) && d >= 0 && d < 1)
+        }
       } else if (item.pddGroupPriceMode === 'fixed') {
         if (Number.isFinite(Number(item.pddGroupPrice)) && Number(item.pddGroupPrice) >= 0) {
           result.pddGroupPrice = Number(item.pddGroupPrice)
@@ -342,6 +349,9 @@ export function normalizeSkuConfig(input: unknown): Array<{
       }
       if (Number.isFinite(Number(item.vendorProductId)) && Number(item.vendorProductId) > 0) {
         result.vendorProductId = Number(item.vendorProductId)
+      }
+      if (typeof item.vendorProductCode === 'string' && item.vendorProductCode.trim()) {
+        result.vendorProductCode = item.vendorProductCode.trim()
       }
       return result
     })

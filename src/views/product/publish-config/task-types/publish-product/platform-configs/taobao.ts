@@ -26,11 +26,11 @@ export const taobaoPlatformConfig: PlatformConfig = {
       tooltip: '生成 productCode 时会按”素材码-商品码”拼接'
     },
     {
-      key: 'vendorProducts',
-      label: '供应商商品',
-      type: 'vendor-products',
+      key: 'skuConfig',
+      label: 'SKU 配置',
+      type: 'sku-list',
       span: 24,
-      tooltip: '选择厂家后可选商品。编码规则：有商品时”素材码-商品码”，无商品时”素材码”。'
+      tooltip: '按 SKU 顺序配置库存、价格和商家编码，留空则跳过'
     },
     {
       key: 'psdImageIndexes',

@@ -51,7 +51,7 @@ const queryParams = reactive({
   keyword: "",
   taskType: "",
   isActive: "" as "" | boolean,
-  sortType: "" as "" | "createTime_DESC" | "createTime_ASC" | "updateTime_DESC" | "updateTime_ASC",
+  sortType: "updateTime_DESC" as "" | "createTime_DESC" | "createTime_ASC" | "updateTime_DESC" | "updateTime_ASC",
 });
 
 const { height } = useWindowSize();
@@ -159,7 +159,7 @@ const normalizePublishConfigListResponse = (res: any) => {
   return [];
 };
 
-const sortType = ref<"" | "createTime_DESC" | "createTime_ASC" | "updateTime_DESC" | "updateTime_ASC">("");
+const sortType = ref<"" | "createTime_DESC" | "createTime_ASC" | "updateTime_DESC" | "updateTime_ASC">("updateTime_DESC");
 
 watchEffect(() => {
   sortType.value = queryParams.sortType || "";
@@ -244,7 +244,7 @@ const resetQuery = () => {
   queryParams.keyword = "";
   queryParams.taskType = "";
   queryParams.isActive = "";
-  queryParams.sortType = "";
+  queryParams.sortType = "updateTime_DESC";
   handleSearch();
 };
 
@@ -2078,6 +2078,7 @@ onMounted(() => {
                               >↓</button>
                             </div>
                             <div class="publish-config-sku-list__stock">
+                              <span class="publish-config-sku-list__label">{{ t('publishConfig.skuStockLabel') }}</span>
                               <el-radio-group
                                 v-model="platformConfigData[field.key][index].stockMode"
                                 size="small"
@@ -2109,6 +2110,7 @@ onMounted(() => {
                               </template>
                             </div>
                             <div class="publish-config-sku-list__price">
+                              <span class="publish-config-sku-list__label">{{ t('publishConfig.skuPriceLabel') }}</span>
                               <el-radio-group
                                 v-model="platformConfigData[field.key][index].priceMode"
                                 size="small"
@@ -2191,6 +2193,22 @@ onMounted(() => {
                                   :placeholder="t('publishConfig.skuPriceMax')"
                                   class="publish-config-sku-list__price-input"
                                 />
+                                <el-select
+                                  v-model="platformConfigData[field.key][index].priceDecimals"
+                                  :placeholder="t('publishConfig.skuPriceDecimal')"
+                                  multiple
+                                  filterable
+                                  allow-create
+                                  default-first-option
+                                  class="publish-config-sku-list__price-decimal"
+                                >
+                                  <el-option
+                                    v-for="d in defaultPriceDecimals"
+                                    :key="d.value"
+                                    :label="d.label"
+                                    :value="d.value"
+                                  />
+                                </el-select>
                               </template>
                             </div>
                             <el-select
@@ -3181,11 +3199,18 @@ onMounted(() => {
   width: 100%;
 }
 
+.publish-config-sku-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
 .publish-config-sku-list__item {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 8px 16px;
   padding: 10px;
   border: 1px solid var(--el-border-color-lighter);
   border-radius: 6px;
@@ -3193,18 +3218,18 @@ onMounted(() => {
 }
 
 .publish-config-sku-list__index {
-  flex-shrink: 0;
-  width: 56px;
   font-size: 12px;
   color: var(--el-text-color-secondary);
   font-weight: 500;
+  width: 50px;
+  flex: 0 0 50px;
 }
 
 .publish-config-sku-list__order {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  flex-shrink: 0;
+  flex: 0 0 auto;
 }
 
 .publish-config-sku-list__order-btn {
@@ -3234,80 +3259,119 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
-.publish-config-sku-list__input {
-  flex: 1;
-  min-width: 0;
-}
-
+/* 库存区块：空间不够就换行 */
 .publish-config-sku-list__stock {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   flex: 0 1 auto;
-  min-width: 180px;
+  min-width: 280px;
+}
+
+.publish-config-sku-list__stock .el-radio-group {
+  flex-shrink: 0;
 }
 
 .publish-config-sku-list__stock-input {
-  width: 80px;
-  flex-shrink: 0;
+  flex: 0 0 90px;
 }
 
 .publish-config-sku-list__stock-sep {
   flex-shrink: 0;
   color: var(--el-text-color-secondary);
   font-size: 12px;
+  padding: 0 2px;
 }
 
+/* 价格区块 */
 .publish-config-sku-list__price {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   flex: 0 1 auto;
-  min-width: 180px;
+  min-width: 400px;
+}
+
+.publish-config-sku-list__price .el-radio-group {
+  flex-shrink: 0;
 }
 
 .publish-config-sku-list__price-input {
-  width: 80px;
-  flex-shrink: 0;
+  flex: 0 0 90px;
 }
 
 .publish-config-sku-list__price-decimal {
-  width: 120px;
+  flex: 0 0 120px;
+  min-width: 0;
+}
+
+.publish-config-sku-list__price-decimal :deep(.el-select__wrapper) {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.publish-config-sku-list__price-decimal :deep(.el-select__selected-item) {
+  flex-shrink: 0;
+  display: inline-flex;
+}
+
+.publish-config-sku-list__price-decimal :deep(.el-tag) {
   flex-shrink: 0;
 }
 
+/* 拼单价区块 */
+.publish-config-sku-list__pdd-group-price {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 1 auto;
+  min-width: 320px;
+}
+
+.publish-config-sku-list__pdd-group-price .el-radio-group {
+  flex-shrink: 0;
+}
+
+/* SKU 内数字输入框全局优化 */
+.publish-config-sku-list__stock-input :deep(.el-input__wrapper),
+.publish-config-sku-list__price-input :deep(.el-input__wrapper) {
+  padding: 0 4px 0 8px;
+}
+
+.publish-config-sku-list__stock-input :deep(.el-input__inner),
+.publish-config-sku-list__price-input :deep(.el-input__inner) {
+  padding: 0;
+}
+
+/* 图片索引区块 */
+.publish-config-sku-list__image-index {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
+.publish-config-sku-list__image-index-input {
+  width: 70px;
+}
+
+/* 备注自适应填充 */
 .publish-config-sku-list__remark {
-  flex: 0.8;
-  min-width: 0;
+  flex: 1 1 80px;
+  min-width: 60px;
+}
+
+/* 供应商商品选择 */
+.publish-config-sku-list__input {
+  flex: 1 1 120px;
+  min-width: 100px;
 }
 
 .publish-config-sku-list__label {
   font-size: 12px;
   color: var(--el-text-color-secondary);
   flex-shrink: 0;
-}
-
-.publish-config-sku-list__image-index {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.publish-config-sku-list__image-index-input {
-  width: 90px;
-}
-
-.publish-config-sku-list__image-index-input :deep(.el-input__wrapper) {
-  padding: 0 8px;
-}
-
-.publish-config-sku-list__pdd-group-price {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex: 0 1 auto;
-  min-width: 180px;
 }
 
 .publish-config-ai-grid {

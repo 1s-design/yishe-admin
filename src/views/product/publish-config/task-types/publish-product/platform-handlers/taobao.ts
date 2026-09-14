@@ -1,5 +1,5 @@
 import type { PlatformHandler } from './types'
-import { normalizeHttpUrlList, normalizePsdImageIndexes, validatePsdImageIndexes, normalizeVendorProductMappings } from './shared'
+import { normalizeHttpUrlList, normalizePsdImageIndexes, validatePsdImageIndexes, normalizeSkuConfig } from './shared'
 
 export const taobaoHandler: PlatformHandler = {
   platform: 'taobao',
@@ -72,7 +72,7 @@ export const taobaoHandler: PlatformHandler = {
     formatted.psdImageIndexes = normalizePsdImageIndexes(formatted.psdImageIndexes) || undefined
     formatted.vendorCode = String(formatted.vendorCode || '').trim() || undefined
     formatted.vendorName = String(formatted.vendorName || '').trim() || undefined
-    formatted.vendorProductMappings = normalizeVendorProductMappings(formatted.vendorProductMappings)
+    formatted.skuConfig = normalizeSkuConfig(formatted.skuConfig)
 
     return formatted
   },
@@ -90,6 +90,7 @@ export const taobaoHandler: PlatformHandler = {
     formatted.fromAIPublish = true
     formatted.appendImageUrls = normalizeHttpUrlList(formatted.appendImageUrls)
     formatted.psdImageIndexes = normalizePsdImageIndexes(formatted.psdImageIndexes)
+    formatted.skuConfig = normalizeSkuConfig(formatted.skuConfig)
     return formatted
   },
 
@@ -97,9 +98,9 @@ export const taobaoHandler: PlatformHandler = {
     return [
       '复制商品 itemId 为必填，发布端会进入 publish.htm?copyItem=true&itemId=... 页面',
       '支持绑定厂家，生成 productCode 时会按“素材码-厂家码”拼接',
+      '支持 SKU 级别的库存、价格和商家编码配置',
       '支持固定标题或 AI 标题，并会在任务创建时筛选套图主图',
-      '支持按序号选择套图图片，例如 1、1,3 或 2-5；留空默认使用全部套图图片',
-      '当前先接入基础打开页面、标题与图片数据透传，具体页面字段后续继续补充'
+      '支持按序号选择套图图片，例如 1、1,3 或 2-5；留空默认使用全部套图图片'
     ]
   }
 }
