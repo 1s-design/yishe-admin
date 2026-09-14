@@ -129,9 +129,10 @@ export async function uploadToCOS({
   region?: string
   onProgress?: (progressData: any) => void
 }) {
-  console.log(`[COS上传] 开始: file.name=${file?.name}, file.size=${file?.size}, file.type=${file?.type}, category=${category}`);
+  console.log(`[COS上传] 开始: file.name=${file?.name}, file.size=${file?.size}, file.type=${file?.type}, category=${category}, account=${account}, userId=${userId}`);
 
   // 确保 COS 已初始化
+  console.log("[COS上传] 检查 COS 初始化状态...");
   if (!_cos) {
     console.log("[COS上传] COS 未初始化，开始初始化...");
     try {
@@ -141,9 +142,12 @@ export async function uploadToCOS({
       console.error("[COS上传] COS 初始化失败:", e?.message || e);
       throw new Error('COS未初始化，无法上传文件')
     }
+  } else {
+    console.log("[COS上传] COS 已初始化，跳过初始化");
   }
 
   const cos = getCOS()
+  console.log("[COS上传] 获取 COS 实例成功");
 
   // 验证文件对象
   if (!file) {
@@ -154,6 +158,7 @@ export async function uploadToCOS({
     throw new Error('文件对象类型不正确')
   }
 
+  console.log("[COS上传] 开始构建 key...");
   // 如果没有提供 key，且提供了 category，则生成新格式的 key
   let finalKey = key
   if (!finalKey && category) {
@@ -176,8 +181,9 @@ export async function uploadToCOS({
 
   console.log(`[COS上传] 准备上传: key=${finalKey}, bucket=${bucket || cos.options.Bucket}, region=${region || cos.options.Region}`);
 
+  console.log("[COS上传] 即将调用 cos.uploadFile...");
   try {
-    const res = await cos.uploadFile({
+    const uploadPromise = cos.uploadFile({
       Key: String(finalKey),
       Body: file,
       Bucket: bucket || cos.options.Bucket,
@@ -187,6 +193,12 @@ export async function uploadToCOS({
         onProgress?.(progressData);
       }
     })
+    // 超时检测：30秒无响应则抛出错误
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('COS上传超时（30s），可能是网络问题或签名过期')), 30000)
+    })
+    const res = await Promise.race([uploadPromise, timeoutPromise])
+    console.log("[COS上传] cos.uploadFile 返回结果:", JSON.stringify(res));
     const url = `https://${res.Location}`
     console.log(`[COS上传] 上传成功: url=${url}`);
     registerFileAssetBestEffort({
