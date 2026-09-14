@@ -3242,14 +3242,14 @@ onMounted(() => {
 .publish-config-sku-list__stock {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex: 1.5;
-  min-width: 0;
+  gap: 6px;
+  flex: 0 1 auto;
+  min-width: 180px;
 }
 
 .publish-config-sku-list__stock-input {
-  flex: 1;
-  min-width: 0;
+  width: 80px;
+  flex-shrink: 0;
 }
 
 .publish-config-sku-list__stock-sep {
@@ -3261,19 +3261,19 @@ onMounted(() => {
 .publish-config-sku-list__price {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex: 2;
-  min-width: 0;
+  gap: 6px;
+  flex: 0 1 auto;
+  min-width: 180px;
 }
 
 .publish-config-sku-list__price-input {
-  flex: 1;
-  min-width: 0;
+  width: 80px;
+  flex-shrink: 0;
 }
 
 .publish-config-sku-list__price-decimal {
-  flex: 1.2;
-  min-width: 0;
+  width: 120px;
+  flex-shrink: 0;
 }
 
 .publish-config-sku-list__remark {
@@ -3306,7 +3306,8 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  flex-shrink: 0;
+  flex: 0 1 auto;
+  min-width: 180px;
 }
 
 .publish-config-ai-grid {
