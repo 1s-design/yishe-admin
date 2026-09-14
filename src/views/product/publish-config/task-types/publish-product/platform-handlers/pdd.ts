@@ -1,12 +1,12 @@
 import type { PlatformHandler } from './types'
 import {
   normalizeHttpUrlList,
-  normalizeIndexList,
   normalizePsdImageIndexes,
   parsePsdImageIndexes,
-  validatePositiveIndexList,
   validatePsdImageIndexes,
-  normalizeVendorProductMappings
+  normalizeVendorProductMappings,
+  normalizeSkuConfig,
+  extractSkuImageIndexes
 } from './shared'
 
 export const pddHandler: PlatformHandler = {
@@ -36,8 +36,14 @@ export const pddHandler: PlatformHandler = {
     if (parsePsdImageIndexes(configData?.psdImageIndexes).length > 10) {
       errors.push('拼多多套图图片序号最多选择 10 个')
     }
-    if (!validatePositiveIndexList(configData?.skuImageIndexes)) {
-      errors.push('SKU 图片序号格式不正确，请填写 2,3,4,5')
+    // 验证 skuConfig 中的 imageIndex
+    if (Array.isArray(configData?.skuConfig)) {
+      for (let i = 0; i < configData.skuConfig.length; i++) {
+        const idx = Number(configData.skuConfig[i]?.imageIndex)
+        if (!Number.isFinite(idx) || idx < 1) {
+          errors.push(`SKU ${i + 1} 的图片序号必须是正整数`)
+        }
+      }
     }
 
     if (typeof rawValue === 'string' && rawValue.trim()) {
@@ -91,10 +97,13 @@ export const pddHandler: PlatformHandler = {
     }
     formatted.appendImageUrls = normalizeHttpUrlList(formatted.appendImageUrls)
     formatted.psdImageIndexes = normalizePsdImageIndexes(formatted.psdImageIndexes) || undefined
-    formatted.skuImageIndexes = normalizeIndexList(formatted.skuImageIndexes) || undefined
     formatted.vendorCode = String(formatted.vendorCode || '').trim() || undefined
     formatted.vendorName = String(formatted.vendorName || '').trim() || undefined
     formatted.vendorProductMappings = normalizeVendorProductMappings(formatted.vendorProductMappings)
+    // 标准化 SKU 配置
+    formatted.skuConfig = normalizeSkuConfig(formatted.skuConfig)
+    // 从 skuConfig 提取 skuImageIndexes 字符串（兼容旧版）
+    formatted.skuImageIndexes = extractSkuImageIndexes(formatted.skuConfig) || undefined
 
     return formatted
   },
@@ -114,7 +123,7 @@ export const pddHandler: PlatformHandler = {
     }
     formatted.appendImageUrls = normalizeHttpUrlList(formatted.appendImageUrls)
     formatted.psdImageIndexes = normalizePsdImageIndexes(formatted.psdImageIndexes)
-    formatted.skuImageIndexes = normalizeIndexList(formatted.skuImageIndexes)
+    formatted.skuConfig = normalizeSkuConfig(formatted.skuConfig)
     return formatted
   },
 
@@ -123,7 +132,7 @@ export const pddHandler: PlatformHandler = {
       '拼多多只需填写相似商品 goodsId，发布端会进入商品列表查询后点击发布相似品',
       '支持绑定厂家，生成 productCode 时会按“素材码-厂家码”拼接',
       '支持按序号选择套图图片，例如 1、1,3 或 2-5；留空默认使用全部套图图片，最多 10 张',
-      '预留 skuImageIndexes 隐藏字段，例如 2,3,4,5，表示第 1 个 SKU 用第 2 张图，以此类推',
+      'SKU 配置：按 SKU 顺序配置图片索引、库存、价格和拼单价',
       '支持附加图片，会在生成发布任务时追加到商品图片后面',
       '当前先接入打开相似发布页和数据透传，页面字段会按你后续提供的细节继续补充'
     ]

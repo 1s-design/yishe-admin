@@ -239,6 +239,7 @@ export function generateRandomPrice(
 
 export function normalizeSkuConfig(input: unknown): Array<{
   remark?: string
+  imageIndex?: number
   stockMode?: 'fixed' | 'random'
   stock?: number
   stockMin?: number
@@ -248,6 +249,10 @@ export function normalizeSkuConfig(input: unknown): Array<{
   priceMin?: number
   priceMax?: number
   priceDecimals?: number[]
+  pddGroupPriceMode?: 'fixed' | 'random'
+  pddGroupPrice?: number
+  pddGroupPriceMin?: number
+  pddGroupPriceMax?: number
   vendorProductId?: number
 }> {
   if (!Array.isArray(input)) return []
@@ -256,6 +261,7 @@ export function normalizeSkuConfig(input: unknown): Array<{
       if (!item || typeof item !== 'object') return null
       const result: {
         remark?: string
+        imageIndex?: number
         stockMode?: 'fixed' | 'random'
         stock?: number
         stockMin?: number
@@ -265,11 +271,19 @@ export function normalizeSkuConfig(input: unknown): Array<{
         priceMin?: number
         priceMax?: number
         priceDecimals?: number[]
+        pddGroupPriceMode?: 'fixed' | 'random'
+        pddGroupPrice?: number
+        pddGroupPriceMin?: number
+        pddGroupPriceMax?: number
         vendorProductId?: number
       } = {}
       // 保留备注
       if (typeof item.remark === 'string' && item.remark.trim()) {
         result.remark = item.remark.trim()
+      }
+      // SKU 图片索引
+      if (Number.isFinite(Number(item.imageIndex)) && Number(item.imageIndex) > 0) {
+        result.imageIndex = Number(item.imageIndex)
       }
       // 保留模式字段
       if (item.stockMode === 'random' || item.stockMode === 'fixed') {
@@ -310,10 +324,35 @@ export function normalizeSkuConfig(input: unknown): Array<{
           result.price = Number(item.price)
         }
       }
+      // 拼多多拼单价
+      if (item.pddGroupPriceMode === 'random' || item.pddGroupPriceMode === 'fixed') {
+        result.pddGroupPriceMode = item.pddGroupPriceMode
+      }
+      if (item.pddGroupPriceMode === 'random') {
+        const gMin = Number(item.pddGroupPriceMin)
+        const gMax = Number(item.pddGroupPriceMax)
+        if (Number.isFinite(gMin) && gMin >= 0 && Number.isFinite(gMax) && gMax >= gMin) {
+          result.pddGroupPriceMin = gMin
+          result.pddGroupPriceMax = gMax
+        }
+      } else if (item.pddGroupPriceMode === 'fixed') {
+        if (Number.isFinite(Number(item.pddGroupPrice)) && Number(item.pddGroupPrice) >= 0) {
+          result.pddGroupPrice = Number(item.pddGroupPrice)
+        }
+      }
       if (Number.isFinite(Number(item.vendorProductId)) && Number(item.vendorProductId) > 0) {
         result.vendorProductId = Number(item.vendorProductId)
       }
       return result
     })
     .filter(Boolean)
+}
+
+/** 从 skuConfig 中提取 skuImageIndexes 字符串（兼容旧版拼多多） */
+export function extractSkuImageIndexes(skuConfig: unknown): string {
+  if (!Array.isArray(skuConfig)) return ''
+  return skuConfig
+    .map((item: any) => Number(item?.imageIndex))
+    .filter((n: number) => Number.isFinite(n) && n > 0)
+    .join(',')
 }

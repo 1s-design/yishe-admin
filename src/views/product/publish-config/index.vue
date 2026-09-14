@@ -832,8 +832,10 @@ function addSkuItem(fieldKey: string) {
   if (!Array.isArray(platformConfigData.value?.[fieldKey])) {
     platformConfigData.value[fieldKey] = [];
   }
+  const nextIndex = platformConfigData.value[fieldKey].length + 1;
   platformConfigData.value[fieldKey].push({
     remark: '',
+    imageIndex: nextIndex,
     stockMode: 'fixed' as 'fixed' | 'random',
     stock: undefined as number | undefined,
     stockMin: undefined as number | undefined,
@@ -843,6 +845,10 @@ function addSkuItem(fieldKey: string) {
     priceMin: undefined as number | undefined,
     priceMax: undefined as number | undefined,
     priceDecimals: [] as number[],
+    pddGroupPriceMode: 'fixed' as 'fixed' | 'random',
+    pddGroupPrice: undefined as number | undefined,
+    pddGroupPriceMin: undefined as number | undefined,
+    pddGroupPriceMax: undefined as number | undefined,
     vendorProductId: undefined as number | undefined,
   });
 }
@@ -2047,6 +2053,15 @@ onMounted(() => {
                             class="publish-config-sku-list__item"
                           >
                             <span class="publish-config-sku-list__index">SKU {{ index + 1 }}</span>
+                            <div class="publish-config-sku-list__image-index">
+                              <span class="publish-config-sku-list__label">{{ t('publishConfig.skuImageIndex') }}</span>
+                              <el-input-number
+                                v-model="platformConfigData[field.key][index].imageIndex"
+                                :min="1"
+                                :placeholder="String(index + 1)"
+                                class="publish-config-sku-list__image-index-input"
+                              />
+                            </div>
                             <div class="publish-config-sku-list__order">
                               <button
                                 type="button"
@@ -2142,6 +2157,41 @@ onMounted(() => {
                                     :value="d.value"
                                   />
                                 </el-select>
+                              </template>
+                            </div>
+                            <div class="publish-config-sku-list__pdd-group-price">
+                              <span class="publish-config-sku-list__label">{{ t('publishConfig.skuPddGroupPrice') }}</span>
+                              <el-radio-group
+                                v-model="platformConfigData[field.key][index].pddGroupPriceMode"
+                                size="small"
+                              >
+                                <el-radio-button label="fixed">{{ t('publishConfig.skuPriceFixed') }}</el-radio-button>
+                                <el-radio-button label="random">{{ t('publishConfig.skuPriceRandom') }}</el-radio-button>
+                              </el-radio-group>
+                              <el-input-number
+                                v-if="platformConfigData[field.key][index].pddGroupPriceMode === 'fixed'"
+                                v-model="platformConfigData[field.key][index].pddGroupPrice"
+                                :min="0"
+                                :precision="2"
+                                :placeholder="t('publishConfig.skuPddGroupPricePlaceholder')"
+                                class="publish-config-sku-list__price-input"
+                              />
+                              <template v-else-if="platformConfigData[field.key][index].pddGroupPriceMode === 'random'">
+                                <el-input-number
+                                  v-model="platformConfigData[field.key][index].pddGroupPriceMin"
+                                  :min="0"
+                                  :precision="2"
+                                  :placeholder="t('publishConfig.skuPriceMin')"
+                                  class="publish-config-sku-list__price-input"
+                                />
+                                <span class="publish-config-sku-list__stock-sep">-</span>
+                                <el-input-number
+                                  v-model="platformConfigData[field.key][index].pddGroupPriceMax"
+                                  :min="0"
+                                  :precision="2"
+                                  :placeholder="t('publishConfig.skuPriceMax')"
+                                  class="publish-config-sku-list__price-input"
+                                />
                               </template>
                             </div>
                             <el-select
@@ -3229,6 +3279,30 @@ onMounted(() => {
 .publish-config-sku-list__remark {
   flex: 0.8;
   min-width: 0;
+}
+
+.publish-config-sku-list__label {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  flex-shrink: 0;
+}
+
+.publish-config-sku-list__image-index {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.publish-config-sku-list__image-index-input {
+  width: 80px;
+}
+
+.publish-config-sku-list__pdd-group-price {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .publish-config-ai-grid {

@@ -40,20 +40,19 @@ export const pddPlatformConfig: PlatformConfig = {
       span: 24
     },
     {
+      key: 'skuConfig',
+      label: 'SKU 配置',
+      type: 'sku-list',
+      span: 24,
+      tooltip: '按 SKU 顺序配置图片索引、库存、价格和拼单价，留空则跳过'
+    },
+    {
       key: 'psdImageIndexes',
       label: '套图图片序号',
       type: 'input',
       placeholder: '留空使用全部，例如：1, 1,3, 2-5, random(1,3,5)',
       span: 24,
       tooltip: '支持：序号 1、多选 1,3、范围 2-5、随机 random(1,3,5)，逗号组合，最多 10 张'
-    },
-    {
-      key: 'skuImageIndexes',
-      label: 'SKU 图片序号',
-      type: 'input',
-      placeholder: '例如：2,3,4,5，表示第 1 个 SKU 用第 2 张图',
-      span: 24,
-      tooltip: '按 SKU 顺序映射套图图片，只支持逗号分隔的正整数，例如 2,3,4,5'
     },
     {
       key: 'appendImageUrls',
