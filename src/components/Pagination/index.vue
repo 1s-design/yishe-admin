@@ -1,17 +1,57 @@
 <!-- 基于 ruoyi-vue3 的 Pagination 重构，核心是简化无用的属性，并使用 ts 重写 -->
 <template>
   <div v-show="total > 0" class="yishe-pagination">
-    <div v-if="isMobile" class="yishe-pagination__summary">
-      <span>共 {{ total }} 条</span>
-      <span>{{ currentPage }} / {{ pageCount || 1 }} 页</span>
+    <!-- 移动端优化分页条：防溢出、高触控友好、带快速选页 -->
+    <div v-if="isMobile" class="yishe-pagination__mobile-bar">
+      <div class="yishe-pagination__mobile-total">
+        共 <strong>{{ total }}</strong> 条
+      </div>
+      <div class="yishe-pagination__mobile-nav">
+        <el-button
+          size="small"
+          class="mobile-page-btn"
+          :disabled="currentPage <= 1"
+          @click="handleCurrentChange(currentPage - 1)"
+        >
+          上一页
+        </el-button>
+        <el-dropdown trigger="click" @command="(val: any) => handleCurrentChange(Number(val))">
+          <button class="mobile-page-indicator" type="button">
+            <span>{{ currentPage }} / {{ pageCount || 1 }}</span>
+            <el-icon class="indicator-arrow"><ArrowDown /></el-icon>
+          </button>
+          <template #dropdown>
+            <el-dropdown-menu class="mobile-page-dropdown-menu">
+              <el-dropdown-item
+                v-for="p in pageCount"
+                :key="p"
+                :command="p"
+                :class="{ 'is-active': p === currentPage }"
+              >
+                第 {{ p }} 页
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+        <el-button
+          size="small"
+          class="mobile-page-btn"
+          :disabled="currentPage >= pageCount"
+          @click="handleCurrentChange(currentPage + 1)"
+        >
+          下一页
+        </el-button>
+      </div>
     </div>
+
+    <!-- 桌面端标准分页控件 -->
     <el-pagination
+      v-else
       v-model:current-page="currentPage"
       v-model:page-size="pageSize"
       :background="true"
       :page-sizes="[10, 20, 30, 50, 100, 200, 500, 1000]"
       :pager-count="responsivePagerCount"
-      :small="isMobile"
       :total="total"
       class="yishe-pagination__control"
       :layout="responsiveLayout"
@@ -21,6 +61,9 @@
   </div>
 </template>
 <script lang="ts" setup>
+import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
+import { ArrowDown } from '@element-plus/icons-vue'
+
 defineOptions({ name: 'Pagination' })
 
 const props = defineProps({
@@ -43,7 +86,7 @@ const props = defineProps({
   // 移动端页码按钮的数量端默认值 5
   pagerCount: {
     type: Number,
-    default: document.body.clientWidth < 992 ? 5 : 7
+    default: typeof document !== 'undefined' && document.body.clientWidth < 992 ? 5 : 7
   }
 })
 
@@ -65,14 +108,8 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', updateWindowWidth)
 })
 
-const isMobile = computed(() => windowWidth.value <= 640)
+const isMobile = computed(() => windowWidth.value <= 768)
 const responsiveLayout = computed(() => {
-  if (windowWidth.value <= 420) {
-    return 'prev, pager, next'
-  }
-  if (windowWidth.value <= 640) {
-    return 'prev, pager, next'
-  }
   if (windowWidth.value <= 900) {
     return 'total, sizes, prev, pager, next'
   }
@@ -94,7 +131,6 @@ const currentPage = computed({
     return props.page
   },
   set(val) {
-    // 触发 update:page 事件，更新 limit 属性，从而更新 currentPage
     emit('update:page', val)
   }
 })
@@ -103,20 +139,17 @@ const pageSize = computed({
     return props.limit
   },
   set(val) {
-    // 触发 update:limit 事件，更新 limit 属性，从而更新 pageSize
     emit('update:limit', val)
   }
 })
-const handleSizeChange = (val) => {
-  // 如果修改后超过最大页面，强制跳转到第 1 页
+const handleSizeChange = (val: number) => {
   if (currentPage.value * val > props.total) {
     currentPage.value = 1
   }
-  // 触发 pagination 事件，重新加载列表
   emit('pagination', { page: currentPage.value, limit: val })
 }
-const handleCurrentChange = (val) => {
-  // 触发 pagination 事件，重新加载列表
+const handleCurrentChange = (val: number) => {
+  currentPage.value = val
   emit('pagination', { page: val, limit: pageSize.value })
 }
 </script>
@@ -131,17 +164,6 @@ const handleCurrentChange = (val) => {
   gap: 8px;
 }
 
-.yishe-pagination__summary {
-  display: none;
-  width: 100%;
-  font-size: 12px;
-  line-height: 1.3;
-  color: var(--el-text-color-secondary);
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
 .yishe-pagination__control {
   max-width: 100%;
 }
@@ -153,64 +175,103 @@ const handleCurrentChange = (val) => {
   max-width: 100%;
 }
 
+/* 移动端专属分页条样式 */
+.yishe-pagination__mobile-bar {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  box-sizing: border-box;
+}
+
+.yishe-pagination__mobile-total {
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+  white-space: nowrap;
+
+  strong {
+    color: var(--el-text-color-primary);
+    font-weight: 600;
+  }
+}
+
+.yishe-pagination__mobile-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mobile-page-btn {
+  height: 32px;
+  padding: 0 10px;
+  font-size: 12px;
+  border-radius: 6px;
+}
+
+.mobile-page-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 32px;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+
+  &:hover,
+  &:active {
+    border-color: var(--el-color-primary);
+    color: var(--el-color-primary);
+  }
+
+  .indicator-arrow {
+    font-size: 11px;
+  }
+}
+
+:deep(.mobile-page-dropdown-menu) {
+  max-height: 240px;
+  overflow-y: auto;
+  min-width: 90px;
+
+  .el-dropdown-menu__item.is-active {
+    color: var(--el-color-primary);
+    font-weight: 600;
+    background: var(--el-color-primary-light-9);
+  }
+}
+
 @media (width <= 768px) {
   .yishe-pagination {
     align-items: stretch;
-  }
-
-  :deep(.el-pagination) {
-    justify-content: flex-start;
+    margin: 8px 0;
   }
 }
 
-@media (width <= 640px) {
-  .yishe-pagination {
-    margin: 10px 0;
-    gap: 6px;
+@media (width <= 360px) {
+  .yishe-pagination__mobile-bar {
+    gap: 4px;
   }
 
-  .yishe-pagination__summary {
-    display: flex;
+  .mobile-page-btn {
+    padding: 0 6px;
+    font-size: 11px;
   }
 
-  :deep(.el-pagination) {
-    width: 100%;
-    justify-content: center;
-    gap: 6px;
+  .mobile-page-indicator {
+    padding: 0 6px;
+    font-size: 11px;
   }
 
-  :deep(.el-pagination .btn-prev),
-  :deep(.el-pagination .btn-next),
-  :deep(.el-pagination .el-pager li) {
-    min-width: 28px;
-  }
-
-  :deep(.el-pagination__sizes),
-  :deep(.el-pagination__total),
-  :deep(.el-pagination__jump) {
-    margin-left: 0 !important;
-  }
-}
-
-@media (width <= 420px) {
-  :deep(.el-pagination) {
-    flex-wrap: nowrap;
-    overflow: hidden;
-  }
-
-  :deep(.el-pagination .btn-prev),
-  :deep(.el-pagination .btn-next),
-  :deep(.el-pagination .el-pager li) {
-    width: 26px;
-    height: 26px;
-    min-width: 26px;
-    padding: 0;
-  }
-
-  :deep(.el-pagination .el-pager) {
-    display: flex;
-    min-width: 0;
-    flex: 0 1 auto;
+  .yishe-pagination__mobile-total {
+    font-size: 12px;
   }
 }
 </style>

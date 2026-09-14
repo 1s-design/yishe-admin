@@ -68,7 +68,8 @@
           class="list-page-panel list-page-panel--flat list-page-table-panel list-page-table-panel--flat"
         >
           <div class="list-page-table-panel__body">
-            <div class="common-table">
+            <!-- 桌面端表格视图 -->
+            <div v-if="!isMobile" class="common-table">
               <vxe-grid
                 v-bind="gridOptions"
                 :max-height="gridOptions.maxHeight"
@@ -77,6 +78,28 @@
                 @checkbox-change="checkboxChange"
                 @checkbox-all="checkboxAllChange"
               >
+                <template #imagesSlot="{ row }">
+                  <div v-if="row.images?.length" class="flex items-center gap-1.5 py-1">
+                    <el-image
+                      :src="row.images[0]"
+                      :preview-src-list="row.images"
+                      preview-teleported
+                      fit="cover"
+                      style="width: 36px; height: 36px; border-radius: 4px; border: 1px solid var(--el-border-color-lighter); flex-shrink: 0; cursor: pointer;"
+                    />
+                    <el-tag
+                      v-if="row.images.length > 1"
+                      size="small"
+                      type="info"
+                      effect="plain"
+                      style="padding: 0 4px; font-size: 11px;"
+                    >
+                      +{{ row.images.length - 1 }}
+                    </el-tag>
+                  </div>
+                  <span v-else style="color: var(--el-text-color-placeholder); font-size: 12px;">-</span>
+                </template>
+
                 <template #titleSlot="{ row }">
                   <div class="design-inspiration-title">{{ row.title }}</div>
                 </template>
@@ -122,6 +145,172 @@
                 </template>
               </vxe-grid>
             </div>
+
+            <!-- 移动端专属卡片列表视图 -->
+            <div v-else class="mobile-inspiration-container">
+              <!-- 移动端批量操作条 -->
+              <div v-if="dataSource.length" class="mobile-batch-bar">
+                <el-checkbox
+                  :model-value="isAllSelected"
+                  :indeterminate="isIndeterminate"
+                  @change="handleSelectAllMobile"
+                >
+                  <span class="mobile-batch-text">
+                    全选本页 (已选 {{ selectedCountInPage }}/{{ dataSource.length }})
+                  </span>
+                </el-checkbox>
+                <el-button
+                  v-if="ids.length > 0"
+                  type="danger"
+                  link
+                  size="small"
+                  :icon="Delete"
+                  :loading="deleteLoading"
+                  @click="handleDelete(null)"
+                >
+                  删除选中 ({{ ids.length }})
+                </el-button>
+              </div>
+
+              <!-- 加载状态骨架屏 -->
+              <div v-if="loading" class="mobile-loading-skeleton">
+                <el-skeleton :rows="3" animated />
+                <el-skeleton :rows="3" animated style="margin-top: 12px" />
+              </div>
+
+              <!-- 空状态 -->
+              <el-empty v-else-if="!dataSource.length" description="暂无设计灵感" />
+
+              <!-- 灵感卡片列表 -->
+              <div v-else class="mobile-inspiration-list">
+                <div
+                  v-for="item in dataSource"
+                  :key="item.id"
+                  class="mobile-inspiration-card"
+                  :class="{ 'is-selected': item.id && ids.includes(item.id) }"
+                  @click="item.id && toggleCardSelect(item.id)"
+                >
+                  <!-- 顶部：选择框、标题、分类 -->
+                  <div class="mobile-card-header">
+                    <div class="mobile-card-header__left">
+                      <el-checkbox
+                        :model-value="Boolean(item.id && ids.includes(item.id))"
+                        @click.stop
+                        @change="(val: any) => item.id && handleCardSelect(item.id, Boolean(val))"
+                      />
+                      <div class="mobile-card-title">{{ item.title }}</div>
+                    </div>
+                    <el-tag
+                      v-if="item.category"
+                      size="small"
+                      effect="light"
+                      class="mobile-card-category"
+                    >
+                      {{ item.category }}
+                    </el-tag>
+                  </div>
+
+                  <!-- 参考图横向滑槽 -->
+                  <div v-if="item.images?.length" class="mobile-card-images" @click.stop>
+                    <div class="mobile-card-images__scroll">
+                      <el-image
+                        v-for="(img, idx) in item.images"
+                        :key="idx"
+                        :src="img"
+                        :preview-src-list="item.images"
+                        :initial-index="idx"
+                        preview-teleported
+                        fit="cover"
+                        class="mobile-card-thumb"
+                      />
+                    </div>
+                    <div class="mobile-card-images__info">
+                      共 {{ item.images.length }} 张参考图（点击查看大图）
+                    </div>
+                  </div>
+
+                  <!-- 灵感主体内容 -->
+                  <div class="mobile-card-body">
+                    <div
+                      class="mobile-card-content"
+                      :class="{
+                        'is-clamped': item.id && !expandedCards[item.id] && (item.content?.length || 0) > 120,
+                      }"
+                    >
+                      {{ item.content }}
+                    </div>
+                    <button
+                      v-if="(item.content?.length || 0) > 120 && item.id"
+                      type="button"
+                      class="mobile-card-expand-toggle"
+                      @click.stop="toggleExpand(item.id!)"
+                    >
+                      {{ expandedCards[item.id] ? "收起内容" : "展开全文" }}
+                    </button>
+                  </div>
+
+                  <!-- 关键词标签 -->
+                  <div v-if="item.keywords?.length" class="mobile-card-keywords">
+                    <el-tag
+                      v-for="tag in item.keywords"
+                      :key="tag"
+                      size="small"
+                      type="info"
+                      effect="plain"
+                      class="mobile-card-tag"
+                    >
+                      #{{ tag }}
+                    </el-tag>
+                  </div>
+
+                  <!-- 提示词片段 & 避让事项 -->
+                  <div v-if="item.promptHints || item.avoidNotes" class="mobile-card-meta-chips">
+                    <div v-if="item.promptHints" class="meta-chip prompt-hints-chip">
+                      <div class="meta-chip__title">
+                        <el-icon><MagicStick /></el-icon>
+                        <span>提示词片段</span>
+                      </div>
+                      <div class="meta-chip__body">{{ item.promptHints }}</div>
+                    </div>
+                    <div v-if="item.avoidNotes" class="meta-chip avoid-notes-chip">
+                      <div class="meta-chip__title">
+                        <el-icon><Warning /></el-icon>
+                        <span>避让事项</span>
+                      </div>
+                      <div class="meta-chip__body">{{ item.avoidNotes }}</div>
+                    </div>
+                  </div>
+
+                  <!-- 底部：时间与快捷操作 -->
+                  <div class="mobile-card-footer" @click.stop>
+                    <div class="mobile-card-time">
+                      {{ formatTime(item.updateTime || item.createTime) }}
+                    </div>
+                    <div class="mobile-card-actions">
+                      <el-button
+                        size="small"
+                        type="primary"
+                        link
+                        :icon="Edit"
+                        @click="handleEdit(item)"
+                      >
+                        编辑
+                      </el-button>
+                      <el-button
+                        size="small"
+                        type="danger"
+                        link
+                        :icon="Delete"
+                        :loading="deleteLoading"
+                        @click="handleDelete(item)"
+                      >
+                        删除
+                      </el-button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </template>
@@ -152,7 +341,13 @@
       @close="dialogClose"
     >
       <el-scrollbar :max-height="isMobile ? '55vh' : '60vh'" class="design-inspiration-dialog__scroll">
-        <el-form ref="formRef" :model="form" :rules="rules" :label-width="isMobile ? undefined : '86px'" :label-position="isMobile ? 'top' : undefined">
+        <el-form
+          ref="formRef"
+          :model="form"
+          :rules="rules"
+          :label-width="isMobile ? undefined : '86px'"
+          :label-position="isMobile ? 'top' : undefined"
+        >
           <el-form-item label="标题" prop="title">
             <el-input
               v-model="form.title"
@@ -193,6 +388,26 @@
               placeholder="例如：不要直接复刻 Logo，不要使用具体人物肖像"
             />
           </el-form-item>
+          <el-form-item label="参考图">
+            <div class="inspiration-image-upload-wrapper w-full">
+              <el-upload
+                v-model:file-list="imageFileList"
+                action="#"
+                list-type="picture-card"
+                :auto-upload="false"
+                :multiple="true"
+                :limit="12"
+                accept="image/png,image/jpeg,image/jpg,image/webp,image/gif"
+                :on-preview="handleImagePreview"
+                class="inspiration-image-upload"
+              >
+                <el-icon><Plus /></el-icon>
+              </el-upload>
+              <div class="inspiration-image-upload__tip">
+                支持上传多张参考图/风格图（最多12张）。
+              </div>
+            </div>
+          </el-form-item>
         </el-form>
       </el-scrollbar>
 
@@ -203,15 +418,23 @@
         </div>
       </template>
     </el-dialog>
+
+    <!-- 参考图大图预览弹窗 -->
+    <el-dialog v-model="previewDialogVisible" title="参考图预览" width="560px" append-to-body>
+      <div style="display: flex; justify-content: center; align-items: center; max-height: 65vh; overflow: hidden;">
+        <img :src="previewImageUrl" alt="参考图预览" style="max-width: 100%; max-height: 65vh; object-fit: contain;" />
+      </div>
+    </el-dialog>
   </ContentWrap>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watchEffect } from "vue";
-import type { FormInstance, FormRules } from "element-plus";
+import type { FormInstance, FormRules, UploadUserFile } from "element-plus";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { Delete, Plus, Search } from "@element-plus/icons-vue";
+import { Delete, Edit, MagicStick, Plus, Search, Warning } from "@element-plus/icons-vue";
 import { useWindowSize } from "@vueuse/core";
+import { uploadToCOS } from "@/api/cos";
 import {
   createDesignInspiration,
   deleteDesignInspiration,
@@ -219,12 +442,14 @@ import {
   updateDesignInspiration,
   type DesignInspiration,
 } from "@/api/design-inspiration";
+import { formatTimestamp } from "@/common/date";
 import { buildOperationColumn, buildTimeColumn, commonGridOptions } from "@/common/table";
 import ContentWrap from "@/components/ContentWrap/src/ContentWrap.vue";
 import ListPageLayout from "@/components/ListPageLayout/index.vue";
 import Pagination from "@/components/Pagination/index.vue";
 
-const isMobile = computed(() => window.innerWidth < 768);
+const { width, height } = useWindowSize();
+const isMobile = computed(() => width.value < 768);
 
 const queryParams = reactive({
   currentPage: 1,
@@ -233,12 +458,12 @@ const queryParams = reactive({
   category: "",
 });
 
-const { height } = useWindowSize();
 const gridOptions = ref<any>({
   ...commonGridOptions,
   maxHeight: Math.max(height.value - 280, 360),
   columns: [
     { type: "checkbox", width: 50 },
+    { title: "参考图", field: "images", width: 110, slots: { default: "imagesSlot" } },
     { title: "标题", field: "title", minWidth: 180, slots: { default: "titleSlot" } },
     { title: "分类", field: "category", width: 120 },
     { title: "关键词", field: "keywords", minWidth: 180, slots: { default: "keywordsSlot" } },
@@ -270,6 +495,70 @@ const dialogVisible = ref(false);
 const submitLoading = ref(false);
 const isEdit = ref(false);
 
+const imageFileList = ref<UploadUserFile[]>([]);
+const previewDialogVisible = ref(false);
+const previewImageUrl = ref("");
+
+// 移动端卡片展开状态
+const expandedCards = reactive<Record<string, boolean>>({});
+
+function toggleExpand(id: string) {
+  expandedCards[id] = !expandedCards[id];
+}
+
+function formatTime(val?: string | number | Date) {
+  if (!val) return "-";
+  return formatTimestamp(val);
+}
+
+// 移动端全选/部分选中计算属性
+const selectedCountInPage = computed(() => {
+  return dataSource.value.filter(
+    (item: DesignInspiration) => item.id && ids.value.includes(item.id),
+  ).length;
+});
+
+const isAllSelected = computed(() => {
+  return (
+    dataSource.value.length > 0 && selectedCountInPage.value === dataSource.value.length
+  );
+});
+
+const isIndeterminate = computed(() => {
+  return selectedCountInPage.value > 0 && selectedCountInPage.value < dataSource.value.length;
+});
+
+function handleCardSelect(id: string, checked: boolean) {
+  if (checked) {
+    if (!ids.value.includes(id)) {
+      ids.value.push(id);
+    }
+  } else {
+    ids.value = ids.value.filter((item) => item !== id);
+  }
+}
+
+function toggleCardSelect(id: string) {
+  handleCardSelect(id, !ids.value.includes(id));
+}
+
+function handleSelectAllMobile(val: any) {
+  const pageIds = dataSource.value
+    .map((item: DesignInspiration) => item.id)
+    .filter(Boolean) as string[];
+  if (val) {
+    ids.value = Array.from(new Set([...ids.value, ...pageIds]));
+  } else {
+    const pageIdSet = new Set(pageIds);
+    ids.value = ids.value.filter((id) => !pageIdSet.has(id));
+  }
+}
+
+function handleImagePreview(file: UploadUserFile) {
+  previewImageUrl.value = file.url || "";
+  previewDialogVisible.value = true;
+}
+
 const defaultForm = () => ({
   id: "",
   title: "",
@@ -278,6 +567,7 @@ const defaultForm = () => ({
   category: "",
   promptHints: "",
   avoidNotes: "",
+  images: [] as string[],
 });
 
 const form = ref(defaultForm());
@@ -325,6 +615,7 @@ function handleAdd() {
   isEdit.value = false;
   dialogTitle.value = "新增设计灵感";
   form.value = defaultForm();
+  imageFileList.value = [];
   dialogVisible.value = true;
 }
 
@@ -339,16 +630,21 @@ function handleEdit(row: DesignInspiration) {
     category: row.category || "",
     promptHints: row.promptHints || "",
     avoidNotes: row.avoidNotes || "",
+    images: [...(row.images || [])],
   };
+  imageFileList.value = (row.images || []).map((url: string, idx: number) => ({
+    name: `ref-${idx + 1}`,
+    url,
+  }));
   dialogVisible.value = true;
 }
 
-function checkboxChange(e) {
-  ids.value = e.records.map((item) => item.id);
+function checkboxChange(e: any) {
+  ids.value = e.records.map((item: any) => item.id);
 }
 
-function checkboxAllChange(e) {
-  ids.value = e.records.map((item) => item.id);
+function checkboxAllChange(e: any) {
+  ids.value = e.records.map((item: any) => item.id);
 }
 
 function handleDelete(row?: DesignInspiration | null) {
@@ -358,8 +654,8 @@ function handleDelete(row?: DesignInspiration | null) {
   }
 
   const message = row
-    ? `确认删除设计灵感"${row.title}"吗？`
-    : `确认删除选中的 ${delIds.length} 条数据吗？`;
+    ? `确认删除设计灵感"${row.title}"吗？（关联的参考图也将同步从云存储删除）`
+    : `确认删除选中的 ${delIds.length} 条数据吗？（关联的参考图也将同步从云存储删除）`;
   ElMessageBox.confirm(message, "删除提示", {
     confirmButtonText: "确认",
     cancelButtonText: "取消",
@@ -387,23 +683,69 @@ function handleDelete(row?: DesignInspiration | null) {
 function dialogClose() {
   dialogVisible.value = false;
   submitLoading.value = false;
+  imageFileList.value = [];
   formRef.value?.resetFields();
+}
+
+async function uploadPendingImages(): Promise<string[]> {
+  const finalUrls: string[] = [];
+  const total = imageFileList.value.length;
+  console.log(`[设计灵感上传] 开始处理图片，共 ${total} 张`);
+  for (const [index, file] of imageFileList.value.entries()) {
+    console.log(`[设计灵感上传] 处理第 ${index + 1}/${total} 张, raw=${!!file.raw}, url=${file.url || '无'}`);
+    if (file.raw) {
+      const rawFile = file.raw as File;
+      console.log(`[设计灵感上传] 准备上传第 ${index + 1} 张到 COS: name=${rawFile.name}, size=${rawFile.size}, type=${rawFile.type}`);
+      try {
+        const res = await uploadToCOS({
+          file: rawFile,
+          category: "design-inspiration",
+          onProgress: (progressData: any) => {
+            console.log(`[设计灵感上传] 第 ${index + 1} 张上传进度:`, progressData);
+          },
+        });
+        const url = (res as any)?.url || (typeof res === "string" ? res : "");
+        console.log(`[设计灵感上传] 第 ${index + 1} 张上传完成, url=${url}`);
+        if (url) {
+          finalUrls.push(url);
+        }
+      } catch (error: any) {
+        console.error(`[设计灵感上传] 第 ${index + 1} 张上传失败:`, error?.message || error);
+        throw error;
+      }
+    } else if (file.url) {
+      console.log(`[设计灵感上传] 第 ${index + 1} 张为已有 URL，跳过上传`);
+      finalUrls.push(file.url);
+    }
+  }
+  console.log(`[设计灵感上传] 图片处理完成，共 ${finalUrls.length} 个 URL`);
+  return finalUrls;
 }
 
 async function submitForm() {
   if (!formRef.value) return;
   try {
+    console.log("[设计灵感提交] 开始表单验证");
     await formRef.value.validate();
+    console.log("[设计灵感提交] 表单验证通过，开始上传图片");
     submitLoading.value = true;
+
+    // 上传新增的本地待传图片到 COS
+    const images = await uploadPendingImages();
+    console.log("[设计灵感提交] 图片上传完成，images=", images);
+
     const payload: DesignInspiration = {
       id: form.value.id || undefined,
       title: form.value.title,
       content: form.value.content,
       category: form.value.category,
       keywords: parseKeywords(form.value.keywordsText),
+      images,
       promptHints: form.value.promptHints,
       avoidNotes: form.value.avoidNotes,
     };
+
+    console.log("[设计灵感提交] 准备提交数据", payload);
 
     if (isEdit.value) {
       await updateDesignInspiration(payload);
@@ -413,11 +755,12 @@ async function submitForm() {
       ElMessage.success("新增成功");
     }
 
+    console.log("[设计灵感提交] 提交成功");
     dialogVisible.value = false;
     getList();
-  } catch (error) {
-    console.error("提交设计灵感失败:", error);
-    ElMessage.error("操作失败");
+  } catch (error: any) {
+    console.error("[设计灵感提交] 失败:", error);
+    ElMessage.error(error?.message || "操作失败");
   } finally {
     submitLoading.value = false;
   }
@@ -437,6 +780,28 @@ onMounted(() => {
 :deep(.design-inspiration-page .list-page-filter--flat) {
   gap: 10px;
   padding-bottom: 10px;
+}
+
+.inspiration-image-upload-wrapper {
+  width: 100%;
+}
+
+.inspiration-image-upload :deep(.el-upload--picture-card) {
+  width: 68px;
+  height: 68px;
+  line-height: 72px;
+}
+
+.inspiration-image-upload :deep(.el-upload-list--picture-card .el-upload-list__item) {
+  width: 68px;
+  height: 68px;
+}
+
+.inspiration-image-upload__tip {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  line-height: 1.4;
+  margin-top: 6px;
 }
 
 .design-inspiration-title {
@@ -460,7 +825,266 @@ onMounted(() => {
   gap: 4px;
 }
 
+/* ================= 移动端专属卡片样式 ================= */
+.mobile-inspiration-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+}
+
+.mobile-batch-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.mobile-batch-text {
+  font-size: 13px;
+  color: var(--el-text-color-regular);
+}
+
+.mobile-loading-skeleton {
+  padding: 16px;
+  background: var(--el-bg-color-overlay);
+  border-radius: 12px;
+  border: 1px solid var(--el-border-color-lighter);
+}
+
+.mobile-inspiration-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+.mobile-inspiration-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  background: var(--el-bg-color-overlay);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.mobile-inspiration-card.is-selected {
+  border-color: var(--el-color-primary);
+  background: color-mix(in srgb, var(--el-color-primary) 5%, var(--el-bg-color-overlay));
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.12);
+}
+
+.mobile-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mobile-card-header__left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.mobile-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.mobile-card-category {
+  flex-shrink: 0;
+}
+
+/* 参考图横向滑槽 */
+.mobile-card-images {
+  margin-top: 2px;
+}
+
+.mobile-card-images__scroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobile-card-thumb {
+  width: 72px;
+  height: 72px;
+  border-radius: 8px;
+  border: 1px solid var(--el-border-color-lighter);
+  flex-shrink: 0;
+  cursor: pointer;
+  background: var(--el-fill-color-light);
+}
+
+.mobile-card-images__info {
+  font-size: 11px;
+  color: var(--el-text-color-secondary);
+  margin-top: 4px;
+}
+
+/* 灵感主体内容 */
+.mobile-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mobile-card-content {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--el-text-color-regular);
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.mobile-card-content.is-clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+.mobile-card-expand-toggle {
+  align-self: flex-start;
+  border: none;
+  background: transparent;
+  color: var(--el-color-primary);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 0;
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+/* 关键词标签 */
+.mobile-card-keywords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mobile-card-tag {
+  font-size: 11px;
+  border-radius: 4px;
+}
+
+/* 提示词片段 & 避让事项 */
+.mobile-card-meta-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.meta-chip {
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.meta-chip__title {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+
+.meta-chip__body {
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.prompt-hints-chip {
+  background: color-mix(in srgb, var(--el-color-primary) 8%, var(--el-bg-color-overlay));
+  border: 1px solid color-mix(in srgb, var(--el-color-primary) 20%, transparent);
+}
+
+.prompt-hints-chip .meta-chip__title {
+  color: var(--el-color-primary);
+}
+
+.prompt-hints-chip .meta-chip__body {
+  color: var(--el-text-color-primary);
+}
+
+.avoid-notes-chip {
+  background: color-mix(in srgb, var(--el-color-warning) 8%, var(--el-bg-color-overlay));
+  border: 1px solid color-mix(in srgb, var(--el-color-warning) 20%, transparent);
+}
+
+.avoid-notes-chip .meta-chip__title {
+  color: var(--el-color-warning-dark-2);
+}
+
+.avoid-notes-chip .meta-chip__body {
+  color: var(--el-text-color-primary);
+}
+
+/* 底部操作与时间 */
+.mobile-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 8px;
+  border-top: 1px dashed var(--el-border-color-lighter);
+  margin-top: 2px;
+}
+
+.mobile-card-time {
+  font-size: 11px;
+  color: var(--el-text-color-secondary);
+}
+
+.mobile-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mobile-card-actions :deep(.el-button) {
+  padding: 4px 6px;
+  font-size: 13px;
+}
+
+/* ================= 移动端适配响应式 ================= */
 @media (width <= 767px) {
+  .list-page-search-form__actions {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    width: 100%;
+    margin-top: 4px;
+  }
+
+  .list-page-search-form__actions .el-button {
+    margin: 0 !important;
+    width: 100%;
+    height: 34px;
+    font-size: 13px;
+  }
+
   .design-inspiration-dialog :deep(.el-dialog) {
     width: calc(100vw - 16px) !important;
     max-height: calc(100vh - 16px);

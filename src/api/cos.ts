@@ -69,7 +69,8 @@ export const initCOS = async () => {
     SecretId: cosConfig.SecretId,
     SecretKey: cosConfig.SecretKey,
     Bucket: cosConfig.Bucket,
-    Region: cosConfig.Region
+    Region: cosConfig.Region,
+    Timeout: 45000
   } as any)
 
   return _cos
@@ -103,6 +104,7 @@ const registerFileAssetBestEffort = (payload: Record<string, any>) => {
  * @param userId 用户 ID（可选，默认从登录态获取）
  * @param entityId 实体ID（可选，如 PSD 模板 ID、字体模板 ID 等）
  * @param isThumbnail 是否为缩略图（可选）
+ * @param onProgress 上传进度回调（可选）
  */
 export async function uploadToCOS({
   file,
@@ -113,7 +115,8 @@ export async function uploadToCOS({
   entityId,
   isThumbnail,
   bucket,
-  region
+  region,
+  onProgress
 }: {
   file: File
   key?: string
@@ -124,12 +127,18 @@ export async function uploadToCOS({
   isThumbnail?: boolean
   bucket?: string
   region?: string
+  onProgress?: (progressData: any) => void
 }) {
+  console.log(`[COS上传] 开始: file.name=${file?.name}, file.size=${file?.size}, file.type=${file?.type}, category=${category}`);
+
   // 确保 COS 已初始化
   if (!_cos) {
+    console.log("[COS上传] COS 未初始化，开始初始化...");
     try {
       await initCOS()
-    } catch {
+      console.log("[COS上传] COS 初始化成功");
+    } catch (e: any) {
+      console.error("[COS上传] COS 初始化失败:", e?.message || e);
       throw new Error('COS未初始化，无法上传文件')
     }
   }
@@ -165,14 +174,21 @@ export async function uploadToCOS({
     })
   }
 
+  console.log(`[COS上传] 准备上传: key=${finalKey}, bucket=${bucket || cos.options.Bucket}, region=${region || cos.options.Region}`);
+
   try {
     const res = await cos.uploadFile({
       Key: String(finalKey),
       Body: file,
       Bucket: bucket || cos.options.Bucket,
-      Region: region || cos.options.Region
+      Region: region || cos.options.Region,
+      onProgress: (progressData: any) => {
+        console.log(`[COS上传] 进度:`, progressData);
+        onProgress?.(progressData);
+      }
     })
     const url = `https://${res.Location}`
+    console.log(`[COS上传] 上传成功: url=${url}`);
     registerFileAssetBestEffort({
       bucket: bucket || cos.options.Bucket || "",
       region: region || cos.options.Region || "",
@@ -188,6 +204,7 @@ export async function uploadToCOS({
     return { url, key: finalKey }
   } catch (e: any) {
     const errorMessage = e?.message || e?.toString() || '未知错误'
+    console.error(`[COS上传] 上传失败: ${errorMessage}`, e);
     throw new Error(`COS上传失败: ${errorMessage}`)
   }
 }

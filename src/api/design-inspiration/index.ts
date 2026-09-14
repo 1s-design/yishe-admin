@@ -7,6 +7,7 @@ export interface DesignInspiration {
   content: string;
   category?: string | null;
   keywords?: string[];
+  images?: string[];
   promptHints?: string | null;
   avoidNotes?: string | null;
   createTime?: string;
