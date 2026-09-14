@@ -447,9 +447,11 @@ import { buildOperationColumn, buildTimeColumn, commonGridOptions } from "@/comm
 import ContentWrap from "@/components/ContentWrap/src/ContentWrap.vue";
 import ListPageLayout from "@/components/ListPageLayout/index.vue";
 import Pagination from "@/components/Pagination/index.vue";
+import { useUserStore } from "@/store/modules/user";
 
 const { width, height } = useWindowSize();
 const isMobile = computed(() => width.value < 768);
+const userStore = useUserStore();
 
 const queryParams = reactive({
   currentPage: 1,
@@ -697,9 +699,14 @@ async function uploadPendingImages(): Promise<string[]> {
       const rawFile = file.raw as File;
       console.log(`[设计灵感上传] 准备上传第 ${index + 1} 张到 COS: name=${rawFile.name}, size=${rawFile.size}, type=${rawFile.type}`);
       try {
+        const userAccount = (userStore.user as any)?.account || userStore.user?.shortName || userStore.user?.name || "anonymous";
+        const userId = (userStore.user as any)?.id || (userStore as any).userInfo?.id;
+        console.log(`[设计灵感上传] 用户信息: account=${userAccount}, userId=${userId}`);
         const res = await uploadToCOS({
           file: rawFile,
           category: "design-inspiration",
+          account: userAccount,
+          userId,
           onProgress: (progressData: any) => {
             console.log(`[设计灵感上传] 第 ${index + 1} 张上传进度:`, progressData);
           },
