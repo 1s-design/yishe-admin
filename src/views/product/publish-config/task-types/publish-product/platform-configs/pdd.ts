@@ -26,20 +26,6 @@ export const pddPlatformConfig: PlatformConfig = {
       tooltip: '生成 productCode 时会按”素材码-商品码”拼接'
     },
     {
-      key: 'vendorProducts',
-      label: '供应商商品',
-      type: 'vendor-products',
-      span: 24,
-      tooltip: '选择厂家后可选商品。编码规则：有商品时”素材码-商品码”，无商品时”素材码”。'
-    },
-    {
-      key: 'stock',
-      label: '库存',
-      type: 'number',
-      placeholder: '请输入库存',
-      span: 24
-    },
-    {
       key: 'skuConfig',
       label: 'SKU 配置',
       type: 'sku-list',

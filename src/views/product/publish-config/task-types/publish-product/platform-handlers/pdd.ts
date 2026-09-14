@@ -4,7 +4,6 @@ import {
   normalizePsdImageIndexes,
   parsePsdImageIndexes,
   validatePsdImageIndexes,
-  normalizeVendorProductMappings,
   normalizeSkuConfig,
   extractSkuImageIndexes
 } from './shared'
@@ -36,12 +35,15 @@ export const pddHandler: PlatformHandler = {
     if (parsePsdImageIndexes(configData?.psdImageIndexes).length > 10) {
       errors.push('拼多多套图图片序号最多选择 10 个')
     }
-    // 验证 skuConfig 中的 imageIndex
+    // 验证 skuConfig 中的 imageIndex（可选，不填则跳过）
     if (Array.isArray(configData?.skuConfig)) {
       for (let i = 0; i < configData.skuConfig.length; i++) {
-        const idx = Number(configData.skuConfig[i]?.imageIndex)
-        if (!Number.isFinite(idx) || idx < 1) {
-          errors.push(`SKU ${i + 1} 的图片序号必须是正整数`)
+        const idx = configData.skuConfig[i]?.imageIndex
+        if (idx !== undefined && idx !== null && idx !== '') {
+          const numIdx = Number(idx)
+          if (!Number.isFinite(numIdx) || numIdx < 1) {
+            errors.push(`SKU ${i + 1} 的图片序号必须是正整数`)
+          }
         }
       }
     }
@@ -92,14 +94,10 @@ export const pddHandler: PlatformHandler = {
     } else {
       formatted.vendorId = undefined
     }
-    if (formatted.stock !== undefined && formatted.stock !== null && formatted.stock !== '') {
-      formatted.stock = Number(formatted.stock)
-    }
     formatted.appendImageUrls = normalizeHttpUrlList(formatted.appendImageUrls)
     formatted.psdImageIndexes = normalizePsdImageIndexes(formatted.psdImageIndexes) || undefined
     formatted.vendorCode = String(formatted.vendorCode || '').trim() || undefined
     formatted.vendorName = String(formatted.vendorName || '').trim() || undefined
-    formatted.vendorProductMappings = normalizeVendorProductMappings(formatted.vendorProductMappings)
     // 标准化 SKU 配置
     formatted.skuConfig = normalizeSkuConfig(formatted.skuConfig)
     // 从 skuConfig 提取 skuImageIndexes 字符串（兼容旧版）
