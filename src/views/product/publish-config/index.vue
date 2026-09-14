@@ -2052,7 +2052,7 @@ onMounted(() => {
                             class="publish-config-sku-list__item"
                           >
                             <span class="publish-config-sku-list__index">SKU {{ index + 1 }}</span>
-                            <div class="publish-config-sku-list__image-index">
+                            <div v-if="resolveTaskTypePlatform(form.taskType) === 'pdd'" class="publish-config-sku-list__image-index">
                               <span class="publish-config-sku-list__label">{{ t('publishConfig.skuImageIndex') }}</span>
                               <el-input
                                 v-model="platformConfigData[field.key][index].imageIndex"
@@ -2158,7 +2158,7 @@ onMounted(() => {
                                 </el-select>
                               </template>
                             </div>
-                            <div class="publish-config-sku-list__pdd-group-price">
+                            <div v-if="resolveTaskTypePlatform(form.taskType) === 'pdd'" class="publish-config-sku-list__pdd-group-price">
                               <span class="publish-config-sku-list__label">{{ t('publishConfig.skuPddGroupPrice') }}</span>
                               <el-radio-group
                                 v-model="platformConfigData[field.key][index].pddGroupPriceMode"
@@ -3184,6 +3184,7 @@ onMounted(() => {
 .publish-config-sku-list__item {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   padding: 10px;
   border: 1px solid var(--el-border-color-lighter);
