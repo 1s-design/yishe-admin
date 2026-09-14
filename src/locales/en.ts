@@ -3025,6 +3025,7 @@ export default {
     skuPriceMax: 'Max Price',
     skuPriceDecimal: 'Decimal',
     skuImageIndex: 'Image',
+    skuImageIndexPlaceholder: 'Image No.',
     skuRemarkPlaceholder: 'Remark',
     skuVendorProductPlaceholder: 'Bind Vendor Product',
     skuPddGroupPrice: 'Group Price',

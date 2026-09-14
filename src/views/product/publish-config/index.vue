@@ -832,10 +832,9 @@ function addSkuItem(fieldKey: string) {
   if (!Array.isArray(platformConfigData.value?.[fieldKey])) {
     platformConfigData.value[fieldKey] = [];
   }
-  const nextIndex = platformConfigData.value[fieldKey].length + 1;
   platformConfigData.value[fieldKey].push({
     remark: '',
-    imageIndex: nextIndex,
+    imageIndex: undefined as number | undefined,
     stockMode: 'fixed' as 'fixed' | 'random',
     stock: undefined as number | undefined,
     stockMin: undefined as number | undefined,
@@ -2055,11 +2054,11 @@ onMounted(() => {
                             <span class="publish-config-sku-list__index">SKU {{ index + 1 }}</span>
                             <div class="publish-config-sku-list__image-index">
                               <span class="publish-config-sku-list__label">{{ t('publishConfig.skuImageIndex') }}</span>
-                              <el-input-number
+                              <el-input
                                 v-model="platformConfigData[field.key][index].imageIndex"
-                                :min="1"
-                                :placeholder="String(index + 1)"
+                                :placeholder="t('publishConfig.skuImageIndexPlaceholder')"
                                 class="publish-config-sku-list__image-index-input"
+                                clearable
                               />
                             </div>
                             <div class="publish-config-sku-list__order">
@@ -3295,7 +3294,11 @@ onMounted(() => {
 }
 
 .publish-config-sku-list__image-index-input {
-  width: 80px;
+  width: 90px;
+}
+
+.publish-config-sku-list__image-index-input :deep(.el-input__wrapper) {
+  padding: 0 8px;
 }
 
 .publish-config-sku-list__pdd-group-price {

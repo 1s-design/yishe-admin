@@ -3021,6 +3021,7 @@ export default {
     skuPriceMax: '最高价',
     skuPriceDecimal: '尾数',
     skuImageIndex: '图片',
+    skuImageIndexPlaceholder: '图片序号',
     skuRemarkPlaceholder: '备注',
     skuVendorProductPlaceholder: '绑定供应商商品',
     skuPddGroupPrice: '拼单价',
