@@ -205,6 +205,15 @@ export async function uploadToCOS({
   } catch (e: any) {
     const errorMessage = e?.message || e?.toString() || '未知错误'
     console.error(`[COS上传] 上传失败: ${errorMessage}`, e);
+    console.error(`[COS上传] 错误详情:`, JSON.stringify({
+      statusCode: e?.statusCode,
+      headers: e?.headers,
+      error: e?.error,
+      code: e?.code,
+      name: e?.name,
+    }));
+    // 输出当前时间，排查签名过期问题
+    console.error(`[COS上传] 当前设备时间:`, new Date().toISOString());
     throw new Error(`COS上传失败: ${errorMessage}`)
   }
 }
