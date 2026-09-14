@@ -367,12 +367,12 @@
   }
 
   .el-message {
-    left: 12px !important;
+    left: 50% !important;
     width: calc(100vw - 24px);
     min-width: 0;
     max-width: none;
     box-sizing: border-box;
-    transform: none;
+    transform: translateX(-50%);
   }
 
   .el-notification {
