@@ -116,6 +116,7 @@ const gridOptions = computed(() => ({
 
 const getPlatformBadgeStyle = (platform?: string) => {
   const p = String(platform || "").toLowerCase();
+  // 抖音/抖店 - 红色
   if (p.includes("douyin") || p.includes("doudian")) {
     return { bg: "rgba(254, 44, 85, 0.12)", color: "#fe2c55", border: "rgba(254, 44, 85, 0.3)" };
   }
@@ -128,11 +129,30 @@ const getPlatformBadgeStyle = (platform?: string) => {
   if (p.includes("wechat") || p.includes("shipinhao")) {
     return { bg: "rgba(7, 193, 96, 0.12)", color: "#07c160", border: "rgba(7, 193, 96, 0.3)" };
   }
+  // 淘宝/天猫 - 橙色
   if (p.includes("taobao") || p.includes("tmall")) {
     return { bg: "rgba(255, 80, 0, 0.12)", color: "#ff5000", border: "rgba(255, 80, 0, 0.3)" };
   }
+  // 快手 - 深橙色
   if (p.includes("kuaishou")) {
     return { bg: "rgba(255, 54, 0, 0.12)", color: "#ff3600", border: "rgba(255, 54, 0, 0.3)" };
+  }
+  // 拼多多 - 红色
+  if (p.includes("pdd") || p.includes("pinduoduo")) {
+    return { bg: "rgba(227, 20, 54, 0.12)", color: "#e31436", border: "rgba(227, 20, 54, 0.3)" };
+  }
+  // TikTok - 青色
+  if (p.includes("tiktok")) {
+    return { bg: "rgba(0, 242, 234, 0.12)", color: "#00f2ea", border: "rgba(0, 242, 234, 0.3)" };
+  }
+  if (p.includes("weibo")) {
+    return { bg: "rgba(230, 108, 76, 0.12)", color: "#e66c4c", border: "rgba(230, 108, 76, 0.3)" };
+  }
+  if (p.includes("xianyu")) {
+    return { bg: "rgba(255, 197, 0, 0.12)", color: "#ffc500", border: "rgba(255, 197, 0, 0.3)" };
+  }
+  if (p.includes("youtube")) {
+    return { bg: "rgba(255, 0, 0, 0.12)", color: "#ff0000", border: "rgba(255, 0, 0, 0.3)" };
   }
   return { bg: "var(--el-fill-color-light)", color: "var(--el-color-primary)", border: "var(--el-color-primary-light-5)" };
 };
@@ -1494,7 +1514,16 @@ onMounted(() => {
                 <!-- 任务类型 -->
                 <template #taskTypeSlot="{ row }">
                   <div class="publish-config-tasktype-cell">
-                    <el-tag size="small" type="primary" effect="plain" class="font-medium">
+                    <el-tag
+                      size="small"
+                      effect="plain"
+                      class="font-medium"
+                      :style="{
+                        background: getPlatformBadgeStyle(row?.taskType || derivePublishTaskTypeByPlatform(row?.platform)).bg,
+                        color: getPlatformBadgeStyle(row?.taskType || derivePublishTaskTypeByPlatform(row?.platform)).color,
+                        borderColor: getPlatformBadgeStyle(row?.taskType || derivePublishTaskTypeByPlatform(row?.platform)).border,
+                      }"
+                    >
                       {{ getTaskTypeLabel(row?.taskType || derivePublishTaskTypeByPlatform(row?.platform), row?.platform) }}
                     </el-tag>
                   </div>
