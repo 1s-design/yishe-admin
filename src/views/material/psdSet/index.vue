@@ -91,55 +91,127 @@
                 {{ t('psdSet.batchDelete', { count: selectedIds.length }) }}
               </el-button>
 
-              <div class="psd-set-page__auto-dispatch-bar">
-                <div class="psd-set-page__auto-dispatch-indicator" :class="`is-${psdSetSchedulerIndicator.tone}`">
-                  <span class="psd-set-page__auto-dispatch-dot" />
-                  <span class="psd-set-page__auto-dispatch-indicator-text">{{ psdSetSchedulerIndicator.text }}</span>
-                </div>
-
-                <div class="psd-set-page__auto-dispatch-content">
-                  <template v-if="autoDispatchProcessingRows.length">
-                    <span v-for="item in autoDispatchProcessingRows" :key="item.key"
-                      class="psd-set-page__auto-dispatch-task-chip">
-                      <span class="psd-set-page__chip-client">{{ item.clientLabel }}</span>
-                      <span class="psd-set-page__chip-task-id">{{ item.taskId }}</span>
-                      <span v-if="item.stepLabel" class="psd-set-page__chip-step">{{ item.stepLabel }}</span>
-                    </span>
-                  </template>
-                  <template v-else>
-                    <span v-if="psdSetAutoDispatchTargetLabel" class="psd-set-page__auto-dispatch-target" :title="psdSetAutoDispatchTargetLabel">
-                      {{ psdSetAutoDispatchTargetLabel }}
-                    </span>
-                    <span v-if="psdSetSchedulerRuntimeSummary" class="psd-set-page__auto-dispatch-interval">
-                      {{ psdSetSchedulerRuntimeSummary }}
-                    </span>
-                    <span class="psd-set-page__auto-dispatch-pending">
-                      {{ t('psdSet.pendingCount', { count: schedulerClientStats.pending }) }}
-                    </span>
-                  </template>
-                </div>
-
-                <div class="psd-set-page__auto-dispatch-actions">
-                  <el-button size="small" :type="userAutoSchedulingEnabled ? 'danger' : 'success'"
-                    :loading="userAutoSchedulingLoading"
-                    plain
-                    @click="handleToggleUserAutoScheduling(!userAutoSchedulingEnabled)">
-                    {{ userAutoSchedulingEnabled ? t('psdSet.disableAutoProduction') : t('psdSet.enableAutoProduction') }}
-                  </el-button>
-                  <el-button size="small" :loading="resettingPsRuntime" @click="handleResetAllPsAutomationRuntime">
-                    {{ t('psdSet.resetStatus') }}
-                  </el-button>
-                </div>
-              </div>
             </div>
           </el-form>
         </div>
       </template>
 
       <template #table>
-        <div
-          class="common-table list-page-panel list-page-panel--flat list-page-table-panel list-page-table-panel--flat">
-          <div class="list-page-table-panel__body psd-set-page__table-body">
+        <div class="psd-set-page__main">
+          <div class="psd-set-page__stats-bar">
+            <div
+              class="psd-set-stats-pill psd-set-stats-pill--pending"
+              :class="{ 'is-active': queryParams.status === 'pending' }"
+              @click="handleFilterByStatus('pending')"
+            >
+              <span class="psd-set-stats-pill__label">{{ t('psdSet.statusPending') }}</span>
+              <span class="psd-set-stats-pill__value">{{ psdSetStats.pending }}</span>
+            </div>
+            <div
+              class="psd-set-stats-pill psd-set-stats-pill--processing"
+              :class="{ 'is-active': queryParams.status === 'processing' }"
+              @click="handleFilterByStatus('processing')"
+            >
+              <span class="psd-set-stats-pill__label">{{ t('psdSet.statusProcessing') }}</span>
+              <span class="psd-set-stats-pill__value">{{ psdSetStats.processing }}</span>
+            </div>
+            <div
+              class="psd-set-stats-pill psd-set-stats-pill--completed"
+              :class="{ 'is-active': queryParams.status === 'completed' }"
+              @click="handleFilterByStatus('completed')"
+            >
+              <span class="psd-set-stats-pill__label">{{ t('psdSet.statusCompleted') }}</span>
+              <span class="psd-set-stats-pill__value">{{ psdSetStats.completed }}</span>
+            </div>
+            <div
+              class="psd-set-stats-pill psd-set-stats-pill--failed"
+              :class="{ 'is-active': queryParams.status === 'failed' }"
+              @click="handleFilterByStatus('failed')"
+            >
+              <span class="psd-set-stats-pill__label">{{ t('psdSet.statusFailed') }}</span>
+              <span class="psd-set-stats-pill__value">{{ psdSetStats.failed }}</span>
+            </div>
+            <div
+              class="psd-set-stats-pill"
+              :class="{ 'is-active': !queryParams.status }"
+              @click="handleFilterByStatus('')"
+            >
+              <span class="psd-set-stats-pill__label">{{ t('common.total') }}</span>
+              <span class="psd-set-stats-pill__value">{{ psdSetStats.total }}</span>
+            </div>
+
+            <div class="psd-set-dispatch-panel">
+              <div class="psd-set-dispatch-panel__main">
+                <span class="psd-set-dispatch-panel__title">{{ t('queue.autoExecute') }}</span>
+                <span
+                  class="psd-set-dispatch-panel__status"
+                  :class="`is-${psdSetSchedulerIndicator.tone}`"
+                >
+                  <span class="psd-set-dispatch-panel__status-dot" />
+                  <span>{{ psdSetSchedulerIndicator.text }}</span>
+                </span>
+                <div
+                  v-if="psdSetAutoDispatchTargetValue"
+                  class="psd-set-dispatch-panel__binding"
+                  :class="psdSetAutoDispatchTargetClass"
+                >
+                  <span class="psd-set-dispatch-panel__binding-label">{{
+                    autoDispatchProcessingRows.length > 0 ? t('psdSet.statusProcessing') : t('psdSet.target')
+                  }}</span>
+                  <span class="psd-set-dispatch-panel__binding-value" :title="psdSetAutoDispatchTargetValue">
+                    {{ psdSetAutoDispatchTargetValue }}
+                  </span>
+                </div>
+                <div
+                  class="psd-set-dispatch-panel__runtime"
+                  :class="userAutoSchedulingEnabled ? 'is-success' : 'is-info'"
+                >
+                  <span class="psd-set-dispatch-panel__runtime-dot" />
+                  <span>{{ psdSetSchedulerRuntimeSummary }}</span>
+                </div>
+                <span
+                  v-if="psdSetAutoDispatchTargetHint"
+                  class="psd-set-dispatch-panel__binding-meta"
+                >
+                  {{ psdSetAutoDispatchTargetHint }}
+                </span>
+                <span
+                  v-if="autoDispatchFilterSummary"
+                  class="psd-set-dispatch-panel__filter-wrap"
+                >
+                  <span class="psd-set-dispatch-panel__filter">
+                    {{ autoDispatchFilterSummary }}
+                  </span>
+                  <span class="psd-set-dispatch-panel__filter-popover">
+                    {{ autoDispatchFilterSummary }}
+                  </span>
+                </span>
+              </div>
+              <div class="psd-set-dispatch-panel__actions">
+                <el-button
+                  size="small"
+                  plain
+                  :type="userAutoSchedulingEnabled ? 'danger' : 'success'"
+                  :loading="userAutoSchedulingLoading"
+                  @click="handleToggleUserAutoScheduling(!userAutoSchedulingEnabled)"
+                >
+                  {{ userAutoSchedulingEnabled ? t('queue.close') : t('queue.open') }}
+                </el-button>
+                <el-button
+                  size="small"
+                  plain
+                  :loading="resettingPsRuntime"
+                  @click="handleResetAllPsAutomationRuntime"
+                >
+                  {{ t('psdSet.resetStatus') }}
+                </el-button>
+              </div>
+            </div>
+          </div>
+
+          <div
+            class="common-table list-page-panel list-page-panel--flat list-page-table-panel list-page-table-panel--flat">
+            <div class="list-page-table-panel__body psd-set-page__table-body">
             <vxe-grid ref="psdSetGridRef" v-bind="gridOptions" :max-height="gridOptions.maxHeight" :data="dataSource" :loading="loading"
               :row-class-name="psdSetRowClassName" @checkbox-change="onSelectionChange"
               @checkbox-all="onSelectionChange" @cell-click="handlePsdSetCellClick">
@@ -230,7 +302,8 @@
             </vxe-grid>
           </div>
         </div>
-      </template>
+      </div>
+    </template>
 
       <template #pagination>
         <div
@@ -2783,6 +2856,96 @@ const productionDispatchSubmitting = computed(() =>
       startingProductionId.value === productionDispatchRow.value.id,
 );
 
+const psdSetStats = computed(() => {
+  let pending = 0;
+  let processing = 0;
+  let completed = 0;
+  let failed = 0;
+  for (const item of dataSource.value) {
+    const s = normalizePsdSetRuntimeStatus(item?.status);
+    if (s === "pending") pending++;
+    else if (s === "processing") processing++;
+    else if (s === "completed") completed++;
+    else if (s === "failed") failed++;
+  }
+  const currentStatus = queryParams.status;
+  return {
+    pending: currentStatus === "pending" ? total.value : (schedulerClientStats.value.pending || pending),
+    processing: currentStatus === "processing" ? total.value : (schedulerClientStats.value.running || processing),
+    completed: currentStatus === "completed" ? total.value : completed,
+    failed: currentStatus === "failed" ? total.value : failed,
+    total: !currentStatus ? total.value : (total.value || dataSource.value.length),
+  };
+});
+
+function handleFilterByStatus(status: string) {
+  if (queryParams.status === status && status !== "") {
+    queryParams.status = "";
+  } else {
+    queryParams.status = status;
+  }
+  queryParams.currentPage = 1;
+  getList();
+}
+
+const psdSetAutoDispatchTargetClient = computed(() => {
+  const clientId = String(userAutoDispatchClientId.value || "").trim();
+  if (!clientId) {
+    return null;
+  }
+  return dispatchCandidateClients.value.find((item) => item.id === clientId) || null;
+});
+
+const psdSetAutoDispatchTargetValue = computed(() => {
+  if (autoDispatchProcessingRows.value.length > 0) {
+    const row = autoDispatchProcessingRows.value[0];
+    const clientLabel = row.clientLabel;
+    const taskBrief = row.stepLabel ? `${row.taskId} (${row.stepLabel})` : row.taskId;
+    return clientLabel ? `${clientLabel} / ${taskBrief}` : taskBrief;
+  }
+  const client = psdSetAutoDispatchTargetClient.value;
+  if (client) {
+    return getClientDisplayName(client);
+  }
+  return String(userAutoDispatchClientId.value || "").trim();
+});
+
+const psdSetAutoDispatchTargetClass = computed(() => {
+  const client = psdSetAutoDispatchTargetClient.value;
+  if (!userAutoDispatchClientId.value) {
+    return "is-info";
+  }
+  if (client && client.isOnline && isDispatchClientExecutable(client)) {
+    return "is-success";
+  }
+  return "is-warning";
+});
+
+const psdSetAutoDispatchTargetHint = computed(() => {
+  const client = psdSetAutoDispatchTargetClient.value;
+  const pendingCount = schedulerClientStats.value.pending;
+  const pendingText = t("psdSet.pendingCount", { count: pendingCount });
+  if (!userAutoDispatchClientId.value) {
+    const status = t("queue.autoDispatchNotBound");
+    return t("psdSet.clientStatusPendingHint", { status, pendingText });
+  }
+  if (!client) {
+    const status = t("queue.targetClientNotConnected");
+    return t("psdSet.clientStatusPendingHint", { status, pendingText });
+  }
+  if (!client.isOnline) {
+    const status = t("queue.targetClientOffline");
+    return t("psdSet.clientStatusPendingHint", { status, pendingText });
+  }
+  const psService = getClientPhotoshopService(client);
+  if (!psService || psService.status === "error") {
+    const status = t("psdSet.serviceNotReady");
+    return t("psdSet.clientStatusPendingHint", { status, pendingText });
+  }
+  const status = t("psdSet.clientReady");
+  return t("psdSet.clientReadyPendingHint", { status, pendingText });
+});
+
 const psdSetAutoDispatchTargetLabel = computed(() => {
   const clientId = String(userAutoDispatchClientId.value || "").trim();
   if (!clientId) {
@@ -2797,18 +2960,44 @@ const autoDispatchFilterSummary = computed(() => {
   const parts = [];
   const keyword = autoDispatchFilterForm.keyword.trim();
   if (keyword) {
-    parts.push(`${t("psdSet.keyword")}：${keyword}`);
+    parts.push(`${t("psdSet.keyword")}: ${keyword}`);
   }
   if (autoDispatchFilterForm.createdAtRange?.length === 2) {
-    parts.push(`${t("common.createTime")}：${autoDispatchFilterForm.createdAtRange[0]} ${t("psdSet.to")} ${autoDispatchFilterForm.createdAtRange[1]}`);
+    parts.push(`${t("common.createTime")}: ${autoDispatchFilterForm.createdAtRange[0]} ${t("psdSet.to")} ${autoDispatchFilterForm.createdAtRange[1]}`);
   }
   parts.push(autoDispatchFilterForm.sortOrder === "newest" ? t("psdSet.newestFirst") : t("psdSet.oldestFirst"));
-  return parts.join("，");
+  return parts.join(" / ");
 });
 
-const psdSetSchedulerIndicator = computed(() =>
-  resolveAutoDispatchSchedulerIndicator(psdSetSchedulerRuntime.value),
-);
+const formatSchedulerIndicatorText = (rawText: string) => {
+  if (!rawText) return "";
+  if (rawText === "客户端领取状态未知") return t("psdSet.claimStatusUnknown");
+  if (rawText === "数据库重试中") return t("psdSet.dbRetrying");
+  if (rawText === "检测超时重试中") return t("psdSet.detectTimeoutRetrying");
+  if (rawText === "等待客户端领取") return t("queue.clientPolling") || t("psdSet.waitingClaim");
+  if (rawText === "领取检测未启动") return t("psdSet.claimDetectionNotStarted");
+  if (rawText === "领取检测离线") return t("psdSet.claimDetectionOffline");
+  if (rawText.startsWith("检测中")) {
+    const stagePart = rawText.slice("检测中".length);
+    return t("psdSet.detectingStage", { stage: stagePart });
+  }
+  if (rawText.startsWith("客户端领取异常")) {
+    const errPart = rawText.slice("客户端领取异常".length);
+    return `${t("psdSet.claimAbnormal")}${errPart}`;
+  }
+  return rawText;
+};
+
+const psdSetSchedulerIndicator = computed(() => {
+  if (!userAutoSchedulingEnabled.value) {
+    return { text: t("queue.disabled"), tone: "info" as const };
+  }
+  const indicator = resolveAutoDispatchSchedulerIndicator(psdSetSchedulerRuntime.value);
+  return {
+    tone: indicator.tone,
+    text: formatSchedulerIndicatorText(indicator.text),
+  };
+});
 
 const formatDurationSeconds = (milliseconds?: number | null) => {
   const seconds = Math.max(0, Math.round(Number(milliseconds || 0) / 1000));
@@ -2816,6 +3005,9 @@ const formatDurationSeconds = (milliseconds?: number | null) => {
 };
 
 const psdSetSchedulerRuntimeSummary = computed(() => {
+  if (!userAutoSchedulingEnabled.value) {
+    return t("queue.autoExecuteDisabled");
+  }
   const runtime = psdSetSchedulerRuntime.value;
   if (!runtime) {
     return t("psdSet.waitingDetection");
@@ -2824,7 +3016,7 @@ const psdSetSchedulerRuntimeSummary = computed(() => {
     return `${t("psdSet.detecting")} ${formatDurationSeconds(runtime.cycleElapsedMs)}`;
   }
   return runtime.dispatchIntervalMs > 0
-    ? `${Math.round(runtime.dispatchIntervalMs / 1000)} ${t("psdSet.secondsDetection")}`
+    ? t("psdSet.secondsDetection", { s: Math.round(runtime.dispatchIntervalMs / 1000) })
     : t("psdSet.realTimeDetection");
 });
 
@@ -4469,13 +4661,6 @@ getList();
 }
 
 @media (width <= 768px) {
-  .psd-set-page__auto-dispatch-bar {
-    width: 100%;
-    flex-wrap: wrap;
-    height: auto;
-    padding: 6px;
-  }
-
   .production-dispatch-dialog__table :deep(.el-table) {
     font-size: 12px;
   }
@@ -4551,130 +4736,374 @@ getList();
   gap: 8px;
 }
 
-.psd-set-page__auto-dispatch-bar {
-  display: inline-flex;
-  align-items: center;
+.psd-set-page__main {
+  display: flex;
+  flex-direction: column;
   gap: 8px;
-  min-height: 28px;
-  padding: 2px 8px;
-  background: var(--el-fill-color-light);
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 4px;
-  font-size: 12px;
-  line-height: 1;
-  color: var(--el-text-color-regular);
-  flex-wrap: wrap;
 }
 
-.psd-set-page__auto-dispatch-indicator {
+.psd-set-page__stats-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  min-height: 32px;
+  padding: 4px 0;
+}
+
+.psd-set-stats-pill {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  min-height: 24px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--el-text-color-secondary);
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s ease;
+}
+
+.psd-set-stats-pill:hover {
+  background: var(--el-fill-color-light);
+}
+
+.psd-set-stats-pill.is-active {
+  background: var(--el-fill-color);
+  color: var(--el-color-primary);
+}
+
+.psd-set-stats-pill__label {
+  font-size: 11px;
   font-weight: 500;
-  white-space: nowrap;
+  line-height: 1;
 }
 
-.psd-set-page__auto-dispatch-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentcolor;
-  flex-shrink: 0;
+.psd-set-stats-pill__value {
+  min-width: 20px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--el-text-color-primary);
 }
 
-.psd-set-page__auto-dispatch-indicator.is-success {
-  color: #67c23a;
+.psd-set-stats-pill + .psd-set-stats-pill::before {
+  content: "";
+  width: 1px;
+  height: 12px;
+  margin-right: 2px;
+  background: var(--el-border-color-lighter);
 }
 
-.psd-set-page__auto-dispatch-indicator.is-success .psd-set-page__auto-dispatch-dot {
-  box-shadow: 0 0 0 0 rgb(103 194 58 / 24%);
-  animation: status-breath-success 1.8s infinite ease-in-out;
+.psd-set-stats-pill--pending .psd-set-stats-pill__value {
+  color: var(--el-color-info);
 }
 
-.psd-set-page__auto-dispatch-indicator.is-warning {
-  color: #f97316;
+.psd-set-stats-pill--processing .psd-set-stats-pill__value {
+  color: var(--el-color-warning);
 }
 
-.psd-set-page__auto-dispatch-indicator.is-warning .psd-set-page__auto-dispatch-dot {
-  box-shadow: 0 0 0 0 rgb(249 115 22 / 22%);
-  animation: status-breath-warning 1.8s infinite ease-in-out;
+.psd-set-stats-pill--completed .psd-set-stats-pill__value {
+  color: var(--el-color-success);
 }
 
-.psd-set-page__auto-dispatch-indicator.is-danger {
-  color: #f56c6c;
+.psd-set-stats-pill--failed .psd-set-stats-pill__value {
+  color: var(--el-color-danger);
 }
 
-.psd-set-page__auto-dispatch-indicator.is-info {
-  color: #909399;
+.psd-set-dispatch-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex: 1 1 520px;
+  min-width: min(100%, 380px);
+  min-height: 28px;
+  padding: 0 0 0 8px;
+  border: 0;
+  border-left: 1px solid var(--el-border-color-lighter);
+  border-radius: 0;
+  background: transparent;
 }
 
-.psd-set-page__auto-dispatch-indicator-text {
+.psd-set-dispatch-panel__main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: visible;
+}
+
+.psd-set-dispatch-panel__title {
+  flex: 0 0 auto;
   font-size: 12px;
-  white-space: nowrap;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--el-text-color-primary);
 }
 
-.psd-set-page__auto-dispatch-content {
+.psd-set-dispatch-panel__binding {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
+  gap: 5px;
+  flex: 1 1 180px;
+  min-width: 120px;
+  overflow: hidden;
   color: var(--el-text-color-secondary);
-  white-space: nowrap;
-  padding: 0 6px;
-  border-left: 1px solid var(--el-border-color-lighter);
-  border-right: 1px solid var(--el-border-color-lighter);
+  font-size: 11px;
+  line-height: 1;
 }
 
-.psd-set-page__auto-dispatch-target {
-  max-width: 180px;
+.psd-set-dispatch-panel__binding-label {
+  flex: 0 0 auto;
+  font-weight: 600;
+  color: var(--el-text-color-secondary);
+}
+
+.psd-set-dispatch-panel__binding-value {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 11px;
-  color: var(--el-text-color-primary);
+  font-weight: 600;
 }
 
-.psd-set-page__auto-dispatch-interval {
-  white-space: nowrap;
+.psd-set-dispatch-panel__binding.is-success .psd-set-dispatch-panel__binding-value {
+  color: #67c23a;
 }
 
-.psd-set-page__auto-dispatch-pending {
+.psd-set-dispatch-panel__binding.is-warning .psd-set-dispatch-panel__binding-value {
   color: #f97316;
-  font-weight: 500;
-  white-space: nowrap;
 }
 
-.psd-set-page__auto-dispatch-task-chip {
+.psd-set-dispatch-panel__binding.is-info .psd-set-dispatch-panel__binding-value {
+  color: #909399;
+}
+
+.psd-set-dispatch-panel__binding-meta {
+  flex: 1 1 140px;
+  min-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--el-text-color-placeholder);
+  font-size: 11px;
+}
+
+.psd-set-dispatch-panel__filter-wrap {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  flex: 0 1 150px;
+  min-width: 86px;
+  max-width: 180px;
 }
 
-.psd-set-page__chip-client {
-  font-weight: 600;
-  color: var(--el-text-color-primary);
-}
-
-.psd-set-page__chip-task-id {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+.psd-set-dispatch-panel__filter {
+  display: inline-block;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--el-text-color-secondary);
   font-size: 11px;
+  line-height: 1;
 }
 
-.psd-set-page__chip-step {
-  padding-left: 4px;
-  border-left: 1px solid var(--el-border-color-lighter);
-  color: var(--el-text-color-placeholder);
+.psd-set-dispatch-panel__filter-popover {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 20;
+  width: max-content;
+  max-width: 520px;
+  padding: 8px 10px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 4px;
+  background: var(--el-bg-color-overlay);
+  box-shadow: var(--el-box-shadow-light);
+  color: var(--el-text-color-regular);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: none;
+  transition:
+    opacity 0.12s ease,
+    visibility 0.12s ease;
+  white-space: pre-line;
+  line-height: 1.6;
+  font-size: 12px;
 }
 
-.psd-set-page__auto-dispatch-actions {
+.psd-set-dispatch-panel__filter-wrap:hover .psd-set-dispatch-panel__filter-popover {
+  opacity: 1;
+  visibility: visible;
+}
+
+.psd-set-dispatch-panel__runtime {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 210px;
+  overflow: hidden;
+  color: var(--el-text-color-secondary);
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.psd-set-dispatch-panel__runtime.is-success {
+  color: #67c23a;
+}
+
+.psd-set-dispatch-panel__runtime.is-warning {
+  color: #f97316;
+}
+
+.psd-set-dispatch-panel__runtime.is-danger {
+  color: #f56c6c;
+}
+
+.psd-set-dispatch-panel__runtime.is-info {
+  color: #909399;
+}
+
+.psd-set-dispatch-panel__runtime-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+  flex: 0 0 auto;
+}
+
+.psd-set-dispatch-panel__runtime.is-success .psd-set-dispatch-panel__runtime-dot {
+  box-shadow: 0 0 0 0 rgb(103 194 58 / 24%);
+  animation: psd-set-status-breath-success 1.8s infinite ease-in-out;
+}
+
+.psd-set-dispatch-panel__runtime.is-warning .psd-set-dispatch-panel__runtime-dot {
+  box-shadow: 0 0 0 0 rgb(249 115 22 / 22%);
+  animation: psd-set-status-breath-warning 1.8s infinite ease-in-out;
+}
+
+.psd-set-dispatch-panel__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 999px;
+  background: var(--el-fill-color-light);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--el-text-color-secondary);
+}
+
+.psd-set-dispatch-panel__status.is-success {
+  border-color: rgb(103 194 58 / 24%);
+  color: #67c23a;
+}
+
+.psd-set-dispatch-panel__status.is-info {
+  border-color: rgb(144 147 153 / 24%);
+  color: #909399;
+}
+
+.psd-set-dispatch-panel__status.is-warning {
+  border-color: rgb(249 115 22 / 24%);
+  color: #f97316;
+}
+
+.psd-set-dispatch-panel__status.is-danger {
+  border-color: rgb(245 108 108 / 24%);
+  color: #f56c6c;
+}
+
+.psd-set-dispatch-panel__status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.psd-set-dispatch-panel__status.is-success .psd-set-dispatch-panel__status-dot {
+  box-shadow: 0 0 0 0 rgb(103 194 58 / 32%);
+  animation: psd-set-status-breath-success 1.8s infinite ease-in-out;
+}
+
+.psd-set-dispatch-panel__status.is-warning .psd-set-dispatch-panel__status-dot {
+  box-shadow: 0 0 0 0 rgb(249 115 22 / 28%);
+  animation: psd-set-status-breath-warning 1.8s infinite ease-in-out;
+}
+
+.psd-set-dispatch-panel__actions {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  flex: 0 0 auto;
 }
 
-.psd-set-page__auto-dispatch-actions .el-button {
+.psd-set-dispatch-panel__actions .el-button {
   margin-left: 0;
+}
+
+@keyframes psd-set-status-breath-success {
+  0% {
+    box-shadow: 0 0 0 0 rgb(103 194 58 / 36%);
+  }
+
+  70% {
+    box-shadow: 0 0 0 5px rgb(103 194 58 / 0%);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgb(103 194 58 / 0%);
+  }
+}
+
+@keyframes psd-set-status-breath-warning {
+  0% {
+    box-shadow: 0 0 0 0 rgb(249 115 22 / 32%);
+  }
+
+  70% {
+    box-shadow: 0 0 0 5px rgb(249 115 22 / 0%);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgb(249 115 22 / 0%);
+  }
+}
+
+@media (max-width: 960px) {
+  .psd-set-page__stats-bar {
+    gap: 6px;
+  }
+
+  .psd-set-stats-pill {
+    min-height: 24px;
+    padding: 0 3px;
+  }
+
+  .psd-set-dispatch-panel {
+    width: 100%;
+    flex: 1 1 100%;
+    padding-top: 6px;
+    border-top: 1px solid var(--el-border-color-lighter);
+    border-left: 0;
+  }
+
+  .psd-set-dispatch-panel__main {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
 }
 
 .psd-set-page__table-body {
