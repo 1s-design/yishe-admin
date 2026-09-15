@@ -3025,6 +3025,7 @@ export default {
     skuImageIndex: '图片',
     skuImageIndexPlaceholder: '图片序号',
     skuRemarkPlaceholder: '备注',
+    skuSearchTitlePlaceholder: 'SKU搜索标题',
     skuVendorProductPlaceholder: '绑定供应商商品',
     skuPddGroupPrice: '拼单价',
     skuPddGroupPricePlaceholder: '拼单价',

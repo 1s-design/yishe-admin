@@ -255,6 +255,7 @@ export function normalizeSkuConfig(input: unknown): Array<{
   pddGroupPriceMax?: number
   vendorProductId?: number
   vendorProductCode?: string
+  skuSearchTitle?: string
 }> {
   if (!Array.isArray(input)) return []
   return input
@@ -278,6 +279,7 @@ export function normalizeSkuConfig(input: unknown): Array<{
         pddGroupPriceMax?: number
         vendorProductId?: number
         vendorProductCode?: string
+        skuSearchTitle?: string
       } = {}
       // 保留备注
       if (typeof item.remark === 'string' && item.remark.trim()) {
@@ -352,6 +354,10 @@ export function normalizeSkuConfig(input: unknown): Array<{
       }
       if (typeof item.vendorProductCode === 'string' && item.vendorProductCode.trim()) {
         result.vendorProductCode = item.vendorProductCode.trim()
+      }
+      // SKU 搜索标题
+      if (typeof item.skuSearchTitle === 'string' && item.skuSearchTitle.trim()) {
+        result.skuSearchTitle = item.skuSearchTitle.trim()
       }
       return result
     })

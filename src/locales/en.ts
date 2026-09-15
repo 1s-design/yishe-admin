@@ -3029,6 +3029,7 @@ export default {
     skuImageIndex: 'Image',
     skuImageIndexPlaceholder: 'Image No.',
     skuRemarkPlaceholder: 'Remark',
+    skuSearchTitlePlaceholder: 'SKU Search Title',
     skuVendorProductPlaceholder: 'Bind Vendor Product',
     skuPddGroupPrice: 'Group Price',
     skuPddGroupPricePlaceholder: 'Group Price',

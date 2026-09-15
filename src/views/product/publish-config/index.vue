@@ -2259,6 +2259,12 @@ onMounted(() => {
                               :placeholder="t('publishConfig.skuRemarkPlaceholder')"
                               class="publish-config-sku-list__remark"
                             />
+                            <el-input
+                              v-if="resolveTaskTypePlatform(form.taskType) === 'taobao'"
+                              v-model="platformConfigData[field.key][index].skuSearchTitle"
+                              :placeholder="t('publishConfig.skuSearchTitlePlaceholder')"
+                              class="publish-config-sku-list__remark"
+                            />
                             <el-button
                               text
                               type="danger"
