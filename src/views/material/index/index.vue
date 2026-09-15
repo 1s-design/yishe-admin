@@ -689,6 +689,7 @@
                     class="config-el-table"
                     :row-class-name="getPublishConfigRowClassName"
                     @selection-change="handlePublishConfigSelectionChange"
+                    @row-click="handlePublishConfigRowClick"
                   >
                     <el-table-column
                       type="selection"
@@ -4443,7 +4444,7 @@ const materialPublishConfigLoading = ref(false);
 const materialPublishConfigSubmitting = ref(false);
 const materialPublishConfigSearchText = ref("");
 const materialPublishConfigCurrentPage = ref(1);
-const materialPublishConfigPageSize = ref(10);
+const materialPublishConfigPageSize = ref(20);
 const materialPublishConfigTotal = ref(0);
 const materialPublishConfigOnlyUsable = ref(false);
 const materialPublishConfigPlatformFilter = ref("");
@@ -6225,6 +6226,9 @@ function getPublishConfigPlatformBadgeStyle(platform?: string) {
   if (p.includes("douyin") || p.includes("doudian")) {
     return { background: "rgba(254, 44, 85, 0.12)", color: "#fe2c55", borderColor: "rgba(254, 44, 85, 0.3)" };
   }
+  if (p.includes("pdd") || p.includes("duoduo") || p.includes("pin")) {
+    return { background: "rgba(224, 32, 32, 0.12)", color: "#e02020", borderColor: "rgba(224, 32, 32, 0.3)" };
+  }
   if (p.includes("temu")) {
     return { background: "rgba(251, 119, 1, 0.12)", color: "#fb7701", borderColor: "rgba(251, 119, 1, 0.3)" };
   }
@@ -6267,6 +6271,14 @@ function handlePublishConfigSelectionChange(rows: any[]) {
     .filter((row) => isMaterialPublishConfigUsable(row))
     .forEach((row) => selectedSet.add(String(row.id)));
   materialPublishConfigSelectedIds.value = Array.from(selectedSet);
+}
+
+function handlePublishConfigRowClick(row: any) {
+  if (!isMaterialPublishConfigSelectable(row)) return;
+  const table = materialPublishConfigTableRef.value;
+  if (table) {
+    table.toggleRowSelection(row);
+  }
 }
 
 function syncPublishConfigTableSelection() {
@@ -11397,6 +11409,10 @@ h1 {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.config-el-table :deep(.el-table__body .el-table__row) {
+  cursor: pointer;
 }
 
 .psd-template-toolbar-button,
