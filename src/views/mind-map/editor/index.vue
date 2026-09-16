@@ -6,8 +6,7 @@
         <span class="mind-map-toolbar__title">{{ mindMapName }}</span>
         <el-tag v-if="autoSaved" type="success" size="small" effect="light">已自动保存</el-tag>
         <el-tag v-if="!autoSaved && hasChanges" type="warning" size="small" effect="light">未保存</el-tag>
-      </div>
-      <div class="mind-map-toolbar__center">
+        <el-divider direction="vertical" />
         <!-- 节点操作 -->
         <el-button-group size="small">
           <el-button :icon="Plus" @click="handleAddChild" title="添加子节点 (Tab)">子节点</el-button>
@@ -67,7 +66,8 @@
         <el-button size="small" @click="handleToggleExpand" title="展开/折叠子节点">
           {{ isExpanded ? '折叠' : '展开' }}
         </el-button>
-        <el-divider direction="vertical" />
+      </div>
+      <div class="mind-map-toolbar__right">
         <!-- 视图操作 -->
         <el-button-group size="small">
           <el-button :icon="ZoomOut" @click="handleZoomOut" title="缩小">缩小</el-button>
@@ -89,9 +89,6 @@
           </template>
         </el-dropdown>
         <el-button type="primary" size="small" :loading="saving" @click="handleSave" title="保存 (Ctrl+S)">保存</el-button>
-      </div>
-      <div class="mind-map-toolbar__right">
-        <!-- 占位，保持布局 -->
       </div>
     </div>
 
@@ -573,15 +570,10 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
 }
 
-.mind-map-toolbar__center {
+.mind-map-toolbar__right {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex: 1;
-  justify-content: center;
-}
-
-.mind-map-toolbar__right {
   flex-shrink: 0;
 }
 
