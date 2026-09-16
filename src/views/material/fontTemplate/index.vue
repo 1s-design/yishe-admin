@@ -1138,12 +1138,6 @@ const gridOptions = ref({
       },
     },
     { title: t('fontTemplate.fontName'), field: "name", width: 260, showOverflow: true, slots: { default: "nameDefaultSlot" } },
-    {
-      title: t('fontTemplate.resourceType'),
-      field: "shareType",
-      width: 200,
-      slots: { default: "shareTypeSlot" },
-    },
     { title: t('common.description'), field: "description", minWidth: 200, showOverflow: true },
     { title: t('fontTemplate.keywords'), field: "keywords", minWidth: 160, showOverflow: true },
     { title: t('fontTemplate.category'), field: "category", width: 120, showOverflow: true },
@@ -1179,6 +1173,12 @@ const gridOptions = ref({
       formatter: (e) => {
         return formatTimestamp(e.cellValue);
       },
+    },
+    {
+      title: t('fontTemplate.resourceType'),
+      field: "shareType",
+      width: 200,
+      slots: { default: "shareTypeSlot" },
     },
     buildOperationColumn("operationDefaultSlot"),
   ],

@@ -528,12 +528,6 @@ const gridOptions = ref({
       slots: { default: "triggersDefaultSlot" },
     },
     {
-      title: "来源",
-      field: "shareType",
-      width: 160,
-      slots: { default: "shareTypeDefaultSlot" },
-    },
-    {
       title: "权限",
       field: "isPublic",
       width: 88,
@@ -546,6 +540,12 @@ const gridOptions = ref({
       slots: { default: "enabledDefaultSlot" },
     },
     buildTimeColumn("更新时间", "updateTime"),
+    {
+      title: "来源",
+      field: "shareType",
+      width: 160,
+      slots: { default: "shareTypeDefaultSlot" },
+    },
     buildOperationColumn("operationDefaultSlot", 120),
   ],
 });

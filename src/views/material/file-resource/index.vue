@@ -749,12 +749,6 @@ const gridOptions = ref({
       slots: { default: "previewDefaultSlot" },
     },
     { title: t("fileResource.resourceName"), field: "name", minWidth: 180, className: "font-bold", slots: { default: "nameSlot" } },
-    {
-      title: t("fileResource.resourceType"),
-      field: "shareType",
-      width: 200,
-      slots: { default: "shareTypeSlot" },
-    },
     { title: t("common.description"), field: "description", minWidth: 200 },
     { title: t("fileResource.keywords"), field: "keywords", minWidth: 160 },
     { title: t("fileResource.suffix"), field: "suffix", width: 80 },
@@ -783,6 +777,12 @@ const gridOptions = ref({
       formatter: (e) => {
         return formatTimestamp(e.cellValue);
       },
+    },
+    {
+      title: t("fileResource.resourceType"),
+      field: "shareType",
+      width: 200,
+      slots: { default: "shareTypeSlot" },
     },
     buildOperationColumn("operationDefaultSlot"),
   ],

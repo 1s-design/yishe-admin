@@ -3949,12 +3949,6 @@ const gridOptions = computed(() => {
       slots: { default: "compactNameSlot" },
     },
     {
-      title: t("material.resourceType"),
-      field: "shareType",
-      width: 200,
-      slots: { default: "shareTypeSlot" },
-    },
-    {
       title: t("material.code"),
       field: "code",
       width: 100,
@@ -4002,6 +3996,12 @@ const gridOptions = computed(() => {
         },
       ]
       : []),
+    {
+      title: t("material.resourceType"),
+      field: "shareType",
+      width: 200,
+      slots: { default: "shareTypeSlot" },
+    },
   ];
 
   const operationColumn = buildOperationColumn("operationDefaultSlot");

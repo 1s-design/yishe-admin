@@ -1243,12 +1243,6 @@ const gridOptions = ref<VxeGridProps<any>>({
     },
     { title: t('psdTemplate.psdTemplateName'), field: "name", width: 240, showOverflow: true },
     {
-      title: t('material.resourceType'),
-      field: "shareType",
-      width: 200,
-      slots: { default: "shareTypeSlot" },
-    },
-    {
       title: t('common.description'),
       field: "description",
       minWidth: 200,
@@ -1375,6 +1369,12 @@ const gridOptions = ref<VxeGridProps<any>>({
       formatter: (e) => {
         return formatTimestamp(e.cellValue);
       },
+    },
+    {
+      title: t('material.resourceType'),
+      field: "shareType",
+      width: 200,
+      slots: { default: "shareTypeSlot" },
     },
     buildOperationColumn("operationDefaultSlot", undefined, {
       showOverflow: false,

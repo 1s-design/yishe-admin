@@ -24,21 +24,6 @@
                   </el-input>
                 </el-form-item>
               </el-col>
-              <el-col class="list-page-search-form__col--narrow" :xs="24" :sm="12" :md="8" :lg="4" :xl="3">
-                <el-form-item label="发布状态">
-                  <el-select
-                    v-model="queryParams.isPublish"
-                    size="small"
-                    placeholder="请选择状态"
-                    clearable
-                    @change="handleSearch"
-                  >
-                    <el-option label="全部" :value="null" />
-                    <el-option label="已发布" :value="true" />
-                    <el-option label="未发布" :value="false" />
-                  </el-select>
-                </el-form-item>
-              </el-col>
             </el-row>
             <div class="list-page-search-form__actions">
               <el-button size="small" type="primary" :icon="Search" :loading="loading" @click="handleSearch">搜索</el-button>
@@ -47,12 +32,6 @@
               <el-button size="small" type="danger" :icon="Delete" @click="handleDelete(null)">
                 批量删除 ({{ ids.length }})
               </el-button>
-              <el-button v-if="isAdmin" size="small" type="warning" :loading="batchActionLoading" @click="handleBatchPublish" :disabled="!ids.length">
-                批量发布({{ ids.length }})
-              </el-button>
-              <el-button v-if="isAdmin" size="small" type="info" :loading="batchActionLoading" @click="handleBatchUnpublish" :disabled="!ids.length">
-                批量下架({{ ids.length }})
-              </el-button>
               <el-button
                 size="small"
                 type="success"
@@ -60,15 +39,6 @@
                 @click="openSentenceUserTransferDialog('share')"
               >
                 分享 ({{ ids.length }})
-              </el-button>
-              <el-button
-                v-if="isAdmin"
-                size="small"
-                type="warning"
-                :disabled="!ids.length"
-                @click="handleBatchPublishToPublicLibrary"
-              >
-                发布到库 ({{ ids.length }})
               </el-button>
               <el-button
                 size="small"
@@ -152,18 +122,6 @@
                     <span>AI分析</span>
                     <el-icon v-if="aiTableLoading?.[row?.id]" class="is-loading ml-1"><Loading /></el-icon>
                   </el-dropdown-item>
-                  <template v-if="isAdmin && !row.isPublish">
-                    <el-dropdown-item command="publish">
-                      <el-icon><Upload /></el-icon>
-                      <span>发布</span>
-                    </el-dropdown-item>
-                  </template>
-                  <template v-if="isAdmin && row.isPublish">
-                    <el-dropdown-item command="unpublish">
-                      <el-icon><Download /></el-icon>
-                      <span>下架</span>
-                    </el-dropdown-item>
-                  </template>
                   <el-dropdown-item command="share-to-user">
                     <el-icon><Share /></el-icon>
                     <span>分享给用户</span>
@@ -191,8 +149,21 @@
           </div>
         </template>
         <template #contentSlot="{ row }">
-          <div class="sentence-content flex items-center gap-1.5">
+          <div class="sentence-content flex items-center gap-1.5" :class="{ 'sentence-content--collapsed': contentCollapsed }">
             <span>{{ row.content }}</span>
+          </div>
+        </template>
+        <template #contentHeaderSlot>
+          <div class="flex items-center gap-1">
+            <span>句子内容</span>
+            <el-switch
+              v-model="contentCollapsed"
+              size="small"
+              inline-prompt
+              active-text="展开"
+              inactive-text="折叠"
+              class="sentence-content-switch"
+            />
           </div>
         </template>
 
@@ -211,11 +182,6 @@
           <div class="text-wrap" style="max-width: 200px; word-break: break-all">
             {{ row.keywords || "-" }}
           </div>
-        </template>
-        <template #isPublishSlot="{ row }">
-          <el-tag :type="row.isPublish ? 'success' : 'info'" size="small">
-            {{ row.isPublish ? "已发布" : "未发布" }}
-          </el-tag>
         </template>
         <template #createdAtSlot="{ row }">
           <span>{{ formatDateTime(row.createdAt) }}</span>
@@ -273,7 +239,7 @@
     <el-dialog
       :title="dialogTitle"
       v-model="dialogVisible"
-      width="600px"
+      width="900px"
       @close="dialogClose"
       align-center
     >
@@ -284,9 +250,9 @@
               <el-input
                 v-model="form.content"
                 type="textarea"
-                :rows="4"
+                :rows="10"
                 placeholder="请输入句子内容"
-                maxlength="1000"
+                maxlength="5000"
                 show-word-limit
               />
             </el-form-item>
@@ -296,9 +262,9 @@
               <el-input
                 v-model="form.description"
                 type="textarea"
-                :rows="3"
+                :rows="4"
                 placeholder="请输入描述（可选）"
-                maxlength="500"
+                maxlength="1000"
                 show-word-limit
               />
             </el-form-item>
@@ -308,23 +274,11 @@
               <el-input
                 v-model="form.keywords"
                 type="textarea"
-                :rows="2"
+                :rows="3"
                 placeholder="请输入关键词，多个关键词用逗号分隔（可选）"
-                maxlength="200"
+                maxlength="500"
                 show-word-limit
               />
-            </el-form-item>
-          </el-col>
-          <el-col :span="24">
-            <el-form-item label="发布状态">
-              <el-select
-                v-model="form.isPublish"
-                placeholder="请选择发布状态"
-                style="width: 100%"
-              >
-                <el-option label="未发布" :value="false" />
-                <el-option label="已发布" :value="true" />
-              </el-select>
             </el-form-item>
           </el-col>
         </el-row>
@@ -433,16 +387,11 @@ import {
   Plus,
   MagicStick,
   Edit,
-  Upload,
-  Download,
   Loading,
   DArrowLeft,
   DArrowRight,
   Share,
-  DocumentCopy,
   User,
-  TopRight,
-  ArrowDown,
   Connection,
 } from "@element-plus/icons-vue";
 import {
@@ -457,7 +406,6 @@ import {
   moveSentenceToUser,
   getSentenceSharedRecords,
 } from "@/api/sentence";
-import { ResourceLibraryApi } from "@/api/resource-library";
 import { formatTimestamp } from "@/common/date";
 import { getUserList } from "@/api/user";
 import { buildOperationColumn, commonGridOptions } from "@/common/table";
@@ -484,7 +432,6 @@ const queryParams = reactive({
   currentPage: 1,
   pageSize: 20,
   search: "",
-  isPublish: null,
   folderId: null as string | null,
 });
 
@@ -503,18 +450,11 @@ const gridOptions = ref({
       slots: { default: "dragHandleSlot" },
     },
     { type: "checkbox", width: 42, ellipsis: true, reserve: true },
-    { title: "ID", field: "id", width: 80 },
     {
       title: "句子内容",
       field: "content",
-      minWidth: 300,
-      slots: { default: "contentSlot" },
-    },
-    {
-      title: "资源类型",
-      field: "shareType",
-      width: 200,
-      slots: { default: "shareTypeSlot" },
+      minWidth: 800,
+      slots: { default: "contentSlot", header: "contentHeaderSlot" },
     },
     {
       title: "描述",
@@ -527,12 +467,6 @@ const gridOptions = ref({
       field: "keywords",
       minWidth: 150,
       slots: { default: "keywordsSlot" },
-    },
-    {
-      title: "发布状态",
-      field: "isPublish",
-      width: 100,
-      slots: { default: "isPublishSlot" },
     },
     {
       title: "上传者",
@@ -551,6 +485,12 @@ const gridOptions = ref({
       field: "updatedAt",
       width: 160,
       slots: { default: "updatedAtSlot" },
+    },
+    {
+      title: "资源类型",
+      field: "shareType",
+      width: 200,
+      slots: { default: "shareTypeSlot" },
     },
     buildOperationColumn("operationDefaultSlot"),
   ],
@@ -572,11 +512,9 @@ const form = ref({
   content: "",
   description: "",
   keywords: "",
-  isPublish: false,
 });
 const submitLoading = ref(false);
 const deleteLoading = ref(false);
-const batchActionLoading = ref(false);
 const editId = ref<string | null>(null);
 
 // 拖拽状态（拖文案 -> 文件夹）
@@ -607,6 +545,7 @@ const aiAnalyzePrompt = ref("");
 const aiAnalyzeLoading = ref(false);
 const aiTableLoading = ref<Record<string, boolean>>({});
 let aiAnalyzeRow = null;
+const contentCollapsed = ref(true);
 
 // 格式化日期时间
 function formatDateTime(dateStr: string) {
@@ -649,7 +588,6 @@ function handleSearch() {
 
 function handleReset() {
   queryParams.search = "";
-  queryParams.isPublish = null;
   queryParams.currentPage = 1;
   getList();
 }
@@ -699,7 +637,6 @@ function handleAdd() {
     content: "",
     description: "",
     keywords: "",
-    isPublish: false,
   };
 }
 
@@ -728,29 +665,9 @@ function handleEdit(row) {
     content: row.content,
     description: row.description || "",
     keywords: row.keywords || "",
-    isPublish: row.isPublish || false,
   };
 }
 
-async function handleBatchPublishToPublicLibrary() {
-  if (!ids.value.length) {
-    return ElMessage.warning("请选择要发布的数据");
-  }
-  try {
-    await ElMessageBox.confirm(`确认将选中的 ${ids.value.length} 条文案发布到公共资源广场吗？`, "发布提示", {
-      confirmButtonText: "确认发布",
-      cancelButtonText: "取消",
-      type: "info",
-    });
-    await ResourceLibraryApi.batchPublish({
-      resourceType: "sentence",
-      ids: [...ids.value],
-    });
-    ElMessage.success("已成功发布到公共文案库");
-  } catch {
-    // cancel
-  }
-}
 
 async function handleDelete(row?) {
   let delIds = null;
@@ -794,10 +711,24 @@ async function handleDelete(row?) {
     });
 
     deleteLoading.value = true;
+    let successCount = 0;
+    const failMessages: string[] = [];
     for (const id of delIds) {
-      await deleteSentence(id);
+      try {
+        await deleteSentence(id);
+        successCount++;
+      } catch (e: any) {
+        console.error(`删除句子 ${id} 失败:`, e);
+        failMessages.push(e?.message || String(id));
+      }
     }
-    ElMessage.success("删除成功");
+    if (successCount > 0 && failMessages.length === 0) {
+      ElMessage.success("删除成功");
+    } else if (successCount > 0 && failMessages.length > 0) {
+      ElMessage.warning(`已删除 ${successCount} 条，${failMessages.length} 条失败`);
+    } else {
+      ElMessage.error(`删除失败：${failMessages.slice(0, 3).join("；")}`);
+    }
     ids.value = ids.value.filter((id: any) => !delIds.includes(id));
     await getList();
   } catch (error: any) {
@@ -859,73 +790,6 @@ async function handleAiAnalyzeSentence(row, cb, prompt) {
   }
 }
 
-// 发布句子
-async function handlePublish(row) {
-  try {
-    await updateSentence(row.id, {
-      isPublish: true,
-    });
-    row.isPublish = true;
-    ElMessage.success("发布成功");
-    getList();
-  } catch (e) {
-    ElMessage.error("发布失败");
-  }
-}
-
-// 下架句子
-async function handleUnpublish(row) {
-  try {
-    await updateSentence(row.id, {
-      isPublish: false,
-    });
-    row.isPublish = false;
-    ElMessage.success("下架成功");
-    getList();
-  } catch (e) {
-    ElMessage.error("下架失败");
-  }
-}
-
-// 批量发布
-async function handleBatchPublish() {
-  if (!ids.value.length) {
-    return ElMessage.warning("请选择要发布的句子");
-  }
-
-  try {
-    batchActionLoading.value = true;
-    const promises = ids.value.map((id) => updateSentence(id, { isPublish: true }));
-    await Promise.all(promises);
-    ElMessage.success(`成功发布 ${ids.value.length} 个句子`);
-    ids.value = [];
-    await getList();
-  } catch (e) {
-    ElMessage.error("批量发布失败");
-  } finally {
-    batchActionLoading.value = false;
-  }
-}
-
-// 批量下架
-async function handleBatchUnpublish() {
-  if (!ids.value.length) {
-    return ElMessage.warning("请选择要下架的句子");
-  }
-
-  try {
-    batchActionLoading.value = true;
-    const promises = ids.value.map((id) => updateSentence(id, { isPublish: false }));
-    await Promise.all(promises);
-    ElMessage.success(`成功下架 ${ids.value.length} 个句子`);
-    ids.value = [];
-    await getList();
-  } catch (e) {
-    ElMessage.error("批量下架失败");
-  } finally {
-    batchActionLoading.value = false;
-  }
-}
 
 async function openShareRecordsDialog(row: any) {
   shareRecordsResourceName.value = row.content || `ID: ${row.id}`;
@@ -951,12 +815,6 @@ function handleOperationCommand(command: string, row: any) {
       break;
     case "ai-analyze":
       handleAiAnalyze(row);
-      break;
-    case "publish":
-      handlePublish(row);
-      break;
-    case "unpublish":
-      handleUnpublish(row);
       break;
     case "share-to-user":
       openSentenceUserTransferDialog("share", row);
@@ -1088,10 +946,10 @@ async function submitSentenceUserTransfer() {
 const rules = {
   content: [
     { required: true, message: "请输入句子内容", trigger: "blur" },
-    { min: 1, max: 1000, message: "句子内容长度在 1 到 1000 个字符", trigger: "blur" },
+    { min: 1, max: 5000, message: "句子内容长度在 1 到 5000 个字符", trigger: "blur" },
   ],
-  description: [{ max: 500, message: "描述长度不能超过 500 个字符", trigger: "blur" }],
-  keywords: [{ max: 200, message: "关键词长度不能超过 200 个字符", trigger: "blur" }],
+  description: [{ max: 1000, message: "描述长度不能超过 1000 个字符", trigger: "blur" }],
+  keywords: [{ max: 500, message: "关键词长度不能超过 500 个字符", trigger: "blur" }],
 };
 
 const dialogClose = () => {
@@ -1112,7 +970,6 @@ const submitForm = async () => {
         content: form.value.content,
         description: form.value.description,
         keywords: form.value.keywords,
-        isPublish: form.value.isPublish,
       });
       ElMessage.success("更新成功");
     } else {
@@ -1120,7 +977,6 @@ const submitForm = async () => {
         content: form.value.content,
         description: form.value.description,
         keywords: form.value.keywords,
-        isPublish: form.value.isPublish,
       });
       ElMessage.success("新增成功");
     }
@@ -1189,11 +1045,28 @@ const submitForm = async () => {
 
 /* 句子内容样式优化 */
 .sentence-content {
-  max-width: 300px;
-  font-size: 16px;
-  font-weight: 500;
-  line-height: 1.6;
+  width: 100%;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
   word-break: break-all;
+}
+
+.sentence-content--collapsed {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sentence-content:not(.sentence-content--collapsed) {
+  padding: 8px 12px;
+  margin: 4px 0;
+  background-color: var(--el-fill-color-light);
+  border-radius: 4px;
+}
+
+:deep(.sentence-content-switch .el-switch__core .el-switch__inner span) {
+  font-size: 9px !important;
 }
 
 /* 操作列样式优化 */

@@ -524,12 +524,6 @@ const gridOptions = ref({
     },
     { title: "资源名称", field: "name", minWidth: 180, className: "font-bold", slots: { default: "nameSlot" } },
     {
-      title: "资源类型",
-      field: "shareType",
-      width: 200,
-      slots: { default: "shareTypeSlot" },
-    },
-    {
       title: "描述",
       field: "description",
       minWidth: 200,
@@ -546,6 +540,12 @@ const gridOptions = ref({
     { title: "ID", field: "id", width: 80 },
     { title: "创建时间", field: "createTime", width: 150, slots: { default: "createTimeSlot" } },
     { title: "更新时间", field: "updateTime", width: 150, slots: { default: "updateTimeSlot" } },
+    {
+      title: "资源类型",
+      field: "shareType",
+      width: 200,
+      slots: { default: "shareTypeSlot" },
+    },
     buildOperationColumn("operationDefaultSlot"),
   ],
 });

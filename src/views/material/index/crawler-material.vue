@@ -422,12 +422,6 @@ const gridOptions = computed(() => {
       slots: { default: "previewDefaultSlot" },
     },
     { title: "图片名称", field: "name", minWidth: 180, className: "font-bold", slots: { default: "nameSlot" } },
-    {
-      title: "资源类型",
-      field: "shareType",
-      width: 200,
-      slots: { default: "shareTypeSlot" },
-    },
     { title: "描述", field: "description", minWidth: 200 },
     { title: "关键词", field: "keywords", minWidth: 160 },
     { title: "后缀", field: "suffix", width: 80 },
@@ -463,6 +457,12 @@ const gridOptions = computed(() => {
       width: 150,
       ellipsis: true,
       formatter: (e) => formatTimestamp(e.cellValue),
+    },
+    {
+      title: "资源类型",
+      field: "shareType",
+      width: 200,
+      slots: { default: "shareTypeSlot" },
     },
   ]
 
