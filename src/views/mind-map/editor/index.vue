@@ -581,15 +581,23 @@ onBeforeUnmount(() => {
 .mind-map-toolbar__left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
   flex-shrink: 0;
+}
+
+.mind-map-toolbar__left :deep(.el-button-group) {
+  margin-right: 4px;
 }
 
 .mind-map-toolbar__right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-shrink: 0;
+}
+
+.mind-map-toolbar__right :deep(.el-button-group) {
+  margin-right: 4px;
 }
 
 .mind-map-toolbar__title {
