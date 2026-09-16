@@ -8,6 +8,10 @@
         <el-tag v-if="!autoSaved && hasChanges" type="warning" size="small" effect="light">未保存</el-tag>
       </div>
       <div class="mind-map-toolbar__right">
+        <el-button :icon="Plus" @click="handleAddChild" title="添加子节点 (Tab)">子节点</el-button>
+        <el-button :icon="Plus" @click="handleAddSibling" title="添加兄弟节点 (Enter)">兄弟节点</el-button>
+        <el-button :icon="Delete" @click="handleDeleteNode" title="删除节点 (Delete)">删除</el-button>
+        <el-divider direction="vertical" />
         <el-button :icon="RefreshLeft" @click="handleUndo" :disabled="!canUndo">撤销</el-button>
         <el-button :icon="RefreshRight" @click="handleRedo" :disabled="!canRedo">重做</el-button>
         <el-divider direction="vertical" />
@@ -38,6 +42,8 @@ import {
   ZoomOut,
   Download,
   Document,
+  Plus,
+  Delete,
 } from "@element-plus/icons-vue";
 import MindElixir from "mind-elixir";
 import "mind-elixir/style.css";
@@ -209,6 +215,42 @@ function handleFitView() {
   mindInstance.value.container.style.transform = "scale(1)";
 }
 
+function handleAddChild() {
+  if (!mindInstance.value) return;
+  const selected = mindInstance.value.currentNode;
+  if (!selected) {
+    ElMessage.warning("请先选择一个节点");
+    return;
+  }
+  mindInstance.value.addChild();
+}
+
+function handleAddSibling() {
+  if (!mindInstance.value) return;
+  const selected = mindInstance.value.currentNode;
+  if (!selected) {
+    ElMessage.warning("请先选择一个节点");
+    return;
+  }
+  mindInstance.value.addSibling();
+}
+
+function handleDeleteNode() {
+  if (!mindInstance.value) return;
+  const selected = mindInstance.value.currentNode;
+  if (!selected) {
+    ElMessage.warning("请先选择一个节点");
+    return;
+  }
+  // 不能删除根节点
+  const nodeObj = selected as any;
+  if (nodeObj?.parent === null) {
+    ElMessage.warning("不能删除根节点");
+    return;
+  }
+  mindInstance.value.removeNode();
+}
+
 function handleExportPNG() {
   if (!mindInstance.value) return;
   // mind-elixir-core 支持导出 PNG
@@ -260,9 +302,14 @@ onBeforeUnmount(() => {
 .mind-map-editor {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   width: 100%;
   background: #fff;
+  z-index: 100;
 }
 
 .mind-map-toolbar {
