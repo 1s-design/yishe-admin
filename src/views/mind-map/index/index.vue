@@ -370,7 +370,7 @@ async function submitCreate() {
       description: createForm.description,
     });
     ElMessage.success("创建成功");
-    createDialogVisible = false;
+    createDialogVisible.value = false;
     // 跳转到编辑器
     router.push(`/mind-map/editor/${res.id || res}`);
   } catch (error) {
