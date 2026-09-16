@@ -561,6 +561,21 @@ onBeforeUnmount(() => {
   background: var(--el-bg-color);
   z-index: 10;
   flex-shrink: 0;
+  gap: 6px;
+}
+
+.mind-map-toolbar :deep(.el-button) {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.mind-map-toolbar :deep(.el-button--small) {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.mind-map-toolbar :deep(.el-button-group .el-button) {
+  padding: 4px 8px;
 }
 
 .mind-map-toolbar__left {
