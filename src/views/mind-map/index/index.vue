@@ -513,6 +513,24 @@ onMounted(getList);
 </script>
 
 <style scoped>
+:deep(.mind-map-page) {
+  padding: 0;
+  margin: 0;
+  height: 100%;
+}
+
+:deep(.mind-map-page .list-page-layout__main) {
+  gap: 0;
+}
+
+:deep(.mind-map-page .list-page-filter--flat) {
+  padding: 8px 0;
+}
+
+:deep(.mind-map-page .list-page-table-panel) {
+  padding: 0;
+}
+
 .mind-map-name {
   color: var(--el-color-primary);
   cursor: pointer;
