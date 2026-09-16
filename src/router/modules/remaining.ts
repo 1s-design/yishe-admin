@@ -64,6 +64,42 @@ const remainingRouter: AppRouteRecordRaw[] = [
       },
     ],
   },
+  // ── 思维导图 ───────────────────────────────────────────────────
+  {
+    path: '/mind-map',
+    component: Layout,
+    name: 'MindMap',
+    redirect: '/mind-map/index',
+    meta: {
+      title: "router.mindMap",
+      icon: 'lucide:git-branch',
+      order: 15,
+      alwaysShow: true,
+    },
+    children: [
+      {
+        path: 'index',
+        component: () => import('@/views/mind-map/index/index.vue'),
+        name: 'MindMapIndex',
+        meta: {
+          title: "router.myMindMap",
+          noCache: true,
+        },
+      },
+      {
+        path: 'editor/:id',
+        component: () => import('@/views/mind-map/editor/index.vue'),
+        name: 'MindMapEditor',
+        meta: {
+          title: "router.mindMapEditor",
+          hidden: true,
+          noCache: true,
+          noAppViewPadding: true,
+          activeMenu: '/mind-map/index',
+        },
+      },
+    ],
+  },
   {
     path: '/resource-library',
     component: Layout,

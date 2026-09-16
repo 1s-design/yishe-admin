@@ -1,6 +1,6 @@
 {
   "name": "yishe-admin",
-  "version": "0.0.73",
+  "version": "0.0.74",
   "description": "基于vue3、vite4、element-plus、typesScript",
   "author": "jc",
   "private": false,
@@ -84,6 +84,7 @@
     "markmap-view": "^0.16.0",
     "mathjs": "^15.2.0",
     "min-dash": "^4.1.1",
+    "mind-elixir": "^6.0.0-next.4",
     "mitt": "^3.0.1",
     "mockjs": "^1.1.0",
     "nprogress": "^0.2.0",

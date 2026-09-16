@@ -40,6 +40,7 @@ export const ROUTE_MENU_KEY_MAP: Record<string, string> = {
   Psd: "resource.psd",
   StoryScript: "resource.story-script",
   Sentence: "resource.sentence",
+  MindMapIndex: "mind-map.index",
   TextDocument: "resource.text-document",
   DesignInspiration: "resource.design-inspiration",
   CodeScript: "content.code-script",
