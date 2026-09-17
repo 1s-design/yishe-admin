@@ -901,6 +901,15 @@ const remainingRouter: AppRouteRecordRaw[] = [
         },
       },
       {
+        path: "node-execution",
+        component: () => import("@/views/external/node-execution/index.vue"),
+        name: "ExternalNodeExecution",
+        meta: {
+          title: "节点运行记录",
+          icon: "lucide:activity",
+        },
+      },
+      {
         path: "data-tools",
         component: () => import("@/views/external/data-tools/index.vue"),
         name: "ExternalDataToolsCollect",

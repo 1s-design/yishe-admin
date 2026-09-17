@@ -4,6 +4,14 @@
       <aside class="collect-menu">
         <div class="menu-header">热搜采集</div>
         <nav class="menu-list">
+          <div class="menu-group">
+            <div
+              class="menu-item history-entry"
+              @click="goToHistory"
+            >
+              <span class="menu-item-text">📋 运行记录</span>
+            </div>
+          </div>
           <div v-for="group in menuGroups" :key="group.label" class="menu-group">
             <div class="menu-group__label">
               {{ group.label }}
@@ -67,6 +75,13 @@ const switchTab = (key: string) => {
   router.replace({ query: { ...route.query, tab: key } })
 }
 
+const goToHistory = () => {
+  router.push({
+    path: '/external/node-execution',
+    query: activePlatform.value ? { node: activePlatform.value.key } : {},
+  })
+}
+
 watch(
   () => route.query.tab,
   (tab) => {
@@ -82,6 +97,19 @@ watch(
 .collect-page {
   width: 100%;
   height: 100%;
+}
+
+.history-entry {
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--el-color-primary);
+  border-left: 3px solid var(--el-color-primary);
+  padding-left: 12px !important;
+  margin-bottom: 8px;
+}
+
+.history-entry:hover {
+  background: var(--el-color-primary-light-9);
 }
 
 .collect-layout {
