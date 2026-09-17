@@ -1,4 +1,4 @@
-﻿import request from '@/config/axios'
+import request from '@/config/axios'
 
 export function getRemotionTemplateList(params?: {
   keyword?: string
@@ -69,11 +69,19 @@ export function batchDeleteRemotionVideoRecord(ids: string[]) {
 }
 
 export function aiGenerateRemotionVideoRecord(data: {
-  action: string
+  action?: string
   prompt: string
+  params?: Record<string, any>
 }) {
   return request.post({
     url: '/remotion-video-record/ai-generate',
     data
   })
 }
+
+export function retryRemotionVideoRecord(id: string) {
+  return request.post({
+    url: `/remotion-video-record/${id}/retry`
+  })
+}
+

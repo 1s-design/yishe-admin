@@ -140,18 +140,25 @@
                 </template>
                 <template #videoSlot="{ row }">
                   <div class="record-video-cell">
-                    <div class="cell-video-wrapper">
-                      <video
-                          v-if="row.url"
-                          :src="row.url"
+                    <div
+                      class="cell-video-wrapper"
+                      :title="hasPlayableVideo(row) ? '点击预览视频' : ''"
+                      @click.stop="previewVideo(row)"
+                    >
+                      <template v-if="hasPlayableVideo(row)">
+                        <video
+                          :src="resolveRecordVideoUrl(row)"
                           preload="metadata"
                           class="cell-video-player"
                           muted
                           playsinline
                           :controls="false"
-                          @click.stop="previewVideo(row)"
                         ></video>
-                        <span v-if="!row.url" class="cell-video-placeholder">-</span>
+                        <div class="cell-video-hover-badge">
+                          <el-icon class="cell-video-play-icon"><VideoPlay /></el-icon>
+                        </div>
+                      </template>
+                      <span v-else class="cell-video-placeholder">-</span>
                     </div>
                   </div>
                 </template>
@@ -172,7 +179,24 @@
                       <template #dropdown>
                         <el-dropdown-menu class="operation-menu-compact">
                           <el-dropdown-item command="detail">{{ t('remotionVideoRecord.viewDetail') }}</el-dropdown-item>
-                          <!-- 再次生成已移除 -->
+                          <el-dropdown-item
+                            v-if="hasPlayableVideo(row)"
+                            command="preview"
+                          >
+                            {{ t('remotionVideoRecord.videoPreview') }}
+                          </el-dropdown-item>
+                          <el-dropdown-item
+                            v-if="row.responseData?.prompt || row.inputProps?.prompt"
+                            command="recreate"
+                          >
+                            基于此提示词创作
+                          </el-dropdown-item>
+                          <el-dropdown-item
+                            v-if="canRetryRecord(row)"
+                            command="retry"
+                          >
+                            重试任务
+                          </el-dropdown-item>
                           <el-dropdown-item
                             command="delete"
                             divided
@@ -374,12 +398,18 @@
                 :class="{ 'template-card-selected': form.templateId === template.id }"
                 @click="selectTemplate(template)"
               >
+                <div class="template-card-header-row">
+                  <span class="template-card-tag">{{ getTemplateOrientationLabel(template) }}</span>
+                  <span v-if="form.templateId === template.id" class="template-card-selected-badge">
+                    <el-icon><Check /></el-icon>
+                  </span>
+                </div>
                 <div class="template-card-name">{{ getTemplateLocalName(template) }}</div>
                 <div class="template-card-desc">{{ getTemplateLocalDesc(template) }}</div>
                 <div class="template-card-meta">
-                  <span>{{ getTemplateOrientationLabel(template) }}</span>
+                  <span class="template-card-duration">{{ getTemplateDurationText(template) }}</span>
                   <span class="meta-dot"></span>
-                  <span>{{ getTemplateDurationText(template) }}</span>
+                  <span class="template-card-fps">{{ template.fps || 30 }}fps</span>
                 </div>
               </div>
             </div>
@@ -391,80 +421,102 @@
       <div v-show="currentStep === 1" class="remotion-step-panel">
         <div v-if="selectedTemplate" class="params-panel">
           <div class="params-header">
-            <div class="params-template-name">{{ selectedTemplate.name }}</div>
-            <el-button type="primary" link @click="currentStep = 0">{{ t('remotionVideoRecord.reselect') }}</el-button>
+            <div class="params-header-info">
+              <span class="params-template-name">{{ selectedTemplate.name }}</span>
+              <el-tag size="small" effect="plain" class="params-header-tag">{{ getTemplateOrientationLabel(selectedTemplate) }}</el-tag>
+              <el-tag size="small" type="info" effect="plain" class="params-header-tag">{{ selectedTemplate.durationLabel || getTemplateDurationText(selectedTemplate) }}</el-tag>
+              <span class="params-template-id">ID: {{ selectedTemplate.id }}</span>
+            </div>
+            <el-button type="primary" link @click="currentStep = 0">
+              {{ t('remotionVideoRecord.reselect') }}
+            </el-button>
           </div>
 
           <div class="params-editor-layout">
-            <div class="params-form">
-              <el-form
-                v-if="selectedTemplate.inputSchema && selectedTemplate.inputSchema.length"
-                label-position="top"
-                label-width="auto"
-              >
-                <el-form-item
-                  v-for="field in selectedTemplate.inputSchema"
-                  :key="field.key"
-                  :label="field.label || field.key"
-                  :required="field.required"
+            <div class="params-card params-card--form">
+              <div class="params-card-header">
+                <div class="params-card-header-left">
+                  <span class="params-card-title">表单参数配置</span>
+                  <span class="params-card-subtitle">按字段可视化修改</span>
+                </div>
+              </div>
+              <div class="params-form">
+                <el-form
+                  v-if="selectedTemplate.inputSchema && selectedTemplate.inputSchema.length"
+                  label-position="top"
+                  label-width="auto"
+                  class="params-el-form"
                 >
-                  <template #label>
-                    <span>{{ field.label || field.key }}</span>
-                    <el-tooltip v-if="field.description" :content="field.description" placement="top">
-                      <el-icon class="ml-1 cursor-pointer"><QuestionFilled /></el-icon>
-                    </el-tooltip>
-                  </template>
-                  <el-input
-                    v-if="isTextInput(field)"
-                    :model-value="getParamFieldString(field.key)"
-                    :placeholder="getFieldPlaceholder(field)"
-                    clearable
-                    @update:model-value="(value) => updateParamField(field, value)"
-                  />
-                  <el-input-number
-                    v-else-if="isNumberInput(field)"
-                    :model-value="getParamFieldNumber(field.key)"
-                    :placeholder="field.example !== undefined ? String(field.example) : t('remotionVideoRecord.inputNumber')"
-                    class="w-full"
-                    @update:model-value="(value) => updateParamField(field, value)"
-                  />
-                  <el-switch
-                    v-else-if="isBoolInput(field)"
-                    :model-value="!!formParams[field.key]"
-                    @update:model-value="(value) => updateParamField(field, value)"
-                  />
-                  <el-input
-                    v-else
-                    :model-value="getParamFieldJson(field.key)"
-                    type="textarea"
-                    :rows="getComplexFieldRows(field)"
-                    :placeholder="getFieldPlaceholder(field)"
-                    @update:model-value="(value) => updateParamField(field, value)"
-                  />
-                  <div v-if="isComplexInput(field)" class="param-json-tip">
-                    {{ getComplexFieldTip(field) }}
-                  </div>
-                </el-form-item>
-              </el-form>
-              <el-empty v-else :description="t('remotionVideoRecord.noParamFields')" :image-size="80" />
+                  <el-form-item
+                    v-for="field in selectedTemplate.inputSchema"
+                    :key="field.key"
+                    :label="field.label || field.key"
+                    :required="field.required"
+                    class="param-form-item"
+                  >
+                    <template #label>
+                      <span class="param-label-text">{{ field.label || field.key }}</span>
+                      <el-tooltip v-if="field.description" :content="field.description" placement="top">
+                        <el-icon class="param-help-icon"><QuestionFilled /></el-icon>
+                      </el-tooltip>
+                    </template>
+                    <el-input
+                      v-if="isTextInput(field)"
+                      :model-value="getParamFieldString(field.key)"
+                      :placeholder="getFieldPlaceholder(field)"
+                      clearable
+                      @update:model-value="(value) => updateParamField(field, value)"
+                    />
+                    <el-input-number
+                      v-else-if="isNumberInput(field)"
+                      :model-value="getParamFieldNumber(field.key)"
+                      :placeholder="field.example !== undefined ? String(field.example) : t('remotionVideoRecord.inputNumber')"
+                      class="w-full"
+                      @update:model-value="(value) => updateParamField(field, value)"
+                    />
+                    <el-switch
+                      v-else-if="isBoolInput(field)"
+                      :model-value="!!formParams[field.key]"
+                      @update:model-value="(value) => updateParamField(field, value)"
+                    />
+                    <el-input
+                      v-else
+                      :model-value="getParamFieldJson(field.key)"
+                      type="textarea"
+                      :rows="getComplexFieldRows(field)"
+                      :placeholder="getFieldPlaceholder(field)"
+                      class="param-textarea"
+                      @update:model-value="(value) => updateParamField(field, value)"
+                    />
+                    <div v-if="isComplexInput(field)" class="param-json-tip">
+                      <el-icon class="param-tip-icon"><QuestionFilled /></el-icon>
+                      <span>{{ getComplexFieldTip(field) }}</span>
+                    </div>
+                  </el-form-item>
+                </el-form>
+                <el-empty v-else :description="t('remotionVideoRecord.noParamFields')" :image-size="80" />
+              </div>
             </div>
 
-            <div class="params-json">
-              <div class="params-json-header">
-                <span>{{ t('remotionVideoRecord.jsonParams') }}</span>
-                <span class="json-hint" :class="{ 'json-hint--error': !!jsonEditError }">
-                  {{ jsonEditError || t('remotionVideoRecord.jsonSyncTip') }}
-                </span>
+            <div class="params-card params-card--json">
+              <div class="params-card-header">
+                <div class="params-card-header-left">
+                  <span class="params-card-title">{{ t('remotionVideoRecord.jsonParams') }}</span>
+                  <span class="json-hint" :class="{ 'json-hint--error': !!jsonEditError }">
+                    {{ jsonEditError || t('remotionVideoRecord.jsonSyncTip') }}
+                  </span>
+                </div>
               </div>
-              <el-input
-                type="textarea"
-                v-model="form.inputPropsJson"
-                :rows="18"
-                resize="none"
-                class="json-editor"
-                :placeholder="t('remotionVideoRecord.inputJsonPlaceholder')"
-                @input="handleJsonInput"
-              />
+              <div class="params-json-body">
+                <el-input
+                  type="textarea"
+                  v-model="form.inputPropsJson"
+                  resize="none"
+                  class="json-editor"
+                  :placeholder="t('remotionVideoRecord.inputJsonPlaceholder')"
+                  @input="handleJsonInput"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -475,7 +527,10 @@
       <div v-show="currentStep === 2" class="remotion-step-panel">
         <div v-if="selectedTemplate" class="confirm-panel">
           <div class="confirm-section">
-            <div class="confirm-title">{{ t('remotionVideoRecord.templateInfo') }}</div>
+            <div class="confirm-title">
+              <span class="confirm-title-indicator"></span>
+              <span>{{ t('remotionVideoRecord.templateInfo') }}</span>
+            </div>
             <div class="confirm-grid">
               <div class="confirm-item">
                 <span class="confirm-label">{{ t('remotionVideoRecord.templateName') }}</span>
@@ -483,7 +538,7 @@
               </div>
               <div class="confirm-item">
                 <span class="confirm-label">{{ t('remotionVideoRecord.resolution') }}</span>
-                <span class="confirm-value">{{ selectedTemplate.width }} x {{ selectedTemplate.height }}</span>
+                <span class="confirm-value">{{ selectedTemplate.width }} × {{ selectedTemplate.height }}</span>
               </div>
               <div class="confirm-item">
                 <span class="confirm-label">{{ t('remotionVideoRecord.duration') }}</span>
@@ -491,33 +546,45 @@
               </div>
               <div class="confirm-item">
                 <span class="confirm-label">{{ t('remotionVideoRecord.fps') }}</span>
-                <span class="confirm-value">{{ selectedTemplate.fps }}fps</span>
+                <span class="confirm-value">{{ selectedTemplate.fps }} fps</span>
               </div>
             </div>
           </div>
 
           <div class="confirm-section">
-            <div class="confirm-title">{{ t('remotionVideoRecord.inputParams') }}</div>
+            <div class="confirm-title">
+              <span class="confirm-title-indicator"></span>
+              <span>{{ t('remotionVideoRecord.inputParams') }}</span>
+            </div>
             <div class="confirm-params">
               <pre>{{ displayParamsJson }}</pre>
             </div>
           </div>
 
           <div class="confirm-section">
-            <div class="confirm-title">{{ t('remotionVideoRecord.taskSettings') }}</div>
-            <el-form label-position="top">
-              <el-form-item :label="t('remotionVideoRecord.recordTitleOptional')">
-                <el-input v-model="form.title" :placeholder="t('remotionVideoRecord.titlePlaceholderDetail')" />
-              </el-form-item>
-              <el-form-item :label="t('remotionVideoRecord.timeoutMs')">
-                <el-input-number
-                  v-model="form.timeoutMs"
-                  :min="1000"
-                  :max="900000"
-                  :step="1000"
-                  class="w-full"
-                />
-              </el-form-item>
+            <div class="confirm-title">
+              <span class="confirm-title-indicator"></span>
+              <span>{{ t('remotionVideoRecord.taskSettings') }}</span>
+            </div>
+            <el-form label-position="top" class="confirm-form">
+              <el-row :gutter="16">
+                <el-col :xs="24" :sm="14">
+                  <el-form-item :label="t('remotionVideoRecord.recordTitleOptional')">
+                    <el-input v-model="form.title" :placeholder="t('remotionVideoRecord.titlePlaceholderDetail')" clearable />
+                  </el-form-item>
+                </el-col>
+                <el-col :xs="24" :sm="10">
+                  <el-form-item :label="t('remotionVideoRecord.timeoutMs')">
+                    <el-input-number
+                      v-model="form.timeoutMs"
+                      :min="1000"
+                      :max="900000"
+                      :step="1000"
+                      class="w-full"
+                    />
+                  </el-form-item>
+                </el-col>
+              </el-row>
             </el-form>
           </div>
 
@@ -528,6 +595,7 @@
             show-icon
             :title="t('remotionVideoRecord.clientNotDetected')"
             :description="remotionStatus.message || t('remotionVideoRecord.clientLoginTip')"
+            class="confirm-alert"
           />
         </div>
       </div>
@@ -542,170 +610,364 @@
     destroy-on-close
     class="remotion-detail-dialog"
   >
-    <div v-if="currentRow" class="remotion-detail-layout">
-      <el-card shadow="never">
-        <template #header>{{ t('remotionVideoRecord.resultPreview') }}</template>
-        <div class="remotion-video-preview">
-          <video
-            v-if="currentRow.url"
-            :src="currentRow.url"
-            controls
-            class="remotion-video-player"
-          ></video>
-          <el-empty v-else :description="t('remotionVideoRecord.noVideoResult')" :image-size="96" />
+    <div v-if="currentRow" class="detail-layout">
+      <!-- 左侧：视频预览 -->
+      <div class="detail-video-area">
+        <video
+          v-if="hasPlayableVideo(currentRow)"
+          :src="resolveRecordVideoUrl(currentRow)"
+          controls
+          class="detail-video"
+        ></video>
+        <el-empty v-else :description="t('remotionVideoRecord.noVideoResult')" :image-size="96" />
+      </div>
+
+      <!-- 右侧：信息面板 (可滚动) -->
+      <div class="detail-info">
+        <div class="detail-block">
+          <div class="detail-block-title">基本信息</div>
+          <div class="detail-info-list">
+            <div class="detail-info-item">
+              <span class="detail-info-label">标题</span>
+              <span class="detail-info-value">{{ currentRow.title || "-" }}</span>
+            </div>
+            <div class="detail-info-item">
+              <span class="detail-info-label">模板</span>
+              <span class="detail-info-value">
+                <el-tag
+                  v-if="currentRow.templateName === '自由创作' || currentRow.templateId === 'ai-universal'"
+                  type="warning"
+                  size="small"
+                  effect="plain"
+                >{{ t('remotionVideoRecord.freeCreation') }}</el-tag>
+                <span v-else>{{ currentRow.templateName || currentRow.templateId }}</span>
+              </span>
+            </div>
+            <div class="detail-info-item">
+              <span class="detail-info-label">上传者</span>
+              <span class="detail-info-value">{{ currentRow.uploader?.name || currentRow.uploader?.account || (currentRow.userId ? `用户 #${currentRow.userId}` : "-") }}</span>
+            </div>
+            <div class="detail-info-item">
+              <span class="detail-info-label">状态</span>
+              <span class="detail-info-value">{{ getStatusLabel(currentRow.status) }}</span>
+            </div>
+            <div class="detail-info-item">
+              <span class="detail-info-label">进度</span>
+              <span class="detail-info-value">{{ getProgressDisplayText(currentRow) }}</span>
+            </div>
+            <div class="detail-info-item">
+              <span class="detail-info-label">创建时间</span>
+              <span class="detail-info-value">{{ formatTimestamp(currentRow.createTime) }}</span>
+            </div>
+            <div v-if="resolveRecordMachineCode(currentRow)" class="detail-info-item">
+              <span class="detail-info-label">机器码</span>
+              <span class="detail-info-value">{{ resolveRecordMachineCode(currentRow) }}</span>
+            </div>
+            <div v-if="currentRow.errorMessage" class="detail-info-item">
+              <span class="detail-info-label">错误信息</span>
+              <span class="detail-info-value detail-info-error">{{ currentRow.errorMessage }}</span>
+            </div>
+          </div>
         </div>
-      </el-card>
-      <div class="remotion-detail-side">
-        <el-card shadow="never">
-          <template #header>{{ t('remotionVideoRecord.basicInfo') }}</template>
-          <div class="detail-section">
-            <div><strong>{{ t('remotionVideoRecord.title') }}：</strong>{{ currentRow.title || "-" }}</div>
-            <div>
-              <strong>{{ t('remotionVideoRecord.template') }}：</strong>
-              <el-tag
-                v-if="currentRow.templateName === '自由创作' || currentRow.templateId === 'ai-universal'"
-                type="warning"
-                size="small"
-                effect="plain"
-              >{{ t('remotionVideoRecord.freeCreation') }}</el-tag>
-              <span v-else>{{ currentRow.templateName || currentRow.templateId }}</span>
+
+        <div v-if="currentRow.responseData?.prompt || currentRow.inputProps?.prompt" class="detail-block">
+          <div class="detail-block-title">
+            <span>AI 提示词与参数</span>
+            <el-button
+              type="primary"
+              link
+              size="small"
+              @click="recreateFromDetail(currentRow)"
+            >
+              基于此提示词再次创作
+            </el-button>
+          </div>
+          <div class="detail-ai-content">
+            <div v-if="currentRow.responseData?.prompt || currentRow.inputProps?.prompt" class="detail-ai-block">
+              <div class="detail-ai-label">Prompt</div>
+              <div class="detail-ai-text">{{ currentRow.responseData?.prompt || currentRow.inputProps?.prompt }}</div>
             </div>
-            <div><strong>{{ t('common.status') }}：</strong>{{ getStatusLabel(currentRow.status) }}</div>
-            <div><strong>{{ t('remotionVideoRecord.progress') }}：</strong>{{ getProgressDisplayText(currentRow) }}</div>
-            <div v-if="resolveRecordMachineCode(currentRow)">
-              <strong>{{ t('remotionVideoRecord.machineCode') }}：</strong>{{ resolveRecordMachineCode(currentRow) }}
-            </div>
-            <div v-if="resolveQueueDetailText(currentRow)">
-              <strong>{{ t('remotionVideoRecord.queueStatus') }}：</strong>{{ resolveQueueDetailText(currentRow) }}
-            </div>
-            <div><strong>{{ t('common.createTime') }}：</strong>{{ formatTimestamp(currentRow.createTime) }}</div>
-            <div v-if="currentRow.url"><strong>{{ t('remotionVideoRecord.cosAddress') }}：</strong>{{ currentRow.url }}</div>
-            <div v-if="currentRow.remotionVideoUrl">
-              <strong>{{ t('remotionVideoRecord.sourceAddress') }}：</strong>{{ currentRow.remotionVideoUrl }}
-            </div>
-            <div v-if="currentRow.errorMessage">
-              <strong>{{ t('remotionVideoRecord.errorMessage') }}：</strong>{{ currentRow.errorMessage }}
+            <div v-if="currentRow.responseData?.params || currentRow.inputProps?.params" class="detail-ai-block">
+              <div class="detail-ai-label">Params</div>
+              <pre class="detail-ai-code">{{ formatJson(currentRow.responseData?.params || currentRow.inputProps?.params) }}</pre>
             </div>
           </div>
-        </el-card>
-        <el-card shadow="never">
-          <template #header>{{ t('remotionVideoRecord.inputParams') }}</template>
-          <div class="detail-json-panel">
-            <pre>{{ formatJson(currentRow.inputProps) }}</pre>
-          </div>
-        </el-card>
+        </div>
+
+        <div class="detail-block">
+          <div class="detail-block-title">完整参数 (JSON)</div>
+          <pre class="detail-json-code">{{ formatJson(currentRow.inputProps) }}</pre>
+        </div>
       </div>
     </div>
   </el-dialog>
 
+  <!-- 视频预览弹窗 (极简全屏) -->
   <el-dialog
     v-model="previewVisible"
-    :title="t('remotionVideoRecord.videoPreview')"
-    width="680px"
+    fullscreen
     destroy-on-close
     class="remotion-preview-dialog"
+    @closed="handleClosePreview"
   >
-    <div class="preview-video-wrapper">
+    <template #header>
+      <div class="preview-simple-header">
+        <span class="preview-simple-title">{{ previewRow?.title || t('remotionVideoRecord.videoPreview') }}</span>
+        <div class="preview-simple-actions">
+          <el-button size="small" @click="copyPreviewUrl">复制地址</el-button>
+          <el-button size="small" @click="openPreviewInNewTab">新窗口打开</el-button>
+          <el-button size="small" @click="downloadPreviewVideo">下载视频</el-button>
+        </div>
+      </div>
+    </template>
+
+    <div class="preview-simple-body">
       <video
         v-if="previewUrl"
+        ref="previewVideoRef"
         :src="previewUrl"
         controls
         autoplay
-        class="preview-video-player"
+        playsinline
+        class="preview-simple-video"
       ></video>
     </div>
   </el-dialog>
 
-  <!-- AI 视频生成对话框 -->
+  <!-- AI 视频生成全屏弹窗 (极简 Studio 风格) -->
   <el-dialog
     v-model="aiGenerateVisible"
-    :title="t('remotionVideoRecord.aiGenerateVideo')"
-    :width="isMobile ? 'calc(100vw - 16px)' : '520px'"
+    fullscreen
     destroy-on-close
+    class="remotion-ai-dialog"
+    :show-close="false"
     :close-on-click-modal="false"
   >
-    <!-- 模式切换 -->
-    <div style="display: flex; margin-bottom: 16px; overflow: hidden; border: 1px solid var(--el-border-color); border-radius: 8px; gap: 0;">
-      <button
-        type="button"
-        :style="{
-          flex: 1, padding: '10px 0', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600,
-          background: aiForm.mode === 'ai-generate' ? 'var(--el-color-primary)' : 'var(--el-fill-color-light)',
-          color: aiForm.mode === 'ai-generate' ? '#fff' : 'var(--el-text-color-regular)',
-          transition: 'all 0.2s',
-        }"
-        @click="aiForm.mode = 'ai-generate'"
-      >
-        <el-icon style=" margin-right: 4px;vertical-align: -2px;"><MagicStick /></el-icon>
-        {{ t('remotionVideoRecord.smartMatch') }}
-      </button>
-      <button
-        type="button"
-        :style="{
-          flex: 1, padding: '10px 0', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600,
-          background: aiForm.mode === 'ai-free-generate' ? 'var(--el-color-primary)' : 'var(--el-fill-color-light)',
-          color: aiForm.mode === 'ai-free-generate' ? '#fff' : 'var(--el-text-color-regular)',
-          transition: 'all 0.2s',
-        }"
-        @click="aiForm.mode = 'ai-free-generate'"
-      >
-        <el-icon style=" margin-right: 4px;vertical-align: -2px;"><VideoPlay /></el-icon>
-        {{ t('remotionVideoRecord.freeDescription') }}
-      </button>
-    </div>
-
-    <!-- 模式说明 -->
-    <div style=" padding: 8px 12px;margin-bottom: 12px; font-size: 12px; line-height: 1.6; color: var(--el-text-color-secondary); background: var(--el-fill-color-lighter); border-radius: 6px;">
-      <template v-if="aiForm.mode === 'ai-generate'">
-        {{ t('remotionVideoRecord.aiGenerateModeTip') }}
-      </template>
-      <template v-else>
-        {{ t('remotionVideoRecord.aiFreeGenerateModeTip') }}
-      </template>
-    </div>
-
-    <!-- Prompt 输入 -->
-    <el-input
-      v-model="aiForm.prompt"
-      type="textarea"
-      :rows="5"
-      :placeholder="aiForm.mode === 'ai-generate' ? t('remotionVideoRecord.aiGeneratePlaceholder') : t('remotionVideoRecord.aiFreeGeneratePlaceholder')"
-      resize="none"
-    />
-    <div style=" display: flex;margin-top: 8px; gap: 6px; flex-wrap: wrap;">
-      <el-link
-        v-for="tag in currentQuickTags"
-        :key="tag.label"
-        type="info"
-        :underline="false"
-        style="font-size: 12px;"
-        @click="insertQuickTag(tag.value)"
-      >{{ tag.label }}</el-link>
-    </div>
-
-    <!-- 结果显示 -->
-    <div v-if="aiSubmitResult" style="margin-top: 12px; font-size: 13px;">
-      <template v-if="aiSubmitResult.success">
-        <div style="display: flex; align-items: center; gap: 6px; color: var(--el-color-success);">
-          <el-icon><CircleCheck /></el-icon>
-          {{ t('remotionVideoRecord.submitted') }} · {{ aiSubmitResult.templateUsed }}
-          <template v-if="aiSubmitResult.sceneCount">
-            · {{ t('remotionVideoRecord.sceneCount', { count: aiSubmitResult.sceneCount }) }} · {{ aiSubmitResult.totalDuration }}s
-          </template>
+    <!-- 极简顶部工具栏 -->
+    <template #header>
+      <div class="ai-studio-header">
+        <div class="ai-header-brand">
+          <span class="ai-brand-title">AI 视频生成</span>
         </div>
-      </template>
-      <span v-else style="color: var(--el-color-danger);">{{ aiSubmitResult.error }}</span>
-    </div>
 
-    <template #footer>
-      <el-button @click="aiGenerateVisible = false">{{ t('common.cancel') }}</el-button>
-      <el-button
-        type="primary"
-        :loading="aiSubmitting"
-        :disabled="!aiForm.prompt"
-        @click="submitAiGenerate"
-      >{{ aiSubmitting ? t('remotionVideoRecord.generating') : t('remotionVideoRecord.generate') }}</el-button>
+        <!-- 创作模式切换 (极简 Segmented / Radio) -->
+        <div class="ai-header-mode">
+          <el-radio-group v-model="aiForm.mode" size="small">
+            <el-radio-button label="ai-free-generate">自由创作生成</el-radio-button>
+            <el-radio-button label="ai-generate">智能匹配模板</el-radio-button>
+          </el-radio-group>
+        </div>
+
+        <!-- 顶部操作按钮组 -->
+        <div class="ai-header-actions">
+          <button class="ai-close-icon-btn" type="button" @click="aiGenerateVisible = false">
+            <el-icon><Close /></el-icon>
+          </button>
+        </div>
+      </div>
     </template>
+
+    <!-- 全屏工作区：左侧提示词，右侧参数 -->
+    <div class="ai-studio-workspace">
+      <!-- 左侧：核心输入区 -->
+      <div class="ai-editor-column">
+        <div class="ai-editor-header-hint">
+          <span>{{ aiForm.mode === 'ai-free-generate' ? '大模型自主规划分镜场景、视觉排版与转场动画' : '根据提示词关键词与图文素材智能匹配预置模板' }}</span>
+        </div>
+
+        <div class="ai-editor-box">
+          <el-input
+            v-model="aiForm.prompt"
+            type="textarea"
+            class="ai-minimal-textarea"
+            @keydown.meta.enter.prevent="submitAiGenerate"
+            @keydown.ctrl.enter.prevent="submitAiGenerate"
+          />
+        </div>
+
+        <div class="ai-editor-statusbar">
+          <div class="statusbar-shortcut">
+            <span>按 <kbd>⌘</kbd>+<kbd>Enter</kbd> 或 <kbd>Ctrl</kbd>+<kbd>Enter</kbd> 快速提交</span>
+          </div>
+          <div class="statusbar-meta">
+            <el-button
+              v-if="aiForm.prompt"
+              link
+              type="info"
+              size="small"
+              @click="aiForm.prompt = ''"
+            >
+              清空
+            </el-button>
+            <span class="word-counter">{{ aiForm.prompt.length }} / 1500</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右侧：参数配置侧边栏 -->
+      <div class="ai-sidebar-column">
+        <el-scrollbar class="ai-sidebar-scrollbar">
+          <div class="sidebar-inner">
+            <div class="sidebar-group-title">基础规格</div>
+
+            <el-form label-position="top" class="ai-minimal-form">
+              <!-- 画幅比例 -->
+              <el-form-item label="画幅比例">
+                <el-radio-group v-model="aiForm.params.orientation" size="small" style="width: 100%;">
+                  <el-radio-button label="portrait" style="width: 33.33%;">9:16 (竖屏)</el-radio-button>
+                  <el-radio-button label="landscape" style="width: 33.33%;">16:9 (横屏)</el-radio-button>
+                  <el-radio-button label="square" style="width: 33.33%;">1:1 (方形)</el-radio-button>
+                </el-radio-group>
+              </el-form-item>
+
+              <!-- 视频时长 -->
+              <el-form-item label="成片总时长">
+                <div class="form-row-duration">
+                  <el-input-number
+                    v-model="aiForm.params.duration"
+                    :min="3"
+                    :max="180"
+                    :step="1"
+                    placeholder="自动"
+                    controls-position="right"
+                    style="width: 120px;"
+                  />
+                  <div class="quick-duration-group">
+                    <span
+                      class="dur-pill"
+                      :class="{ active: aiForm.params.duration === 10 }"
+                      @click="aiForm.params.duration = 10"
+                    >10s</span>
+                    <span
+                      class="dur-pill"
+                      :class="{ active: aiForm.params.duration === 15 }"
+                      @click="aiForm.params.duration = 15"
+                    >15s</span>
+                    <span
+                      class="dur-pill"
+                      :class="{ active: aiForm.params.duration === 30 }"
+                      @click="aiForm.params.duration = 30"
+                    >30s</span>
+                    <span
+                      class="dur-pill"
+                      :class="{ active: !aiForm.params.duration }"
+                      @click="aiForm.params.duration = undefined"
+                    >自动</span>
+                  </div>
+                </div>
+              </el-form-item>
+
+              <!-- 渲染帧率与标题 -->
+              <div class="form-dual-row">
+                <el-form-item label="渲染帧率" style="flex: 1;">
+                  <el-select v-model="aiForm.params.fps" size="default">
+                    <el-option label="30 FPS (标准)" :value="30" />
+                    <el-option label="60 FPS (丝滑)" :value="60" />
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="成片标题" style="flex: 1.4;">
+                  <el-input
+                    v-model="aiForm.params.title"
+                    placeholder="留空由 AI 拟定"
+                    clearable
+                    maxlength="50"
+                  />
+                </el-form-item>
+              </div>
+
+              <div class="sidebar-group-title" style="margin-top: 16px;">音频设置</div>
+
+              <!-- 背景配乐与音量 -->
+              <el-form-item label="背景配乐 URL">
+                <el-input
+                  v-model="aiForm.params.bgmUrl"
+                  placeholder="可粘贴 MP3 直链 (选填)"
+                  clearable
+                />
+                <div v-if="aiForm.params.bgmUrl" class="volume-slider-box">
+                  <span class="volume-label">配乐音量</span>
+                  <el-slider
+                    v-model="aiForm.params.bgmVolume"
+                    :min="0"
+                    :max="100"
+                    :step="5"
+                    style="flex: 1; margin: 0 12px;"
+                  />
+                  <span class="volume-val">{{ aiForm.params.bgmVolume }}%</span>
+                </div>
+              </el-form-item>
+
+              <div class="sidebar-group-title" style="margin-top: 16px;">高级扩展参数</div>
+
+              <!-- 高级扩展参数 (JSON) -->
+              <el-collapse v-model="aiAdvancedCollapse" class="ai-minimal-collapse">
+                <el-collapse-item title="高级通用参数 (JSON)" name="customParams">
+                  <div class="template-btns-row">
+                    <div class="template-btns-list">
+                      <el-button size="small" text bg @click="applyConfigTemplate('full')">完整骨架</el-button>
+                      <el-button size="small" text bg @click="applyConfigTemplate('dimension')">画质规格</el-button>
+                      <el-button size="small" text bg @click="applyConfigTemplate('transition')">分镜转场</el-button>
+                      <el-button size="small" text bg @click="applyConfigTemplate('audio')">音频音效</el-button>
+                      <el-button size="small" text bg @click="applyConfigTemplate('inputProps')">模板传参</el-button>
+                    </div>
+                    <div class="template-actions">
+                      <el-button
+                        v-if="aiForm.customParamsJson"
+                        size="small"
+                        link
+                        type="primary"
+                        @click="formatCustomJson"
+                      >
+                        格式化
+                      </el-button>
+                      <el-button
+                        v-if="aiForm.customParamsJson"
+                        size="small"
+                        link
+                        type="danger"
+                        @click="clearCustomParams"
+                      >
+                        清空
+                      </el-button>
+                    </div>
+                  </div>
+
+                  <el-input
+                    v-model="aiForm.customParamsJson"
+                    type="textarea"
+                    :rows="6"
+                    class="code-textarea"
+                    placeholder='透传通用参数给 Remotion 渲染引擎，例如：&#10;{&#10;  "width": 1080,&#10;  "height": 1920,&#10;  "fps": 30,&#10;  "duration": 15,&#10;  "sceneDuration": 3,&#10;  "transition": "fade",&#10;  "transitionFrames": 24,&#10;  "bgmVolume": 0.8&#10;}'
+                  />
+
+                  <div class="params-spec-table">
+                    <div class="spec-row"><code>width / height</code><span>分辨率像素</span></div>
+                    <div class="spec-row"><code>fps / duration</code><span>帧率与总时长秒数</span></div>
+                    <div class="spec-row"><code>sceneDuration</code><span>单分镜秒数</span></div>
+                    <div class="spec-row"><code>transition</code><span>转场 (fade, slide-left, zoom, cut)</span></div>
+                    <div class="spec-row"><code>transitionFrames</code><span>转场过渡帧数 (如 24)</span></div>
+                    <div class="spec-row"><code>bgmVolume / loop</code><span>音量与循环</span></div>
+                    <div class="spec-row"><code>inputProps</code><span>模板原生参数</span></div>
+                  </div>
+                </el-collapse-item>
+              </el-collapse>
+            </el-form>
+          </div>
+        </el-scrollbar>
+        <!-- 底部操作栏 -->
+        <div class="ai-sidebar-footer">
+          <el-button
+            type="primary"
+            size="default"
+            :disabled="!aiForm.prompt?.trim()"
+            @click="submitAiGenerate"
+          >
+            <el-icon style="margin-right: 6px;"><VideoPlay /></el-icon>
+            开始生成
+          </el-button>
+        </div>
+      </div>
+    </div>
   </el-dialog>
 </template>
 
@@ -713,7 +975,24 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { useI18n } from "@/hooks/web/useI18n";
-import { Delete, Search, QuestionFilled, MagicStick, Files, VideoPlay, CircleCheck } from "@element-plus/icons-vue";
+import {
+  Delete,
+  Search,
+  QuestionFilled,
+  MagicStick,
+  Files,
+  VideoPlay,
+  CircleCheck,
+  Check,
+  Operation,
+  ArrowRight,
+  CopyDocument,
+  TopRight,
+  Download,
+  Close,
+  Refresh,
+  FullScreen,
+} from "@element-plus/icons-vue";
 import { useWindowSize } from "@vueuse/core";
 import { formatTimestamp } from "@/common/date";
 import { buildOperationColumn, buildTimeColumn, commonGridOptions } from "@/common/table";
@@ -725,6 +1004,7 @@ import {
   getRemotionVideoRecordDetail,
   getRemotionVideoRecordPage,
   aiGenerateRemotionVideoRecord,
+  retryRemotionVideoRecord,
 } from "@/api/remotion-video-record";
 import ContentWrap from "@/components/ContentWrap/src/ContentWrap.vue";
 import ListPageLayout from "@/components/ListPageLayout/index.vue";
@@ -734,8 +1014,8 @@ import { websocketClient, type RemotionVideoRecordStatusEvent } from "@/services
 
 const { t } = useI18n();
 
-const { height } = useWindowSize();
-const isMobile = computed(() => window.innerWidth < 768);
+const { width: windowWidth, height } = useWindowSize();
+const isMobile = computed(() => windowWidth.value < 768);
 const loading = ref(false);
 const total = ref(0);
 const dataSource = ref<any[]>([]);
@@ -765,46 +1045,146 @@ const createVisible = ref(false);
 const detailVisible = ref(false);
 const submitLoading = ref(false);
 const currentRow = ref<any>(null);
+
+// 视频预览相关状态
 const previewVisible = ref(false);
 const previewUrl = ref('');
+const previewRow = ref<any>(null);
+const previewVideoRef = ref<HTMLVideoElement | null>(null);
+
 const remotionStatus = useServiceHealthState("videoTemplate");
 
 // AI 生成相关状态
+const isAiFullscreen = ref(false);
 const aiGenerateVisible = ref(false);
-const aiSubmitting = ref(false);
+const aiAdvancedCollapse = ref<string[]>([]);
 const aiForm = ref({
   mode: 'ai-free-generate' as 'ai-generate' | 'ai-free-generate',
   prompt: '',
+  customParamsJson: '',
+  params: {
+    orientation: 'portrait',
+    duration: undefined as number | undefined,
+    fps: 30 as number | undefined,
+    title: '',
+    bgmUrl: '',
+    bgmVolume: 80,
+  },
 });
-const aiSubmitResult = ref<any>(null);
 
-// 快捷标签（按模式分组）
-const quickTagsByMode = computed(() => ({
-  'ai-generate': [
-    { label: t('remotionVideoRecord.quickTagMultiImageGradient'), value: '图片轮播展示，标题：产品图集，以下是图片 https://example.com/1.jpg https://example.com/2.jpg https://example.com/3.jpg' },
-    { label: t('remotionVideoRecord.quickTagTextDisplay'), value: '产品卖点展示，标题：核心优势，简洁高效；一键生成；永久免费' },
-    { label: t('remotionVideoRecord.quickTagQuoteDisplay'), value: '品牌金句展示，品牌：YISHE，好的设计不是做加法，而是做减法' },
-    { label: t('remotionVideoRecord.quickTagFeatureCards'), value: '功能介绍，标题：核心功能，智能分析；多平台整合；实时同步' },
-    { label: t('remotionVideoRecord.quickTagDataReport'), value: '数据分析报告，标题：用户增长趋势，日活5.2万；转化率3.8%；留存62%' },
-  ],
-  'ai-free-generate': [
-    { label: t('remotionVideoRecord.quickTagMultiImageGradient'), value: '图片轮播展示，标题：产品图集，以下是图片 https://example.com/1.jpg https://example.com/2.jpg https://example.com/3.jpg' },
-    { label: t('remotionVideoRecord.quickTagTextDisplay'), value: '产品卖点展示，标题：核心优势，简洁高效；一键生成；永久免费' },
-    { label: t('remotionVideoRecord.quickTagQuoteDisplay'), value: '品牌金句展示，品牌：YISHE，好的设计不是做加法，而是做减法' },
-    { label: t('remotionVideoRecord.quickTagFeatureCards'), value: '功能介绍，标题：核心功能，智能分析；多平台整合；实时同步' },
-    { label: t('remotionVideoRecord.quickTagDataReport'), value: '数据分析报告，标题：用户增长趋势，日活5.2万；转化率3.8%；留存62%' },
-  ],
-}));
+const PROMPT_TEMPLATES = [
+  {
+    name: "科技新品发布",
+    icon: "🚀",
+    prompt: "品牌名：星瞳科技 NovaVision。标题：量子计算新纪元。第一幕展示产品外观与核心算力突破；第二幕展示多核分布式架构与极致能效比；第三幕展示开发者生态与限时预约申请。",
+    orientation: "landscape",
+    duration: 15,
+  },
+  {
+    name: "电商好物种草",
+    icon: "🛍️",
+    prompt: "品牌名：极光美学。标题：极简降噪无线耳机。第一幕：45dB 深度混合主动降噪，沉浸音乐世界；第二幕：40小时超长续航，双麦高清通话；第三幕：限时首发立减100元，立即抢购！",
+    orientation: "portrait",
+    duration: 12,
+  },
+  {
+    name: "业务数据简报",
+    icon: "📊",
+    prompt: "标题：2026年第三季度业务运营数据简报。第一幕：总交易额突破 1.2 亿元，同比增长 45%；第二幕：月活跃商户数达 8.5 万家，留存率 92%；第三幕：持续赋能实体数字化升级，携手共创未来！",
+    orientation: "landscape",
+    duration: 15,
+  },
+  {
+    name: "知识干货科普",
+    icon: "💡",
+    prompt: "标题：3分钟搞懂 AI 大模型微调原理。第一幕：为什么预训练大模型还需要微调？第二幕：LoRA 与全量微调的核心差异与显存对比；第三幕：关注我们，获取完整的微调实战代码包！",
+    orientation: "portrait",
+    duration: 15,
+  },
+];
 
-const currentQuickTags = computed(() => quickTagsByMode.value[aiForm.value.mode] || quickTagsByMode.value['ai-free-generate']);
+function applyPromptTemplate(tpl: (typeof PROMPT_TEMPLATES)[0]) {
+  aiForm.value.prompt = tpl.prompt;
+  if (tpl.orientation) {
+    aiForm.value.params.orientation = tpl.orientation;
+  }
+  if (tpl.duration) {
+    aiForm.value.params.duration = tpl.duration;
+  }
+  ElMessage.success(`已载入「${tpl.name}」创作灵感示范`);
+}
 
-function insertQuickTag(value: string) {
-  aiForm.value.prompt = value;
+const CONFIG_TEMPLATES: Record<string, Record<string, any>> = {
+  full: {
+    width: 1080,
+    height: 1920,
+    fps: 30,
+    duration: 15,
+    sceneDuration: 3,
+    transition: "fade",
+    transitionFrames: 24,
+    bgmVolume: 0.8,
+    showCaptions: true,
+  },
+  dimension: {
+    width: 1080,
+    height: 1920,
+    fps: 30,
+    duration: 15,
+  },
+  transition: {
+    sceneDuration: 3,
+    transition: "fade",
+    transitionFrames: 24,
+  },
+  audio: {
+    bgmUrl: "https://example.com/audio.mp3",
+    bgmVolume: 0.8,
+    loop: true,
+  },
+  inputProps: {
+    templateId: "ai-universal",
+    inputProps: {
+      title: "主标题",
+      subtitle: "副标题文案",
+      showCaptions: true,
+    },
+  },
+};
+
+function applyConfigTemplate(type: string) {
+  const tpl = CONFIG_TEMPLATES[type] || {};
+  let current: Record<string, any> = {};
+  if (aiForm.value.customParamsJson?.trim()) {
+    try {
+      current = JSON.parse(aiForm.value.customParamsJson.trim());
+    } catch {
+      current = {};
+    }
+  }
+  const merged = Object.keys(current).length > 0 ? { ...current, ...tpl } : tpl;
+  aiForm.value.customParamsJson = JSON.stringify(merged, null, 2);
+}
+
+function clearCustomParams() {
+  aiForm.value.customParamsJson = "";
+}
+
+function formatCustomJson() {
+  if (!aiForm.value.customParamsJson?.trim()) return;
+  try {
+    const parsed = JSON.parse(aiForm.value.customParamsJson.trim());
+    aiForm.value.customParamsJson = JSON.stringify(parsed, null, 2);
+    ElMessage.success("JSON 已格式化");
+  } catch (err: any) {
+    ElMessage.error(`JSON 解析失败: ${err?.message || err}`);
+  }
 }
 let processingPollTimer: ReturnType<typeof setTimeout> | null = null;
 let templateSearchTimer: ReturnType<typeof setTimeout> | null = null;
 const ACTIVE_RECORD_STATUSES = new Set([
   "pending",
+  "pending_ai",
   "pending_client",
   "assigned",
   "queued",
@@ -1007,7 +1387,7 @@ const gridOptions = computed(() => ({
       field: "uploader",
       width: 140,
       formatter: ({ row }: any) =>
-        row?.uploader?.account || row?.uploader?.name || row?.userId || "-",
+        row?.uploader?.name || row?.uploader?.account || (row?.userId ? `用户 #${row.userId}` : "-"),
     },
     { ...buildTimeColumn(t("common.createTime"), "createTime", 180), slots: { default: "createTimeSlot" } },
     buildOperationColumn("operationDefaultSlot"),
@@ -1072,6 +1452,7 @@ async function handleBatchDelete() {
 function getStatusLabel(status?: string) {
   const map: Record<string, string> = {
     pending: "待处理",
+    pending_ai: "AI构思中",
     pending_client: "等待客户端",
     assigned: "已派发",
     queued: "排队中",
@@ -1088,6 +1469,7 @@ function getStatusTagType(status?: string) {
   if (status === "queued") return "primary";
   if (status === "assigned") return "warning";
   if (status === "processing") return "warning";
+  if (status === "pending_ai") return "warning";
   return "info";
 }
 
@@ -1720,52 +2102,138 @@ function openCreateDialog(row?: any) {
   }
 }
 
-function openAiGenerateDialog() {
+function openAiGenerateDialog(initialData?: {
+  prompt?: string;
+  params?: any;
+  mode?: 'ai-free-generate' | 'ai-generate';
+}) {
   aiGenerateVisible.value = true;
-  aiSubmitResult.value = null;
+
+  let customParamsJson = '';
+  const initialParams = initialData?.params || {};
+  const standardKeys = new Set([
+    'orientation',
+    'duration',
+    'fps',
+    'title',
+    'bgmUrl',
+    'bgmVolume',
+  ]);
+  const extraParams: Record<string, any> = {};
+
+  if (typeof initialParams === 'object' && initialParams !== null) {
+    for (const [k, v] of Object.entries(initialParams)) {
+      if (!standardKeys.has(k) && v !== undefined && v !== null && v !== '') {
+        extraParams[k] = v;
+      }
+    }
+  }
+
+  if (Object.keys(extraParams).length > 0) {
+    customParamsJson = JSON.stringify(extraParams, null, 2);
+    aiAdvancedCollapse.value = ['customParams'];
+  } else {
+    aiAdvancedCollapse.value = [];
+  }
+
   aiForm.value = {
-    mode: 'ai-free-generate',
-    prompt: '',
+    mode: initialData?.mode || 'ai-free-generate',
+    prompt: initialData?.prompt || '',
+    customParamsJson,
+    params: {
+      orientation: initialParams.orientation || 'portrait',
+      duration: initialParams.duration ? Number(initialParams.duration) : undefined,
+      fps: initialParams.fps ? Number(initialParams.fps) : 30,
+      title: initialParams.title || '',
+      bgmUrl: initialParams.bgmUrl || '',
+      bgmVolume:
+        typeof initialParams.bgmVolume === 'number'
+          ? Math.round(initialParams.bgmVolume * 100)
+          : 80,
+    },
   };
 }
 
+function recreateFromDetail(row: any) {
+  if (!row) return;
+  const prompt = row.responseData?.prompt || row.inputProps?.prompt || '';
+  const params = row.responseData?.params || row.inputProps?.params || {};
+  const mode =
+    row.responseData?.action === 'ai-generate'
+      ? 'ai-generate'
+      : 'ai-free-generate';
+  detailVisible.value = false;
+  openAiGenerateDialog({
+    prompt,
+    params,
+    mode,
+  });
+}
+
 async function submitAiGenerate() {
-  if (!aiForm.value.prompt) return;
-  
-  aiSubmitting.value = true;
-  aiSubmitResult.value = null;
-  
-  try {
-    const result: any = await aiGenerateRemotionVideoRecord({
-      action: aiForm.value.mode,
-      prompt: aiForm.value.prompt,
-    });
-    
-    if (result.success) {
-      aiSubmitResult.value = {
-        success: true,
-        jobId: result.jobId,
-        recordId: result.recordId,
-        templateUsed: result.templateUsed,
-        sceneCount: result.sceneCount,
-        totalDuration: result.totalDuration,
-        mode: result.mode,
-      };
-      getList();
-    } else {
-      aiSubmitResult.value = {
-        success: false,
-        error: result.error || '提交失败',
-      };
+  if (!aiForm.value.prompt?.trim()) return;
+
+  let customParams: Record<string, any> = {};
+  if (aiForm.value.customParamsJson?.trim()) {
+    try {
+      customParams = JSON.parse(aiForm.value.customParamsJson.trim());
+      if (
+        typeof customParams !== 'object' ||
+        Array.isArray(customParams) ||
+        customParams === null
+      ) {
+        ElMessage.error('高级扩展参数必须是合法的 JSON 对象格式');
+        return;
+      }
+    } catch (e: any) {
+      ElMessage.error(`高级扩展参数 JSON 格式解析失败: ${e?.message || e}`);
+      return;
     }
-  } catch (error: any) {
-    aiSubmitResult.value = {
-      success: false,
-      error: error.message || '网络错误',
-    };
-  } finally {
-    aiSubmitting.value = false;
   }
+
+  const basicParams: Record<string, any> = {};
+  if (aiForm.value.params.duration)
+    basicParams.duration = Number(aiForm.value.params.duration);
+  if (aiForm.value.params.fps) basicParams.fps = Number(aiForm.value.params.fps);
+  if (aiForm.value.params.orientation)
+    basicParams.orientation = aiForm.value.params.orientation;
+  if (aiForm.value.params.bgmUrl?.trim())
+    basicParams.bgmUrl = aiForm.value.params.bgmUrl.trim();
+  if (aiForm.value.params.title?.trim())
+    basicParams.title = aiForm.value.params.title.trim();
+  if (typeof aiForm.value.params.bgmVolume === 'number') {
+    basicParams.bgmVolume = Math.round(aiForm.value.params.bgmVolume) / 100;
+  }
+
+  const mergedParams = {
+    ...basicParams,
+    ...customParams,
+  };
+
+  const submitData = {
+    action: aiForm.value.mode,
+    prompt: aiForm.value.prompt.trim(),
+    params: Object.keys(mergedParams).length > 0 ? mergedParams : undefined,
+  };
+
+  // 立即关闭弹窗，不阻塞用户
+  aiGenerateVisible.value = false;
+  aiForm.value.prompt = '';
+  aiForm.value.customParamsJson = '';
+  ElMessage.success('AI 视频生成任务已提交，后台正在异步处理中...');
+
+  // 异步提交，不等待响应
+  aiGenerateRemotionVideoRecord(submitData)
+    .then((result: any) => {
+      if (result?.success) {
+        getList();
+      } else {
+        ElMessage.error(result?.error || '任务提交失败');
+      }
+    })
+    .catch((error: any) => {
+      ElMessage.error(error?.message || '网络错误，任务提交失败');
+    });
 }
 
 async function submitGenerate() {
@@ -1871,10 +2339,107 @@ async function openDetail(row: any) {
   detailVisible.value = true;
 }
 
+function resolveRecordVideoUrl(row: any): string {
+  if (!row) return '';
+  const rawUrl = String(row.url || row.resultUrl || row.remotionVideoUrl || '').trim();
+  if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
+    return rawUrl;
+  }
+  // 如果是本地路径或为空，但记录有有效 ID，回落至后端流媒体中转/重定向端点
+  if (row.id) {
+    return `/api/remotion-video-record/stream/${row.id}`;
+  }
+  return rawUrl;
+}
+
+function hasPlayableVideo(row: any): boolean {
+  if (!row) return false;
+  const rawUrl = String(row.url || row.resultUrl || row.remotionVideoUrl || '').trim();
+  if (rawUrl) return true;
+  return row.status === 'success' || row.status === 'completed';
+}
+
 function previewVideo(row: any) {
-  if (!row?.url) return;
-  previewUrl.value = row.url;
+  const url = resolveRecordVideoUrl(row);
+  if (!url) {
+    ElMessage.warning('暂无可用视频播放地址');
+    return;
+  }
+  previewRow.value = row;
+  previewUrl.value = url;
   previewVisible.value = true;
+}
+
+function handleClosePreview() {
+  if (previewVideoRef.value) {
+    try {
+      previewVideoRef.value.pause();
+    } catch {}
+  }
+  previewVisible.value = false;
+  previewUrl.value = '';
+  previewRow.value = null;
+}
+
+async function copyPreviewUrl() {
+  if (!previewUrl.value) return;
+  const fullUrl = previewUrl.value.startsWith('http')
+    ? previewUrl.value
+    : `${window.location.origin}${previewUrl.value}`;
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(fullUrl);
+    } else {
+      const input = document.createElement('textarea');
+      input.value = fullUrl;
+      input.style.position = 'fixed';
+      input.style.opacity = '0';
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand('copy');
+      document.body.removeChild(input);
+    }
+    ElMessage.success('视频播放地址已复制到剪贴板');
+  } catch (e: any) {
+    ElMessage.error('复制失败，请手动复制');
+  }
+}
+
+function openPreviewInNewTab() {
+  if (!previewUrl.value) return;
+  const fullUrl = previewUrl.value.startsWith('http')
+    ? previewUrl.value
+    : `${window.location.origin}${previewUrl.value}`;
+  window.open(fullUrl, '_blank');
+}
+
+async function downloadPreviewVideo() {
+  if (!previewUrl.value) return;
+  const filename = `${previewRow.value?.title || 'remotion-video'}.mp4`;
+  try {
+    ElMessage.info('正在准备下载视频...');
+    const response = await fetch(previewUrl.value, { mode: 'cors' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(blobUrl);
+    ElMessage.success('下载完成');
+  } catch {
+    // 降级使用普通链接触发下载
+    const link = document.createElement('a');
+    link.href = previewUrl.value;
+    link.target = '_blank';
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
 }
 
 async function handleDelete(row: any) {
@@ -1892,12 +2457,49 @@ async function handleDelete(row: any) {
   }
 }
 
+function canRetryRecord(row: any) {
+  const s = String(row?.status || "").toLowerCase();
+  return s !== "success" && s !== "completed";
+}
+
+async function handleRetry(row: any) {
+  try {
+    await ElMessageBox.confirm(
+      `确定要重新排队并执行任务「${row.title || row.id}」吗？`,
+      "提示",
+      {
+        confirmButtonText: "确定",
+        cancelButtonText: "取消",
+        type: "warning",
+      },
+    );
+    await retryRemotionVideoRecord(row.id);
+    ElMessage.success("已重新提交渲染任务");
+    await getList();
+  } catch (err: any) {
+    if (err !== "cancel") {
+      ElMessage.error(err?.message || "重试任务失败");
+    }
+  }
+}
+
 function handleOperationCommand(command: string, row: any) {
   if (command === "detail") {
     openDetail(row);
     return;
   }
-  // 'regenerate' action removed
+  if (command === "preview") {
+    previewVideo(row);
+    return;
+  }
+  if (command === "recreate") {
+    recreateFromDetail(row);
+    return;
+  }
+  if (command === "retry") {
+    handleRetry(row);
+    return;
+  }
   if (command === "delete") {
     handleDelete(row);
   }
@@ -1943,7 +2545,7 @@ watch(
     max-width: none;
   }
 
-  .remotion-detail-layout {
+  .detail-layout {
     grid-template-columns: 1fr;
     grid-template-rows: minmax(360px, 50vh) minmax(0, 1fr);
   }
@@ -1972,6 +2574,20 @@ watch(
 }
 
 @media (width <= 768px) {
+  .ai-studio-workspace {
+    flex-direction: column;
+  }
+
+  .ai-sidebar-column {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid var(--el-border-color-lighter);
+  }
+
+  .ai-sidebar-scrollbar {
+    max-height: 300px;
+  }
+
   :deep(.remotion-record-page .list-page-search-form__row) {
     row-gap: 0;
   }
@@ -2048,7 +2664,8 @@ watch(
 
   .template-grid {
     grid-template-columns: 1fr;
-    max-height: 360px;
+    max-height: none;
+    overflow: visible;
   }
 
   .params-editor-layout {
@@ -2076,21 +2693,20 @@ watch(
     padding: 0 16px 16px;
   }
 
-  .remotion-detail-layout {
+  .detail-layout {
     height: auto;
     grid-template-columns: 1fr;
     grid-template-rows: auto;
-    gap: 12px;
+    gap: 0;
   }
 
-  .remotion-detail-side {
-    grid-template-rows: auto;
-    gap: 12px;
-  }
-
-  .remotion-video-preview {
+  .detail-video-area {
     min-height: 220px;
-    padding: 8px;
+  }
+
+  .detail-info {
+    border-left: none;
+    border-top: 1px solid var(--el-border-color-lighter);
   }
 
   .confirm-grid {
@@ -2124,7 +2740,7 @@ watch(
     font-size: 11px;
   }
 
-  .remotion-video-preview {
+  .detail-video-area {
     min-height: 180px;
   }
 
@@ -2206,8 +2822,7 @@ watch(
 .record-title-cell,
 .record-template-cell,
 .record-video-cell,
-.record-progress-cell,
-.detail-section {
+.record-progress-cell {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -2270,12 +2885,110 @@ watch(
   color: var(--el-text-color-secondary);
 }
 
-/* 分步向导样式 */
+/* ==========================================================================
+   Remotion Create Dialog Theme Tokens & Styles (Light & Dark Mode)
+   ========================================================================== */
+:global(.remotion-create-dialog) {
+  --rc-bg-dialog: var(--el-bg-color-overlay, #ffffff);
+  --rc-bg-card: var(--el-bg-color, #ffffff);
+  --rc-bg-card-subtle: #f8fafc;
+  --rc-bg-card-hover: #f1f5f9;
+  --rc-bg-card-selected: #eff6ff;
+  --rc-border-card: var(--el-border-color-lighter, #e2e8f0);
+  --rc-border-card-hover: var(--el-color-primary-light-5, #93c5fd);
+  --rc-border-card-selected: var(--el-color-primary, #3b82f6);
+  --rc-shadow-card: 0 1px 3px rgba(15, 23, 42, 0.05), 0 1px 2px rgba(15, 23, 42, 0.03);
+  --rc-shadow-card-hover: 0 6px 18px -4px rgba(59, 130, 246, 0.15), 0 2px 6px -2px rgba(15, 23, 42, 0.04);
+  --rc-shadow-card-selected: 0 0 0 1.5px var(--el-color-primary, #3b82f6), 0 6px 20px -2px rgba(59, 130, 246, 0.22);
+  --rc-step-bg: var(--el-fill-color-light, #f1f5f9);
+  --rc-step-border: var(--el-border-color-lighter, #e2e8f0);
+  --rc-step-text: var(--el-text-color-regular, #475569);
+  --rc-step-active-bg: var(--el-color-primary-light-9, #eff6ff);
+  --rc-step-active-border: var(--el-color-primary, #3b82f6);
+  --rc-step-active-text: var(--el-color-primary, #2563eb);
+  --rc-step-done-bg: var(--el-color-success-light-9, #f0fdf4);
+  --rc-step-done-border: var(--el-color-success-light-5, #86efac);
+  --rc-step-done-text: var(--el-color-success, #16a34a);
+  --rc-tag-bg: var(--el-fill-color-light, #f1f5f9);
+  --rc-tag-text: var(--el-text-color-secondary, #64748b);
+  --rc-code-bg: #f8fafc;
+  --rc-code-text: #0f172a;
+  --rc-code-border: var(--el-border-color-lighter, #cbd5e1);
+  --rc-section-bg: #f8fafc;
+  --rc-section-border: var(--el-border-color-lighter, #e2e8f0);
+}
+
+:global(html.dark) :global(.remotion-create-dialog),
+:global(html.dark .remotion-create-dialog) {
+  --rc-bg-dialog: #14161a;
+  --rc-bg-card: #1c1f26;
+  --rc-bg-card-subtle: #16181f;
+  --rc-bg-card-hover: #222733;
+  --rc-bg-card-selected: rgba(59, 130, 246, 0.15);
+  --rc-border-card: rgba(255, 255, 255, 0.09);
+  --rc-border-card-hover: rgba(96, 165, 250, 0.5);
+  --rc-border-card-selected: #3b82f6;
+  --rc-shadow-card: 0 2px 6px rgba(0, 0, 0, 0.35);
+  --rc-shadow-card-hover: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(96, 165, 250, 0.35);
+  --rc-shadow-card-selected: 0 0 0 1.5px #60a5fa, 0 8px 24px rgba(37, 99, 235, 0.35);
+  --rc-step-bg: rgba(255, 255, 255, 0.05);
+  --rc-step-border: rgba(255, 255, 255, 0.1);
+  --rc-step-text: #94a3b8;
+  --rc-step-active-bg: rgba(59, 130, 246, 0.18);
+  --rc-step-active-border: #60a5fa;
+  --rc-step-active-text: #93c5fd;
+  --rc-step-done-bg: rgba(16, 185, 129, 0.15);
+  --rc-step-done-border: rgba(16, 185, 129, 0.4);
+  --rc-step-done-text: #6ee7b7;
+  --rc-tag-bg: rgba(255, 255, 255, 0.06);
+  --rc-tag-text: #94a3b8;
+  --rc-code-bg: #0b0f17;
+  --rc-code-text: #e2e8f0;
+  --rc-code-border: rgba(255, 255, 255, 0.12);
+  --rc-section-bg: rgba(255, 255, 255, 0.03);
+  --rc-section-border: rgba(255, 255, 255, 0.08);
+}
+
+/* 全屏弹窗基础结构 */
+:global(.remotion-create-dialog.el-dialog),
+:deep(.remotion-create-dialog.el-dialog) {
+  background: var(--rc-bg-dialog) !important;
+}
+
+:global(.remotion-create-dialog .el-dialog__header),
+:deep(.remotion-create-dialog .el-dialog__header) {
+  padding: 16px 24px 14px;
+  margin-right: 0;
+  border-bottom: 1px solid var(--rc-section-border);
+  background: var(--rc-bg-dialog);
+}
+
+:global(.remotion-create-dialog .el-dialog__title),
+:deep(.remotion-create-dialog .el-dialog__title) {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+:global(.remotion-create-dialog .el-dialog__body),
+:deep(.remotion-create-dialog .el-dialog__body) {
+  display: flex;
+  height: calc(100vh - 65px);
+  padding: 12px 24px 18px;
+  overflow: hidden;
+  flex-direction: column;
+  background: var(--rc-bg-dialog);
+}
+
+/* 分步向导工具栏 */
 .remotion-dialog-toolbar {
   display: flex;
-  padding: 8px 0 10px;
+  padding: 4px 0 12px;
   margin-bottom: 12px;
-  border-bottom: 1px solid var(--el-border-color-lighter);
+  border-bottom: 1px solid var(--rc-section-border);
   align-items: center;
   justify-content: space-between;
   gap: 16px;
@@ -2289,112 +3002,123 @@ watch(
   min-width: 0;
 }
 
+.remotion-step-item {
+  position: relative;
+  display: flex;
+  height: 34px;
+  min-width: 120px;
+  padding: 0 14px 0 10px;
+  cursor: pointer;
+  background: var(--rc-step-bg);
+  border: 1px solid var(--rc-step-border);
+  border-radius: 999px;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+
+.remotion-step-item:hover {
+  border-color: var(--rc-border-card-hover);
+  background: var(--rc-bg-card-hover);
+}
+
+.remotion-step-icon {
+  display: flex;
+  width: 22px;
+  height: 22px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--rc-step-text);
+  background: rgba(125, 125, 125, 0.15);
+  border-radius: 50%;
+  transition: all 0.2s;
+  align-items: center;
+  justify-content: center;
+}
+
+.remotion-step-label {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--rc-step-text);
+  white-space: nowrap;
+  transition: color 0.2s;
+}
+
+.remotion-step-active {
+  background: var(--rc-step-active-bg);
+  border-color: var(--rc-step-active-border);
+  box-shadow: 0 0 0 1px var(--rc-step-active-border);
+}
+
+.remotion-step-active .remotion-step-icon {
+  color: #fff;
+  background: var(--el-color-primary, #3b82f6);
+}
+
+.remotion-step-active .remotion-step-label {
+  font-weight: 600;
+  color: var(--rc-step-active-text);
+}
+
+.remotion-step-done {
+  background: var(--rc-step-done-bg);
+  border-color: var(--rc-step-done-border);
+}
+
+.remotion-step-done .remotion-step-icon {
+  color: #fff;
+  background: var(--el-color-success, #16a34a);
+}
+
+.remotion-step-done .remotion-step-label {
+  font-weight: 500;
+  color: var(--rc-step-done-text);
+}
+
 .remotion-dialog-actions {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 10px;
 }
 
 .remotion-dialog-actions .el-button {
-  min-width: 78px;
-}
-
-.remotion-step-item {
-  position: relative;
-  display: flex;
-  height: 30px;
-  min-width: 110px;
-  padding: 0 10px;
-  cursor: pointer;
-  background: var(--el-fill-color-blank);
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 999px;
-  flex-direction: row;
-  align-items: center;
-  gap: 6px;
-}
-
-.remotion-step-active {
-  background: var(--el-color-primary-light-9);
-  border-color: var(--el-color-primary-light-5);
-}
-
-.remotion-step-icon {
-  display: flex;
-  width: 20px;
-  height: 20px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--el-text-color-secondary);
-  background: var(--el-fill-color);
-  border-radius: 50%;
-  transition: all 0.3s;
-  align-items: center;
-  justify-content: center;
-}
-
-.remotion-step-active .remotion-step-icon {
-  color: #fff;
-  background: var(--el-color-primary);
-}
-
-.remotion-step-done .remotion-step-icon {
-  color: #fff;
-  background: var(--el-color-success);
-}
-
-.remotion-step-label {
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
-  white-space: nowrap;
-  transition: color 0.3s;
-}
-
-.remotion-step-active .remotion-step-label {
+  min-width: 82px;
+  border-radius: 6px;
   font-weight: 500;
-  color: var(--el-color-primary);
-}
-
-.remotion-step-done .remotion-step-label {
-  color: var(--el-color-success);
 }
 
 .remotion-step-content {
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .remotion-step-panel {
   height: 100%;
   min-height: 0;
-  padding: 0 10px 2px;
-  overflow: visible;
+  padding: 0 4px;
+  overflow: hidden;
   box-sizing: border-box;
-}
-
-.remotion-step-panel:not(:first-child) {
   display: flex;
   flex-direction: column;
 }
 
-.remotion-step-panel:first-child {
-  display: flex;
-  flex-direction: column;
-}
-
-/* 模板筛选栏 */
+/* 步骤1: 模板筛选栏 */
 .template-filter-bar {
   display: flex;
-  padding: 0 0 10px;
-  margin-bottom: 10px;
-  border-bottom: 1px solid var(--el-border-color-lighter);
+  padding: 0 0 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--rc-section-border);
   flex: 0 0 auto;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
 }
 
 .template-filter-controls {
@@ -2403,6 +3127,7 @@ watch(
   flex: 1;
   flex-wrap: wrap;
   gap: 8px;
+  align-items: center;
 }
 
 .filter-select {
@@ -2411,8 +3136,8 @@ watch(
 }
 
 .filter-select--compact {
-  width: 92px;
-  flex-basis: 92px;
+  width: 96px;
+  flex-basis: 96px;
 }
 
 .filter-select--wide {
@@ -2421,44 +3146,54 @@ watch(
 }
 
 .filter-search {
-  flex: 1 1 260px;
-  min-width: 220px;
+  flex: 1 1 240px;
+  min-width: 200px;
 }
 
 .template-filter-reset {
   flex: 0 0 auto;
   height: 32px;
   padding: 0 12px;
+  border-radius: 6px;
 }
 
 .template-filter-summary {
   display: inline-flex;
   font-size: 12px;
   line-height: 1;
-  color: var(--el-text-color-secondary);
+  color: var(--rc-tag-text);
   white-space: nowrap;
   flex: 0 0 auto;
   align-items: center;
   gap: 10px;
+  padding: 6px 12px;
+  background: var(--rc-step-bg);
+  border: 1px solid var(--rc-section-border);
+  border-radius: 6px;
 }
 
-/* 模板分类容器 */
+/* 模板分类列表（单滚动容器，彻底杜绝多层滚动条） */
 .template-categories {
   display: flex;
-  max-height: calc(100vh - 158px);
+  height: calc(100vh - 175px);
   min-height: 0;
-  padding: 2px 6px 2px 0;
+  padding: 2px 8px 20px 0;
   overflow-y: auto;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 20px;
+  gap: 22px;
+}
+
+.template-category {
+  display: flex;
+  flex-direction: column;
 }
 
 .template-category-header {
   display: flex;
-  padding-bottom: 6px;
-  margin-bottom: 10px;
-  border-bottom: 1px solid var(--el-border-color-lighter);
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--rc-section-border);
   align-items: center;
   gap: 10px;
 }
@@ -2467,11 +3202,26 @@ watch(
   font-size: 14px;
   font-weight: 600;
   color: var(--el-text-color-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.template-category-name::before {
+  content: "";
+  display: inline-block;
+  width: 3px;
+  height: 14px;
+  background: var(--el-color-primary, #3b82f6);
+  border-radius: 2px;
 }
 
 .template-category-count {
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
+  font-size: 11.5px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--rc-tag-bg);
+  color: var(--rc-tag-text);
 }
 
 .template-grid-empty {
@@ -2480,56 +3230,83 @@ watch(
   align-items: center;
   justify-content: center;
   min-height: 260px;
-  border: 1px dashed var(--el-border-color);
+  border: 1px dashed var(--rc-border-card);
   border-radius: 8px;
+  background: var(--rc-bg-card-subtle);
 }
 
 /* 模板卡片网格 */
 .template-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
+  overflow: visible;
+  max-height: none;
+  padding: 0;
 }
 
 .template-card {
   position: relative;
   display: flex;
-  padding: 10px 12px;
+  padding: 14px;
   cursor: pointer;
-  background: var(--el-fill-color-blank);
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 8px;
-  transition: border-color 0.16s ease, background-color 0.16s ease;
+  background: var(--rc-bg-card);
+  border: 1px solid var(--rc-border-card);
+  border-radius: 10px;
+  box-shadow: var(--rc-shadow-card);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  overflow: hidden;
 }
 
 .template-card:hover {
-  background: var(--el-color-primary-light-9);
-  border-color: var(--el-color-primary-light-5);
+  background: var(--rc-bg-card-hover);
+  border-color: var(--rc-border-card-hover);
+  box-shadow: var(--rc-shadow-card-hover);
+  transform: translateY(-2px);
 }
 
 .template-card-selected {
-  background: var(--el-color-primary-light-9);
-  border-color: var(--el-color-primary);
+  background: var(--rc-bg-card-selected);
+  border-color: var(--rc-border-card-selected);
+  box-shadow: var(--rc-shadow-card-selected);
 }
 
-.template-card-selected::after {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 6px;
-  height: 6px;
-  background: var(--el-color-primary);
+.template-card-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 20px;
+}
+
+.template-card-tag {
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: var(--rc-tag-bg);
+  color: var(--rc-tag-text);
+  font-weight: 500;
+}
+
+.template-card-selected-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  background: var(--el-color-primary, #3b82f6);
+  color: #ffffff;
   border-radius: 50%;
-  content: "";
+  font-size: 11px;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.4);
 }
 
 .template-card-name {
   overflow: hidden;
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 600;
-  line-height: 1.35;
+  line-height: 1.4;
   color: var(--el-text-color-primary);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2539,134 +3316,43 @@ watch(
   display: -webkit-box;
   overflow: hidden;
   font-size: 12px;
-  line-height: 1.45;
+  line-height: 1.5;
   color: var(--el-text-color-secondary);
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-}
-
-.template-card-specs {
-  display: grid;
-  overflow: hidden;
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 6px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.template-spec {
-  min-width: 0;
-  padding: 6px 4px;
-  text-align: center;
-  background: var(--el-fill-color-light);
-  border-right: 1px solid var(--el-border-color-lighter);
-}
-
-.template-spec:last-child {
-  border-right: 0;
-}
-
-.template-spec-label {
-  display: block;
-  margin-bottom: 3px;
-  font-size: 11px;
-  line-height: 1;
-  color: var(--el-text-color-placeholder);
-}
-
-.template-spec strong {
-  display: block;
-  overflow: hidden;
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.2;
-  color: var(--el-text-color-primary);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-height: 36px;
 }
 
 .template-card-meta {
   display: flex;
-  min-height: 18px;
+  margin-top: auto;
+  padding-top: 6px;
+  border-top: 1px solid var(--rc-section-border);
   overflow: hidden;
   font-size: 11px;
   line-height: 1.2;
-  color: var(--el-text-color-secondary);
+  color: var(--rc-tag-text);
   white-space: nowrap;
   align-items: center;
   gap: 6px;
 }
 
-.meta-tag {
-  overflow: hidden;
-  font-weight: 500;
-  color: var(--el-text-color-regular);
-  text-overflow: ellipsis;
-}
-
 .meta-dot {
   width: 3px;
   height: 3px;
-  background: var(--el-border-color);
+  background: var(--rc-tag-text);
+  opacity: 0.5;
   border-radius: 50%;
   flex: 0 0 auto;
 }
 
-.template-card-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  min-height: 18px;
-}
-
-.template-tag {
-  display: inline-flex;
-  height: 18px;
-  max-width: 96px;
-  padding: 0;
-  overflow: hidden;
-  font-size: 11px;
-  line-height: 1;
-  color: var(--el-text-color-secondary);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  background: transparent;
-  border-radius: 4px;
-  align-items: center;
-}
-
-.template-tag--more {
-  color: var(--el-text-color-secondary);
-}
-
-/* 视频预览弹窗 */
-.preview-video-wrapper {
-  display: flex;
-  overflow: hidden;
-  background: #000;
-  border-radius: 4px;
-  justify-content: center;
-}
-
-.preview-video-player {
-  display: block;
-  width: 100%;
-  max-height: 460px;
-}
-
-.record-video-cell .cell-video-wrapper {
-  cursor: pointer;
-}
-
-.record-video-cell .cell-video-player:hover {
-  opacity: 0.85;
-}
-
-/* 参数面板 */
+/* 步骤2: 参数面板 */
 .params-panel {
   display: flex;
   flex-direction: column;
+  height: calc(100vh - 170px);
   min-height: 0;
-  gap: 10px;
+  gap: 12px;
 }
 
 .params-header {
@@ -2674,139 +3360,221 @@ watch(
   flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--el-border-color-lighter);
+  padding: 10px 16px;
+  background: var(--rc-bg-card);
+  border: 1px solid var(--rc-border-card);
+  border-radius: 8px;
+}
+
+.params-header-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .params-template-name {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--el-text-color-primary);
+}
+
+.params-header-tag {
+  font-size: 11px;
+}
+
+.params-template-id {
+  font-size: 12px;
+  color: var(--rc-tag-text);
+  font-family: Consolas, Monaco, monospace;
 }
 
 .params-editor-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(360px, 0.95fr);
+  grid-template-columns: minmax(0, 1.1fr) minmax(360px, 0.9fr);
   gap: 14px;
+  flex: 1;
   min-height: 0;
-  padding: 2px 6px 6px;
-  align-items: start;
   box-sizing: border-box;
+}
+
+.params-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--rc-bg-card);
+  border: 1px solid var(--rc-border-card);
+  border-radius: 10px;
+  box-shadow: var(--rc-shadow-card);
+  overflow: hidden;
+}
+
+.params-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--rc-bg-card-subtle);
+  border-bottom: 1px solid var(--rc-section-border);
+  flex: 0 0 auto;
+}
+
+.params-card-header-left {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.params-card-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.params-card-subtitle {
+  font-size: 11.5px;
+  color: var(--rc-tag-text);
 }
 
 .params-form {
+  flex: 1;
   min-width: 0;
   min-height: 0;
-  padding: 4px 8px 10px 4px;
-  overflow: auto;
+  padding: 16px;
+  overflow-y: auto;
   box-sizing: border-box;
-  scrollbar-gutter: stable;
 }
 
-.params-form :deep(.el-form-item) {
-  margin-bottom: 10px;
+.params-el-form .el-form-item {
+  margin-bottom: 16px;
 }
 
-.param-example {
-  margin-top: 4px;
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
+.param-label-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--el-text-color-primary);
 }
 
-.param-example code {
-  padding: 2px 6px;
-  font-family: Consolas, Monaco, monospace;
-  font-size: 11px;
-  background: var(--el-fill-color);
-  border-radius: 4px;
+.param-help-icon {
+  font-size: 13px;
+  color: var(--rc-tag-text);
+  cursor: pointer;
+  margin-left: 4px;
+  vertical-align: -1px;
+}
+
+.param-help-icon:hover {
+  color: var(--el-color-primary);
 }
 
 .param-json-tip {
-  margin-top: 5px;
-  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 6px 10px;
+  font-size: 11.5px;
   line-height: 1.4;
-  color: var(--el-text-color-secondary);
+  color: var(--rc-tag-text);
+  background: var(--rc-bg-card-subtle);
+  border: 1px solid var(--rc-section-border);
+  border-radius: 6px;
 }
 
-.params-json {
-  display: flex;
-  min-width: 0;
+.param-tip-icon {
+  font-size: 13px;
+  flex: 0 0 auto;
+}
+
+.params-json-body {
+  flex: 1;
   min-height: 0;
-  padding: 4px 6px 10px 4px;
-  overflow: auto;
-  box-sizing: border-box;
+  padding: 12px;
+  display: flex;
   flex-direction: column;
 }
 
 .json-editor {
-  flex: 1 1 auto;
-  min-height: 0;
-  margin-bottom: 0;
+  flex: 1;
+  height: 100%;
+  display: flex;
 }
 
-.json-editor :deep(.el-textarea),
-.json-editor :deep(.el-textarea__inner) {
+.json-editor :deep(.el-textarea) {
   height: 100%;
 }
 
-.params-form :deep(.el-input),
-.params-form :deep(.el-input-number),
-.params-form :deep(.el-textarea),
-.params-json :deep(.el-textarea) {
-  padding: 2px;
-  margin: -2px;
+.json-editor :deep(.el-textarea__inner) {
+  height: 100% !important;
+  font-family: "JetBrains Mono", "Fira Code", Menlo, Monaco, Consolas, "Courier New", monospace !important;
+  font-size: 12.5px !important;
+  line-height: 1.65 !important;
+  tab-size: 2 !important;
+  background: var(--rc-code-bg) !important;
+  color: var(--rc-code-text) !important;
+  border: 1px solid var(--rc-code-border) !important;
+  border-radius: 8px !important;
+  padding: 12px !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05) !important;
 }
 
-.params-json-header {
-  display: flex;
-  margin-bottom: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--el-text-color-primary);
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+.json-editor :deep(.el-textarea__inner:focus) {
+  border-color: var(--el-color-primary) !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
 }
 
 .json-hint {
   font-size: 12px;
   font-weight: 400;
-  color: var(--el-text-color-secondary);
+  color: var(--rc-tag-text);
 }
 
 .json-hint--error {
-  color: var(--el-color-danger);
+  color: var(--el-color-danger, #ef4444) !important;
+  font-weight: 500;
 }
 
-/* 确认面板 */
+/* 步骤3: 确认面板 */
 .confirm-panel {
   display: flex;
-  max-height: calc(100vh - 150px);
+  height: calc(100vh - 170px);
   min-height: 0;
-  padding-right: 4px;
-  overflow: auto;
+  padding-right: 6px;
+  overflow-y: auto;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
 
 .confirm-section {
-  padding: 16px;
-  background: var(--el-fill-color-light);
-  border-radius: 8px;
+  padding: 16px 20px;
+  background: var(--rc-bg-card);
+  border: 1px solid var(--rc-border-card);
+  border-radius: 10px;
+  box-shadow: var(--rc-shadow-card);
 }
 
 .confirm-title {
-  padding-bottom: 8px;
-  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 10px;
+  margin-bottom: 14px;
   font-size: 14px;
   font-weight: 600;
   color: var(--el-text-color-primary);
-  border-bottom: 1px solid var(--el-border-color-lighter);
+  border-bottom: 1px solid var(--rc-section-border);
+}
+
+.confirm-title-indicator {
+  width: 3px;
+  height: 14px;
+  background: var(--el-color-primary, #3b82f6);
+  border-radius: 2px;
 }
 
 .confirm-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 12px;
 }
 
@@ -2814,119 +3582,199 @@ watch(
   display: flex;
   flex-direction: column;
   gap: 4px;
+  padding: 10px 14px;
+  background: var(--rc-bg-card-subtle);
+  border: 1px solid var(--rc-section-border);
+  border-radius: 8px;
 }
 
 .confirm-label {
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
+  font-size: 11.5px;
+  color: var(--rc-tag-text);
 }
 
 .confirm-value {
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 13.5px;
+  font-weight: 600;
   color: var(--el-text-color-primary);
 }
 
 .confirm-params {
-  max-height: 200px;
+  max-height: 220px;
   overflow-y: auto;
+  border-radius: 8px;
+  border: 1px solid var(--rc-code-border);
 }
 
 .confirm-params pre {
-  padding: 12px;
+  padding: 14px;
   margin: 0;
-  font-family: Consolas, Monaco, monospace;
+  font-family: "JetBrains Mono", "Fira Code", Menlo, Monaco, Consolas, monospace;
   font-size: 12px;
   line-height: 1.6;
   word-break: break-word;
   white-space: pre-wrap;
-  background: var(--el-fill-color);
-  border-radius: 6px;
+  background: var(--rc-code-bg);
+  color: var(--rc-code-text);
 }
 
-/* 创建对话框 - 全屏模式 */
-:deep(.remotion-create-dialog .el-dialog__body) {
-  display: flex;
-  height: calc(100vh - 70px);
-  padding: 0 24px 18px;
-  overflow: auto;
-  flex-direction: column;
+.confirm-form {
+  padding-top: 4px;
 }
 
-:deep(.remotion-create-dialog .el-dialog__header) {
-  padding: 16px 24px 0;
-  margin-right: 0;
+.confirm-alert {
+  margin-top: 4px;
 }
 
-.remotion-step-content {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-}
-
-/* 全屏模式下模板网格自适应 */
-.template-grid {
-  display: grid;
-  max-height: calc(100vh - 158px);
-  min-height: 0;
-  padding: 2px 6px 2px 0;
-  overflow-y: auto;
-  flex: 1 1 auto;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 8px;
-}
-
-.remotion-detail-layout {
-  display: grid;
-  height: calc(100vh - 56px);
-  grid-template-columns: minmax(0, 1.4fr) minmax(360px, 0.9fr);
-  gap: 16px;
+/* ========== 视频详情弹窗 (扁平化) ========== */
+:global(.remotion-detail-dialog.el-dialog.is-fullscreen) {
+  display: flex !important;
+  flex-direction: column !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  background: var(--el-bg-color-overlay) !important;
 }
 
 :deep(.remotion-detail-dialog .el-dialog__body) {
-  padding: 16px 20px 20px;
-  overflow: hidden;
+  padding: 0 !important;
+  flex: 1 1 auto !important;
+  overflow: hidden !important;
+  min-height: 0 !important;
 }
 
-.remotion-detail-side {
+.detail-layout {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 16px;
-}
-
-.remotion-detail-layout > .el-card,
-.remotion-detail-side > .el-card {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-:deep(.remotion-detail-layout > .el-card .el-card__body),
-:deep(.remotion-detail-side > .el-card .el-card__body) {
-  display: flex;
+  grid-template-columns: 1fr 360px;
+  height: calc(100vh - 56px);
   min-height: 0;
   overflow: hidden;
-  flex: 1 1 auto;
-  flex-direction: column;
 }
 
-.remotion-video-preview {
+/* 左侧视频区 */
+.detail-video-area {
   display: flex;
-  width: 100%;
-  height: 100%;
-  padding: 12px;
-  background: #000;
-  border-radius: 12px;
   align-items: center;
   justify-content: center;
+  background: #000;
+  min-height: 0;
+  overflow: hidden;
 }
 
-.remotion-video-player {
+.detail-video {
+  display: block;
   width: 100%;
   height: 100%;
-  background: #000;
-  border-radius: 8px;
   object-fit: contain;
+  background: #000;
+}
+
+/* 右侧信息面板 */
+.detail-info {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  border-left: 1px solid var(--el-border-color-lighter);
+  background: var(--el-bg-color);
+}
+
+.detail-block {
+  padding: 16px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.detail-block-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  margin-bottom: 12px;
+}
+
+.detail-info-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detail-info-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.detail-info-label {
+  flex-shrink: 0;
+  width: 60px;
+  color: var(--el-text-color-secondary);
+}
+
+.detail-info-value {
+  color: var(--el-text-color-primary);
+  word-break: break-all;
+}
+
+.detail-info-error {
+  color: var(--el-color-danger);
+}
+
+.detail-ai-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.detail-ai-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detail-ai-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--el-text-color-secondary);
+}
+
+.detail-ai-text {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--el-text-color-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.detail-ai-code {
+  padding: 8px 10px;
+  margin: 0;
+  background: var(--el-fill-color-light);
+  border-radius: 4px;
+  font-family: Consolas, Monaco, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--el-text-color-primary);
+  max-height: 180px;
+  overflow: auto;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.detail-json-code {
+  padding: 8px 10px;
+  margin: 0;
+  background: var(--el-fill-color-light);
+  border-radius: 4px;
+  font-family: Consolas, Monaco, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--el-text-color-primary);
+  max-height: 300px;
+  overflow: auto;
+  word-break: break-word;
+  white-space: pre-wrap;
 }
 
 .cell-video-player {
@@ -2968,14 +3816,474 @@ watch(
   opacity: 0.85;
 }
 
-.detail-json-panel pre {
-  margin: 0;
-  font-family: Consolas, Monaco, monospace;
-  font-size: 12px;
-  line-height: 1.7;
-  word-break: break-word;
-  white-space: pre-wrap;
+/* ==========================================================================
+   Remotion AI Video Dialog (全屏极简 Studio 风格)
+   ========================================================================== */
+:global(.remotion-ai-dialog.el-dialog) {
+  padding: 0 !important;
+  margin: 0 !important;
+  background: var(--el-bg-color) !important;
+  overflow: hidden !important;
 }
 
-/* AI 生成对话框样式 */
+:global(.remotion-ai-dialog .el-dialog__header) {
+  padding: 0 !important;
+  margin-right: 0 !important;
+  border-bottom: 1px solid var(--el-border-color-lighter) !important;
+  background: var(--el-bg-color-overlay) !important;
+}
+
+:global(.remotion-ai-dialog .el-dialog__headerbtn) {
+  display: none !important;
+}
+
+:global(.remotion-ai-dialog .el-dialog__body) {
+  height: calc(100vh - 56px) !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  background: var(--el-bg-color) !important;
+}
+
+/* 顶部工具栏 */
+.ai-studio-header {
+  height: 55px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  box-sizing: border-box;
+}
+
+.ai-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ai-brand-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  letter-spacing: -0.2px;
+}
+
+.ai-header-mode {
+  display: flex;
+  align-items: center;
+}
+
+.ai-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ai-close-icon-btn {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: 1px solid var(--el-border-color-lighter);
+  background: transparent;
+  color: var(--el-text-color-secondary);
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.2s ease;
+  margin-left: 4px;
+}
+
+.ai-close-icon-btn:hover {
+  background: var(--el-fill-color-light);
+  color: var(--el-text-color-primary);
+}
+
+/* 全屏双栏工作区 */
+.ai-studio-workspace {
+  display: flex;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* 左侧：核心编辑器 */
+.ai-editor-column {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 32px 20px;
+  box-sizing: border-box;
+  background: var(--el-bg-color);
+}
+
+.ai-editor-header-hint {
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+  margin-bottom: 12px;
+  user-select: none;
+}
+
+.ai-editor-box {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ai-minimal-textarea {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.ai-minimal-textarea :deep(.el-textarea__inner) {
+  height: 100% !important;
+  font-size: 15px;
+  line-height: 1.8;
+  padding: 16px;
+  border-radius: 8px;
+  resize: none;
+  border-color: var(--el-border-color-lighter);
+  background: var(--el-bg-color-overlay);
+  color: var(--el-text-color-primary);
+  font-family: inherit;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ai-minimal-textarea :deep(.el-textarea__inner:focus) {
+  border-color: var(--el-color-primary);
+  box-shadow: 0 0 0 1px var(--el-color-primary-light-5);
+}
+
+.ai-editor-statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.statusbar-shortcut kbd {
+  font-size: 11px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: var(--el-fill-color);
+  border: 1px solid var(--el-border-color-lighter);
+  color: var(--el-text-color-primary);
+  font-family: inherit;
+}
+
+.statusbar-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.word-counter {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 右侧：配置侧栏 */
+.ai-sidebar-column {
+  width: 380px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--el-border-color-lighter);
+  background: var(--el-bg-color-overlay);
+  display: flex;
+  flex-direction: column;
+}
+
+.ai-sidebar-scrollbar {
+  height: 100%;
+}
+
+.sidebar-inner {
+  padding: 24px 20px;
+}
+
+.ai-sidebar-footer {
+  padding: 12px 20px;
+  border-top: 1px solid var(--el-border-color-lighter);
+  background: var(--el-bg-color-overlay);
+  flex-shrink: 0;
+}
+
+.ai-sidebar-footer .el-button {
+  width: 100%;
+  height: 40px;
+  font-size: 14px;
+}
+
+.sidebar-group-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--el-text-color-secondary);
+  margin-bottom: 14px;
+}
+
+.ai-minimal-form .el-form-item {
+  margin-bottom: 16px;
+}
+
+.form-row-duration {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.quick-duration-group {
+  display: flex;
+  gap: 4px;
+}
+
+.dur-pill {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color-lighter);
+  color: var(--el-text-color-regular);
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
+}
+
+.dur-pill:hover {
+  border-color: var(--el-color-primary-light-5);
+  color: var(--el-color-primary);
+}
+
+.dur-pill.active {
+  background: var(--el-color-primary-light-9);
+  border-color: var(--el-color-primary);
+  color: var(--el-color-primary);
+  font-weight: 600;
+}
+
+.form-dual-row {
+  display: flex;
+  gap: 12px;
+}
+
+.volume-slider-box {
+  display: flex;
+  align-items: center;
+  margin-top: 8px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--el-fill-color-light);
+  font-size: 12px;
+}
+
+.volume-label {
+  color: var(--el-text-color-secondary);
+  white-space: nowrap;
+}
+
+.volume-val {
+  font-weight: 600;
+  min-width: 36px;
+  text-align: right;
+  color: var(--el-text-color-primary);
+}
+
+/* 高级参数折叠面板 */
+.ai-minimal-collapse {
+  border: none;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.ai-minimal-collapse :deep(.el-collapse-item__header) {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+  background: transparent;
+  height: 40px;
+  line-height: 40px;
+  border-bottom: none;
+}
+
+.ai-minimal-collapse :deep(.el-collapse-item__wrap) {
+  background: transparent;
+  border-bottom: none;
+}
+
+.ai-minimal-collapse :deep(.el-collapse-item__content) {
+  padding-bottom: 0;
+}
+
+.template-btns-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.template-btns-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.code-textarea :deep(.el-textarea__inner) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-size: 12px !important;
+  line-height: 1.6 !important;
+  background: var(--el-fill-color-lighter);
+  border-radius: 6px;
+}
+
+.params-spec-table {
+  font-size: 11px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color-lighter);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.spec-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--el-text-color-secondary);
+}
+
+.spec-row code {
+  color: var(--el-color-primary);
+  font-size: 11px;
+}
+
+/* ==========================================================================
+   Remotion Preview Dialog (极简全屏)
+   ========================================================================== */
+:global(.remotion-preview-dialog.el-dialog.is-fullscreen) {
+  display: flex !important;
+  flex-direction: column !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  background: var(--el-bg-color-overlay) !important;
+}
+
+:global(.remotion-preview-dialog .el-dialog__header) {
+  position: relative !important;
+  padding: 12px 20px !important;
+  margin-right: 0 !important;
+  border-bottom: 1px solid var(--el-border-color-lighter) !important;
+  flex-shrink: 0 !important;
+  background: var(--el-bg-color-overlay) !important;
+}
+
+:global(.remotion-preview-dialog .el-dialog__headerbtn) {
+  position: absolute !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  right: 16px !important;
+  font-size: 18px !important;
+  width: 32px !important;
+  height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: var(--el-text-color-regular) !important;
+  cursor: pointer !important;
+  z-index: 10 !important;
+  transition: color 0.2s ease !important;
+}
+
+:global(.remotion-preview-dialog .el-dialog__headerbtn:hover) {
+  color: var(--el-color-primary) !important;
+}
+
+:global(.remotion-preview-dialog .el-dialog__headerbtn .el-dialog__close) {
+  font-size: 18px !important;
+  color: inherit !important;
+}
+
+:global(.remotion-preview-dialog .el-dialog__body) {
+  padding: 0 !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  background: #000 !important;
+}
+
+.preview-simple-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-right: 48px;
+  gap: 16px;
+}
+
+.preview-simple-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.preview-simple-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.preview-simple-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  overflow: hidden;
+}
+
+.preview-simple-video {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  outline: none;
+}
+
+/* Table Video Cell Hover Enhancement */
+.cell-video-hover-badge {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.cell-video-wrapper:hover .cell-video-hover-badge {
+  opacity: 1;
+}
+
+.cell-video-play-icon {
+  font-size: 28px;
+  color: #ffffff;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6));
+}
 </style>
