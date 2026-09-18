@@ -41,6 +41,7 @@ enum Api {
   Report = '/node-execution/report',
   List = '/node-execution/list',
   Detail = '/node-execution',
+  Delete = '/node-execution',
   StatsOverview = '/node-execution/stats/overview',
   StatsByNode = '/node-execution/stats/by-node',
 }
@@ -100,4 +101,11 @@ export function getNodeExecutionStats() {
  */
 export function getNodeExecutionStatsByNode() {
   return request.get<NodeStatByNode[]>({ url: Api.StatsByNode })
+}
+
+/**
+ * 删除单条执行记录
+ */
+export function deleteNodeExecution(id: string) {
+  return request.delete<{ success: boolean }>({ url: `${Api.Delete}/${id}` })
 }

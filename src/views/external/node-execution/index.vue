@@ -99,6 +99,26 @@
                     <span v-if="row.clientId" class="client-id">{{ row.clientId }}</span>
                     <span v-else class="text-muted">服务端</span>
                   </template>
+                  <template #operations="{ row }">
+                    <el-dropdown
+                      placement="bottom-end"
+                      @command="(cmd) => handleCommand(String(cmd), row)"
+                    >
+                      <el-button type="primary" link size="small">操作</el-button>
+                      <template #dropdown>
+                        <el-dropdown-menu>
+                          <el-dropdown-item command="detail">
+                            <el-icon><View /></el-icon>
+                            <span>查看详情</span>
+                          </el-dropdown-item>
+                          <el-dropdown-item command="delete" divided>
+                            <el-icon><Delete /></el-icon>
+                            <span>删除</span>
+                          </el-dropdown-item>
+                        </el-dropdown-menu>
+                      </template>
+                    </el-dropdown>
+                  </template>
                 </vxe-grid>
               </div>
             </div>
@@ -137,10 +157,10 @@
         </div>
 
         <!-- 采集结果条目 -->
-        <div v-if="currentRow.data?.items?.length" class="detail-section">
-          <div class="section-title">采集结果 ({{ currentRow.data.items.length }} 条)</div>
+        <div v-if="detailItems(currentRow).length" class="detail-section">
+          <div class="section-title">采集结果 ({{ detailItems(currentRow).length }} 条)</div>
           <div class="items-list">
-            <div v-for="(item, idx) in currentRow.data.items" :key="idx" class="item-card">
+            <div v-for="(item, idx) in detailItems(currentRow)" :key="idx" class="item-card">
               <div class="item-rank" v-if="item.rank">#{{ item.rank }}</div>
               <div class="item-title">{{ item.title || item.name || '未命名' }}</div>
               <div v-if="item.hot" class="item-hot">🔥 {{ item.hot }}</div>
@@ -152,6 +172,12 @@
             </div>
           </div>
         </div>
+
+        <!-- 原始数据（调试/其他格式） -->
+        <div v-if="currentRow.data && !detailItems(currentRow).length" class="detail-section">
+          <div class="section-title">原始数据</div>
+          <pre class="raw-data">{{ JSON.stringify(currentRow.data, null, 2) }}</pre>
+        </div>
       </div>
     </el-drawer>
   </ContentWrap>
@@ -161,7 +187,9 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import type { VxeGridProps } from 'vxe-table'
-import { getNodeExecutionList, getNodeExecutionStats, type NodeExecutionItem, type NodeExecutionStats } from '@/api/external/nodeExecution'
+import { getNodeExecutionList, getNodeExecutionStats, deleteNodeExecution, type NodeExecutionItem, type NodeExecutionStats } from '@/api/external/nodeExecution'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { View, Delete } from '@element-plus/icons-vue'
 import { commonGridOptions, useTableMaxHeight } from '@/common/table'
 import Pagination from '@/components/Pagination/index.vue'
 
@@ -209,6 +237,7 @@ const gridOptions = computed<VxeGridProps>(() => ({
     { field: 'duration', title: '耗时', width: 80, align: 'right', showOverflow: true, slots: { default: 'duration' } },
     { field: 'status', title: '状态', width: 70, align: 'center', slots: { default: 'status' } },
     { field: 'client', title: '执行方', minWidth: 80, flex: 1, align: 'center', slots: { default: 'client' } },
+    { title: '操作', width: 140, align: 'center', fixed: 'right', slots: { default: 'operations' } },
   ],
 }))
 
@@ -281,8 +310,41 @@ function handleReset() {
 }
 
 function handleCellClick({ row }: { row: NodeExecutionItem }) {
+  // 点击单元格不直接打开详情，避免和操作按钮冲突
+}
+
+function handleCommand(cmd: string, row: NodeExecutionItem) {
+  if (cmd === 'detail') handleViewDetail(row)
+  else if (cmd === 'delete') handleDelete(row)
+}
+
+function handleViewDetail(row: NodeExecutionItem) {
   currentRow.value = row
   detailVisible.value = true
+}
+
+async function handleDelete(row: NodeExecutionItem) {
+  await ElMessageBox.confirm(
+    `确定删除节点 "${row.nodeKey}" 的执行记录吗？`,
+    '删除确认',
+    { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }
+  )
+  await deleteNodeExecution(row.id)
+  ElMessage.success('删除成功')
+  fetchList()
+}
+
+// 兼容多种数据格式：data.items / data.outputs / data.result / data.list
+function detailItems(row: NodeExecutionItem | null): any[] {
+  if (!row?.data) return []
+  const d = row.data
+  if (Array.isArray(d.items)) return d.items
+  if (Array.isArray(d.outputs)) return d.outputs
+  if (Array.isArray(d.result)) return d.result
+  if (Array.isArray(d.list)) return d.list
+  // 嵌套结构 { success: true, outputs: [...] }
+  if (d.outputs && Array.isArray(d.outputs)) return d.outputs
+  return []
 }
 
 // ─── 显示格式化 ───────────────────────────────────────
@@ -489,6 +551,17 @@ onMounted(() => {
 .item-url a {
   font-size: 12px;
   color: var(--el-color-primary);
+  word-break: break-all;
+}
+
+.raw-data {
+  background: var(--el-fill-color-light);
+  border-radius: 6px;
+  padding: 12px;
+  font-size: 12px;
+  max-height: 50vh;
+  overflow-y: auto;
+  white-space: pre-wrap;
   word-break: break-all;
 }
 </style>
