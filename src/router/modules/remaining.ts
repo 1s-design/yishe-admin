@@ -675,6 +675,17 @@ const remainingRouter: AppRouteRecordRaw[] = [
         },
       },
       {
+        path: "remotion-skill",
+        component: () => import("@/views/material/remotionSkill/index.vue"),
+        name: "RemotionSkill",
+        meta: {
+          canTo: true,
+          hidden: false,
+          noTagsView: false,
+          title: "router.remotionSkill",
+        },
+      },
+      {
         path: "image-processing-record",
         component: () => import("@/views/material/imageProcessingRecord/index.vue"),
         name: "ImageProcessingRecord",
@@ -1599,6 +1610,24 @@ const remainingRouter: AppRouteRecordRaw[] = [
     path: "/content/automation/remotion-video-record",
     redirect: "/content/remotion-video-record",
     name: "ContentAutomationRemotionVideoRecordCompat",
+    meta: {
+      hidden: true,
+      noTagsView: true,
+    },
+  },
+  {
+    path: "/content/automation/remotion-skill",
+    redirect: "/content/remotion-skill",
+    name: "ContentAutomationRemotionSkillCompat",
+    meta: {
+      hidden: true,
+      noTagsView: true,
+    },
+  },
+  {
+    path: "/material/remotion-skill",
+    redirect: "/content/remotion-skill",
+    name: "MaterialRemotionSkillCompat",
     meta: {
       hidden: true,
       noTagsView: true,

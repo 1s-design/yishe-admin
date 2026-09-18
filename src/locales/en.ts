@@ -259,6 +259,7 @@ export default {
     scriptSchedule: 'Script Schedule',
     sandbox: 'Sandbox Service',
     videoTemplate: 'Video Templates',
+    remotionSkill: 'Video Template Skills',
     imageProcessing: 'Image Processing',
     clientFunction: 'Client Functions',
     browserAutomation: 'Browser Automation',

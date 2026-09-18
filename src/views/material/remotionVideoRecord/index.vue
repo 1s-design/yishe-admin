@@ -65,6 +65,9 @@
                 <el-icon><MagicStick /></el-icon>
                 {{ t('remotionVideoRecord.aiGenerate') }}
               </el-button>
+              <el-button size="small" type="primary" plain @click="router.push('/content/remotion-skill')">
+                视频模版skill
+              </el-button>
               <el-button
                 size="small"
                 type="danger"
@@ -107,7 +110,6 @@
                         v-if="row.templateName === '自由创作' || row.templateId === 'ai-universal'"
                         type="warning"
                         size="small"
-                        effect="plain"
                         class="mr-1"
                       >{{ t('remotionVideoRecord.freeCreation') }}</el-tag>
                       <span v-else class="record-template-main">{{
@@ -118,7 +120,7 @@
                   </div>
                 </template>
                 <template #statusSlot="{ row }">
-                  <el-tag :type="getStatusTagType(row.status)" effect="plain">{{
+                  <el-tag :type="getStatusTagType(row.status)" size="small">{{
                     getStatusLabel(row.status)
                   }}</el-tag>
                 </template>
@@ -142,6 +144,7 @@
                   <div class="record-video-cell">
                     <div
                       class="cell-video-wrapper"
+                      :class="getVideoRatioClass(row)"
                       :title="hasPlayableVideo(row) ? '点击预览视频' : ''"
                       @click.stop="previewVideo(row)"
                     >
@@ -423,8 +426,8 @@
           <div class="params-header">
             <div class="params-header-info">
               <span class="params-template-name">{{ selectedTemplate.name }}</span>
-              <el-tag size="small" effect="plain" class="params-header-tag">{{ getTemplateOrientationLabel(selectedTemplate) }}</el-tag>
-              <el-tag size="small" type="info" effect="plain" class="params-header-tag">{{ selectedTemplate.durationLabel || getTemplateDurationText(selectedTemplate) }}</el-tag>
+              <el-tag size="small" type="primary" class="params-header-tag">{{ getTemplateOrientationLabel(selectedTemplate) }}</el-tag>
+              <el-tag size="small" type="info" class="params-header-tag">{{ selectedTemplate.durationLabel || getTemplateDurationText(selectedTemplate) }}</el-tag>
               <span class="params-template-id">ID: {{ selectedTemplate.id }}</span>
             </div>
             <el-button type="primary" link @click="currentStep = 0">
@@ -638,7 +641,6 @@
                   v-if="currentRow.templateName === '自由创作' || currentRow.templateId === 'ai-universal'"
                   type="warning"
                   size="small"
-                  effect="plain"
                 >{{ t('remotionVideoRecord.freeCreation') }}</el-tag>
                 <span v-else>{{ currentRow.templateName || currentRow.templateId }}</span>
               </span>
@@ -811,48 +813,103 @@
             <div class="sidebar-group-title">基础规格</div>
 
             <el-form label-position="top" class="ai-minimal-form">
-              <!-- 画幅比例 -->
-              <el-form-item label="画幅比例">
-                <el-radio-group v-model="aiForm.params.orientation" size="small" style="width: 100%;">
-                  <el-radio-button label="portrait" style="width: 33.33%;">9:16 (竖屏)</el-radio-button>
-                  <el-radio-button label="landscape" style="width: 33.33%;">16:9 (横屏)</el-radio-button>
-                  <el-radio-button label="square" style="width: 33.33%;">1:1 (方形)</el-radio-button>
-                </el-radio-group>
+              <!-- 画幅比例与分辨率 (下拉选择 + 自定义) -->
+              <el-form-item label="画幅比例与分辨率">
+                <el-select
+                  v-model="selectedAspectKey"
+                  popper-class="aspect-ratio-select-dropdown"
+                  style="width: 100%;"
+                  @change="handleAspectRatioChange"
+                >
+                  <el-option-group
+                    v-for="grp in ASPECT_RATIO_GROUPS"
+                    :key="grp.group"
+                    :label="grp.group"
+                  >
+                    <el-option
+                      v-for="opt in grp.options"
+                      :key="opt.key"
+                      :label="opt.label"
+                      :value="opt.key"
+                    >
+                      <div class="aspect-option-item">
+                        <div class="aspect-option-left">
+                          <span class="aspect-ratio-badge">{{ opt.ratio }}</span>
+                          <span class="aspect-option-label">{{ opt.label }}</span>
+                        </div>
+                        <span class="aspect-res-tag">{{ opt.badge }}</span>
+                      </div>
+                    </el-option>
+                  </el-option-group>
+                </el-select>
+
+                <!-- 自定义尺寸输入 -->
+                <div v-if="selectedAspectKey === 'custom'" class="custom-res-row">
+                  <el-input-number
+                    v-model="aiForm.params.width"
+                    :min="240"
+                    :max="4096"
+                    :step="10"
+                    placeholder="宽度"
+                    controls-position="right"
+                    style="flex: 1;"
+                    @change="onCustomResolutionChange"
+                  >
+                    <template #prefix><span class="res-prefix">宽:</span></template>
+                  </el-input-number>
+                  <span class="res-multiply">×</span>
+                  <el-input-number
+                    v-model="aiForm.params.height"
+                    :min="240"
+                    :max="4096"
+                    :step="10"
+                    placeholder="高度"
+                    controls-position="right"
+                    style="flex: 1;"
+                    @change="onCustomResolutionChange"
+                  >
+                    <template #prefix><span class="res-prefix">高:</span></template>
+                  </el-input-number>
+                </div>
               </el-form-item>
 
-              <!-- 视频时长 -->
+              <!-- 成片总时长 (下拉推荐 + 自定义) -->
               <el-form-item label="成片总时长">
-                <div class="form-row-duration">
-                  <el-input-number
-                    v-model="aiForm.params.duration"
-                    :min="3"
-                    :max="180"
-                    :step="1"
-                    placeholder="自动"
-                    controls-position="right"
-                    style="width: 120px;"
-                  />
-                  <div class="quick-duration-group">
-                    <span
-                      class="dur-pill"
-                      :class="{ active: aiForm.params.duration === 10 }"
-                      @click="aiForm.params.duration = 10"
-                    >10s</span>
-                    <span
-                      class="dur-pill"
-                      :class="{ active: aiForm.params.duration === 15 }"
-                      @click="aiForm.params.duration = 15"
-                    >15s</span>
-                    <span
-                      class="dur-pill"
-                      :class="{ active: aiForm.params.duration === 30 }"
-                      @click="aiForm.params.duration = 30"
-                    >30s</span>
-                    <span
-                      class="dur-pill"
-                      :class="{ active: !aiForm.params.duration }"
-                      @click="aiForm.params.duration = undefined"
-                    >自动</span>
+                <div class="duration-control-wrapper">
+                  <el-select
+                    v-model="selectedDurationKey"
+                    placeholder="请选择视频时长"
+                    popper-class="duration-select-dropdown"
+                    style="width: 100%;"
+                    @change="handleDurationChange"
+                  >
+                    <el-option
+                      v-for="item in DURATION_PRESETS"
+                      :key="item.value"
+                      :label="item.label"
+                      :value="item.value"
+                    >
+                      <div class="duration-option-item">
+                        <span class="duration-option-label">{{ item.label }}</span>
+                        <span class="duration-option-desc">{{ item.desc }}</span>
+                      </div>
+                    </el-option>
+                  </el-select>
+
+                  <!-- 自定义时长秒数输入 -->
+                  <div v-if="selectedDurationKey === 'custom'" class="custom-duration-input-box">
+                    <el-input-number
+                      v-model="aiForm.params.duration"
+                      :min="3"
+                      :max="300"
+                      :step="1"
+                      placeholder="请输入秒数（3~300秒）"
+                      controls-position="right"
+                      style="width: 100%;"
+                    >
+                      <template #prefix><span class="res-prefix">时长:</span></template>
+                      <template #suffix><span class="res-suffix">秒 (s)</span></template>
+                    </el-input-number>
                   </div>
                 </div>
               </el-form-item>
@@ -897,7 +954,103 @@
                 </div>
               </el-form-item>
 
+              <!-- 视频模版skill 多选与场景快捷预设 -->
+              <el-form-item style="margin-top: 14px;">
+                <template #label>
+                  <div class="skill-select-label-row">
+                    <span class="skill-select-label-title">视频模版 skill</span>
+                    <el-tag size="small" type="primary" class="skill-count-badge">
+                      已选 {{ aiForm.skillIds?.length || 0 }} 项
+                    </el-tag>
+                    <div class="skill-label-actions">
+                      <el-button
+                        v-if="aiForm.skillIds?.length"
+                        size="small"
+                        link
+                        type="danger"
+                        @click="clearSelectedSkills"
+                      >
+                        清空
+                      </el-button>
+                      <el-button
+                        size="small"
+                        link
+                        type="primary"
+                        @click="router.push('/content/remotion-skill')"
+                      >
+                        管理技能库
+                      </el-button>
+                    </div>
+                  </div>
+                </template>
+
+                <!-- 多选下拉框 -->
+                <el-select
+                  v-model="aiForm.skillIds"
+                  multiple
+                  filterable
+                  clearable
+                  collapse-tags
+                  collapse-tags-tooltip
+                  :max-collapse-tags="2"
+                  placeholder="请选择本次视频应用的模版技能（支持多选）"
+                  popper-class="skill-multi-select-dropdown"
+                  style="width: 100%;"
+                >
+                  <el-option-group
+                    v-for="group in groupedSkills"
+                    :key="group.category"
+                    :label="group.label"
+                  >
+                    <el-option
+                      v-for="skill in group.list"
+                      :key="skill.id"
+                      :label="skill.name"
+                      :value="skill.id"
+                    >
+                      <div class="skill-dropdown-row">
+                        <span class="skill-dropdown-name" :title="skill.name">{{ skill.name }}</span>
+                        <div class="skill-dropdown-meta">
+                          <span class="skill-dropdown-code">{{ skill.code }}</span>
+                          <span v-if="skill.isSystem" class="skill-dropdown-sys">系统</span>
+                        </div>
+                      </div>
+                    </el-option>
+                  </el-option-group>
+                </el-select>
+
+                <!-- 已选技能标签展示与悬浮说明 -->
+                <div v-if="selectedSkillsList.length > 0" class="selected-skills-tags-wrap">
+                  <el-tooltip
+                    v-for="skill in selectedSkillsList"
+                    :key="skill.id"
+                    placement="top"
+                    :show-after="300"
+                  >
+                    <template #content>
+                      <div style="max-width: 280px; font-size: 12px; line-height: 1.5;">
+                        <div style="font-weight: 600; margin-bottom: 4px;">{{ skill.name }} ({{ skill.code }})</div>
+                        <div style="color: #cbd5e1; margin-bottom: 6px;">{{ skill.description || '无描述' }}</div>
+                        <div style="white-space: pre-wrap; font-size: 11px; opacity: 0.85;">{{ skill.promptContent }}</div>
+                      </div>
+                    </template>
+                    <el-tag
+                      closable
+                      size="small"
+                      :type="getSkillCategoryTagType(skill.category)"
+                      effect="light"
+                      class="selected-skill-pill"
+                      @close="removeSelectedSkill(skill.id)"
+                    >
+                      <span class="pill-category">[{{ getSkillCategoryLabel(skill.category) }}]</span>
+                      {{ skill.name }}
+                    </el-tag>
+                  </el-tooltip>
+                </div>
+              </el-form-item>
+
               <div class="sidebar-group-title" style="margin-top: 16px;">高级扩展参数</div>
+
 
               <!-- 高级扩展参数 (JSON) -->
               <el-collapse v-model="aiAdvancedCollapse" class="ai-minimal-collapse">
@@ -969,10 +1122,226 @@
       </div>
     </div>
   </el-dialog>
+
+  <!-- 🧠 AI 编导技能库管理抽屉 -->
+  <el-drawer
+    v-model="skillManageDrawerVisible"
+    title="🧠 AI 编导技能库 (Remotion Skills)"
+    size="680px"
+    :append-to-body="true"
+    destroy-on-close
+  >
+    <div class="skill-drawer-container">
+      <!-- 顶部操作栏 -->
+      <div class="skill-drawer-header-actions">
+        <el-input
+          v-model="skillSearchKeyword"
+          placeholder="搜索技能名称或描述..."
+          prefix-icon="Search"
+          clearable
+          style="flex: 1;"
+          @input="handleSkillSearch"
+        />
+        <el-button type="primary" plain @click="openCreateSkillDialog">
+          <el-icon style="margin-right: 4px;"><Plus /></el-icon>
+          新建技能
+        </el-button>
+        <el-button type="success" plain @click="openImportSkillDialog">
+          <el-icon style="margin-right: 4px;"><Upload /></el-icon>
+          导入 SKILL.md
+        </el-button>
+      </div>
+
+      <!-- 分类筛选标签页 -->
+      <el-radio-group v-model="skillCategoryFilter" size="small" class="skill-category-tabs" @change="fetchAllSkills">
+        <el-radio-button label="all">全部</el-radio-button>
+        <el-radio-button label="motion">动效规范</el-radio-button>
+        <el-radio-button label="caption">文案字幕</el-radio-button>
+        <el-radio-button label="audio">音频媒体</el-radio-button>
+        <el-radio-button label="marketing">电商营销</el-radio-button>
+        <el-radio-button label="cinematic">电影美学</el-radio-button>
+        <el-radio-button label="custom">自定义</el-radio-button>
+      </el-radio-group>
+
+      <!-- 技能列表 -->
+      <div v-loading="skillManageLoading" class="skill-list-container">
+        <el-empty v-if="allSkillsList.length === 0" description="暂无符合条件的技能" />
+        <div
+          v-for="skill in allSkillsList"
+          :key="skill.id"
+          class="skill-manage-card"
+          :class="{ disabled: !skill.isActive }"
+        >
+          <div class="skill-manage-header">
+            <div class="skill-manage-title-box">
+              <span class="skill-manage-icon">{{ skill.icon || '🎯' }}</span>
+              <div class="skill-manage-title-meta">
+                <div class="skill-manage-name">{{ skill.name }}</div>
+                <div class="skill-manage-code">
+                  <code>{{ skill.code }}</code>
+                  <el-tag v-if="skill.isSystem" size="small" type="info" effect="plain" style="margin-left: 6px;">
+                    官方内置
+                  </el-tag>
+                  <el-tag size="small" type="primary" effect="light" style="margin-left: 4px;">
+                    {{ getSkillCategoryLabel(skill.category) }}
+                  </el-tag>
+                </div>
+              </div>
+            </div>
+            <div class="skill-manage-actions">
+              <el-switch
+                v-model="skill.isActive"
+                inline-prompt
+                active-text="开"
+                inactive-text="关"
+                @change="toggleSkillActiveState(skill)"
+              />
+              <el-button size="small" link type="primary" @click="openEditSkillDialog(skill)">
+                <el-icon><Edit /></el-icon>
+                编辑
+              </el-button>
+              <el-popconfirm
+                v-if="!skill.isSystem"
+                title="确定删除此自定义技能吗？"
+                @confirm="deleteSkillItem(skill)"
+              >
+                <template #reference>
+                  <el-button size="small" link type="danger">
+                    <el-icon><Delete /></el-icon>
+                    删除
+                  </el-button>
+                </template>
+              </el-popconfirm>
+            </div>
+          </div>
+
+          <div class="skill-manage-desc">
+            {{ skill.description || '暂无描述' }}
+          </div>
+
+          <div class="skill-manage-prompt-preview">
+            <div class="prompt-preview-title">编导规则提要：</div>
+            <pre class="prompt-code-block">{{ skill.promptContent?.slice(0, 180) }}...</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </el-drawer>
+
+  <!-- ✏️ 新建 / 编辑技能弹窗 -->
+  <el-dialog
+    v-model="skillEditDialogVisible"
+    :title="skillEditForm.id ? '编辑 Remotion 技能' : '新建自定义技能'"
+    width="640px"
+    :append-to-body="true"
+    destroy-on-close
+  >
+    <el-form label-position="top" size="default">
+      <div class="form-dual-row">
+        <el-form-item label="技能名称" required style="flex: 1.4;">
+          <el-input v-model="skillEditForm.name" placeholder="例如：极速爆品卡点风" maxlength="50" />
+        </el-form-item>
+        <el-form-item label="图标 (Emoji)" style="flex: 0.6;">
+          <el-input v-model="skillEditForm.icon" placeholder="🎯" maxlength="8" />
+        </el-form-item>
+      </div>
+
+      <div class="form-dual-row">
+        <el-form-item label="技能标识码 (Code)" style="flex: 1.2;">
+          <el-input
+            v-model="skillEditForm.code"
+            placeholder="留空自动生成，例如 ecom-fast"
+            :disabled="Boolean(skillEditForm.id && skillEditForm.isSystem)"
+          />
+        </el-form-item>
+        <el-form-item label="分类" style="flex: 0.8;">
+          <el-select v-model="skillEditForm.category">
+            <el-option label="动效规范 (motion)" value="motion" />
+            <el-option label="文案字幕 (caption)" value="caption" />
+            <el-option label="音频媒体 (audio)" value="audio" />
+            <el-option label="电商营销 (marketing)" value="marketing" />
+            <el-option label="电影美学 (cinematic)" value="cinematic" />
+            <el-option label="自定义 (custom)" value="custom" />
+          </el-select>
+        </el-form-item>
+      </div>
+
+      <el-form-item label="简明说明">
+        <el-input
+          v-model="skillEditForm.description"
+          type="textarea"
+          :rows="2"
+          placeholder="向使用者简要说明此技能的编导风格、适用场景与亮点"
+          maxlength="200"
+          show-word-limit
+        />
+      </el-form-item>
+
+      <el-form-item label="核心编导提示词规则 (Prompt 内容，支持 Markdown)" required>
+        <el-input
+          v-model="skillEditForm.promptContent"
+          type="textarea"
+          :rows="7"
+          class="code-textarea"
+          placeholder="编写具体编导指令，例如：&#10;1. 场景转场必须使用 zoom；&#10;2. 前 2 秒黄金痛点提问；&#10;3. 末尾强制展示 CTA 转化按钮。"
+        />
+      </el-form-item>
+
+      <el-form-item label="附加默认参数 (JSON，选填)">
+        <el-input
+          v-model="skillEditForm.defaultParamsJson"
+          type="textarea"
+          :rows="3"
+          class="code-textarea"
+          placeholder='例如：{ "transition": "zoom", "transitionFrames": 12, "fps": 30 }'
+        />
+      </el-form-item>
+    </el-form>
+
+    <template #footer>
+      <el-button @click="skillEditDialogVisible = false">取消</el-button>
+      <el-button type="primary" :loading="skillEditLoading" @click="saveSkillEdit">
+        保存技能
+      </el-button>
+    </template>
+  </el-dialog>
+
+  <!-- 📥 导入 SKILL.md 弹窗 -->
+  <el-dialog
+    v-model="skillImportDialogVisible"
+    title="📥 导入 Remotion 官方 / 社区 SKILL.md"
+    width="640px"
+    :append-to-body="true"
+    destroy-on-close
+  >
+    <div class="import-tips-banner">
+      支持直接粘贴 Remotion 官网 (https://www.remotion.dev/docs/ai/skills) 或 GitHub 中的 <code>SKILL.md</code> 全文内容，系统将自动解析 YAML 前置信息与正文规则并存入技能库！
+    </div>
+    <el-input
+      v-model="skillImportMarkdown"
+      type="textarea"
+      :rows="12"
+      class="code-textarea"
+      placeholder="---&#10;name: remotion-markup&#10;title: Remotion 动效规范&#10;icon: 📐&#10;description: 最佳实践规则&#10;---&#10;&#10;## 编导规则&#10;1. 所有动画由帧数计算插值..."
+    />
+    <template #footer>
+      <el-button @click="skillImportDialogVisible = false">取消</el-button>
+      <el-button
+        type="success"
+        :loading="skillImportLoading"
+        :disabled="!skillImportMarkdown.trim()"
+        @click="handleImportMarkdown"
+      >
+        解析并导入
+      </el-button>
+    </template>
+  </el-dialog>
 </template>
+
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
+import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { useI18n } from "@/hooks/web/useI18n";
 import {
@@ -992,7 +1361,14 @@ import {
   Close,
   Refresh,
   FullScreen,
+  Setting,
+  Plus,
+  Upload,
+  Edit,
+  Cpu,
 } from "@element-plus/icons-vue";
+
+const router = useRouter();
 import { useWindowSize } from "@vueuse/core";
 import { formatTimestamp } from "@/common/date";
 import { buildOperationColumn, buildTimeColumn, commonGridOptions } from "@/common/table";
@@ -1006,6 +1382,15 @@ import {
   aiGenerateRemotionVideoRecord,
   retryRemotionVideoRecord,
 } from "@/api/remotion-video-record";
+import {
+  getRemotionSkillList,
+  createRemotionSkill,
+  updateRemotionSkill,
+  deleteRemotionSkill,
+  toggleRemotionSkill,
+  importRemotionSkillMarkdown,
+  type RemotionSkillItem,
+} from "@/api/remotion-skill";
 import ContentWrap from "@/components/ContentWrap/src/ContentWrap.vue";
 import ListPageLayout from "@/components/ListPageLayout/index.vue";
 import Pagination from "@/components/Pagination/index.vue";
@@ -1061,9 +1446,13 @@ const aiAdvancedCollapse = ref<string[]>([]);
 const aiForm = ref({
   mode: 'ai-free-generate' as 'ai-generate' | 'ai-free-generate',
   prompt: '',
+  skillIds: [] as string[],
   customParamsJson: '',
   params: {
-    orientation: 'portrait',
+    orientation: 'portrait' as 'portrait' | 'landscape' | 'square',
+    aspectRatio: '9:16',
+    width: 1080 as number | undefined,
+    height: 1920 as number | undefined,
     duration: undefined as number | undefined,
     fps: 30 as number | undefined,
     title: '',
@@ -1071,6 +1460,215 @@ const aiForm = ref({
     bgmVolume: 80,
   },
 });
+
+const selectedAspectKey = ref('9:16-1080p');
+
+const ASPECT_RATIO_GROUPS = [
+  {
+    group: '主流竖屏画幅 (9:16 / 4:5 / 3:4)',
+    options: [
+      {
+        key: '9:16-1080p',
+        label: '9:16 标准短视频 (1080×1920)',
+        ratio: '9:16',
+        orientation: 'portrait' as const,
+        width: 1080,
+        height: 1920,
+        badge: '抖音 / 快手 / 视频号',
+      },
+      {
+        key: '9:16-720p',
+        label: '9:16 高清省流 (720×1280)',
+        ratio: '9:16',
+        orientation: 'portrait' as const,
+        width: 720,
+        height: 1280,
+        badge: '极速生成',
+      },
+      {
+        key: '9:16-4k',
+        label: '9:16 4K超清画质 (2160×3840)',
+        ratio: '9:16',
+        orientation: 'portrait' as const,
+        width: 2160,
+        height: 3840,
+        badge: '4K超细腻',
+      },
+      {
+        key: '4:5-1080p',
+        label: '4:5 社交信息流 (1080×1350)',
+        ratio: '4:5',
+        orientation: 'portrait' as const,
+        width: 1080,
+        height: 1350,
+        badge: '小红书 / Instagram',
+      },
+      {
+        key: '3:4-1080p',
+        label: '3:4 电商图文竖屏 (1080×1440)',
+        ratio: '3:4',
+        orientation: 'portrait' as const,
+        width: 1080,
+        height: 1440,
+        badge: '电商详情 / 种草',
+      },
+    ],
+  },
+  {
+    group: '主流横屏画幅 (16:9 / 4:3 / 21:9)',
+    options: [
+      {
+        key: '16:9-1080p',
+        label: '16:9 全高清横屏 (1920×1080)',
+        ratio: '16:9',
+        orientation: 'landscape' as const,
+        width: 1920,
+        height: 1080,
+        badge: 'B站 / YouTube / 电脑',
+      },
+      {
+        key: '16:9-2k',
+        label: '16:9 2K超清横屏 (2560×1440)',
+        ratio: '16:9',
+        orientation: 'landscape' as const,
+        width: 2560,
+        height: 1440,
+        badge: '2K清晰度',
+      },
+      {
+        key: '16:9-4k',
+        label: '16:9 4K电影极清 (3840×2160)',
+        ratio: '16:9',
+        orientation: 'landscape' as const,
+        width: 3840,
+        height: 2160,
+        badge: '4K大片',
+      },
+      {
+        key: '16:9-720p',
+        label: '16:9 标清横屏 (1280×720)',
+        ratio: '16:9',
+        orientation: 'landscape' as const,
+        width: 1280,
+        height: 720,
+        badge: '720P快速',
+      },
+      {
+        key: '4:3-1080p',
+        label: '4:3 经典复古屏 (1440×1080)',
+        ratio: '4:3',
+        orientation: 'landscape' as const,
+        width: 1440,
+        height: 1080,
+        badge: '课件 / 复古质感',
+      },
+      {
+        key: '21:9-1080p',
+        label: '21:9 宽银幕电影画幅 (2560×1080)',
+        ratio: '21:9',
+        orientation: 'landscape' as const,
+        width: 2560,
+        height: 1080,
+        badge: '宽银幕电影感',
+      },
+    ],
+  },
+  {
+    group: '方形画幅规格 (1:1)',
+    options: [
+      {
+        key: '1:1-1080p',
+        label: '1:1 高清方屏 (1080×1080)',
+        ratio: '1:1',
+        orientation: 'square' as const,
+        width: 1080,
+        height: 1080,
+        badge: '主图 / 朋友圈广告',
+      },
+      {
+        key: '1:1-800p',
+        label: '1:1 电商标准图 (800×800)',
+        ratio: '1:1',
+        orientation: 'square' as const,
+        width: 800,
+        height: 800,
+        badge: '淘宝 / 京东主图',
+      },
+    ],
+  },
+  {
+    group: '高级自定义规格',
+    options: [
+      {
+        key: 'custom',
+        label: '自定义分辨率 (自由输入宽×高)...',
+        ratio: '自定义',
+        orientation: 'portrait' as const,
+        width: 1080,
+        height: 1920,
+        badge: '自定义 px',
+      },
+    ],
+  },
+];
+
+function handleAspectRatioChange(key: string) {
+  if (key === 'custom') {
+    aiForm.value.params.width = aiForm.value.params.width || 1080;
+    aiForm.value.params.height = aiForm.value.params.height || 1920;
+    onCustomResolutionChange();
+    return;
+  }
+  for (const group of ASPECT_RATIO_GROUPS) {
+    const item = group.options.find((opt) => opt.key === key);
+    if (item) {
+      aiForm.value.params.orientation = item.orientation;
+      aiForm.value.params.width = item.width;
+      aiForm.value.params.height = item.height;
+      aiForm.value.params.aspectRatio = item.ratio;
+      break;
+    }
+  }
+}
+
+function onCustomResolutionChange() {
+  const w = Number(aiForm.value.params.width) || 1080;
+  const h = Number(aiForm.value.params.height) || 1920;
+  if (w > h) {
+    aiForm.value.params.orientation = 'landscape';
+  } else if (w === h) {
+    aiForm.value.params.orientation = 'square';
+  } else {
+    aiForm.value.params.orientation = 'portrait';
+  }
+  aiForm.value.params.aspectRatio = `${w}:${h}`;
+}
+
+const selectedDurationKey = ref<string | number>('auto');
+
+const DURATION_PRESETS = [
+  { label: '自动分配 (由 AI 根据文案内容智能推算)', value: 'auto', desc: '根据分镜动态计算' },
+  { label: '5 秒 · 极速卡点切片', value: 5, desc: '短卡点 / 极简动效' },
+  { label: '10 秒 · 黄金爆款前奏', value: 10, desc: '完播率高 / 抓人眼球' },
+  { label: '15 秒 · 标准短视频带货', value: 15, desc: '主流带货 (推荐)' },
+  { label: '20 秒 · 痛点种草短片', value: 20, desc: '问题场景 + 解决方案' },
+  { label: '30 秒 · 完整商业广告', value: 30, desc: '经典TVC篇幅' },
+  { label: '45 秒 · 深度产品演示', value: 45, desc: '多卖点详细功能拆解' },
+  { label: '60 秒 · 1分钟干货科普', value: 60, desc: '知识讲解干货' },
+  { label: '90 秒 · 沉浸情节短片', value: 90, desc: '情景剧故事短片' },
+  { label: '120 秒 · 2分钟长片精讲', value: 120, desc: '长篇详尽阐述' },
+  { label: '自定义时长 (自由输入秒数)...', value: 'custom', desc: '输入 3~300 秒' },
+];
+
+function handleDurationChange(val: string | number) {
+  if (val === 'auto') {
+    aiForm.value.params.duration = undefined;
+  } else if (typeof val === 'number') {
+    aiForm.value.params.duration = val;
+  } else if (val === 'custom') {
+    aiForm.value.params.duration = aiForm.value.params.duration || 15;
+  }
+}
 
 const PROMPT_TEMPLATES = [
   {
@@ -1106,10 +1704,22 @@ const PROMPT_TEMPLATES = [
 function applyPromptTemplate(tpl: (typeof PROMPT_TEMPLATES)[0]) {
   aiForm.value.prompt = tpl.prompt;
   if (tpl.orientation) {
-    aiForm.value.params.orientation = tpl.orientation;
+    aiForm.value.params.orientation = tpl.orientation as any;
+    if (tpl.orientation === 'landscape') {
+      selectedAspectKey.value = '16:9-1080p';
+      handleAspectRatioChange('16:9-1080p');
+    } else if (tpl.orientation === 'square') {
+      selectedAspectKey.value = '1:1-1080p';
+      handleAspectRatioChange('1:1-1080p');
+    } else {
+      selectedAspectKey.value = '9:16-1080p';
+      handleAspectRatioChange('9:16-1080p');
+    }
   }
   if (tpl.duration) {
     aiForm.value.params.duration = tpl.duration;
+    const matched = DURATION_PRESETS.find((d) => d.value === tpl.duration);
+    selectedDurationKey.value = matched ? tpl.duration : 'custom';
   }
   ElMessage.success(`已载入「${tpl.name}」创作灵感示范`);
 }
@@ -1180,6 +1790,303 @@ function formatCustomJson() {
     ElMessage.error(`JSON 解析失败: ${err?.message || err}`);
   }
 }
+
+// ==================== Remotion 技能体系相关状态与方法 ====================
+const availableSkills = ref<RemotionSkillItem[]>([]);
+const allSkillsList = ref<RemotionSkillItem[]>([]);
+const skillManageDrawerVisible = ref(false);
+const skillManageLoading = ref(false);
+const skillCategoryFilter = ref('all');
+const skillSearchKeyword = ref('');
+
+// 技能编辑表单
+const skillEditDialogVisible = ref(false);
+const skillEditLoading = ref(false);
+const skillEditForm = ref<{
+  id?: string;
+  code?: string;
+  name: string;
+  icon: string;
+  category: string;
+  description: string;
+  promptContent: string;
+  defaultParamsJson: string;
+  isSystem?: boolean;
+  isActive: boolean;
+  sortOrder: number;
+}>({
+  name: '',
+  icon: '🎯',
+  category: 'custom',
+  description: '',
+  promptContent: '',
+  defaultParamsJson: '',
+  isActive: true,
+  sortOrder: 0,
+});
+
+// Markdown 导入
+const skillImportDialogVisible = ref(false);
+const skillImportLoading = ref(false);
+const skillImportMarkdown = ref('');
+
+function getSkillCategoryLabel(category: string) {
+  const map: Record<string, string> = {
+    motion: '动效规范',
+    caption: '文案字幕',
+    audio: '音频媒体',
+    marketing: '电商营销',
+    cinematic: '电影美学',
+    custom: '自定义',
+  };
+  return map[category] || category || '通用';
+}
+
+function getSkillCategoryTagType(category: string) {
+  const map: Record<string, string> = {
+    motion: 'primary',
+    caption: 'success',
+    audio: 'warning',
+    marketing: 'danger',
+    cinematic: 'info',
+    custom: '',
+  };
+  return map[category] || 'info';
+}
+
+const groupedSkills = computed(() => {
+  const groups: Record<string, { label: string; list: RemotionSkillItem[] }> = {
+    motion: { label: '动效规范', list: [] },
+    caption: { label: '文案字幕', list: [] },
+    audio: { label: '音频媒体', list: [] },
+    marketing: { label: '电商营销', list: [] },
+    cinematic: { label: '电影美学', list: [] },
+    custom: { label: '自定义', list: [] },
+  };
+
+  for (const s of availableSkills.value) {
+    const cat = s.category && groups[s.category] ? s.category : 'custom';
+    groups[cat].list.push(s);
+  }
+
+  return Object.entries(groups)
+    .filter(([_, g]) => g.list.length > 0)
+    .map(([key, g]) => ({ category: key, label: g.label, list: g.list }));
+});
+
+const selectedSkillsList = computed(() => {
+  if (!Array.isArray(aiForm.value.skillIds)) return [];
+  return availableSkills.value.filter((s) => aiForm.value.skillIds.includes(s.id));
+});
+
+function removeSelectedSkill(skillId: string) {
+  if (!Array.isArray(aiForm.value.skillIds)) return;
+  const idx = aiForm.value.skillIds.indexOf(skillId);
+  if (idx !== -1) {
+    aiForm.value.skillIds.splice(idx, 1);
+  }
+}
+
+function clearSelectedSkills() {
+  aiForm.value.skillIds = [];
+}
+
+async function fetchSkills(forceRefresh = false) {
+  if (availableSkills.value.length > 0 && !forceRefresh) return;
+  try {
+    const res: any = await getRemotionSkillList({ isActive: true });
+    const list: RemotionSkillItem[] = res?.data || res || [];
+    availableSkills.value = list;
+
+    // 如果还没有选择任何技能，默认勾选官方核心技能
+    if ((!aiForm.value.skillIds || aiForm.value.skillIds.length === 0) && list.length > 0) {
+      const defaultIds = list
+        .filter((s) => s.isSystem && (s.code === 'remotion-markup' || s.code === 'remotion-captions'))
+        .map((s) => s.id);
+      aiForm.value.skillIds = defaultIds.length > 0 ? defaultIds : [list[0].id];
+    }
+  } catch (err: any) {
+    console.error('获取 Remotion Skills 失败:', err);
+  }
+}
+
+function toggleSkillSelect(skillId: string) {
+  if (!aiForm.value.skillIds) {
+    aiForm.value.skillIds = [];
+  }
+  const index = aiForm.value.skillIds.indexOf(skillId);
+  if (index > -1) {
+    aiForm.value.skillIds.splice(index, 1);
+  } else {
+    aiForm.value.skillIds.push(skillId);
+  }
+}
+
+async function fetchAllSkills() {
+  skillManageLoading.value = true;
+  try {
+    const category = skillCategoryFilter.value === 'all' ? undefined : skillCategoryFilter.value;
+    const res: any = await getRemotionSkillList({
+      category,
+      keyword: skillSearchKeyword.value.trim() || undefined,
+    });
+    allSkillsList.value = res?.data || res || [];
+  } catch (err: any) {
+    ElMessage.error(`获取技能列表失败: ${err?.message || err}`);
+  } finally {
+    skillManageLoading.value = false;
+  }
+}
+
+function handleSkillSearch() {
+  fetchAllSkills();
+}
+
+function openSkillManager() {
+  skillManageDrawerVisible.value = true;
+  skillCategoryFilter.value = 'all';
+  skillSearchKeyword.value = '';
+  fetchAllSkills();
+}
+
+function openCreateSkillDialog() {
+  skillEditForm.value = {
+    name: '',
+    code: '',
+    icon: '🎯',
+    category: 'custom',
+    description: '',
+    promptContent: '',
+    defaultParamsJson: '',
+    isActive: true,
+    sortOrder: 0,
+  };
+  skillEditDialogVisible.value = true;
+}
+
+function openEditSkillDialog(skill: RemotionSkillItem) {
+  skillEditForm.value = {
+    id: skill.id,
+    code: skill.code,
+    name: skill.name,
+    icon: skill.icon || '🎯',
+    category: skill.category || 'custom',
+    description: skill.description || '',
+    promptContent: skill.promptContent || '',
+    defaultParamsJson: skill.defaultParams ? JSON.stringify(skill.defaultParams, null, 2) : '',
+    isSystem: skill.isSystem,
+    isActive: skill.isActive,
+    sortOrder: skill.sortOrder || 0,
+  };
+  skillEditDialogVisible.value = true;
+}
+
+async function saveSkillEdit() {
+  if (!skillEditForm.value.name?.trim()) {
+    ElMessage.warning('请输入技能名称');
+    return;
+  }
+  if (!skillEditForm.value.promptContent?.trim()) {
+    ElMessage.warning('请输入核心编导提示词规则');
+    return;
+  }
+
+  let defaultParams: Record<string, any> | undefined = undefined;
+  if (skillEditForm.value.defaultParamsJson?.trim()) {
+    try {
+      defaultParams = JSON.parse(skillEditForm.value.defaultParamsJson.trim());
+    } catch (e: any) {
+      ElMessage.error(`默认参数 JSON 格式有误: ${e?.message || e}`);
+      return;
+    }
+  }
+
+  skillEditLoading.value = true;
+  try {
+    if (skillEditForm.value.id) {
+      await updateRemotionSkill(skillEditForm.value.id, {
+        name: skillEditForm.value.name.trim(),
+        icon: skillEditForm.value.icon?.trim() || '🎯',
+        category: skillEditForm.value.category,
+        description: skillEditForm.value.description?.trim(),
+        promptContent: skillEditForm.value.promptContent.trim(),
+        defaultParams,
+        isActive: skillEditForm.value.isActive,
+        sortOrder: skillEditForm.value.sortOrder,
+      });
+      ElMessage.success('技能修改成功');
+    } else {
+      await createRemotionSkill({
+        code: skillEditForm.value.code?.trim() || undefined,
+        name: skillEditForm.value.name.trim(),
+        icon: skillEditForm.value.icon?.trim() || '🎯',
+        category: skillEditForm.value.category,
+        description: skillEditForm.value.description?.trim(),
+        promptContent: skillEditForm.value.promptContent.trim(),
+        defaultParams,
+        isActive: skillEditForm.value.isActive,
+        sortOrder: skillEditForm.value.sortOrder,
+      });
+      ElMessage.success('自定义技能创建成功');
+    }
+    skillEditDialogVisible.value = false;
+    await fetchAllSkills();
+    await fetchSkills(true);
+  } catch (err: any) {
+    ElMessage.error(err?.message || '保存技能失败');
+  } finally {
+    skillEditLoading.value = false;
+  }
+}
+
+async function deleteSkillItem(skill: RemotionSkillItem) {
+  try {
+    await deleteRemotionSkill(skill.id);
+    ElMessage.success(`技能「${skill.name}」已删除`);
+    await fetchAllSkills();
+    await fetchSkills(true);
+    // 从已选中列表中移除
+    const idx = aiForm.value.skillIds.indexOf(skill.id);
+    if (idx > -1) {
+      aiForm.value.skillIds.splice(idx, 1);
+    }
+  } catch (err: any) {
+    ElMessage.error(err?.message || '删除技能失败');
+  }
+}
+
+async function toggleSkillActiveState(skill: RemotionSkillItem) {
+  try {
+    await toggleRemotionSkill(skill.id);
+    ElMessage.success(`技能「${skill.name}」状态已更新`);
+    await fetchSkills(true);
+  } catch (err: any) {
+    ElMessage.error(err?.message || '更新技能状态失败');
+    skill.isActive = !skill.isActive; // 恢复原状
+  }
+}
+
+function openImportSkillDialog() {
+  skillImportMarkdown.value = '';
+  skillImportDialogVisible.value = true;
+}
+
+async function handleImportMarkdown() {
+  if (!skillImportMarkdown.value.trim()) return;
+  skillImportLoading.value = true;
+  try {
+    const res: any = await importRemotionSkillMarkdown(skillImportMarkdown.value.trim());
+    ElMessage.success(`成功导入技能「${res?.data?.name || res?.name || '新技能'}」`);
+    skillImportDialogVisible.value = false;
+    await fetchAllSkills();
+    await fetchSkills(true);
+  } catch (err: any) {
+    ElMessage.error(err?.message || '导入技能失败，请检查 Markdown 格式');
+  } finally {
+    skillImportLoading.value = false;
+  }
+}
+
 let processingPollTimer: ReturnType<typeof setTimeout> | null = null;
 let templateSearchTimer: ReturnType<typeof setTimeout> | null = null;
 const ACTIVE_RECORD_STATUSES = new Set([
@@ -2108,16 +3015,21 @@ function openAiGenerateDialog(initialData?: {
   mode?: 'ai-free-generate' | 'ai-generate';
 }) {
   aiGenerateVisible.value = true;
+  void fetchSkills();
 
   let customParamsJson = '';
   const initialParams = initialData?.params || {};
   const standardKeys = new Set([
     'orientation',
+    'aspectRatio',
+    'width',
+    'height',
     'duration',
     'fps',
     'title',
     'bgmUrl',
     'bgmVolume',
+    'skillIds',
   ]);
   const extraParams: Record<string, any> = {};
 
@@ -2136,12 +3048,42 @@ function openAiGenerateDialog(initialData?: {
     aiAdvancedCollapse.value = [];
   }
 
+  const initOrientation = (initialParams.orientation || 'portrait') as
+    | 'portrait'
+    | 'landscape'
+    | 'square';
+  const initWidth = initialParams.width
+    ? Number(initialParams.width)
+    : initOrientation === 'landscape'
+      ? 1920
+      : initOrientation === 'square'
+        ? 1080
+        : 1080;
+  const initHeight = initialParams.height
+    ? Number(initialParams.height)
+    : initOrientation === 'landscape'
+      ? 1080
+      : initOrientation === 'square'
+        ? 1080
+        : 1920;
+  const initAspectRatio =
+    initialParams.aspectRatio ||
+    (initOrientation === 'landscape'
+      ? '16:9'
+      : initOrientation === 'square'
+        ? '1:1'
+        : '9:16');
+
   aiForm.value = {
     mode: initialData?.mode || 'ai-free-generate',
     prompt: initialData?.prompt || '',
+    skillIds: initialData?.params?.skillIds || aiForm.value.skillIds || [],
     customParamsJson,
     params: {
-      orientation: initialParams.orientation || 'portrait',
+      orientation: initOrientation,
+      aspectRatio: initAspectRatio,
+      width: initWidth,
+      height: initHeight,
       duration: initialParams.duration ? Number(initialParams.duration) : undefined,
       fps: initialParams.fps ? Number(initialParams.fps) : 30,
       title: initialParams.title || '',
@@ -2152,6 +3094,19 @@ function openAiGenerateDialog(initialData?: {
           : 80,
     },
   };
+
+  const matchedAspect = ASPECT_RATIO_GROUPS.flatMap((g) => g.options).find(
+    (opt) => opt.width === initWidth && opt.height === initHeight
+  );
+  selectedAspectKey.value = matchedAspect ? matchedAspect.key : 'custom';
+
+  if (!initialParams.duration) {
+    selectedDurationKey.value = 'auto';
+  } else {
+    const durNum = Number(initialParams.duration);
+    const matchedDur = DURATION_PRESETS.find((p) => p.value === durNum);
+    selectedDurationKey.value = matchedDur ? matchedDur.value : 'custom';
+  }
 }
 
 function recreateFromDetail(row: any) {
@@ -2197,6 +3152,12 @@ async function submitAiGenerate() {
   if (aiForm.value.params.fps) basicParams.fps = Number(aiForm.value.params.fps);
   if (aiForm.value.params.orientation)
     basicParams.orientation = aiForm.value.params.orientation;
+  if (aiForm.value.params.width)
+    basicParams.width = Number(aiForm.value.params.width);
+  if (aiForm.value.params.height)
+    basicParams.height = Number(aiForm.value.params.height);
+  if (aiForm.value.params.aspectRatio)
+    basicParams.aspectRatio = aiForm.value.params.aspectRatio;
   if (aiForm.value.params.bgmUrl?.trim())
     basicParams.bgmUrl = aiForm.value.params.bgmUrl.trim();
   if (aiForm.value.params.title?.trim())
@@ -2205,16 +3166,21 @@ async function submitAiGenerate() {
     basicParams.bgmVolume = Math.round(aiForm.value.params.bgmVolume) / 100;
   }
 
-  const mergedParams = {
+  const mergedParams: Record<string, any> = {
     ...basicParams,
     ...customParams,
   };
+
+  if (aiForm.value.skillIds && aiForm.value.skillIds.length > 0) {
+    mergedParams.skillIds = aiForm.value.skillIds;
+  }
 
   const submitData = {
     action: aiForm.value.mode,
     prompt: aiForm.value.prompt.trim(),
     params: Object.keys(mergedParams).length > 0 ? mergedParams : undefined,
   };
+
 
   // 立即关闭弹窗，不阻塞用户
   aiGenerateVisible.value = false;
@@ -2357,6 +3323,22 @@ function hasPlayableVideo(row: any): boolean {
   const rawUrl = String(row.url || row.resultUrl || row.remotionVideoUrl || '').trim();
   if (rawUrl) return true;
   return row.status === 'success' || row.status === 'completed';
+}
+
+function getVideoRatioClass(row: any): string {
+  // 优先从 inputProps.params.orientation 获取
+  const orientation = String(row?.inputProps?.params?.orientation || '').toLowerCase();
+  if (orientation === 'portrait') return 'is-portrait';
+  if (orientation === 'landscape') return 'is-landscape';
+  if (orientation === 'square') return 'is-square';
+  //  fallback: 从 width/height 推算
+  const width = Number(row?.inputProps?.width || 0);
+  const height = Number(row?.inputProps?.height || 0);
+  if (width && height) {
+    if (width === height) return 'is-square';
+    return width > height ? 'is-landscape' : 'is-portrait';
+  }
+  return 'is-landscape'; // 默认横屏
 }
 
 function previewVideo(row: any) {
@@ -2562,10 +3544,8 @@ watch(
     max-width: none;
   }
 
-  .cell-video-player,
   .cell-video-wrapper {
     width: 140px;
-    height: 79px;
   }
 
   .template-grid {
@@ -2723,10 +3703,8 @@ watch(
     min-height: 0;
   }
 
-  .cell-video-player,
   .cell-video-wrapper {
     width: 120px;
-    height: 68px;
   }
 
   .record-title-main,
@@ -3778,8 +4756,8 @@ watch(
 }
 
 .cell-video-player {
-  width: 160px;
-  height: 90px;
+  width: 100%;
+  height: 100%;
   background: #000;
   border-radius: 6px;
   object-fit: cover;
@@ -3788,13 +4766,30 @@ watch(
 .cell-video-wrapper {
   position: relative;
   display: inline-flex;
-  width: 160px;
-  height: 90px;
   overflow: hidden;
   background: rgb(15 23 42 / 4%);
   border-radius: 6px;
   align-items: center;
   justify-content: center;
+  /* 固定宽度，高度按视频比例自适应 */
+  width: 160px;
+  /* 默认 16:9 横屏 */
+  aspect-ratio: 16 / 9;
+}
+
+/* 竖屏 9:16 */
+.cell-video-wrapper.is-portrait {
+  aspect-ratio: 9 / 16;
+}
+
+/* 横屏 16:9 */
+.cell-video-wrapper.is-landscape {
+  aspect-ratio: 16 / 9;
+}
+
+/* 方形 1:1 */
+.cell-video-wrapper.is-square {
+  aspect-ratio: 1 / 1;
 }
 
 .cell-video-placeholder {
@@ -4031,40 +5026,33 @@ watch(
   margin-bottom: 16px;
 }
 
-.form-row-duration {
+.custom-res-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  margin-top: 8px;
   width: 100%;
 }
 
-.quick-duration-group {
-  display: flex;
-  gap: 4px;
-}
-
-.dur-pill {
+.res-prefix {
   font-size: 11px;
-  padding: 3px 8px;
-  border-radius: 4px;
-  background: var(--el-fill-color-light);
-  border: 1px solid var(--el-border-color-lighter);
-  color: var(--el-text-color-regular);
-  cursor: pointer;
-  user-select: none;
-  transition: all 0.2s ease;
+  color: var(--el-text-color-secondary);
+  font-weight: 500;
 }
 
-.dur-pill:hover {
-  border-color: var(--el-color-primary-light-5);
-  color: var(--el-color-primary);
-}
-
-.dur-pill.active {
-  background: var(--el-color-primary-light-9);
-  border-color: var(--el-color-primary);
-  color: var(--el-color-primary);
+.res-multiply {
   font-weight: 600;
+  color: var(--el-text-color-secondary);
+  font-size: 14px;
+}
+
+.duration-control-wrapper {
+  width: 100%;
+}
+
+.custom-duration-input-box {
+  margin-top: 8px;
+  width: 100%;
 }
 
 .form-dual-row {
@@ -4286,4 +5274,662 @@ watch(
   color: #ffffff;
   filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6));
 }
+
+/* ==================== Remotion Skills Styles ==================== */
+.sidebar-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.sidebar-group-header .sidebar-group-title {
+  margin-bottom: 0;
+}
+
+.sidebar-group-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.skills-selector-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.skill-chip-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color-lighter);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  position: relative;
+}
+
+.skill-chip-card:hover {
+  border-color: var(--el-color-primary-light-5);
+  background: var(--el-fill-color);
+  transform: translateY(-1px);
+}
+
+.skill-chip-card.active {
+  background: rgba(var(--el-color-primary-rgb, 64, 158, 255), 0.08);
+  border-color: var(--el-color-primary);
+  box-shadow: 0 0 0 1px var(--el-color-primary);
+}
+
+.skill-chip-icon {
+  font-size: 20px;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.skill-chip-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.skill-chip-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.skill-chip-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.skill-sys-badge {
+  font-size: 10px;
+  line-height: 1.4;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--el-color-info-light-8);
+  color: var(--el-color-info);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.skill-chip-desc {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--el-text-color-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.skill-chip-check {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid var(--el-border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #fff;
+  flex-shrink: 0;
+  margin-top: 2px;
+  transition: all 0.2s ease;
+}
+
+.skill-chip-card.active .skill-chip-check {
+  background: var(--el-color-primary);
+  border-color: var(--el-color-primary);
+}
+
+/* Skills Manager Drawer Styles */
+.skill-drawer-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 16px;
+}
+
+.skill-drawer-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.skill-category-tabs {
+  margin-bottom: 4px;
+}
+
+.skill-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  padding-right: 4px;
+  max-height: calc(100vh - 200px);
+}
+
+.skill-manage-card {
+  border: 1px solid var(--el-border-color-lighter);
+  background: var(--el-bg-color-overlay);
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: all 0.2s ease;
+}
+
+.skill-manage-card:hover {
+  border-color: var(--el-color-primary-light-5);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.skill-manage-card.disabled {
+  opacity: 0.6;
+}
+
+.skill-manage-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.skill-manage-title-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.skill-manage-icon {
+  font-size: 26px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.skill-manage-title-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.skill-manage-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  margin-bottom: 3px;
+}
+
+.skill-manage-code {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+}
+
+.skill-manage-code code {
+  font-family: var(--el-font-family-monospace, monospace);
+  color: var(--el-text-color-secondary);
+  background: var(--el-fill-color);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.skill-manage-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.skill-manage-desc {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--el-text-color-regular);
+}
+
+.skill-manage-prompt-preview {
+  background: var(--el-fill-color-light);
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+
+.prompt-preview-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--el-text-color-secondary);
+  margin-bottom: 4px;
+}
+
+.prompt-code-block {
+  margin: 0;
+  font-family: var(--el-font-family-monospace, monospace);
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--el-text-color-regular);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.import-tips-banner {
+  background: rgba(var(--el-color-primary-rgb, 64, 158, 255), 0.08);
+  border: 1px solid var(--el-color-primary-light-7);
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--el-text-color-regular);
+  margin-bottom: 14px;
+}
+
+.import-tips-banner code {
+  background: rgba(var(--el-color-primary-rgb, 64, 158, 255), 0.15);
+  color: var(--el-color-primary);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+
+.skill-select-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.skill-select-label-title {
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.skill-count-badge {
+  margin-left: 8px;
+}
+
+.skill-label-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.selected-skills-tags-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: var(--el-fill-color-lighter, #f8fafc);
+  border-radius: 6px;
+  border: 1px solid var(--el-border-color-lighter, #e2e8f0);
+}
+
+:global(html.dark) .selected-skills-tags-wrap {
+  background: #181818;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.selected-skill-pill {
+  cursor: default;
+}
+
+.pill-category {
+  opacity: 0.8;
+  margin-right: 3px;
+  font-size: 10px;
+}
 </style>
+
+<style lang="scss">
+.skill-multi-select-dropdown {
+  min-width: 440px !important;
+  max-width: 580px !important;
+
+  .el-select-group__title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--el-text-color-secondary, #64748b);
+    padding: 6px 14px 4px;
+    line-height: 18px;
+    background: var(--el-fill-color-lighter, #f8fafc);
+    border-bottom: 1px solid var(--el-border-color-extra-light, #f1f5f9);
+    letter-spacing: 0.3px;
+  }
+
+  .el-select-group__wrap:not(:last-of-type) {
+    border-bottom: 1px dashed var(--el-border-color-lighter, #e2e8f0);
+    padding-bottom: 2px;
+    margin-bottom: 2px;
+  }
+
+  .el-select-dropdown__item {
+    height: 38px !important;
+    line-height: 38px !important;
+    padding: 0 36px 0 14px !important;
+    display: flex !important;
+    align-items: center !important;
+    box-sizing: border-box;
+
+    &.is-hovering {
+      background-color: var(--el-fill-color-light, #f1f5f9);
+    }
+
+    &.is-selected {
+      color: var(--el-color-primary, #409eff);
+      font-weight: 500;
+    }
+  }
+
+  .skill-dropdown-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    height: 100%;
+    gap: 12px;
+  }
+
+  .skill-dropdown-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    color: var(--el-text-color-primary);
+  }
+
+  .skill-dropdown-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .skill-dropdown-code {
+    font-family: var(--el-font-family-monospace, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
+    font-size: 11px;
+    color: var(--el-color-primary);
+    background: color-mix(in srgb, var(--el-color-primary) 10%, transparent);
+    padding: 0 6px;
+    border-radius: 4px;
+    height: 20px;
+    line-height: 18px;
+    border: 1px solid color-mix(in srgb, var(--el-color-primary) 28%, transparent);
+    box-sizing: border-box;
+    display: inline-block;
+  }
+
+  .skill-dropdown-sys {
+    font-size: 10px;
+    color: var(--el-text-color-secondary);
+    background: var(--el-fill-color, #f1f5f9);
+    padding: 0 5px;
+    border-radius: 4px;
+    height: 20px;
+    line-height: 18px;
+    border: 1px solid var(--el-border-color-lighter, #e2e8f0);
+    font-weight: 500;
+    box-sizing: border-box;
+    display: inline-block;
+  }
+}
+
+html.dark .skill-multi-select-dropdown {
+  .el-select-group__title {
+    color: rgba(255, 255, 255, 0.55);
+    background: #181818;
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .el-select-group__wrap:not(:last-of-type) {
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .el-select-dropdown__item {
+    &.is-hovering {
+      background-color: rgba(255, 255, 255, 0.06);
+    }
+    &.is-selected {
+      color: var(--el-color-primary-light-3, var(--el-color-primary));
+    }
+  }
+
+  .skill-dropdown-name {
+    color: rgba(255, 255, 255, 0.92);
+  }
+
+  .skill-dropdown-code {
+    color: var(--el-color-primary-light-3, var(--el-color-primary));
+    background: color-mix(in srgb, var(--el-color-primary) 18%, transparent);
+    border-color: color-mix(in srgb, var(--el-color-primary) 38%, transparent);
+  }
+
+  .skill-dropdown-sys {
+    color: #cbd5e1;
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+}
+
+.aspect-ratio-select-dropdown {
+  min-width: 400px !important;
+  max-width: 540px !important;
+
+  .el-select-group__title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--el-text-color-secondary, #64748b);
+    padding: 6px 14px 4px;
+    line-height: 18px;
+    background: var(--el-fill-color-lighter, #f8fafc);
+    border-bottom: 1px solid var(--el-border-color-extra-light, #f1f5f9);
+    letter-spacing: 0.3px;
+  }
+
+  .el-select-group__wrap:not(:last-of-type) {
+    border-bottom: 1px dashed var(--el-border-color-lighter, #e2e8f0);
+    padding-bottom: 2px;
+    margin-bottom: 2px;
+  }
+
+  .el-select-dropdown__item {
+    height: 38px !important;
+    line-height: 38px !important;
+    padding: 0 14px !important;
+    display: flex !important;
+    align-items: center !important;
+    box-sizing: border-box;
+
+    &.is-hovering {
+      background-color: var(--el-fill-color-light, #f1f5f9);
+    }
+
+    &.is-selected {
+      color: var(--el-color-primary, #409eff);
+      font-weight: 500;
+    }
+  }
+
+  .aspect-option-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    height: 100%;
+    gap: 10px;
+  }
+
+  .aspect-option-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .aspect-ratio-badge {
+    font-family: var(--el-font-family-monospace, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--el-color-primary);
+    background: color-mix(in srgb, var(--el-color-primary) 10%, transparent);
+    padding: 0 6px;
+    border-radius: 4px;
+    height: 20px;
+    line-height: 18px;
+    border: 1px solid color-mix(in srgb, var(--el-color-primary) 28%, transparent);
+    box-sizing: border-box;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+
+  .aspect-option-label {
+    font-size: 13px;
+    color: var(--el-text-color-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .aspect-res-tag {
+    font-size: 11px;
+    color: var(--el-text-color-secondary);
+    background: var(--el-fill-color, #f1f5f9);
+    padding: 0 6px;
+    border-radius: 4px;
+    height: 20px;
+    line-height: 18px;
+    border: 1px solid var(--el-border-color-lighter, #e2e8f0);
+    box-sizing: border-box;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+}
+
+html.dark .aspect-ratio-select-dropdown {
+  .el-select-group__title {
+    color: rgba(255, 255, 255, 0.55);
+    background: #181818;
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .el-select-group__wrap:not(:last-of-type) {
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .el-select-dropdown__item {
+    &.is-hovering {
+      background-color: rgba(255, 255, 255, 0.06);
+    }
+    &.is-selected {
+      color: var(--el-color-primary-light-3, var(--el-color-primary));
+    }
+  }
+
+  .aspect-option-label {
+    color: rgba(255, 255, 255, 0.92);
+  }
+
+  .aspect-ratio-badge {
+    color: var(--el-color-primary-light-3, var(--el-color-primary));
+    background: color-mix(in srgb, var(--el-color-primary) 18%, transparent);
+    border-color: color-mix(in srgb, var(--el-color-primary) 38%, transparent);
+  }
+
+  .aspect-res-tag {
+    color: #cbd5e1;
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+}
+
+.duration-select-dropdown {
+  min-width: 380px !important;
+  max-width: 520px !important;
+
+  .el-select-dropdown__item {
+    height: 38px !important;
+    line-height: 38px !important;
+    padding: 0 14px !important;
+    display: flex !important;
+    align-items: center !important;
+    box-sizing: border-box;
+
+    &.is-hovering {
+      background-color: var(--el-fill-color-light, #f1f5f9);
+    }
+
+    &.is-selected {
+      color: var(--el-color-primary, #409eff);
+      font-weight: 500;
+    }
+  }
+
+  .duration-option-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    height: 100%;
+    gap: 12px;
+  }
+
+  .duration-option-label {
+    font-size: 13px;
+    color: var(--el-text-color-primary);
+    font-weight: 500;
+  }
+
+  .duration-option-desc {
+    font-size: 11px;
+    color: var(--el-text-color-secondary);
+    background: var(--el-fill-color, #f1f5f9);
+    padding: 0 6px;
+    border-radius: 4px;
+    height: 20px;
+    line-height: 18px;
+    border: 1px solid var(--el-border-color-lighter, #e2e8f0);
+    box-sizing: border-box;
+    white-space: nowrap;
+  }
+}
+
+html.dark .duration-select-dropdown {
+  .el-select-dropdown__item {
+    &.is-hovering {
+      background-color: rgba(255, 255, 255, 0.06);
+    }
+    &.is-selected {
+      color: var(--el-color-primary-light-3, var(--el-color-primary));
+    }
+  }
+
+  .duration-option-label {
+    color: rgba(255, 255, 255, 0.92);
+  }
+
+  .duration-option-desc {
+    color: #cbd5e1;
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+}
+</style>
+
