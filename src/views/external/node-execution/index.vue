@@ -198,15 +198,17 @@ const gridData = computed(() => tableData.value)
 const gridOptions = computed<VxeGridProps>(() => ({
   ...commonGridOptions,
   id: 'node-execution-grid',
+  width: '100%',
+  scrollX: { enabled: true, gt: 0 },
   columns: [
-    { field: 'createdAt', title: '时间', width: 170, formatter: ({ cellValue }) => cellValue ? new Date(cellValue).toLocaleString('zh-CN', { hour12: false }) : '-' },
-    { field: 'nodeKey', title: '节点', minWidth: 120, flex: 1, formatter: ({ cellValue }) => cellValue || '-' },
-    { field: 'nodeType', title: '类型', width: 100, formatter: ({ cellValue }) => nodeTypeLabel(String(cellValue)) },
-    { field: 'triggerSource', title: '来源', width: 80, formatter: ({ cellValue }) => triggerSourceLabel(String(cellValue)) },
-    { field: 'item_count', title: '条目', width: 70, align: 'center', slots: { default: 'item_count' } },
-    { field: 'duration', title: '耗时', width: 90, align: 'right', slots: { default: 'duration' } },
-    { field: 'status', title: '状态', width: 80, align: 'center', slots: { default: 'status' } },
-    { field: 'client', title: '客户端', minWidth: 100, flex: 1, slots: { default: 'client' } },
+    { field: 'createdAt', title: '时间', width: 168, showOverflow: true, formatter: ({ cellValue }) => cellValue ? new Date(cellValue).toLocaleString('zh-CN', { hour12: false }) : '-' },
+    { field: 'nodeType', title: '类型', width: 110, showOverflow: true, formatter: ({ cellValue }) => nodeTypeLabel(String(cellValue)) },
+    { field: 'nodeKey', title: '节点', minWidth: 140, flex: 2, showOverflow: true, formatter: ({ cellValue }) => cellValue || '-' },
+    { field: 'triggerSource', title: '来源', width: 80, align: 'center', formatter: ({ cellValue }) => triggerSourceLabel(String(cellValue)) },
+    { field: 'item_count', title: '条目', width: 60, align: 'center', slots: { default: 'item_count' } },
+    { field: 'duration', title: '耗时', width: 80, align: 'right', showOverflow: true, slots: { default: 'duration' } },
+    { field: 'status', title: '状态', width: 70, align: 'center', slots: { default: 'status' } },
+    { field: 'client', title: '执行方', minWidth: 80, flex: 1, align: 'center', slots: { default: 'client' } },
   ],
 }))
 
@@ -363,6 +365,14 @@ onMounted(() => {
 }
 .node-execution-page .list-page-layout__main {
   gap: 10px;
+}
+
+/* 确保表格占满容器宽度 */
+.node-execution-page .common-table {
+  width: 100%;
+}
+.node-execution-page .vxe-grid {
+  width: 100%;
 }
 .node-execution-page .list-page-filter--flat {
   gap: 10px;
