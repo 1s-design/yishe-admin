@@ -280,8 +280,17 @@ const handleDataChange = (fieldName?: string, selectedLabel?: string) => {
     }
   }
 
-  // 开始节点：确保 inputParams 里的 key 与 defaultValue 同步到 config 根对象上
+  // 开始节点：确保 inputParams 里的 key 与 defaultValue 同步到 config 根对象上，同时清理已删除的 key
   if (props.node.type === "start" && Array.isArray(config.inputParams)) {
+    const systemKeys = new Set(["triggerType", "cron", "inputParams", "webhook", "path"]);
+    const paramKeys = new Set(config.inputParams.map((p: any) => p.key).filter(Boolean));
+    // 移除已删除的 inputParams 对应的 config 根级 key，避免 watch 自动补回
+    for (const key of Object.keys(config)) {
+      if (!systemKeys.has(key) && !paramKeys.has(key)) {
+        delete config[key];
+      }
+    }
+    // 同步 inputParams 到 config 根对象
     for (const param of config.inputParams) {
       if (param.key) {
         config[param.key] = param.defaultValue ?? config[param.key] ?? "";
@@ -450,7 +459,7 @@ const removeInputParam = (index: number) => {
               <div class="wf-param-list" style="display: flex; flex-direction: column; gap: 8px">
                 <div
                   v-for="(param, idx) in form.config.inputParams || []"
-                  :key="idx"
+                  :key="param.key || idx"
                   class="wf-param-card"
                   style="padding: 8px; border: 1px solid var(--el-border-color-lighter); border-radius: 6px; background: var(--el-fill-color-blank); display: flex; flex-direction: column; gap: 6px"
                 >
@@ -503,7 +512,7 @@ const removeInputParam = (index: number) => {
                       :rows="param.type === 'json' ? 2 : 1"
                       placeholder="默认测试值 / 初始值"
                       size="small"
-                      @input="() => { form.config[param.key] = param.defaultValue; handleDataChange(); }"
+                      @input="() => { if (param.key) form.config[param.key] = param.defaultValue; handleDataChange(); }"
                     />
                   </div>
                 </div>

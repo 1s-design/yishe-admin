@@ -9,10 +9,21 @@
               <el-col :xs="24" :sm="12" :md="8" :lg="6">
                 <el-form-item label="节点类型">
                   <el-select v-model="filters.nodeType" placeholder="全部类型" clearable size="small" style="width: 100%" @change="handleSearch">
-                    <el-option label="热搜" value="hotsearch" />
+                    <el-option label="全部热搜" value="hotsearch" />
+                    <el-option label="抖音热搜" value="hotsearch_douyin" />
+                    <el-option label="百度热搜" value="hotsearch_baidu" />
+                    <el-option label="头条热搜" value="hotsearch_toutiao" />
+                    <el-option label="B站热搜" value="hotsearch_bilibili" />
+                    <el-option label="知乎热搜" value="hotsearch_zhihu" />
+                    <el-option label="微博热搜" value="hotsearch_weibo" />
+                    <el-option label="豆瓣热搜" value="hotsearch_douban" />
+                    <el-option label="快手热搜" value="hotsearch_kuaishou" />
+                    <el-option label="小红书热搜" value="hotsearch_xiaohongshu" />
+                    <el-option label="JS代码" value="js_code" />
+                    <el-option label="AI调用" value="ai_call" />
+                    <el-option label="飞书推送" value="message_push_feishu" />
                     <el-option label="图片引擎" value="image-engine" />
-                    <el-option label="浏览器自动化" value="browser-automation" />
-                    <el-option label="AI服务" value="ai-service" />
+                    <el-option label="浏览器" value="browser-automation" />
                   </el-select>
                 </el-form-item>
               </el-col>
@@ -30,6 +41,17 @@
                 <el-form-item label="节点">
                   <el-select v-model="filters.nodeKey" placeholder="全部节点" clearable size="small" style="width: 100%" @change="handleSearch">
                     <el-option v-for="node in availableNodes" :key="node.key" :label="node.label" :value="node.key" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="12" :md="8" :lg="6">
+                <el-form-item label="来源">
+                  <el-select v-model="filters.triggerSource" placeholder="全部来源" clearable size="small" style="width: 100%" @change="handleSearch">
+                    <el-option label="手动" value="admin-ui" />
+                    <el-option label="工作流" value="workflow" />
+                    <el-option label="定时" value="schedule" />
+                    <el-option label="API" value="api" />
+                    <el-option label="AI" value="ai-agent" />
                   </el-select>
                 </el-form-item>
               </el-col>
@@ -62,7 +84,8 @@
                   @cell-click="handleCellClick"
                 >
                   <template #item_count="{ row }">
-                    <span v-if="row.data?.item_count">{{ row.data.item_count }}</span>
+                    <span v-if="row.data?.itemCount || row.data?.item_count">{{ row.data.itemCount || row.data.item_count }}</span>
+                    <span v-else-if="row.data?.items?.length">{{ row.data.items.length }}</span>
                     <span v-else>-</span>
                   </template>
                   <template #duration="{ row }">
@@ -156,6 +179,7 @@ const filters = reactive({
   nodeType: '',
   status: '',
   nodeKey: '',
+  triggerSource: '',
   keyword: '',
 })
 
@@ -220,6 +244,7 @@ async function fetchList() {
       nodeType: filters.nodeType || undefined,
       status: filters.status || undefined,
       nodeKey: filters.nodeKey || undefined,
+      triggerSource: filters.triggerSource || undefined,
       page: pagination.page,
       limit: pagination.limit,
     })
@@ -247,6 +272,7 @@ function handleReset() {
   filters.nodeType = ''
   filters.status = ''
   filters.nodeKey = ''
+  filters.triggerSource = ''
   filters.keyword = ''
   pagination.page = 1
   fetchList()
@@ -266,12 +292,52 @@ function statusTagType(status: string) {
   return { running: 'primary', success: 'success', failed: 'danger', timeout: 'warning' }[status] || 'info'
 }
 
+// 节点类型中文映射（细分到具体子类型）
+const NODE_TYPE_LABELS: Record<string, string> = {
+  // 基础节点
+  start: '开始',
+  end: '结束',
+  // JS 代码
+  js_code: 'JS代码',
+  // AI 节点
+  ai_call: 'AI调用',
+  ai: 'AI调用',
+  deep_research: '深度研究',
+  ai_code_interpreter: 'AI代码解释',
+  // 消息推送
+  message_push_feishu: '飞书推送',
+  message_push: '消息推送',
+  // 图片引擎
+  'image-engine': '图片引擎',
+  // 浏览器
+  'browser-automation': '浏览器',
+  // 热搜细分
+  hotsearch: '热搜',
+  hotsearch_douyin: '抖音热搜',
+  hotsearch_baidu: '百度热搜',
+  hotsearch_toutiao: '头条热搜',
+  hotsearch_bilibili: 'B站热搜',
+  hotsearch_zhihu: '知乎热搜',
+  hotsearch_douban: '豆瓣热搜',
+  hotsearch_kuaishou: '快手热搜',
+  hotsearch_weibo: '微博热搜',
+  hotsearch_xiaohongshu: '小红书热搜',
+  hotsearch_v2ex: 'V2EX热搜',
+  hotsearch_ithome: 'IT之家热搜',
+  hotsearch_github: 'GitHub趋势',
+  hotsearch_devto: 'Dev.to热搜',
+  hotsearch_jd_hot: '京东热搜',
+  hupu_post_search: '虎扑热帖',
+  douyin_jingxuan_search: '抖音精选',
+}
+
 function nodeTypeLabel(type: string) {
-  return { hotsearch: '热搜', 'image-engine': '图片', 'browser-automation': '浏览器', 'ai-service': 'AI' }[type] || type
+  return NODE_TYPE_LABELS[type] || type
 }
 
 function nodeTypeTagType(type: string) {
-  return { hotsearch: 'danger', 'image-engine': '', 'browser-automation': 'warning', 'ai-service': 'success' }[type] || 'info'
+  if (type.startsWith('hotsearch_') || type === 'hotsearch') return 'danger'
+  return { start: '', end: 'info', js_code: 'primary', ai_call: 'success', ai: 'success', 'image-engine': 'warning', 'browser-automation': 'warning' }[type] || 'info'
 }
 
 function triggerSourceLabel(source: string) {
