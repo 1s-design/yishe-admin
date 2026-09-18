@@ -5,18 +5,12 @@
         <div class="menu-header">热搜采集</div>
         <nav class="menu-list">
           <div class="menu-group">
-            <div
-              class="menu-item history-entry"
-              @click="goToHistory"
-            >
-              <span class="menu-item-text">📋 运行记录</span>
+            <div class="menu-item" @click="goToHistory">
+              <span class="menu-item-text">运行记录</span>
             </div>
           </div>
           <div v-for="group in menuGroups" :key="group.label" class="menu-group">
-            <div class="menu-group__label">
-              {{ group.label }}
-              <span class="menu-group__count">{{ group.items.length }}</span>
-            </div>
+            <div class="menu-group__label">{{ group.label }}</div>
             <div
               v-for="item in group.items"
               :key="item.key"
@@ -99,19 +93,6 @@ watch(
   height: 100%;
 }
 
-.history-entry {
-  cursor: pointer;
-  font-weight: 500;
-  color: var(--el-color-primary);
-  border-left: 3px solid var(--el-color-primary);
-  padding-left: 12px !important;
-  margin-bottom: 8px;
-}
-
-.history-entry:hover {
-  background: var(--el-color-primary-light-9);
-}
-
 .collect-layout {
   display: flex;
   gap: 12px;
@@ -129,11 +110,7 @@ watch(
   font-size: 11px;
   font-weight: 600;
   color: var(--el-text-color-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  padding: 0 8px 8px 8px;
-  margin-bottom: 4px;
-  border-bottom: 1px solid var(--el-border-color-extra-light);
+  padding: 0 8px 4px 8px;
 }
 
 .menu-group {
@@ -147,13 +124,6 @@ watch(
   font-size: 11px;
   color: var(--el-text-color-placeholder);
   padding: 0 8px 4px 8px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.menu-group__count {
-  font-size: 10px;
 }
 
 .menu-item {

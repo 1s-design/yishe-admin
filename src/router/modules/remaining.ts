@@ -51,6 +51,16 @@ const remainingRouter: AppRouteRecordRaw[] = [
         },
       },
       {
+        path: 'node-execution',
+        component: () => import('@/views/external/node-execution/index.vue'),
+        name: 'WorkflowNodeExecution',
+        meta: {
+          title: "节点运行记录",
+          icon: "lucide:activity",
+          noCache: true,
+        },
+      },
+      {
         path: 'editor/:id',
         component: () => import('@/views/workflow/editor/index.vue'),
         name: 'WorkflowEditor',
@@ -909,15 +919,6 @@ const remainingRouter: AppRouteRecordRaw[] = [
         name: "ExternalHotsearchCollect",
         meta: {
           title: "router.hotsearchCollect",
-        },
-      },
-      {
-        path: "node-execution",
-        component: () => import("@/views/external/node-execution/index.vue"),
-        name: "ExternalNodeExecution",
-        meta: {
-          title: "节点运行记录",
-          icon: "lucide:activity",
         },
       },
       {
