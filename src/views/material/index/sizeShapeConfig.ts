@@ -207,3 +207,71 @@ export function getSizeShapeByRatio(aspectRatio: number): SizeShapeConfig | unde
 export function getFullLabel(config: SizeShapeConfig): string {
   return `${config.label} (${config.ratio}) [${config.key}]`
 }
+
+/**
+ * 常用标准比例预设选项
+ */
+export const COMMON_ASPECT_RATIOS = [
+  { label: '1:1', name: '正方形', value: 1.0 },
+  { label: '4:3', name: '标准横', value: 1.333 },
+  { label: '3:4', name: '标准竖', value: 0.75 },
+  { label: '16:9', name: '宽屏横', value: 1.778 },
+  { label: '9:16', name: '海报竖', value: 0.5625 },
+  { label: '3:2', name: '摄影横', value: 1.5 },
+  { label: '2:3', name: '摄影竖', value: 0.667 },
+  { label: '2.35:1', name: '超宽屏', value: 2.35 },
+]
+
+/**
+ * 容差百分比选项
+ */
+export const TOLERANCE_OPTIONS = [
+  { label: '±2%', value: 2 },
+  { label: '±5% (推荐)', value: 5 },
+  { label: '±10%', value: 10 },
+  { label: '±15%', value: 15 },
+]
+
+/**
+ * 智能解析用户输入的比例（支持 1.2、0.2、16:9、9:16、16/9 等）
+ */
+export function parseAspectRatioInput(input: string | number | null | undefined): number | null {
+  if (input === null || input === undefined) return null
+  if (typeof input === 'number') {
+    return isNaN(input) || input <= 0 ? null : Number(input.toFixed(4))
+  }
+
+  const trimmed = String(input).trim()
+  if (!trimmed) return null
+
+  // 1. 处理带冒号、斜杠、x 或 * 的比例格式：如 "16:9", "16/9", "9:16", "3x2"
+  const ratioMatch = trimmed.match(/^(\d+(?:\.\d+)?)\s*[:/xX*]\s*(\d+(?:\.\d+)?)$/)
+  if (ratioMatch) {
+    const w = parseFloat(ratioMatch[1])
+    const h = parseFloat(ratioMatch[2])
+    if (w > 0 && h > 0) {
+      return Number((w / h).toFixed(4))
+    }
+  }
+
+  // 2. 处理直接输入的小数或整数：如 "1.2", "0.2", "1.78"
+  const num = parseFloat(trimmed)
+  if (!isNaN(num) && num > 0) {
+    return Number(num.toFixed(4))
+  }
+
+  return null
+}
+
+/**
+ * 根据目标宽高比和百分比容差计算检索范围 [min, max]
+ */
+export function calculateAspectRatioRange(
+  target: number,
+  tolerancePct = 5,
+): { min: number; max: number } {
+  const safeTol = Math.max(0.1, Math.min(50, Number(tolerancePct) || 5)) / 100
+  const min = Number((target * (1 - safeTol)).toFixed(4))
+  const max = Number((target * (1 + safeTol)).toFixed(4))
+  return { min, max }
+}
