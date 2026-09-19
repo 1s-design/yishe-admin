@@ -535,6 +535,16 @@
                             controls-position="right"
                           />
                         </div>
+                        <div class="field-block">
+                          <label>旋转角度 (rotation°)</label>
+                          <el-input-number
+                            v-model="item.rotation"
+                            :min="-360"
+                            :max="360"
+                            :step="90"
+                            controls-position="right"
+                          />
+                        </div>
                       </div>
                       <div v-if="item.resizeMode === 'custom'" class="field-block">
                         <label>custom_options</label>
@@ -682,6 +692,7 @@ interface SmartObjectForm {
   backgroundImagePath: string;
   resizeMode: "contain" | "cover" | "stretch" | "custom";
   tileSize: number;
+  rotation: number;
   customOptionsText: string;
 }
 
@@ -788,6 +799,7 @@ const createSmartObject = (): SmartObjectForm => ({
   backgroundImagePath: "",
   resizeMode: "contain",
   tileSize: 512,
+  rotation: 0,
   customOptionsText: "",
 });
 
@@ -1547,6 +1559,7 @@ const buildProcessRequest = (strict = true) => {
         image_path: imagePath,
         resize_mode: item.resizeMode || "contain",
         tile_size: Math.max(64, Number(item.tileSize) || 512),
+        rotation: Number(item.rotation) || 0,
       };
 
       if (smartObjectName) {
