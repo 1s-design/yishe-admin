@@ -828,7 +828,7 @@
     <el-dialog
       v-model="psdTemplateConfigGuideVisible"
       :title="t('psdTemplate.configTutorial')"
-      width="760px"
+      fullscreen
       append-to-body
       destroy-on-close
       class="psd-config-guide-dialog"
@@ -860,6 +860,42 @@
         </section>
 
         <section class="psd-config-guide__section">
+          <h3>{{ t('psdTemplate.paramDocs') }}</h3>
+          <div class="psd-config-guide__params">
+            <div class="psd-config-guide__param">
+              <h4><code>resize_mode</code></h4>
+              <p>{{ t('psdTemplate.resizeModeDesc') }}</p>
+              <ul>
+                <li><code>contain</code> — {{ t('psdTemplate.resizeModeContain') }}</li>
+                <li><code>cover</code> — {{ t('psdTemplate.resizeModeCover') }}</li>
+                <li><code>stretch</code> — {{ t('psdTemplate.resizeModeStretch') }}</li>
+                <li><code>custom</code> — {{ t('psdTemplate.resizeModeCustom') }}</li>
+              </ul>
+            </div>
+            <div class="psd-config-guide__param">
+              <h4><code>background_image_path</code></h4>
+              <p>{{ t('psdTemplate.bgImagePathDesc') }}</p>
+            </div>
+            <div class="psd-config-guide__param">
+              <h4><code>rotation</code></h4>
+              <p>{{ t('psdTemplate.rotationDesc') }}</p>
+            </div>
+            <div class="psd-config-guide__param">
+              <h4><code>tile_size</code></h4>
+              <p>{{ t('psdTemplate.tileSizeDesc') }}</p>
+            </div>
+            <div class="psd-config-guide__param">
+              <h4><code>smart_object_name</code></h4>
+              <p>{{ t('psdTemplate.smartObjectNameDesc') }}</p>
+            </div>
+            <div class="psd-config-guide__param">
+              <h4><code>defaults</code></h4>
+              <p>{{ t('psdTemplate.defaultsDesc') }}</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="psd-config-guide__section">
           <h3>{{ t('psdTemplate.configExample') }}</h3>
           <pre class="psd-config-guide__code"><code>{{ psdTemplateConfigGuideExample }}</code></pre>
           <p class="psd-config-guide__note">
@@ -874,59 +910,6 @@
         </el-button>
         <el-button type="primary" @click="applyPsdTemplateConfigGuideExample">{{ t('psdTemplate.applyConfig') }}</el-button>
         <el-button @click="psdTemplateConfigGuideVisible = false">{{ t('psdTemplate.close') }}</el-button>
-      </template>
-    </el-dialog>
-
-    <el-dialog
-      v-model="psdTemplateConfigGuideVisible"
-      title="PSD 模板配置教程"
-      width="760px"
-      append-to-body
-      destroy-on-close
-      class="psd-config-guide-dialog"
-    >
-      <div class="psd-config-guide">
-        <section class="psd-config-guide__section">
-          <h3>匹配方式</h3>
-          <p>
-            图片按照组图序号依次绑定 <code>smart_objects</code> 配置；
-            <code>smart_object_name</code> 用于将该配置匹配到 PSD 中的实际智能对象。
-          </p>
-          <div class="psd-config-guide__flow">
-            <span>组图第 N 张</span>
-            <el-icon><DArrowRight /></el-icon>
-            <span>配置第 N 项</span>
-            <el-icon><DArrowRight /></el-icon>
-            <span>指定名称的智能对象</span>
-          </div>
-        </section>
-
-        <section class="psd-config-guide__section">
-          <h3>顺序示例</h3>
-          <p>PSD 中有智能对象 <code>a</code>、<code>b</code>、<code>c</code>，需要按以下方式放图：</p>
-          <div class="psd-config-guide__mapping">
-            <div><strong>第 1 张图</strong><span>智能对象 b</span></div>
-            <div><strong>第 2 张图</strong><span>智能对象 c</span></div>
-            <div><strong>第 3 张图</strong><span>智能对象 a</span></div>
-          </div>
-        </section>
-
-        <section class="psd-config-guide__section">
-          <h3>配置示例</h3>
-          <pre class="psd-config-guide__code"><code>{{ psdTemplateConfigGuideExample }}</code></pre>
-          <p class="psd-config-guide__note">
-            不需要填写 <code>image_path</code>，制作套图时会按组图顺序自动注入。智能对象名称会先精确匹配，
-            再尝试包含匹配；仍未命中时才按 PSD 智能对象发现顺序兜底。
-          </p>
-        </section>
-      </div>
-
-      <template #footer>
-        <el-button :icon="DocumentCopy" @click="copyPsdTemplateConfigGuideExample">
-          复制示例
-        </el-button>
-        <el-button type="primary" @click="applyPsdTemplateConfigGuideExample">填入配置</el-button>
-        <el-button @click="psdTemplateConfigGuideVisible = false">关闭</el-button>
       </template>
     </el-dialog>
 
@@ -1180,12 +1163,14 @@ const psdTemplateConfigGuideExample = JSON.stringify(
   {
     defaults: {
       resize_mode: "contain",
+      background_image_path: "",
+      rotation: 0,
       tile_size: 512,
     },
     smart_objects: [
-      { smart_object_name: "b", resize_mode: "contain" },
-      { smart_object_name: "c", resize_mode: "contain" },
-      { smart_object_name: "a", resize_mode: "contain" },
+      { smart_object_name: "b", resize_mode: "cover", background_image_path: "", rotation: 0 },
+      { smart_object_name: "c", resize_mode: "contain", background_image_path: "", rotation: 0 },
+      { smart_object_name: "a", resize_mode: "stretch", background_image_path: "", rotation: 0 },
     ],
     verbose: true,
   },
@@ -2463,6 +2448,7 @@ function createDefaultPsdTemplateConfig() {
         image_path: "",
         resize_mode: "contain",
         background_image_path: "",
+        rotation: 0,
         tile_size: 512,
       },
     ],
@@ -2933,6 +2919,48 @@ function handleCutoutModesChange(values: string[]) {
   margin-bottom: 0 !important;
   color: var(--el-text-color-secondary);
   font-size: 13px;
+}
+
+.psd-config-guide__params {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.psd-config-guide__param {
+  padding: 12px 14px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 6px;
+  background: var(--el-fill-color-extra-light);
+
+  h4 {
+    margin: 0 0 6px;
+    font-size: 13px;
+    line-height: 1.4;
+
+    code {
+      color: var(--el-color-primary);
+    }
+  }
+
+  p {
+    margin: 0 0 8px;
+    line-height: 1.6;
+  }
+
+  ul {
+    margin: 0;
+    padding-left: 18px;
+
+    li {
+      margin-bottom: 4px;
+      line-height: 1.6;
+
+      code {
+        color: var(--el-color-primary);
+      }
+    }
+  }
 }
 
 .dialog-section-config {
