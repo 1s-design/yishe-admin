@@ -153,7 +153,7 @@
                     <el-popover
                       v-model:visible="customRatioPopoverVisible"
                       placement="bottom-end"
-                      :width="340"
+                      :width="310"
                       trigger="click"
                       popper-class="custom-aspect-ratio-popover"
                     >
@@ -174,92 +174,105 @@
                       
                       <div class="custom-ratio-popover-body">
                         <div class="custom-ratio-header">
-                          <span class="custom-ratio-title">自定义宽高比检索</span>
-                          <span class="custom-ratio-tip">支持小数 (如 1.2, 0.2) 或比例 (如 16:9, 3:4)</span>
+                          <span class="title">自定义宽高比</span>
+                          <span class="subtitle">支持小数或比例 (如 0.7, 16:9)</span>
                         </div>
 
                         <!-- 常用标准比例快捷标签 -->
-                        <div class="custom-ratio-presets">
-                          <span class="preset-label">常用预设:</span>
-                          <div class="preset-tags">
-                            <el-check-tag
+                        <div class="preset-group">
+                          <span class="preset-title">常用:</span>
+                          <div class="preset-items">
+                            <span
                               v-for="preset in COMMON_ASPECT_RATIOS"
                               :key="preset.label"
-                              :checked="customRatioInput === preset.label"
-                              @change="() => selectPresetRatio(preset)"
-                              class="preset-tag"
+                              class="preset-chip"
+                              :class="{ 'is-active': customRatioInput === preset.label }"
+                              @click="selectPresetRatio(preset)"
                             >
                               {{ preset.label }}
-                            </el-check-tag>
+                            </span>
                           </div>
                         </div>
 
                         <!-- 输入框与容差设置 -->
                         <div class="custom-ratio-inputs">
-                          <div class="input-item input-item--ratio">
-                            <span class="item-label">目标比例:</span>
-                            <el-input
-                              v-model="customRatioInput"
-                              size="small"
-                              placeholder="例: 1.2 或 16:9"
-                              clearable
-                              @keyup.enter="applyCustomAspectRatio"
+                          <el-input
+                            v-model="customRatioInput"
+                            size="small"
+                            placeholder="例: 0.7 或 16:9"
+                            clearable
+                            class="ratio-input"
+                            @keyup.enter="applyCustomAspectRatio"
+                          >
+                            <template #prefix>
+                              <span class="input-prefix-label">比例</span>
+                            </template>
+                          </el-input>
+                          <el-select
+                            v-model="customRatioTolerance"
+                            size="small"
+                            class="tolerance-select"
+                            placeholder="容差"
+                          >
+                            <el-option
+                              v-for="opt in TOLERANCE_OPTIONS"
+                              :key="opt.value"
+                              :label="opt.label"
+                              :value="opt.value"
                             />
-                          </div>
-                          <div class="input-item input-item--tolerance">
-                            <span class="item-label">容差范围:</span>
-                            <el-select v-model="customRatioTolerance" size="small" class="tolerance-select">
-                              <el-option
-                                v-for="opt in TOLERANCE_OPTIONS"
-                                :key="opt.value"
-                                :label="opt.label"
-                                :value="opt.value"
-                              />
-                            </el-select>
-                          </div>
+                          </el-select>
                         </div>
 
                         <!-- 实时解析与计算预览 -->
-                        <div class="custom-ratio-preview" :class="{ 'is-valid': parsedCustomRatio !== null }">
-                          <template v-if="parsedCustomRatio !== null && customRatioRange">
-                            <div class="preview-line">
-                              <span class="preview-label">解析比值:</span>
-                              <span class="preview-value font-mono">{{ parsedCustomRatio }}</span>
-                              <span class="preview-sub">(宽:高 ≈ {{ parsedCustomRatio }}:1)</span>
+                        <template v-if="parsedCustomRatio !== null && customRatioRange">
+                          <div class="ratio-preview-panel">
+                            <div class="ratio-preview-row">
+                              <span class="ratio-row-label">目标比例</span>
+                              <span class="ratio-row-value">{{ parsedCustomRatio }}</span>
+                              <span class="ratio-row-desc">宽:高 ≈ {{ parsedCustomRatio }}:1</span>
                             </div>
-                            <div class="preview-line">
-                              <span class="preview-label">检索区间:</span>
-                              <span class="preview-range font-mono">
-                                [{{ customRatioRange.min }} ~ {{ customRatioRange.max }}]
-                              </span>
-                              <span class="preview-sub">(±{{ customRatioTolerance }}%)</span>
+                            <div class="ratio-preview-row">
+                              <span class="ratio-row-label">检索区间</span>
+                              <span class="ratio-row-value is-highlight">[{{ customRatioRange.min }} ~ {{ customRatioRange.max }}]</span>
+                              <span class="ratio-row-desc">±{{ customRatioTolerance }}%</span>
                             </div>
-                          </template>
-                          <template v-else-if="customRatioInput.trim()">
-                            <div class="preview-invalid">
-                              ⚠️ 无法识别输入的比例格式，请输入如 1.2、0.2、16:9、3:4
-                            </div>
-                          </template>
-                          <template v-else>
-                            <div class="preview-placeholder">
-                              💡 请输入宽高比或点击上方快捷预设，将按 ±{{ customRatioTolerance }}% 容差检索图片
-                            </div>
-                          </template>
-                        </div>
+                          </div>
+                        </template>
+                        <template v-else-if="customRatioInput.trim()">
+                          <div class="ratio-status-tip is-error">
+                            请输入有效比例，如 0.7、1.2、16:9、3:4
+                          </div>
+                        </template>
+                        <template v-else>
+                          <div class="ratio-status-tip">
+                            输入比例即可按容差范围检索
+                          </div>
+                        </template>
 
                         <!-- 操作按钮 -->
                         <div class="custom-ratio-footer">
-                          <el-button size="small" @click="clearCustomAspectRatio" :disabled="!customRatioInput && !hasCustomAspectRatio">
-                            清空重置
-                          </el-button>
                           <el-button
                             size="small"
-                            type="primary"
-                            :disabled="parsedCustomRatio === null"
-                            @click="applyCustomAspectRatio"
+                            link
+                            class="reset-link-btn"
+                            @click="clearCustomAspectRatio"
+                            :disabled="!customRatioInput && !hasCustomAspectRatio"
                           >
-                            确认检索
+                            清空
                           </el-button>
+                          <div class="footer-actions">
+                            <el-button size="small" @click="customRatioPopoverVisible = false">
+                              取消
+                            </el-button>
+                            <el-button
+                              size="small"
+                              type="primary"
+                              :disabled="parsedCustomRatio === null"
+                              @click="applyCustomAspectRatio"
+                            >
+                              确定
+                            </el-button>
+                          </div>
                         </div>
                       </div>
                     </el-popover>
@@ -12964,52 +12977,80 @@ h1 {
   transition: background-color 0.2s;
 
   &:hover {
-    background-color: rgba(0, 0, 0, 0.15);
+    background-color: var(--el-fill-color);
   }
 }
 
 :deep(.custom-aspect-ratio-popover) {
-  padding: 12px 14px;
+  padding: 10px 12px !important;
+  background: var(--el-bg-color-overlay) !important;
+  border-color: var(--el-border-color-lighter) !important;
+  box-shadow: var(--el-box-shadow-light) !important;
+  border-radius: 8px !important;
 }
 
 .custom-ratio-popover-body {
+  font-size: 12px;
+  color: var(--el-text-color-primary);
+
   .custom-ratio-header {
     display: flex;
-    flex-direction: column;
-    gap: 2px;
-    margin-bottom: 10px;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 8px;
 
-    .custom-ratio-title {
-      font-size: 13px;
+    .title {
+      font-size: 12px;
       font-weight: 600;
-      color: #303133;
+      color: var(--el-text-color-primary);
     }
 
-    .custom-ratio-tip {
+    .subtitle {
       font-size: 11px;
-      color: #909399;
+      color: var(--el-text-color-placeholder);
     }
   }
 
-  .custom-ratio-presets {
-    margin-bottom: 10px;
+  .preset-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
 
-    .preset-label {
-      font-size: 12px;
-      color: #606266;
-      margin-bottom: 4px;
-      display: block;
+    .preset-title {
+      font-size: 11px;
+      color: var(--el-text-color-secondary);
+      flex-shrink: 0;
     }
 
-    .preset-tags {
+    .preset-items {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
+      gap: 4px;
 
-      .preset-tag {
+      .preset-chip {
         cursor: pointer;
+        user-select: none;
         font-size: 11px;
-        padding: 1px 6px;
+        line-height: 1;
+        padding: 3px 6px;
+        border-radius: 4px;
+        color: var(--el-text-color-regular);
+        background: var(--el-fill-color-light);
+        border: 1px solid var(--el-border-color-extra-light);
+        transition: all 0.15s ease;
+
+        &:hover {
+          color: var(--el-color-primary);
+          background: var(--el-fill-color);
+        }
+
+        &.is-active {
+          color: var(--el-color-primary);
+          background: var(--el-color-primary-light-9);
+          border-color: var(--el-color-primary-light-5);
+          font-weight: 600;
+        }
       }
     }
   }
@@ -13017,87 +13058,110 @@ h1 {
   .custom-ratio-inputs {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 10px;
+    gap: 6px;
+    margin-bottom: 8px;
 
-    .input-item {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
+    .ratio-input {
+      flex: 1;
 
-      &--ratio {
-        flex: 1.4;
-      }
-
-      &--tolerance {
-        flex: 1;
-      }
-
-      .item-label {
+      .input-prefix-label {
         font-size: 11px;
-        color: #606266;
+        color: var(--el-text-color-placeholder);
+        margin-right: 2px;
+      }
+    }
+
+    .tolerance-select {
+      width: 96px;
+      flex-shrink: 0;
+    }
+  }
+
+  .ratio-preview-panel {
+    background: var(--el-fill-color-light);
+    border: 1px solid var(--el-border-color-extra-light);
+    border-radius: 6px;
+    padding: 6px 10px;
+    margin-bottom: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    .ratio-preview-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      line-height: 1.4;
+
+      .ratio-row-label {
+        font-size: 11px;
+        color: var(--el-text-color-secondary);
+        flex-shrink: 0;
+      }
+
+      .ratio-row-value {
+        font-size: 11px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        color: var(--el-text-color-primary);
+        font-weight: 500;
+        letter-spacing: 0.2px;
+
+        &.is-highlight {
+          color: var(--el-color-primary);
+          font-weight: 600;
+        }
+      }
+
+      .ratio-row-desc {
+        font-size: 11px;
+        color: var(--el-text-color-placeholder);
+        flex-shrink: 0;
+        text-align: right;
       }
     }
   }
 
-  .custom-ratio-preview {
-    background: #f8f9fa;
-    border: 1px solid #e4e7ed;
+  .ratio-status-tip {
+    font-size: 11px;
+    color: var(--el-text-color-placeholder);
+    background: var(--el-fill-color-lighter);
+    border: 1px dashed var(--el-border-color-extra-light);
     border-radius: 6px;
-    padding: 8px 10px;
-    margin-bottom: 12px;
-    font-size: 12px;
-    line-height: 1.5;
+    padding: 6px 10px;
+    margin-bottom: 10px;
+    line-height: 1.4;
 
-    &.is-valid {
-      background: #f0f9eb;
-      border-color: #e1f3d8;
-      color: #67c23a;
-    }
-
-    .preview-line {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      color: #303133;
-
-      .preview-label {
-        color: #909399;
-      }
-
-      .preview-value {
-        font-weight: 600;
-        color: #409eff;
-      }
-
-      .preview-range {
-        font-weight: 600;
-        color: #67c23a;
-      }
-
-      .preview-sub {
-        font-size: 11px;
-        color: #909399;
-      }
-    }
-
-    .preview-invalid {
-      color: #f56c6c;
-      font-size: 11px;
-    }
-
-    .preview-placeholder {
-      color: #909399;
-      font-size: 11px;
+    &.is-error {
+      color: var(--el-color-danger);
+      background: var(--el-color-danger-light-9);
+      border-color: var(--el-color-danger-light-5);
+      border-style: solid;
     }
   }
 
   .custom-ratio-footer {
     display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    border-top: 1px solid #ebeef5;
-    padding-top: 10px;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 8px;
+    border-top: 1px solid var(--el-border-color-extra-light);
+
+    .reset-link-btn {
+      font-size: 11px;
+      color: var(--el-text-color-secondary);
+      padding: 0;
+
+      &:hover {
+        color: var(--el-color-danger);
+      }
+    }
+
+    .footer-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
   }
 }
 </style>
