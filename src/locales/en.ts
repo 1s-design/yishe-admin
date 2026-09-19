@@ -3073,6 +3073,7 @@ export default {
     forbid: 'Forbid',
     historicalConfig: 'Historical Config',
     idLabel: 'Config ID',
+    templateIdLabel: 'Template ID {id}',
     includeEmoji: 'Allow Emojis',
     keyword: 'Keyword',
     kuaishouImageLimit: 'Kuaishou shop allows up to 9 main images',

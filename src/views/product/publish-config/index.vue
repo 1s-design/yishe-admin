@@ -1454,7 +1454,6 @@ onMounted(() => {
                 >{{ t('common.search') }}</el-button
               >
               <el-button size="small" :disabled="loading" @click="resetQuery">{{ t('common.reset') }}</el-button>
-              <el-button size="small" :loading="loading" @click="handleRefresh">{{ t('common.refresh') }}</el-button>
               <el-button
                 size="small"
                 type="primary"
@@ -1756,7 +1755,7 @@ onMounted(() => {
                           >
                         </div>
                         <div class="publish-config-template-option__id">
-                          {{ t('publishConfig.idLabel', { id: selectedTemplateBinding?.id }) }}
+                          {{ t('publishConfig.templateIdLabel', { id: selectedTemplateBinding?.id }) }}
                         </div>
                         <div
                           v-if="selectedTemplateBinding?.createTime"

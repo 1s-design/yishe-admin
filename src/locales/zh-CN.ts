@@ -3069,6 +3069,7 @@ export default {
     forbid: '禁止',
     historicalConfig: '历史配置',
     idLabel: '配置 ID',
+    templateIdLabel: '模板 ID {id}',
     includeEmoji: '允许表情符号',
     keyword: '关键词',
     kuaishouImageLimit: '快手小店主图最多上传 9 张',
