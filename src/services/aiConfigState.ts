@@ -36,33 +36,6 @@ const normalizeKeyId = (value: unknown) => {
   return normalized;
 };
 
-const normalizeFeatureKeys = (payload?: Partial<UserAiSetting>) => {
-  if (
-    payload?.featureBindings &&
-    typeof payload.featureBindings === "object" &&
-    !Array.isArray(payload.featureBindings)
-  ) {
-    return Object.entries(payload.featureBindings).reduce<Record<string, number>>(
-      (result, [featureCode, binding]) => {
-        const keyId = normalizeKeyId(binding?.keyId);
-        if (keyId) {
-          result[featureCode] = keyId;
-        }
-        return result;
-      },
-      {},
-    );
-  }
-
-  if (
-    payload?.featureKeys &&
-    typeof payload.featureKeys === "object" &&
-    !Array.isArray(payload.featureKeys)
-  ) {
-    return payload.featureKeys;
-  }
-  return {};
-};
 
 const buildEnabledKeyIdSet = (keys: AiApiKeyConfig[]) => {
   return new Set(
@@ -106,45 +79,68 @@ export async function refreshAiConfigState() {
   pendingRefresh = (async () => {
     aiConfigState.loading = true;
     try {
-      const [keyList, aiSetting, registry] = await Promise.all([
+      const [keyList, settingResp, registry] = await Promise.all([
         getAiApiKeyUsageOptions(),
         getAiSetting(),
         getAiFeatureRegistry(),
       ]);
-      const keys = Array.isArray(keyList) ? keyList : [];
-      const features = Array.isArray(registry) ? registry : [];
+      // 后端 TransformInterceptor 包装了响应: { data: {...}, code, message, status }
+      const unwrap = (resp: any) => resp?.data || resp || {};
+      const keys = Array.isArray(unwrap(keyList)) ? unwrap(keyList) : [];
+      const features = Array.isArray(unwrap(registry)) ? unwrap(registry) : [];
+      const aiSetting = unwrap(settingResp);
       const featureCodes = new Set(
         features.map((item) => String(item?.code || "").trim()).filter(Boolean),
       );
       const enabledKeyIds = buildEnabledKeyIdSet(keys);
-      const featureKeys = normalizeFeatureKeys(aiSetting || {});
+
+      // 总数 = 所有 spec 行数（多 Provider 功能按 spec 数量计算）
+      let totalFeatureCount = 0;
+      const featureSpecCodes = new Map<string, string[]>();
+      for (const code of featureCodes) {
+        const f = features.find((item) => String(item?.code || "").trim() === code);
+        const specs = (f?.allowedSpecCodes || []).filter(Boolean);
+        const specList = specs.length > 0 ? specs : [getDefaultAiProviderSpecForFeature(code)];
+        featureSpecCodes.set(code, specList);
+        totalFeatureCount += specList.length;
+      }
 
       let boundFeatureCount = 0;
       let validBoundFeatureCount = 0;
       let invalidBoundFeatureCount = 0;
 
-      Object.entries(featureKeys).forEach(([featureCode, rawKeyId]) => {
-        if (featureCodes.size && !featureCodes.has(String(featureCode || "").trim())) {
-          return;
-        }
-        const keyId = normalizeKeyId(rawKeyId);
-        if (!keyId) {
-          return;
-        }
+      const countOne = (keyId: number) => {
         boundFeatureCount += 1;
         if (enabledKeyIds.has(keyId)) {
           validBoundFeatureCount += 1;
-          return;
+        } else {
+          invalidBoundFeatureCount += 1;
         }
-        invalidBoundFeatureCount += 1;
-      });
+      };
+
+      // featureBindings 结构：{ featureCode: { specCode: { keyId, specCode } } }
+      const bindings = aiSetting.featureBindings as Record<string, Record<string, { keyId?: number; specCode?: string }>> | undefined;
+      if (bindings && typeof bindings === "object" && !Array.isArray(bindings)) {
+        // 按 spec 行计数：每个 spec 行独立计算
+        for (const [featureCode, specs] of Object.entries(bindings)) {
+          if (!specs || typeof specs !== "object") continue;
+          if (featureCodes.size && !featureCodes.has(featureCode)) continue;
+          for (const [, binding] of Object.entries(specs)) {
+            const keyId = normalizeKeyId(binding?.keyId);
+            if (keyId) {
+              countOne(keyId);
+            }
+          }
+        }
+
+      }
 
       const nextState = {
         initialized: true,
         loading: false,
         enabledKeyCount: enabledKeyIds.size,
         boundFeatureCount,
-        totalFeatureCount: featureCodes.size || Object.keys(featureKeys).length,
+        totalFeatureCount,
         validBoundFeatureCount,
         invalidBoundFeatureCount,
       };

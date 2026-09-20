@@ -48,7 +48,7 @@
               </div>
               <div class="ai-usage__row-right">
                 <div v-if="row.specCode" class="ai-usage__row-spec">
-                  <span class="ai-usage__row-spec-label">{{ resolveSpecLabel(row.specCode) }}</span>
+                  <span v-if="!row.code.includes('__')" class="ai-usage__row-spec-label">{{ resolveSpecLabel(row.specCode) }}</span>
                   <span v-if="resolveSpecModel(row.specCode)" class="ai-usage__row-spec-meta">{{ resolveSpecModel(row.specCode) }}</span>
                 </div>
                 <el-select
@@ -163,6 +163,9 @@ const specOptions = ref<SpecOption[]>([]);
 const form = ref<{ items: FeatureSettingFormItem[] }>({ items: [] });
 const formSnapshot = ref<Map<string, number | null>>(new Map());
 
+// 保存已有的完整绑定，避免保存时丢失其他功能的绑定
+const savedFeatureBindings = ref<Record<string, Record<string, { keyId: number; specCode: string; model?: string; params?: Record<string, any> }>>>({});
+
 const lastSavedCode = ref("");
 const lastSavedLabel = ref("");
 
@@ -228,6 +231,11 @@ function handleKeyChange(code: string, keyId: number | null) {
   if (item) item.keyId = keyId;
 }
 
+function handleSpecChange(code: string, specCode: string) {
+  const item = form.value.items.find((i) => i.code === code);
+  if (item) item.specCode = specCode;
+}
+
 function toggleGroup(groupName: string) {
   if (expandedGroups.value.has(groupName)) {
     expandedGroups.value.delete(groupName);
@@ -247,11 +255,41 @@ async function saveRow(row: FeatureSettingFormItem) {
   if (savingCodes.value.includes(row.code)) return;
   savingCodes.value.push(row.code);
   try {
-    const featureKeys: Record<string, number> = {};
-    for (const item of form.value.items) {
-      if (item.keyId) featureKeys[item.code] = item.keyId;
+    // 深拷贝嵌套的 featureBindings
+    const featureBindings: Record<string, Record<string, { keyId: number; specCode: string }>> = {};
+    for (const [fc, specs] of Object.entries(savedFeatureBindings.value)) {
+      featureBindings[fc] = { ...specs };
     }
-    await updateAiSetting({ version: 2, featureKeys, featureBindings: {}, updatedAt: "" });
+
+    // 只更新当前行涉及的 spec，不影响其他 spec
+    const specCode = String(row.specCode || "").trim();
+    if (row.code.includes("__") && specCode) {
+      // 多 Provider 展开行：写入 featureBindings[baseCode][specCode]
+      const baseCode = row.code.split("__")[0];
+      if (!featureBindings[baseCode]) featureBindings[baseCode] = {};
+      if (row.keyId) {
+        featureBindings[baseCode][specCode] = { keyId: row.keyId, specCode };
+      } else {
+        delete featureBindings[baseCode][specCode];
+        if (Object.keys(featureBindings[baseCode]).length === 0) {
+          delete featureBindings[baseCode];
+        }
+      }
+    } else {
+      // 单 Provider 行：也写入 featureBindings
+      const defaultSpec = getDefaultAiProviderSpecForFeature(row.code);
+      if (!featureBindings[row.code]) featureBindings[row.code] = {};
+      if (row.keyId) {
+        featureBindings[row.code][defaultSpec] = { keyId: row.keyId, specCode: defaultSpec };
+      } else {
+        delete featureBindings[row.code];
+      }
+    }
+
+    await updateAiSetting({ version: 2, featureBindings, updatedAt: new Date().toISOString() });
+
+    // 更新保存后的快照
+    savedFeatureBindings.value = JSON.parse(JSON.stringify(featureBindings));
     formSnapshot.value.set(row.code, row.keyId);
     lastSavedCode.value = row.code;
     lastSavedLabel.value = row.label;
@@ -273,17 +311,49 @@ async function loadConfig() {
       getAiSetting(),
       getAiFeatureRegistry(),
     ]);
-    keyOptions.value = keys || [];
-    specOptions.value = specs || [];
-    const boundKeys = settings?.featureKeys || {};
-    form.value = {
-      items: (features || []).map((f) => ({
-        ...f,
-        keyId: boundKeys[f.code] ?? null,
-        specCode: resolveDefaultSpecCode(f),
-        params: {},
-      })),
-    };
+    // 后端 TransformInterceptor 包装了响应: { data: {...}, code, message, status }
+    const unwrap = (resp: any) => resp?.data || resp || {};
+    keyOptions.value = Array.isArray(unwrap(keys)) ? unwrap(keys) : [];
+    specOptions.value = Array.isArray(unwrap(specs)) ? unwrap(specs) : [];
+    const aiSetting = unwrap(settings);
+    const bindings = aiSetting.featureBindings || {};
+    // 保存完整已有绑定，供保存时使用（避免覆盖其他功能的绑定）
+    savedFeatureBindings.value = JSON.parse(JSON.stringify(bindings));
+    const featureList = Array.isArray(unwrap(features)) ? unwrap(features) : [];
+    const expandedItems: FeatureSettingFormItem[] = [];
+    for (const f of featureList) {
+      const specs = (f.allowedSpecCodes || []).filter(Boolean);
+      // 新结构：bindings[f.code] 是 { specCode: { keyId, specCode } }
+      const featureSpecs = bindings[f.code] || {};
+      if (specs.length > 1) {
+        // 多 Provider 规范：每个规范展开为独立行
+        for (const specCode of specs) {
+          const subCode = `${f.code}__${specCode}`;
+          // 从嵌套结构中获取该 spec 的绑定
+          const specBinding = featureSpecs[specCode];
+          const keyId = specBinding?.keyId ?? null;
+          expandedItems.push({
+            ...f,
+            code: subCode,
+            label: `${f.label} - ${resolveSpecLabel(specCode)}`,
+            keyId,
+            specCode,
+            params: {},
+          });
+        }
+      } else {
+        const singleSpec = specs[0] || resolveDefaultSpecCode(f);
+        const specBinding = featureSpecs[singleSpec];
+        const keyId = specBinding?.keyId ?? null;
+        expandedItems.push({
+          ...f,
+          keyId,
+          specCode: singleSpec,
+          params: {},
+        });
+      }
+    }
+    form.value = { items: expandedItems };
     formSnapshot.value = new Map(form.value.items.map((i) => [i.code, i.keyId]));
   } finally {
     loading.value = false;

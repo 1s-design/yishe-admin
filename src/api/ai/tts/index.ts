@@ -16,9 +16,74 @@ export interface CreateTtsRecordDto {
   sample_rate?: number
   speed?: number
   pitch?: number
+  providerParams?: Record<string, any>
+  /** 指定使用的 Provider 规范，用于后端选择对应的 AI Key */
+  specCode?: string
+  /** 直接指定使用的 AI Key ID（可选） */
+  keyId?: number
+}
+
+export interface TtsParameterSchema {
+  key: string
+  label: string
+  labelKey?: string
+  type: 'select' | 'slider' | 'text' | 'textarea' | 'boolean'
+  defaultValue: unknown
+  options?: Array<{ label: string; labelKey?: string; value: unknown }>
+  min?: number
+  max?: number
+  step?: number
+  placeholder?: string
+  description?: string
+  descriptionKey?: string
+  visibleWhen?: { param: string; equals: unknown }
+}
+
+export interface TtsModelOption {
+  modelId: string
+  label: string
+  labelKey?: string
+  description?: string
+  capabilities: Array<'instructions' | 'voice-clone' | 'subtitle' | 'streaming'>
+}
+
+export interface TtsVoiceOption {
+  voiceId: string
+  name: string
+  nameKey?: string
+  gender?: 'male' | 'female' | 'neutral'
+  language?: string
+  description?: string
+  previewUrl?: string
+}
+
+export interface TtsProviderSpec {
+  code: string
+  label: string
+  labelKey?: string
+  category: string
+  description: string
+  capabilities: string[]
+  defaultBaseUrl?: string
+  defaultModel?: string
+  tts?: {
+    models: TtsModelOption[]
+    voices?: TtsVoiceOption[]
+    supportsVoiceList?: boolean
+    supportsVoiceClone?: boolean
+    formats?: string[]
+    defaultFormat?: string
+    parameterSchemas: {
+      default: TtsParameterSchema[]
+      instructions?: TtsParameterSchema[]
+      voiceClone?: TtsParameterSchema[]
+    }
+  }
 }
 
 export interface CreateCustomVoiceDto {
+  /** Provider 规范代码：qwen.tts 或 mimo.tts */
+  specCode?: string
   audioBase64?: string
   audioUrl?: string
   targetModel: string
@@ -27,6 +92,8 @@ export interface CreateCustomVoiceDto {
 }
 
 export interface ListCustomVoicesDto {
+  /** Provider 规范代码：qwen.tts 或 mimo.tts */
+  specCode?: string
   pageIndex?: number
   pageSize?: number
 }
@@ -94,22 +161,53 @@ export const getTtsRecordById = (id: string) => {
   })
 }
 
-export const createCustomVoice = (data: CreateCustomVoiceDto) => {
+/**
+ * 创建自定义音色 — 按 Provider 路由到独立接口
+ * @param specCode Provider 规范代码：qwen.tts 或 mimo.tts
+ * @param data 音色数据
+ */
+export const createCustomVoice = (specCode: string, data: CreateCustomVoiceDto) => {
+  const provider = specCode === 'mimo.tts' ? 'mimo' : 'qwen'
   return request.post({
-    url: '/ai/tts/custom-voice',
+    url: `/ai/tts/${provider}/custom-voice`,
     data
   })
 }
 
-export const listCustomVoices = (data: ListCustomVoicesDto = {}) => {
+/**
+ * 查询自定义音色列表 — 按 Provider 路由到独立接口
+ * @param specCode Provider 规范代码：qwen.tts 或 mimo.tts
+ * @param data 分页参数
+ */
+export const listCustomVoices = (specCode: string, data: Omit<ListCustomVoicesDto, 'specCode'> = {}) => {
+  const provider = specCode === 'mimo.tts' ? 'mimo' : 'qwen'
   return request.post({
-    url: '/ai/tts/custom-voice/list',
+    url: `/ai/tts/${provider}/custom-voice/list`,
     data
   })
 }
 
-export const deleteCustomVoice = (voice: string) => {
+/**
+ * 删除自定义音色 — 按 Provider 路由到独立接口
+ * @param specCode Provider 规范代码：qwen.tts 或 mimo.tts
+ * @param voice 音色 ID
+ */
+export const deleteCustomVoice = (specCode: string, voice: string) => {
+  const provider = specCode === 'mimo.tts' ? 'mimo' : 'qwen'
   return request.delete({
-    url: `/ai/tts/custom-voice/${voice}`
+    url: `/ai/tts/${provider}/custom-voice/${voice}`
+  })
+}
+
+export const getTtsProviderSpecs = () => {
+  return request.get<TtsProviderSpec[]>({
+    url: '/ai/tts/provider-specs'
+  })
+}
+
+export const getTtsVoices = (specCode: string) => {
+  return request.get<TtsVoiceOption[]>({
+    url: '/ai/tts/voices',
+    params: { specCode }
   })
 }

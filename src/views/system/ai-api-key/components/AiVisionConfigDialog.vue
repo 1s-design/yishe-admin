@@ -138,8 +138,7 @@ const saving = ref(false);
 const usageOptions = ref<AiApiKeyConfig[]>([]);
 const currentKeyId = ref<number | null>(null);
 const selectedKeyId = ref<number | null>(null);
-const savedFeatureKeys = ref<Record<string, number>>({});
-const savedFeatureBindings = ref<Record<string, any>>({});
+const savedFeatureBindings = ref<Record<string, Record<string, { keyId: number; specCode: string }>>>({});
 
 const hasChanged = computed(() => {
   return selectedKeyId.value !== currentKeyId.value;
@@ -174,13 +173,15 @@ const loadData = async () => {
       getAiSetting(),
     ]);
     usageOptions.value = Array.isArray(options) ? options : [];
+    const aiSetting = (setting as any)?.data || setting || {};
 
-    const rawKeys = (setting as any)?.featureKeys || {};
-    const rawBindings = (setting as any)?.featureBindings || {};
-    savedFeatureKeys.value = { ...rawKeys };
-    savedFeatureBindings.value = { ...rawBindings };
+    const rawBindings = aiSetting.featureBindings || {};
+    savedFeatureBindings.value = JSON.parse(JSON.stringify(rawBindings));
 
-    const boundKeyId = normalizeKeyId(rawBindings[VISION_FEATURE_CODE]?.keyId || rawKeys[VISION_FEATURE_CODE]);
+    // 新结构：bindings[featureCode] 是 { specCode: { keyId, specCode } }
+    const visionSpecs = rawBindings[VISION_FEATURE_CODE] || {};
+    const visionBinding = visionSpecs["openai.vision"] || Object.values(visionSpecs)[0] || null;
+    const boundKeyId = normalizeKeyId(visionBinding?.keyId);
     currentKeyId.value = boundKeyId;
     selectedKeyId.value = boundKeyId;
   } finally {
@@ -191,31 +192,28 @@ const loadData = async () => {
 const handleSave = async () => {
   saving.value = true;
   try {
-    const featureKeys = { ...savedFeatureKeys.value };
-    const featureBindings = { ...savedFeatureBindings.value };
+    const featureBindings = JSON.parse(JSON.stringify(savedFeatureBindings.value));
 
     if (selectedKeyId.value) {
-      featureKeys[VISION_FEATURE_CODE] = selectedKeyId.value;
       featureBindings[VISION_FEATURE_CODE] = {
-        keyId: selectedKeyId.value,
-        specCode: "openai.vision",
-        params: {},
+        "openai.vision": {
+          keyId: selectedKeyId.value,
+          specCode: "openai.vision",
+          params: {},
+        },
       };
     } else {
-      delete featureKeys[VISION_FEATURE_CODE];
       delete featureBindings[VISION_FEATURE_CODE];
     }
 
     const payload: UserAiSetting = {
       version: 2,
-      featureKeys,
       featureBindings,
       updatedAt: new Date().toISOString(),
     };
 
     await updateAiSetting(payload);
     currentKeyId.value = selectedKeyId.value;
-    savedFeatureKeys.value = featureKeys;
     savedFeatureBindings.value = featureBindings;
     ElMessage.success("图片分析 AI 配置已保存");
     emit("saved");

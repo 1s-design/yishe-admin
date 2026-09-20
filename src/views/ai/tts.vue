@@ -111,6 +111,34 @@
       :destroy-on-close="true">
       <div class="tts-create-body">
         <el-form ref="formRef" :model="form" :rules="rules" label-width="96px">
+          <!-- Provider Selector (最上方，必选) -->
+          <el-form-item :label="t('aiTts.provider')" prop="provider" class="tts-provider-select">
+            <el-select
+              :model-value="currentProviderSpec?.code"
+              class="w-full"
+              @update:model-value="selectProvider"
+            >
+              <el-option
+                v-for="spec in ttsProviderSpecs"
+                :key="spec.code"
+                :label="spec.label"
+                :value="spec.code"
+              />
+            </el-select>
+          </el-form-item>
+
+          <!-- Model Selector (规范下方) -->
+          <el-form-item :label="t('aiTts.model')" prop="model">
+            <el-select v-model="form.model" class="w-full">
+              <el-option
+                v-for="model in currentModels"
+                :key="model.modelId"
+                :label="model.label"
+                :value="model.modelId"
+              />
+            </el-select>
+          </el-form-item>
+
           <el-form-item :label="t('aiTts.text')" prop="text">
             <el-input v-model="form.text" type="textarea" :rows="6" maxlength="1000" show-word-limit />
           </el-form-item>
@@ -210,161 +238,30 @@
             </div>
           </el-form-item>
 
+          <!-- Voice -->
           <el-row :gutter="16">
             <el-col :xs="24" :md="12">
               <el-form-item v-if="!isVoiceCloneModel" :label="t('aiTts.voice')" prop="voice">
                 <el-select v-model="form.voice" class="w-full">
-                  <el-option :label="t('aiTts.voiceCherry')"
-                    value="Cherry" />
-                  <el-option :label="t('aiTts.voiceSerena')"
-                    value="Serena" />
                   <el-option
-                    :label="t('aiTts.voiceEthan')"
-                    value="Ethan" />
-                  <el-option :label="t('aiTts.voiceChelsie')"
-                    value="Chelsie" />
-                  <el-option :label="t('aiTts.voiceMomo')"
-                    value="Momo" />
-                  <el-option :label="t('aiTts.voiceVivian')"
-                    value="Vivian" />
-                  <el-option :label="t('aiTts.voiceMoon')"
-                    value="Moon" />
-                  <el-option :label="t('aiTts.voiceMaia')"
-                    value="Maia" />
-                  <el-option :label="t('aiTts.voiceKai')"
-                    value="Kai" />
-                  <el-option :label="t('aiTts.voiceNofish')"
-                    value="Nofish" />
-                  <el-option :label="t('aiTts.voiceBella')"
-                    value="Bella" />
-                  <el-option
-                    :label="t('aiTts.voiceJennifer')"
-                    value="Jennifer" />
-                  <el-option :label="t('aiTts.voiceRyan')"
-                    value="Ryan" />
-                  <el-option :label="t('aiTts.voiceKaterina')"
-                    value="Katerina" />
-                  <el-option :label="t('aiTts.voiceAiden')"
-                    value="Aiden" />
-                  <el-option
-                    :label="t('aiTts.voiceEldricSage')"
-                    value="Eldric Sage" />
-                  <el-option :label="t('aiTts.voiceMia')"
-                    value="Mia" />
-                  <el-option
-                    :label="t('aiTts.voiceMochi')"
-                    value="Mochi" />
-                  <el-option
-                    :label="t('aiTts.voiceBellona')"
-                    value="Bellona" />
-                  <el-option
-                    :label="t('aiTts.voiceVincent')"
-                    value="Vincent" />
-                  <el-option :label="t('aiTts.voiceBunny')"
-                    value="Bunny" />
-                  <el-option
-                    :label="t('aiTts.voiceNeil')"
-                    value="Neil" />
-                  <el-option
-                    :label="t('aiTts.voiceElias')"
-                    value="Elias" />
-                  <el-option
-                    :label="t('aiTts.voiceArthur')"
-                    value="Arthur" />
-                  <el-option
-                    :label="t('aiTts.voiceNini')"
-                    value="Nini" />
-                  <el-option
-                    :label="t('aiTts.voiceEbona')"
-                    value="Ebona" />
-                  <el-option
-                    :label="t('aiTts.voiceSeren')"
-                    value="Seren" />
-                  <el-option
-                    :label="t('aiTts.voicePip')"
-                    value="Pip" />
-                  <el-option
-                    :label="t('aiTts.voiceStella')"
-                    value="Stella" />
-                  <el-option :label="t('aiTts.voiceBodega')"
-                    value="Bodega" />
-                  <el-option :label="t('aiTts.voiceSonrisa')"
-                    value="Sonrisa" />
-                  <el-option
-                    :label="t('aiTts.voiceAlek')"
-                    value="Alek" />
-                  <el-option :label="t('aiTts.voiceDolce')"
-                    value="Dolce" />
-                  <el-option :label="t('aiTts.voiceSohee')"
-                    value="Sohee" />
-                  <el-option :label="t('aiTts.voiceOnoAnna')"
-                    value="Ono Anna" />
-                  <el-option
-                    :label="t('aiTts.voiceLenn')"
-                    value="Lenn" />
-                  <el-option :label="t('aiTts.voiceEmilien')"
-                    value="Emilien" />
-                  <el-option :label="t('aiTts.voiceAndre')"
-                    value="Andre" />
-                  <el-option
-                    :label="t('aiTts.voiceRadioGol')"
-                    value="Radio Gol" />
-                  <el-option :label="t('aiTts.voiceJada')"
-                    value="Jada" />
-                  <el-option :label="t('aiTts.voiceDylan')"
-                    value="Dylan" />
-                  <el-option :label="t('aiTts.voiceLi')"
-                    value="Li" />
-                  <el-option
-                    :label="t('aiTts.voiceMarcus')"
-                    value="Marcus" />
-                  <el-option
-                    :label="t('aiTts.voiceRoy')"
-                    value="Roy" />
-                  <el-option :label="t('aiTts.voicePeter')"
-                    value="Peter" />
-                  <el-option :label="t('aiTts.voiceSunny')"
-                    value="Sunny" />
-                  <el-option :label="t('aiTts.voiceEric')"
-                    value="Eric" />
-                  <el-option :label="t('aiTts.voiceRocky')"
-                    value="Rocky" />
-                  <el-option :label="t('aiTts.voiceKiki')"
-                    value="Kiki" />
-                </el-select>
-              </el-form-item>
-            </el-col>
-            <el-col :xs="24" :md="12">
-              <el-form-item :label="t('aiTts.model')" prop="model">
-                <el-select v-model="form.model" class="w-full">
-                  <el-option :label="t('aiTts.modelFlash')" value="qwen3-tts-flash" />
-                  <el-option :label="t('aiTts.modelInstruct')" value="qwen3-tts-instruct-flash" />
-                  <el-option :label="t('aiTts.modelVoiceClone')" value="qwen3-tts-vc-2026-01-22" />
+                    v-for="voice in currentVoices"
+                    :key="voice.voiceId"
+                    :label="voice.name"
+                    :value="voice.voiceId"
+                  />
                 </el-select>
               </el-form-item>
             </el-col>
           </el-row>
 
-          <el-row :gutter="16">
-            <el-col :xs="24" :md="8">
-              <el-form-item :label="t('aiTts.format')" prop="format">
-                <el-select v-model="form.format" class="w-full">
-                  <el-option label="mp3" value="mp3" />
-                  <el-option label="wav" value="wav" />
-                </el-select>
-              </el-form-item>
-            </el-col>
-            <el-col :xs="24" :md="8">
-              <el-form-item :label="t('aiTts.speed')" prop="speed">
-                <el-input-number v-model="form.speed" :min="0.5" :max="2" :step="0.1" class="w-full" />
-              </el-form-item>
-            </el-col>
-            <el-col :xs="24" :md="8">
-              <el-form-item :label="t('aiTts.pitch')" prop="pitch">
-                <el-input-number v-model="form.pitch" :min="0.5" :max="2" :step="0.1" class="w-full" />
-              </el-form-item>
-            </el-col>
-          </el-row>
+          <!-- Dynamic Provider Parameters -->
+          <TtsParameterForm
+            v-if="currentParameterSchemas.length > 0"
+            :parameters="currentParameterSchemas"
+            :params="providerParams"
+            :model="form.model"
+            @update:params="providerParams = $event"
+          />
         </el-form>
       </div>
 
@@ -389,9 +286,14 @@ import {
   deleteTtsRecord,
   getTtsRecordPage,
   listCustomVoices,
-  deleteCustomVoice
+  deleteCustomVoice,
+  getTtsProviderSpecs,
+  type TtsProviderSpec,
+  type TtsModelOption,
+  type TtsParameterSchema
 } from '@/api/ai/tts'
 import { getFileResourceList } from '@/api/file-resource'
+import { TtsParameterForm } from '@/components/TtsParameterForm'
 import { buildOperationColumn, commonGridOptions } from '@/common/table'
 import { useI18n } from '@/hooks/web/useI18n'
 import { useWindowSize } from '@vueuse/core'
@@ -402,6 +304,15 @@ import SubtitlePreview from './SubtitlePreview.vue'
 
 const { t } = useI18n()
 
+// ==================== Multi-Provider State ====================
+const ttsProviderSpecs = ref<TtsProviderSpec[]>([])
+const currentProviderSpec = ref<TtsProviderSpec | null>(null)
+const currentModels = ref<TtsModelOption[]>([])
+const currentVoices = ref<any[]>([])
+const currentParameterSchemas = ref<TtsParameterSchema[]>([])
+const providerParams = ref<Record<string, any>>({})
+
+// ==================== Helper Functions ====================
 const formatDuration = (val: any) => {
   if (val === undefined || val === null || val === '') return '-'
   const num = parseFloat(val)
@@ -653,28 +564,28 @@ const instructionTemplates = [
   }
 ]
 
-const isInstructModel = computed(() => form.model === 'qwen3-tts-instruct-flash')
-const isVoiceCloneModel = computed(() => form.model === 'qwen3-tts-vc-2026-01-22')
-
 watch(
   () => form.model,
   (model) => {
-    if (model !== 'qwen3-tts-instruct-flash') {
+    // Update parameter schemas based on model capabilities
+    updateParameterSchemasForModel(model)
+
+    // Handle instruction model
+    const modelCaps = currentModels.value.find(
+      (m) => m.modelId === model,
+    )?.capabilities
+    if (!modelCaps?.includes('instructions')) {
       form.instructions = ''
       selectedInstructionTemplate.value = ''
     }
-    if (model !== 'qwen3-tts-vc-2026-01-22') {
+
+    // Handle voice clone model
+    if (!modelCaps?.includes('voice-clone')) {
       customVoiceInfo.value = null
       voiceSource.value = 'existing'
-      // 切换到其他模型时，恢复默认音色
-      if (!form.voice || form.voice.startsWith('qwen-tts-vc-')) {
-        form.voice = 'Cherry'
-      }
     } else {
-      // 切换到声音复刻模型时，清空音色选择
       form.voice = ''
       customVoiceInfo.value = null
-      // 加载音色列表
       if (dialogVisible.value) {
         loadCustomVoices()
         loadFileResourceAudios()
@@ -700,12 +611,123 @@ const rules = {
   model: [{ required: true, message: t('aiTts.selectModelRequired'), trigger: 'change' }]
 }
 
+// ==================== Multi-Provider Functions ====================
+const TTS_PROVIDER_CACHE_KEY = 'tts_selected_provider'
+
+const getCachedProviderCode = (): string | null => {
+  try {
+    return localStorage.getItem(TTS_PROVIDER_CACHE_KEY)
+  } catch {
+    return null
+  }
+}
+
+const setCachedProviderCode = (specCode: string) => {
+  try {
+    localStorage.setItem(TTS_PROVIDER_CACHE_KEY, specCode)
+  } catch {
+    // ignore
+  }
+}
+
+const loadTtsProviderSpecs = async () => {
+  try {
+    const res = await getTtsProviderSpecs()
+    const payload = res?.data ?? res
+    ttsProviderSpecs.value = payload || []
+    if (ttsProviderSpecs.value.length === 0) return
+
+    // 优先使用缓存的规范，否则用第一个
+    const cachedCode = getCachedProviderCode()
+    const targetCode = cachedCode && ttsProviderSpecs.value.find((s) => s.code === cachedCode)
+      ? cachedCode
+      : ttsProviderSpecs.value[0].code
+
+    if (!currentProviderSpec.value) {
+      selectProvider(targetCode)
+    }
+  } catch (error: any) {
+    console.error('Failed to load TTS provider specs:', error)
+  }
+}
+
+const selectProvider = (specCode: string) => {
+  const spec = ttsProviderSpecs.value.find((s) => s.code === specCode)
+  if (!spec) return
+
+  setCachedProviderCode(specCode)
+  currentProviderSpec.value = spec
+  currentModels.value = spec.tts?.models || []
+  currentVoices.value = spec.tts?.voices || []
+  currentParameterSchemas.value = spec.tts?.parameterSchemas?.default || []
+
+  // Reset form values for new provider
+  if (currentModels.value.length > 0) {
+    form.model = currentModels.value[0].modelId
+  }
+  form.voice = ''
+  form.format = spec.tts?.defaultFormat || 'mp3'
+  providerParams.value = {}
+
+  // Apply default values from parameter schema
+  for (const param of currentParameterSchemas.value) {
+    if (param.defaultValue !== undefined) {
+      providerParams.value[param.key] = param.defaultValue
+    }
+  }
+  // Also apply instruction schema defaults if applicable
+  const modelCaps = currentModels.value.find(
+    (m) => m.modelId === form.model,
+  )?.capabilities
+  if (modelCaps?.includes('instructions') && spec.tts?.parameterSchemas?.instructions) {
+    for (const param of spec.tts.parameterSchemas.instructions) {
+      if (param.defaultValue !== undefined) {
+        providerParams.value[param.key] = param.defaultValue
+      }
+    }
+  }
+}
+
+const updateParameterSchemasForModel = (modelId: string) => {
+  const spec = currentProviderSpec.value
+  if (!spec?.tts) return
+
+  const modelCaps = currentModels.value.find(
+    (m) => m.modelId === modelId,
+  )?.capabilities
+
+  let schemas = [...spec.tts.parameterSchemas.default]
+  if (modelCaps?.includes('instructions') && spec.tts.parameterSchemas.instructions) {
+    schemas = [...schemas, ...spec.tts.parameterSchemas.instructions]
+  }
+  if (modelCaps?.includes('voice-clone') && spec.tts.parameterSchemas.voiceClone) {
+    schemas = [...schemas, ...spec.tts.parameterSchemas.voiceClone]
+  }
+  currentParameterSchemas.value = schemas
+}
+
+const isInstructModel = computed(() => {
+  return currentModels.value
+    .find((m) => m.modelId === form.model)
+    ?.capabilities?.includes('instructions')
+})
+
+const isVoiceCloneModel = computed(() => {
+  return currentModels.value
+    .find((m) => m.modelId === form.model)
+    ?.capabilities?.includes('voice-clone')
+})
+
+const supportsVoiceClone = computed(() => {
+  return currentProviderSpec.value?.tts?.supportsVoiceClone === true
+})
+
 const resetForm = () => {
   form.id = ''
   form.text = ''
-  form.voice = 'Cherry'
-  form.model = 'qwen3-tts-flash'
-  form.format = 'mp3'
+  form.voice = ''
+  form.model = currentModels.value[0]?.modelId || ''
+  form.format = currentProviderSpec.value?.tts?.defaultFormat || 'mp3'
   form.instructions = ''
   selectedInstructionTemplate.value = ''
   customVoiceInfo.value = null
@@ -717,6 +739,13 @@ const resetForm = () => {
   form.sample_rate = 24000
   form.speed = 1
   form.pitch = 1
+  providerParams.value = {}
+  // Re-apply default parameter values
+  for (const param of currentParameterSchemas.value) {
+    if (param.defaultValue !== undefined) {
+      providerParams.value[param.key] = param.defaultValue
+    }
+  }
 }
 
 // 加载自定义音色列表
@@ -725,7 +754,7 @@ const loadCustomVoices = async () => {
 
   loadingVoices.value = true
   try {
-    const res = await listCustomVoices({ pageIndex: 0, pageSize: 100 })
+    const res = await listCustomVoices(currentProviderSpec.value?.code || 'qwen.tts', { pageIndex: 0, pageSize: 100 })
     const payload = res?.data ?? res
     customVoiceList.value = payload?.voices || []
     if (customVoiceList.value.length > 0) {
@@ -760,7 +789,7 @@ const handleDeleteVoice = async (voice: string) => {
       type: 'warning'
     })
 
-    await deleteCustomVoice(voice)
+    await deleteCustomVoice(currentProviderSpec.value?.code || 'qwen.tts', voice)
     ElMessage.success(t('aiTts.voiceDeleted'))
 
     // 如果删除的是当前选中的音色，清空选择
@@ -811,7 +840,7 @@ const handleCreateVoiceFromMaterial = async () => {
 
   uploadingAudio.value = true
   try {
-    const res = await createCustomVoice({
+    const res = await createCustomVoice(currentProviderSpec.value?.code || 'qwen.tts', {
       audioUrl: selectedFileResource.value.url,
       targetModel: 'qwen3-tts-vc-2026-01-22',
       preferredName,
@@ -918,7 +947,9 @@ const submitForm = async () => {
       instructions: form.instructions,
       sample_rate: form.sample_rate,
       speed: form.speed,
-      pitch: form.pitch
+      pitch: form.pitch,
+      providerParams: providerParams.value,
+      specCode: currentProviderSpec.value?.code
     })
     const payload = res?.data ?? res
 
@@ -983,6 +1014,7 @@ const handleBatchDelete = async () => {
 
 onMounted(() => {
   getList()
+  loadTtsProviderSpecs()
 })
 </script>
 

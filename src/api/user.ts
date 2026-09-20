@@ -191,15 +191,17 @@ export function getOpenApiSetting() {
 
 export interface UserAiSetting {
   version?: number;
-  featureKeys: Record<string, number>;
   featureBindings?: Record<
     string,
-    {
-      keyId: number;
-      specCode: string;
-      model?: string;
-      params?: Record<string, any>;
-    }
+    Record<
+      string,
+      {
+        keyId: number;
+        specCode: string;
+        model?: string;
+        params?: Record<string, any>;
+      }
+    >
   >;
   updatedAt?: string;
 }
