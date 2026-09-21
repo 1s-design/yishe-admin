@@ -42,6 +42,12 @@
               <template #configSlot="{ row }">
                 <div class="config-cell">{{ formatConfig(row.configParams) }}</div>
               </template>
+              <template #statusSlot="{ row }">
+                <el-tag v-if="row.status === 'success'" type="success" size="small">{{ t('aiTts.statusSuccess') }}</el-tag>
+                <el-tag v-else-if="row.status === 'failed'" type="danger" size="small">{{ t('aiTts.statusFailed') }}</el-tag>
+                <el-tag v-else-if="row.status === 'pending'" type="warning" size="small" class="status-pending">{{ t('aiTts.statusPending') }}</el-tag>
+                <span v-else>-</span>
+              </template>
               <template #subtitleSlot="{ row }">
                 <div v-if="row.subtitle" class="subtitle-column-wrapper">
                   <div class="subtitle-list-container">
@@ -71,6 +77,7 @@
                     <el-dropdown-menu class="operation-menu-compact">
                       <el-dropdown-item command="preview">{{ t('aiTts.previewSubtitle') }}</el-dropdown-item>
                       <el-dropdown-item command="metadata">{{ t('aiTts.viewSubtitleMetadata') }}</el-dropdown-item>
+                      <el-dropdown-item command="copyUrl">{{ t('aiTts.copyFileUrl') }}</el-dropdown-item>
                       <el-dropdown-item command="copyParams">{{ t('aiTts.copyParams') }}</el-dropdown-item>
                       <el-dropdown-item command="delete" class="operation-menu-item--danger">{{ t('common.delete') }}</el-dropdown-item>
                     </el-dropdown-menu>
@@ -183,8 +190,12 @@
                   :value="item.voice">
                   <div class="voice-option">
                     <span :title="item.voice">{{ formatVoiceName(item) }}</span>
-                    <el-button :icon="Delete" size="small" type="danger" text
-                      @click.stop="handleDeleteVoice(item.voice)" />
+                    <div class="voice-option-actions">
+                      <el-button :icon="Edit" size="small" type="primary" text
+                        @click.stop="handleRenameVoice(item)" />
+                      <el-button :icon="Delete" size="small" type="danger" text
+                        @click.stop="handleDeleteVoice(item.voice)" />
+                    </div>
                   </div>
                 </el-option>
               </el-select>
@@ -233,7 +244,7 @@
                 </template>
               </el-alert>
             </div>
-            <div v-if="!customVoiceInfo && form.model === 'qwen3-tts-vc-2026-01-22'" class="voice-tip">
+            <div v-if="!customVoiceInfo && isVoiceCloneModel" class="voice-tip">
               {{ t('aiTts.voiceCloneTip') }}
             </div>
           </el-form-item>
@@ -276,17 +287,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch, watchEffect, nextTick } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch, watchEffect, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Delete, Refresh } from '@element-plus/icons-vue'
+import { Plus, Delete, Refresh, Edit } from '@element-plus/icons-vue'
 import {
   batchDeleteTtsRecord,
   createCustomVoice,
   createTtsRecord,
+  createTtsRecordAsync,
   deleteTtsRecord,
   getTtsRecordPage,
   listCustomVoices,
   deleteCustomVoice,
+  renameCustomVoice,
   getTtsProviderSpecs,
   type TtsProviderSpec,
   type TtsModelOption,
@@ -347,6 +360,10 @@ const handleOperation = (row: any, cmd: string) => {
     openMetadataDialog(row)
     return
   }
+  if (cmd === 'copyUrl') {
+    handleCopyFileUrl(row)
+    return
+  }
   if (cmd === 'copyParams') {
     copyRecordParams(row)
     return
@@ -386,7 +403,10 @@ const composeCreateParams = () => {
   }
 
   // 如果是声音复刻并且使用从素材创建的自定义音色，确保使用已创建的 voice
-  if (form.model === 'qwen3-tts-vc-2026-01-22') {
+  const isVoiceCloneModel = currentProviderSpec.value?.code === 'mimo.tts'
+    ? form.model === 'mimo-v2.5-tts-voiceclone'
+    : form.model === 'qwen3-tts-vc-2026-01-22'
+  if (isVoiceCloneModel) {
     if (voiceSource.value === 'material' && customVoiceInfo.value) {
       payload.voice = customVoiceInfo.value.voice
     }
@@ -400,6 +420,21 @@ const copyCreateParams = async () => {
     const text = JSON.stringify(composeCreateParams(), null, 2)
     await navigator.clipboard.writeText(text)
     ElMessage.success(t('aiTts.createParamsCopied'))
+  } catch (err: any) {
+    ElMessage.error(err?.message || t('aiTts.copyFailed'))
+  }
+}
+
+// 复制文件地址
+const handleCopyFileUrl = async (row: any) => {
+  const fileUrl = row.url || row.resultUrl || ''
+  if (!fileUrl) {
+    ElMessage.warning(t('aiTts.noFileUrl'))
+    return
+  }
+  try {
+    await navigator.clipboard.writeText(fileUrl)
+    ElMessage.success(t('aiTts.fileUrlCopied'))
   } catch (err: any) {
     ElMessage.error(err?.message || t('aiTts.copyFailed'))
   }
@@ -438,9 +473,9 @@ const gridOptions = ref<any>({
   maxHeight: Math.max(height.value - 280, 360),
   columns: [
     { type: 'checkbox', width: 50 },
-    { type: 'seq', title: '#', width: 58 },
     { title: t('aiTts.text'), field: 'text', minWidth: 220, slots: { default: 'textSlot' } },
     { title: t('aiTts.configParams'), field: 'configParams', minWidth: 260, slots: { default: 'configSlot' } },
+    { title: t('aiTts.status'), field: 'status', width: 100, slots: { default: 'statusSlot' } },
     { title: t('aiTts.preview'), field: 'preview', width: 320, slots: { default: 'previewSlot' } },
     { title: t('aiTts.durationSec'), field: 'duration', width: 96, formatter: ({ cellValue }) => formatDuration(cellValue) },
     { title: t('common.createTime'), field: 'createTime', width: 170 },
@@ -506,7 +541,7 @@ const sanitizePreferredName = (value: string) => {
 
 // 格式化音色显示名称
 const formatVoiceName = (item: any) => {
- return item.voice
+  return item.preferred_name || item.preferredName || item.voice
 }
 
 const instructionTemplates = [
@@ -780,6 +815,46 @@ const handleVoiceSelect = (voice: string) => {
   }
 }
 
+// 重命名自定义音色
+const handleRenameVoice = async (item: any) => {
+  const currentName = item.preferred_name || item.voice
+  try {
+    const { value: newName } = await ElMessageBox.prompt(
+      t('aiTts.renameVoicePrompt'),
+      t('aiTts.renameVoiceTitle'),
+      {
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
+        inputValue: currentName,
+        inputPlaceholder: t('aiTts.renameVoicePlaceholder'),
+        inputValidator: (val: string) => {
+          if (!val || !val.trim()) {
+            return t('aiTts.renameVoiceRequired')
+          }
+          if (val.trim().length > 64) {
+            return t('aiTts.renameVoiceTooLong')
+          }
+          return true
+        }
+      }
+    )
+
+    const trimmedName = newName.trim()
+    if (trimmedName === currentName) return // 没改
+
+    await renameCustomVoice(currentProviderSpec.value?.code || 'qwen.tts', {
+      voice: item.voice,
+      preferredName: trimmedName
+    })
+    ElMessage.success(t('aiTts.voiceRenamed'))
+    await loadCustomVoices()
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error(error?.message || t('aiTts.renameVoiceFailed'))
+    }
+  }
+}
+
 // 删除自定义音色
 const handleDeleteVoice = async (voice: string) => {
   try {
@@ -840,23 +915,49 @@ const handleCreateVoiceFromMaterial = async () => {
 
   uploadingAudio.value = true
   try {
-    const res = await createCustomVoice(currentProviderSpec.value?.code || 'qwen.tts', {
+    // 根据当前 provider 选择对应的 voice-clone 模型
+    const providerCode = currentProviderSpec.value?.code || 'qwen.tts'
+    const targetModel = providerCode === 'mimo.tts' ? 'mimo-v2.5-tts-voiceclone' : 'qwen3-tts-vc-2026-01-22'
+
+    // 前端下载音频文件并转为 base64，避免服务器下载 COS URL 失败
+    let audioBase64 = ''
+    let audioMimeType = resolveAudioMimeType(selectedFileResource.value.suffix)
+    try {
+      const response = await fetch(selectedFileResource.value.url)
+      if (response.ok) {
+        const blob = await response.blob()
+        audioMimeType = blob.type || audioMimeType
+        const arrayBuffer = await blob.arrayBuffer()
+        const uint8Array = new Uint8Array(arrayBuffer)
+        let binary = ''
+        for (let i = 0; i < uint8Array.length; i++) {
+          binary += String.fromCharCode(uint8Array[i])
+        }
+        audioBase64 = btoa(binary)
+      }
+    } catch (downloadErr) {
+      console.warn('前端下载音频失败，尝试使用 audioUrl:', downloadErr)
+    }
+
+    const res = await createCustomVoice(providerCode, {
       audioUrl: selectedFileResource.value.url,
-      targetModel: 'qwen3-tts-vc-2026-01-22',
+      audioBase64: audioBase64 || undefined,
+      targetModel,
       preferredName,
-      audioMimeType: resolveAudioMimeType(selectedFileResource.value.suffix)
+      audioMimeType
     })
 
     const payload = res?.data ?? res
     if (payload?.success && payload?.voice) {
+      const voiceName = payload.preferredName || payload.voice
       customVoiceInfo.value = {
         voice: payload.voice,
-        preferredName: payload.preferredName,
+        preferredName: voiceName,
         targetModel: payload.targetModel
       }
       form.voice = payload.voice
       customVoiceName.value = ''
-      ElMessage.success(t('aiTts.customVoiceCreated', { name: payload.preferredName }))
+      ElMessage.success(t('aiTts.customVoiceCreated', { name: voiceName }))
       await loadCustomVoices()
     } else {
       throw new Error(t('aiTts.createVoiceFailed'))
@@ -926,7 +1027,10 @@ const submitForm = async () => {
   await formRef.value?.validate()
 
   // 如果是声音复刻模型，检查音色
-  if (form.model === 'qwen3-tts-vc-2026-01-22') {
+  const isVoiceClone = currentProviderSpec.value?.code === 'mimo.tts'
+    ? form.model === 'mimo-v2.5-tts-voiceclone'
+    : form.model === 'qwen3-tts-vc-2026-01-22'
+  if (isVoiceClone) {
     if (voiceSource.value === 'existing' && !form.voice) {
       ElMessage.warning(t('aiTts.selectExistingVoice'))
       return
@@ -939,32 +1043,98 @@ const submitForm = async () => {
 
   submitLoading.value = true
   try {
-    const res = await createTtsRecord({
-      text: form.text,
-      voice: form.voice,
-      model: form.model,
-      format: form.format,
-      instructions: form.instructions,
-      sample_rate: form.sample_rate,
-      speed: form.speed,
-      pitch: form.pitch,
+    // 使用 composeCreateParams 确保声音复刻音色正确传递
+    const createParams = composeCreateParams()
+    // 使用异步接口：创建 pending 记录后立即返回，后台继续合成
+    const res = await createTtsRecordAsync({
+      text: createParams.text,
+      voice: createParams.voice,
+      model: createParams.model,
+      format: createParams.format,
+      instructions: createParams.instructions,
+      sample_rate: createParams.sample_rate,
+      speed: createParams.speed,
+      pitch: createParams.pitch,
       providerParams: providerParams.value,
       specCode: currentProviderSpec.value?.code
     })
     const payload = res?.data ?? res
 
-    if (payload?.status === 'failed') {
-      ElMessage.warning(t('aiTts.generatedFailedWithError', { message: payload?.errorMessage || t('aiTts.unknownError') }))
-    } else {
-      ElMessage.success(t('aiTts.createAndGenerateSuccess'))
-    }
-
+    // 关闭弹窗，用户可以继续操作
     dialogVisible.value = false
+    submitLoading.value = false
+
+    // 提示用户任务已提交
+    ElMessage.success(t('aiTts.taskSubmitted'))
+
+    // 刷新列表，新记录会以"生成中"状态出现
     await getList()
-  } finally {
+
+    // 启动轮询，等待该记录完成
+    if (payload?.id) {
+      pollRecordStatus(payload.id)
+    }
+  } catch (error: any) {
+    ElMessage.error(error?.message || t('aiTts.submitFailed'))
     submitLoading.value = false
   }
 }
+
+// 轮询记录状态，直到完成或失败
+const pollingTimers = new Map<string, number>()
+
+const pollRecordStatus = (recordId: string) => {
+  // 避免重复轮询
+  if (pollingTimers.has(recordId)) return
+
+  const poll = async () => {
+    try {
+      const res = await getTtsRecordById(recordId)
+      const record = res?.data ?? res
+
+      if (record?.status === 'success') {
+        // 合成成功，刷新列表并提示
+        ElMessage.success(t('aiTts.generateSuccess'))
+        await getList()
+        stopPolling(recordId)
+        return
+      }
+
+      if (record?.status === 'failed') {
+        // 合成失败，刷新列表并提示
+        ElMessage.warning(t('aiTts.generateFailed'))
+        await getList()
+        stopPolling(recordId)
+        return
+      }
+
+      // 仍在 pending，继续轮询
+      const timer = window.setTimeout(() => poll(), 3000)
+      pollingTimers.set(recordId, timer)
+    } catch (error) {
+      // 出错时停止轮询
+      stopPolling(recordId)
+    }
+  }
+
+  // 3 秒后开始第一次轮询
+  const timer = window.setTimeout(() => poll(), 3000)
+  pollingTimers.set(recordId, timer)
+}
+
+const stopPolling = (recordId: string) => {
+  const timer = pollingTimers.get(recordId)
+  if (timer) {
+    clearTimeout(timer)
+    pollingTimers.delete(recordId)
+  }
+}
+
+// 组件卸载时清理所有轮询
+onUnmounted(() => {
+  pollingTimers.forEach((timer) => clearTimeout(timer))
+  pollingTimers.clear()
+})
 
 const handleDelete = async (row: any) => {
   await ElMessageBox.confirm(t('aiTts.confirmDeleteRecord'), t('common.tip'), { type: 'warning' })
@@ -1299,6 +1469,15 @@ onMounted(() => {
   color: var(--el-text-color-placeholder);
 }
 
+.status-pending {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 .subtitle-text {
   color: var(--el-text-color-regular);
 }
@@ -1312,7 +1491,7 @@ onMounted(() => {
   max-height: 60vh;
   padding: 16px;
   overflow-y: auto;
-  background: #f5f7fa;
+  background: var(--el-fill-color-light);
   border-radius: 8px;
 }
 
@@ -1321,7 +1500,7 @@ onMounted(() => {
   font-family: monospace;
   font-size: 13px;
   line-height: 1.5;
-  color: #303133;
+  color: var(--el-text-color-primary);
   word-break: break-all;
   white-space: pre-wrap;
 }

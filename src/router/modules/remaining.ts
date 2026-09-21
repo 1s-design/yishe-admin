@@ -1023,6 +1023,15 @@ const remainingRouter: AppRouteRecordRaw[] = [
           toolkitPlatform: "amazon",
         },
       },
+      {
+        path: "weibo",
+        component: () => import("@/views/external/toolkit/weibo/index.vue"),
+        name: "OperationToolkitWeibo",
+        meta: {
+          title: "router.toolkitWeibo",
+          toolkitPlatform: "weibo",
+        },
+      },
     ],
   },
   // ── 7. 独立站 ──────────────────────────────────────────────────────────────────

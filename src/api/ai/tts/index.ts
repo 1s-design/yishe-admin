@@ -134,6 +134,13 @@ export const createTtsRecord = (data: CreateTtsRecordDto) => {
   })
 }
 
+export const createTtsRecordAsync = (data: CreateTtsRecordDto) => {
+  return request.post({
+    url: '/ai/tts-record/async',
+    data
+  })
+}
+
 export const updateTtsRecord = (id: string, data: any) => {
   return request.post({
     url: `/ai/tts-record/${id}`,
@@ -196,6 +203,19 @@ export const deleteCustomVoice = (specCode: string, voice: string) => {
   const provider = specCode === 'mimo.tts' ? 'mimo' : 'qwen'
   return request.delete({
     url: `/ai/tts/${provider}/custom-voice/${voice}`
+  })
+}
+
+/**
+ * 重命名自定义音色 — 按 Provider 路由到独立接口
+ * @param specCode Provider 规范代码：qwen.tts 或 mimo.tts
+ * @param data 重命名参数
+ */
+export const renameCustomVoice = (specCode: string, data: { voice: string; preferredName: string }) => {
+  const provider = specCode === 'mimo.tts' ? 'mimo' : 'qwen'
+  return request.patch({
+    url: `/ai/tts/${provider}/custom-voice/rename`,
+    data
   })
 }
 
