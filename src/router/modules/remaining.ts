@@ -1032,6 +1032,33 @@ const remainingRouter: AppRouteRecordRaw[] = [
           toolkitPlatform: "weibo",
         },
       },
+      {
+        path: "douyin",
+        component: () => import("@/views/external/toolkit/douyin/index.vue"),
+        name: "OperationToolkitDouyin",
+        meta: {
+          title: "router.toolkitDouyin",
+          toolkitPlatform: "douyin",
+        },
+      },
+      {
+        path: "xiaohongshu",
+        component: () => import("@/views/external/toolkit/xiaohongshu/index.vue"),
+        name: "OperationToolkitXiaohongshu",
+        meta: {
+          title: "router.toolkitXiaohongshu",
+          toolkitPlatform: "xiaohongshu",
+        },
+      },
+      {
+        path: "kuaishou",
+        component: () => import("@/views/external/toolkit/kuaishou/index.vue"),
+        name: "OperationToolkitKuaishou",
+        meta: {
+          title: "router.toolkitKuaishou",
+          toolkitPlatform: "kuaishou",
+        },
+      },
     ],
   },
   // ── 7. 独立站 ──────────────────────────────────────────────────────────────────

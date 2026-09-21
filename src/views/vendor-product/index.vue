@@ -252,7 +252,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch, watchEffect } from "vue";
+import { onActivated, onMounted, reactive, ref, watch, watchEffect } from "vue";
 import { useWindowSize } from "@vueuse/core";
 import { useRoute } from "vue-router";
 import {
@@ -472,14 +472,22 @@ watch(
     const numericVendorId = Number(vendorId);
     queryParams.vendorId =
       Number.isInteger(numericVendorId) && numericVendorId > 0 ? numericVendorId : undefined;
+    handleSearch();
   },
   { immediate: true },
 );
 
-onMounted(async () => {
+const initData = async () => {
+  if (loading.value) return; // 防止 onMounted + onActivated 首次挂载时并发重复请求
   await loadVendors();
   await loadData();
-});
+};
+
+onMounted(initData);
+
+// 当页面被 keep-alive 缓存后再次进入时，onMounted 不会触发，
+// 需要通过 onActivated 来确保数据加载
+onActivated(initData);
 </script>
 
 <style scoped lang="scss">

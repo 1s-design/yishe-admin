@@ -190,6 +190,14 @@
               >
                 {{ t('queue.batchRegenerate') }}
               </el-button>
+              <el-button
+                size="small"
+                :icon="DataAnalysis"
+                plain
+                @click="statsDialogVisible = true"
+              >
+                {{ t('queue.taskStats') }}
+              </el-button>
             </div>
           </el-form>
         </div>
@@ -877,6 +885,12 @@
         </div>
       </template>
     </el-dialog>
+
+    <!-- 任务统计弹窗 -->
+    <TaskStatsDialog
+      v-model="statsDialogVisible"
+      :task-type-options="publishTaskTypeOptions"
+    />
   </ContentWrap>
 </template>
 
@@ -886,7 +900,7 @@ import { buildOperationColumn, commonGridOptions } from "@/common/table";
 import { useLocalStorage, useWindowSize } from "@vueuse/core";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { useI18n } from '@/hooks/web/useI18n';
-import { Search, Delete, Plus, Loading } from "@element-plus/icons-vue";
+import { Search, Delete, Plus, Loading, DataAnalysis } from "@element-plus/icons-vue";
 import {
   getTaskList,
   createTask,
@@ -936,6 +950,7 @@ import {
 } from "@/services/publishTaskAutoDispatch";
 import { getClientServiceRuntime } from "@/store/modules/clientNode";
 import PublishDispatchTargetTable from "./components/PublishDispatchTargetTable.vue";
+import TaskStatsDialog from "./components/TaskStatsDialog.vue";
 
 type QueueTagType = "success" | "warning" | "info" | "primary" | "danger";
 
@@ -1229,6 +1244,7 @@ const publishDispatchSubmitting = ref(false);
 const autoDispatchTargetDialogVisible = ref(false);
 const autoDispatchTargetDialogLoading = ref(false);
 const autoDispatchTargetSubmitting = ref(false);
+const statsDialogVisible = ref(false);
 const dispatchTargetTask = ref<QueueMessage | null>(null);
 const selectedDispatchClientId = ref("");
 const selectedDispatchProfileId = ref("");

@@ -93,8 +93,29 @@
 
               <!-- 字幕元数据弹窗 -->
               <el-dialog v-model="metadataDialogVisible" :title="t('aiTts.subtitleMetadata')" width="800px" :destroy-on-close="true">
-                <div class="metadata-container">
-                  <pre class="metadata-pre">{{ JSON.stringify(metadataContent, null, 2) }}</pre>
+                <div v-loading="metadataLoading" class="metadata-container">
+                  <el-tabs v-if="metadataContent">
+                    <el-tab-pane label="字幕数据">
+                      <pre class="metadata-pre">{{ JSON.stringify(metadataContent.subtitle || '无字幕数据', null, 2) }}</pre>
+                    </el-tab-pane>
+                    <el-tab-pane label="完整响应">
+                      <pre class="metadata-pre">{{ JSON.stringify(metadataContent.responseData || '无响应数据', null, 2) }}</pre>
+                    </el-tab-pane>
+                    <el-tab-pane label="基本信息">
+                      <pre class="metadata-pre">{{ JSON.stringify({
+                        id: metadataContent.id,
+                        text: metadataContent.text,
+                        status: metadataContent.status,
+                        duration: metadataContent.duration,
+                        url: metadataContent.url,
+                        model: metadataContent.configParams?.model,
+                        voice: metadataContent.configParams?.voice,
+                        specCode: metadataContent.specCode,
+                        createTime: metadataContent.createTime
+                      }, null, 2) }}</pre>
+                    </el-tab-pane>
+                  </el-tabs>
+                  <div v-else class="metadata-empty">加载中...</div>
                 </div>
                 <template #footer>
                   <el-button type="primary" @click="copyMetadata">{{ t('aiTts.copyJson') }}</el-button>
@@ -297,6 +318,7 @@ import {
   createTtsRecordAsync,
   deleteTtsRecord,
   getTtsRecordPage,
+  getTtsRecordById,
   listCustomVoices,
   deleteCustomVoice,
   renameCustomVoice,
@@ -346,9 +368,26 @@ const selectedRows = ref<any[]>([]) // 多选行
 const previewDialogVisible = ref(false)
 const previewRow = ref<any | null>(null)
 
+const previewLoading = ref(false)
+
 const openSubtitlePreview = (row: any) => {
+  // 立即显示弹窗，先展示列表中已有的数据
   previewRow.value = row
   previewDialogVisible.value = true
+  previewLoading.value = true
+
+  // 异步获取完整详情
+  getTtsRecordById(row.id)
+    .then((res) => {
+      const detail = res?.data ?? res
+      previewRow.value = detail
+    })
+    .catch((error: any) => {
+      ElMessage.error(error?.message || '获取详情失败')
+    })
+    .finally(() => {
+      previewLoading.value = false
+    })
 }
 
 const handleOperation = (row: any, cmd: string) => {
@@ -377,16 +416,31 @@ const handleOperation = (row: any, cmd: string) => {
 const metadataDialogVisible = ref(false)
 const metadataContent = ref<any>(null)
 
-const openMetadataDialog = (row: any) => {
-  metadataContent.value = row.subtitle || {}
-  metadataDialogVisible.value = true
+const metadataLoading = ref(false)
+
+const openMetadataDialog = async (row: any) => {
+  metadataLoading.value = true
+  try {
+    // 实时获取完整详情（包含 subtitle 和 responseData）
+    const res = await getTtsRecordById(row.id)
+    const detail = res?.data ?? res
+    metadataContent.value = detail
+    metadataDialogVisible.value = true
+  } catch (error: any) {
+    ElMessage.error(error?.message || '获取详情失败')
+  } finally {
+    metadataLoading.value = false
+  }
 }
 
-const copyMetadata = () => {
+const copyMetadata = async () => {
   const text = JSON.stringify(metadataContent.value, null, 2)
-  navigator.clipboard.writeText(text).then(() => {
+  try {
+    await navigator.clipboard.writeText(text)
     ElMessage.success(t('aiTts.copiedToClipboard'))
-  })
+  } catch (err) {
+    ElMessage.error(t('aiTts.copyFailed'))
+  }
 }
 
 // 复制用于创建语音的参数（从表单）

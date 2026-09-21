@@ -216,6 +216,50 @@ export const getQueueStats = (queue?: string, types?: string[]) => {
   return request.get({ url: `/queue/stats`, params });
 };
 
+// 获取任务统计明细（支持时间范围）
+export interface TaskStatsQueryParams {
+  types?: string[];
+  createdAfter?: string;
+  createdBefore?: string;
+}
+
+export interface TaskTypeStatsItem {
+  type: string;
+  total: number;
+  pending: number;
+  waiting: number;
+  processing: number;
+  completed: number;
+  failed: number;
+}
+
+export interface TaskStatsSummary {
+  total: number;
+  pending: number;
+  waiting: number;
+  processing: number;
+  completed: number;
+  failed: number;
+  byType: TaskTypeStatsItem[];
+}
+
+export const getTaskStatsDetail = (query: TaskStatsQueryParams) => {
+  const params: any = {};
+  if (Array.isArray(query.types) && query.types.length > 0) {
+    params.types = query.types.join(",");
+  }
+  if (query.createdAfter) {
+    params.createdAfter = query.createdAfter;
+  }
+  if (query.createdBefore) {
+    params.createdBefore = query.createdBefore;
+  }
+  return request.get<{ success: boolean; data: TaskStatsSummary }>({
+    url: `/queue/stats/detail`,
+    params,
+  });
+};
+
 export const getPublishTaskRuntimeSummary = () => {
   return request.get({ url: "/queue/publish-summary" });
 };

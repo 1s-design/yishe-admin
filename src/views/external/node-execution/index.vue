@@ -139,47 +139,18 @@
       </template>
     </ListPageLayout>
 
-    <!-- 详情抽屉 -->
-    <el-drawer v-model="detailVisible" :title="`执行详情 - ${currentRow?.nodeKey}`" size="500px" direction="rtl">
-      <div v-if="currentRow" class="detail-content">
-        <div class="detail-section">
-          <div class="detail-row"><span class="detail-label">ID:</span><span>{{ currentRow.id }}</span></div>
-          <div class="detail-row"><span class="detail-label">节点:</span><span>{{ currentRow.nodeKey }}</span></div>
-          <div class="detail-row"><span class="detail-label">类型:</span><span>{{ currentRow.nodeType }}</span></div>
-          <div class="detail-row"><span class="detail-label">来源:</span><span>{{ currentRow.triggerSource }}</span></div>
-          <div class="detail-row"><span class="detail-label">客户端:</span><span>{{ currentRow.clientId || '服务端' }}</span></div>
-          <div class="detail-row"><span class="detail-label">状态">
-            <el-tag size="small" :type="statusTagType(currentRow.status)">{{ statusLabel(currentRow.status) }}</el-tag>
-          </span></div>
-          <div class="detail-row"><span class="detail-label">耗时:</span><span>{{ currentRow.durationMs }}ms</span></div>
-          <div class="detail-row"><span class="detail-label">时间:</span><span>{{ currentRow.createdAt }}</span></div>
-          <div v-if="currentRow.errorMessage" class="detail-row"><span class="detail-label">错误:</span><span class="error-text">{{ currentRow.errorMessage }}</span></div>
-        </div>
-
-        <!-- 采集结果条目 -->
-        <div v-if="detailItems(currentRow).length" class="detail-section">
-          <div class="section-title">采集结果 ({{ detailItems(currentRow).length }} 条)</div>
-          <div class="items-list">
-            <div v-for="(item, idx) in detailItems(currentRow)" :key="idx" class="item-card">
-              <div class="item-rank" v-if="item.rank">#{{ item.rank }}</div>
-              <div class="item-title">{{ item.title || item.name || '未命名' }}</div>
-              <div v-if="item.hot" class="item-hot">🔥 {{ item.hot }}</div>
-              <div v-if="item.hot_score" class="item-hot">🔥 {{ item.hot_score.toLocaleString() }}</div>
-              <div v-if="item.category" class="item-category">{{ item.category }}</div>
-              <div v-if="item.url" class="item-url">
-                <a :href="item.url" target="_blank" rel="noopener">{{ item.url }}</a>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 原始数据（调试/其他格式） -->
-        <div v-if="currentRow.data && !detailItems(currentRow).length" class="detail-section">
-          <div class="section-title">原始数据</div>
-          <pre class="raw-data">{{ JSON.stringify(currentRow.data, null, 2) }}</pre>
-        </div>
+    <!-- 详情全屏弹窗 -->
+    <el-dialog
+      v-model="detailVisible"
+      :title="`执行详情 - ${currentRow?.nodeKey}`"
+      fullscreen
+      destroy-on-close
+      :close-on-click-modal="true"
+    >
+      <div v-if="currentRow" class="detail-json">
+        <pre>{{ JSON.stringify(currentRow, null, 2) }}</pre>
       </div>
-    </el-drawer>
+    </el-dialog>
   </ContentWrap>
 </template>
 
@@ -237,7 +208,7 @@ const gridOptions = computed<VxeGridProps>(() => ({
     { field: 'duration', title: '耗时', width: 80, align: 'right', showOverflow: true, slots: { default: 'duration' } },
     { field: 'status', title: '状态', width: 70, align: 'center', slots: { default: 'status' } },
     { field: 'client', title: '执行方', minWidth: 80, flex: 1, align: 'center', slots: { default: 'client' } },
-    { title: '操作', width: 140, align: 'center', fixed: 'right', slots: { default: 'operations' } },
+    { title: '操作', width: 140, align: 'center', verticalAlign: 'middle', fixed: 'right', slots: { default: 'operations' } },
   ],
 }))
 
@@ -475,93 +446,19 @@ onMounted(() => {
   font-size: 12px;
 }
 
-/* 详情抽屉 */
-.detail-content {
-  padding: 0 16px 24px;
+/* 详情全屏弹窗 JSON 展示 */
+.detail-json {
+  height: 100%;
+  overflow: auto;
 }
-
-.detail-section {
-  margin-bottom: 20px;
-}
-
-.detail-row {
-  display: flex;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--el-border-color-lighter);
-  font-size: 14px;
-}
-
-.detail-label {
-  width: 80px;
-  color: var(--el-text-color-secondary);
-  flex-shrink: 0;
-}
-
-.error-text {
-  color: var(--el-color-danger);
-}
-
-.section-title {
-  font-size: 15px;
-  font-weight: 600;
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--el-border-color);
-}
-
-.items-list {
-  max-height: 60vh;
-  overflow-y: auto;
-}
-
-.item-card {
-  padding: 10px 12px;
-  margin-bottom: 8px;
-  background: var(--el-fill-color-light);
-  border-radius: 6px;
-  border-left: 3px solid var(--el-color-primary);
-}
-
-.item-rank {
-  font-size: 12px;
-  color: var(--el-color-primary);
-  font-weight: 600;
-}
-
-.item-title {
+.detail-json pre {
+  margin: 0;
+  padding: 16px;
+  font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
   font-size: 13px;
-  margin: 4px 0;
-  color: var(--el-text-color-primary);
-}
-
-.item-hot {
-  font-size: 12px;
-  color: var(--el-color-danger);
-}
-
-.item-category {
-  display: inline-block;
-  font-size: 11px;
-  padding: 1px 6px;
-  background: var(--el-color-info-light-9);
-  border-radius: 3px;
-  margin-top: 4px;
-}
-
-.item-url a {
-  font-size: 12px;
-  color: var(--el-color-primary);
-  word-break: break-all;
-}
-
-.raw-data {
-  background: var(--el-fill-color-light);
-  border-radius: 6px;
-  padding: 12px;
-  font-size: 12px;
-  max-height: 50vh;
-  overflow-y: auto;
+  line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-all;
+  color: var(--el-text-color-primary);
 }
 </style>

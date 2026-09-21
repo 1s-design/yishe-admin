@@ -1,78 +1,49 @@
 <template>
-  <el-dialog v-model="visible" class="subtitle-preview-dialog" title="字幕预览" fullscreen :destroy-on-close="true"
+  <el-dialog v-model="visible" class="subtitle-preview-dialog" title="字幕预览" width="700px" :destroy-on-close="true"
     @close="handleClose">
-    <div class="subtitle-preview-body">
-      <div v-if="row?.resultUrl" class="preview-audio-row">
-        <audio ref="audioRef" :src="row.resultUrl" preload="auto" class="audio-preview"
-          @loadedmetadata="onLoadedMetadata" @timeupdate="onTimeUpdate" @ended="onEnded" @play="onPlay"
-          @pause="onPause" />
-        <div class="preview-controls">
-          <el-button size="small" type="primary" @click="isPlaying ? pause() : play()">
-            {{ isPlaying ? '暂停' : '开始' }}
-          </el-button>
-          <el-button size="small" @click="handleClose">停止并关闭</el-button>
-          <div class="time-info" style="margin-left:12px; line-height:32px; color:var(--el-text-color-secondary)">
-            播放：{{ formatDuration(currentTime) }} / {{ formatDuration(audioDuration) }} s
-          </div>
+    <div v-loading="loading" class="sp-body">
+      <!-- 当前字幕 -->
+      <div class="sp-current">
+        <div v-if="currentSentenceIndex !== -1" class="sp-current-text" :style="getKaraokeStyle(currentSentenceIndex)">
+          {{ getSentences()[currentSentenceIndex]?.text }}
         </div>
-        <div class="audio-progress-wrapper" style=" display:flex;margin-top:8px; align-items:center; gap:8px">
-          <div class="audio-progress"
-            style=" height:8px; overflow:hidden; background:var(--el-border-color); border-radius:4px;flex:1">
-            <div class="audio-progress-fill"
-              :style="{ width: audioProgressPercent, background: 'var(--el-color-primary)', height: '100%' }"></div>
-          </div>
-          <div class="audio-progress-percent"
-            style="min-width:48px; color:var(--el-text-color-secondary); text-align:right">{{ audioProgressPercent }}
-          </div>
-        </div>
-      </div>
-      <div v-else class="no-audio">无可用音频</div>
-
-      <div class="current-sentence-display">
-        <div v-if="currentSentenceIndex !== -1" class="current-sentence-content">
-          <div class="current-sentence-label">当前正在播放</div>
-          <div class="current-sentence-text sentence-karaoke" :style="getKaraokeStyle(currentSentenceIndex)">
-            {{ row?.subtitle?.sentences[currentSentenceIndex]?.text }}
-          </div>
-        </div>
-        <div v-else class="current-sentence-placeholder">
-          {{ isPlaying ? '准备中...' : '点击播放开始预览' }}
-        </div>
+        <div v-else class="sp-current-empty">{{ isPlaying ? '...' : '点击播放' }}</div>
       </div>
 
-      <div class="subtitle-preview-track" ref="trackRef">
-        <ul class="preview-sentences">
-          <li v-for="(s, idx) in row?.subtitle?.sentences || []" :key="s.index"
-            :class="['preview-sentence', { active: idx === currentSentenceIndex }]"
-            @click="seekToSentence(Number(s.start))">
-            <span class="sentence-time">[{{ s.start }}~{{ s.end }}s]</span>
-            <div class="sentence-karaoke" :style="getKaraokeStyle(idx)">
-              {{ s.text }}
-            </div>
-          </li>
-        </ul>
+      <!-- 播放控制 -->
+      <div v-if="row?.resultUrl" class="sp-player">
+        <audio ref="audioRef" :src="row.resultUrl" preload="auto" @loadedmetadata="onLoadedMetadata"
+          @timeupdate="onTimeUpdate" @ended="onEnded" @play="onPlay" @pause="onPause" />
+        <button class="sp-play-btn" @click="isPlaying ? pause() : play()">
+          <el-icon><VideoPause v-if="isPlaying" /><VideoPlay v-else /></el-icon>
+        </button>
+        <div class="sp-progress" @click="handleProgressClick">
+          <div class="sp-progress-bar" :style="{ width: audioProgressPercent }"></div>
+        </div>
+        <span class="sp-time">{{ formatTime(currentTime) }}/{{ formatTime(audioDuration) }}</span>
+      </div>
+
+      <!-- 字幕列表 -->
+      <div class="sp-list" ref="trackRef">
+        <div v-for="(s, idx) in getSentences()" :key="s.index || idx"
+          :class="['sp-item', { active: idx === currentSentenceIndex }]" @click="seekToSentence(Number(s.start))">
+          <span class="sp-idx">{{ idx + 1 }}</span>
+          <span class="sp-text" :style="getKaraokeStyle(idx)">{{ s.text }}</span>
+          <span class="sp-dur">{{ formatTime(s.duration) }}</span>
+        </div>
       </div>
     </div>
-    <template #footer>
-      <el-button @click="handleClose">关闭</el-button>
-    </template>
   </el-dialog>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
+import { VideoPlay, VideoPause } from '@element-plus/icons-vue'
 
-const props = defineProps<{
-  modelValue: boolean
-  row: any
-}>()
-
+const props = defineProps<{ modelValue: boolean; row: any }>()
 const emit = defineEmits(['update:modelValue'])
 
-const visible = computed({
-  get: () => props.modelValue,
-  set: (val) => emit('update:modelValue', val)
-})
+const visible = computed({ get: () => props.modelValue, set: (val) => emit('update:modelValue', val) })
 
 const audioRef = ref<HTMLAudioElement | null>(null)
 const trackRef = ref<HTMLElement | null>(null)
@@ -80,319 +51,205 @@ const currentTime = ref(0)
 const audioDuration = ref(0)
 const currentSentenceIndex = ref(-1)
 const isPlaying = ref(false)
+const loading = ref(false)
 const timerLoopId = ref<number | null>(null)
 
-const formatDuration = (val: any) => {
-  if (val === undefined || val === null || val === '') return '-'
-  const num = parseFloat(val)
-  if (isNaN(num)) return val
-  return num.toFixed(2)
+const formatTime = (val: any) => {
+  if (!val && val !== 0) return '0.0'
+  return Number(val).toFixed(1)
 }
 
 const audioProgressPercent = computed(() => {
   const dur = audioDuration.value || props.row?.duration || 0
-  if (!dur || dur <= 0) return '0%'
-  const p = Math.max(0, Math.min(100, Math.round((currentTime.value / Number(dur)) * 100)))
-  return `${p}%`
+  if (!dur) return '0%'
+  return `${Math.min(100, (currentTime.value / Number(dur)) * 100).toFixed(1)}%`
 })
 
-const startSyncLoop = () => {
+const getSentences = () => {
+  const sub = props.row?.subtitle
+  if (!sub) return []
+  let obj = sub
+  if (typeof sub === 'string') { try { obj = JSON.parse(sub) } catch { return [] } }
+  return obj?.sentences || []
+}
+
+const startLoop = () => {
   if (timerLoopId.value) return
-  const loop = () => {
-    if (audioRef.value) {
-      updateProgress(audioRef.value.currentTime)
-    }
-    timerLoopId.value = requestAnimationFrame(loop)
-  }
+  const loop = () => { if (audioRef.value) update(audioRef.value.currentTime); timerLoopId.value = requestAnimationFrame(loop) }
   timerLoopId.value = requestAnimationFrame(loop)
 }
+const stopLoop = () => { if (timerLoopId.value) { cancelAnimationFrame(timerLoopId.value); timerLoopId.value = null } }
 
-const stopSyncLoop = () => {
-  if (timerLoopId.value) {
-    cancelAnimationFrame(timerLoopId.value)
-    timerLoopId.value = null
-  }
-}
-
-const updateProgress = (t: number) => {
+const update = (t: number) => {
   currentTime.value = t
-  const sentences = props.row?.subtitle?.sentences || []
+  const sentences = getSentences()
   if (!sentences.length) return
-
-  const findIdx = sentences.findIndex((s: any) => {
-    const start = Number(s.start || 0)
-    const end = Number(s.end || (start + (Number(s.duration) || 0)))
-    return t >= start && t <= end
-  })
-
-  if (findIdx !== -1) {
-    currentSentenceIndex.value = findIdx
-  } else {
-    // 处于间隙或未开始
-    currentSentenceIndex.value = -1
-  }
+  const idx = sentences.findIndex((s: any) => t >= Number(s.start || 0) && t <= Number(s.end || (Number(s.start) + Number(s.duration))))
+  currentSentenceIndex.value = idx
 }
 
 const getKaraokeStyle = (idx: number) => {
   if (idx < 0) return {}
-  const sentences = props.row?.subtitle?.sentences || []
-  const s = sentences[idx]
+  const s = getSentences()[idx]
   if (!s) return {}
-
-  const t = currentTime.value
-  const sStart = Number(s.start || 0)
-  const sDur = Number(s.duration || (Number(s.end) - sStart || 0))
-  const sEnd = sStart + sDur
-
-  let p = 0
-  if (t >= sEnd) {
-    p = 100
-  } else if (t <= sStart) {
-    p = 0
-  } else {
-    const effectiveDur = Math.max(0.01, sDur)
-    p = Math.round(((t - sStart) / effectiveDur) * 100)
-  }
-
+  const start = Number(s.start || 0)
+  const dur = Number(s.duration || (Number(s.end) - start || 0))
+  const end = start + dur
+  let p = currentTime.value >= end ? 100 : currentTime.value <= start ? 0 : ((currentTime.value - start) / Math.max(0.01, dur)) * 100
   return {
-    'background-image': `linear-gradient(to right, var(--el-color-primary) ${p}%, var(--el-text-color-placeholder) ${p}%)`
+    background: `linear-gradient(90deg, var(--el-color-primary) ${p}%, var(--el-text-color-primary) ${p}%)`,
+    WebkitBackgroundClip: 'text', backgroundClip: 'text', WebkitTextFillColor: 'transparent'
   }
 }
 
-const play = async () => {
+const handleProgressClick = (e: MouseEvent) => {
   if (!audioRef.value) return
-  try {
-    await audioRef.value.play()
-  } catch (e) { }
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+  audioRef.value.currentTime = ((e.clientX - rect.left) / rect.width) * (audioDuration.value || 0)
+  update(audioRef.value.currentTime)
 }
 
-const pause = () => {
-  if (!audioRef.value) return
-  audioRef.value.pause()
-}
+const play = async () => { if (audioRef.value) { try { await audioRef.value.play() } catch {} } }
+const pause = () => { if (audioRef.value) audioRef.value.pause() }
 
-const seekToSentence = (startTime: number) => {
-  if (audioRef.value) {
-    audioRef.value.currentTime = startTime
-    if (!isPlaying.value) {
-      play()
-    }
-  }
-}
+const seekToSentence = (t: number) => { if (audioRef.value) { audioRef.value.currentTime = t; if (!isPlaying.value) play() } }
 
-const onPlay = () => {
-  isPlaying.value = true
-  startSyncLoop()
-}
-
-const onPause = () => {
-  isPlaying.value = false
-  stopSyncLoop()
-}
-
-const onTimeUpdate = (e: any) => {
-  const t = e.target.currentTime || 0
-  audioDuration.value = Number(e.target.duration || audioDuration.value || props.row?.duration || 0)
-  if (!timerLoopId.value) {
-    updateProgress(t)
-  }
-}
-
-const onLoadedMetadata = (e: any) => {
-  audioDuration.value = Number(e.target.duration || props.row?.duration || 0)
-}
-
-const onEnded = () => {
-  currentTime.value = 0
-  stopSyncLoop()
-  currentSentenceIndex.value = -1
-  isPlaying.value = false
-}
+const onPlay = () => { isPlaying.value = true; startLoop() }
+const onPause = () => { isPlaying.value = false; stopLoop() }
+const onEnded = () => { currentTime.value = 0; stopLoop(); currentSentenceIndex.value = -1; isPlaying.value = false }
+const onTimeUpdate = (e: any) => { audioDuration.value = Number(e.target.duration || audioDuration.value || props.row?.duration || 0); if (!timerLoopId.value) update(e.target.currentTime || 0) }
+const onLoadedMetadata = (e: any) => { audioDuration.value = Number(e.target.duration || props.row?.duration || 0) }
 
 const handleClose = () => {
-  stopSyncLoop()
-  if (audioRef.value) {
-    audioRef.value.pause()
-    audioRef.value.currentTime = 0
-  }
+  stopLoop()
+  if (audioRef.value) { audioRef.value.pause(); audioRef.value.currentTime = 0 }
   visible.value = false
 }
 
 watch(() => props.modelValue, async (val) => {
   if (val) {
+    loading.value = true
     await nextTick()
-    if (audioRef.value) {
-      audioRef.value.currentTime = 0
-      audioDuration.value = Number(props.row?.duration || 0)
-      play()
+    // 等待数据加载完成（有 subtitle 或 url 才算加载完）
+    const checkReady = () => {
+      const hasAudio = props.row?.resultUrl || props.row?.url
+      const hasSubtitle = props.row?.subtitle?.sentences?.length > 0
+      return hasAudio && hasSubtitle
     }
+    // 轮询等待数据就绪（最多等 5 秒）
+    let retries = 0
+    const waitForData = async () => {
+      while (!checkReady() && retries < 50) {
+        await new Promise(r => setTimeout(r, 100))
+        retries++
+      }
+      loading.value = false
+      if (audioRef.value && checkReady()) {
+        audioRef.value.currentTime = 0
+        audioDuration.value = Number(props.row?.duration || 0)
+        play()
+      }
+    }
+    waitForData()
   }
 })
 
-watch(() => currentSentenceIndex.value, (newIdx) => {
-  if (newIdx !== -1 && trackRef.value) {
+watch(() => currentSentenceIndex.value, (idx) => {
+  if (idx !== -1 && trackRef.value) {
     nextTick(() => {
-      const container = trackRef.value
-      if (!container) return
-      const activeItem = container.querySelector('.preview-sentence.active') as HTMLElement
-      if (activeItem) {
-        const containerHeight = container.offsetHeight
-        const itemTop = activeItem.offsetTop
-        const itemHeight = activeItem.offsetHeight
-        container.scrollTo({
-          top: itemTop - containerHeight / 2 + itemHeight / 2,
-          behavior: 'smooth'
-        })
-      }
+      const el = trackRef.value?.querySelector('.sp-item.active') as HTMLElement
+      if (el) trackRef.value?.scrollTo({ top: el.offsetTop - (trackRef.value.offsetHeight / 2) + (el.offsetHeight / 2), behavior: 'smooth' })
     })
   }
 })
 
-onBeforeUnmount(() => {
-  stopSyncLoop()
-})
+onBeforeUnmount(() => stopLoop())
 </script>
 
 <style scoped>
-.subtitle-preview-body {
+.sp-body { padding: 16px; }
+
+/* 当前字幕 */
+.sp-current {
+  min-height: 60px;
   display: flex;
-  flex-direction: column;
-  gap: 20px;
-  height: calc(100vh - 120px);
-  padding: 20px;
-}
-
-.subtitle-preview-track {
-  padding: 20px;
-  overflow-y: auto;
-  background: var(--el-fill-color-light);
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 12px;
-  flex: 1;
-}
-
-.preview-sentences {
-  padding: 0;
-  margin: 0;
-  list-style: none;
-}
-
-.preview-sentence {
-  display: flex;
-  padding: 10px 12px;
-  margin-bottom: 4px;
-  color: var(--el-text-color-secondary);
-  cursor: pointer;
-  border-radius: 6px;
-  transition: all 0.2s;
-  gap: 12px;
-  align-items: flex-start;
-}
-
-.preview-sentence:hover {
-  background: var(--el-fill-color);
-}
-
-.preview-sentence.active {
-  background: var(--el-color-primary-light-9);
-  transform: translateX(4px);
-}
-
-.sentence-time {
-  width: 120px;
-  font-size: 12px;
-  color: var(--el-text-color-regular);
-  flex-shrink: 0;
-}
-
-.sentence-karaoke {
-  display: inline;
-  padding: 2px 0;
-  font-size: 16px;
-  font-weight: 500;
-  line-height: 1.6;
-  color: var(--el-text-color-placeholder);
-  word-break: break-word;
-  background-repeat: no-repeat;
-  background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.current-sentence-display {
-  display: flex;
-  min-height: 120px;
-  padding: 20px;
-  margin-bottom: 16px;
-  background: var(--el-color-primary-light-9);
-  border: 2px solid var(--el-color-primary-light-7);
-  border-radius: 12px;
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--el-color-primary) 5%, transparent);
-  transition: all 0.3s ease;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
+  padding: 16px;
+  margin-bottom: 12px;
+  background: var(--el-fill-color-blank);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
 }
+.sp-current-text { font-size: 18px; font-weight: 500; line-height: 1.4; }
+.sp-current-empty { font-size: 14px; color: var(--el-text-color-placeholder); }
 
-.current-sentence-content {
-  width: 100%;
-  text-align: center;
-  animation: fadeIn 0.4s ease-out;
-}
-
-.current-sentence-label {
-  margin-bottom: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 1px;
-  color: var(--el-color-primary);
-  text-transform: uppercase;
-  opacity: 0.8;
-}
-
-.current-sentence-text.sentence-karaoke {
-  display: inline-block;
-  margin: 0 auto;
-  font-size: 18px;
-}
-
-.current-sentence-placeholder {
-  font-size: 16px;
-  font-style: italic;
-  color: var(--el-text-color-placeholder);
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(5px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.active .sentence-karaoke {
-  font-weight: 600;
-}
-
-.audio-preview {
-  display: none;
-  width: 100%;
-  height: 32px;
-}
-
-.preview-controls {
+/* 播放控制 */
+.sp-player {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  margin-bottom: 12px;
 }
+.sp-play-btn {
+  width: 32px; height: 32px;
+  border: none; border-radius: 50%;
+  background: var(--el-color-primary);
+  color: #fff;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.sp-play-btn:hover { opacity: 0.85; }
+.sp-progress {
+  flex: 1;
+  height: 4px;
+  background: var(--el-border-color);
+  border-radius: 2px;
+  cursor: pointer;
+  overflow: hidden;
+}
+.sp-progress-bar { height: 100%; background: var(--el-color-primary); transition: width 0.1s linear; }
+.sp-time { font-size: 12px; color: var(--el-text-color-secondary); min-width: 80px; text-align: right; font-variant-numeric: tabular-nums; }
 
-.no-audio {
-  padding: 20px;
-  color: var(--el-text-color-secondary);
-  text-align: center;
+/* 字幕列表 */
+.sp-list {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  padding: 4px;
 }
+.sp-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.sp-item:hover { background: var(--el-fill-color); }
+.sp-item.active {
+  background: color-mix(in srgb, var(--el-color-primary) 12%, transparent);
+}
+.sp-item.active .sp-text { font-weight: 500; }
+
+.sp-idx {
+  width: 20px; height: 20px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600;
+  color: var(--el-text-color-secondary);
+  background: var(--el-fill-color);
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.sp-item.active .sp-idx {
+  background: var(--el-color-primary);
+  color: #fff;
+}
+.sp-item.active .sp-text { font-weight: 600; }
+
+.sp-text { flex: 1; font-size: 14px; line-height: 1.4; }
+.sp-dur { font-size: 11px; color: var(--el-text-color-secondary); font-variant-numeric: tabular-nums; }
 </style>
