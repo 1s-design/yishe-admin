@@ -212,7 +212,7 @@
           <div
             class="common-table list-page-panel list-page-panel--flat list-page-table-panel list-page-table-panel--flat">
             <div class="list-page-table-panel__body psd-set-page__table-body">
-            <vxe-grid ref="psdSetGridRef" v-bind="gridOptions" :max-height="gridOptions.maxHeight" :data="dataSource" :loading="loading"
+            <vxe-grid :key="`${queryParams.currentPage}-${queryParams.pageSize}`" ref="psdSetGridRef" v-bind="gridOptions" :max-height="gridOptions.maxHeight" :data="dataSource" :loading="loading"
               :row-class-name="psdSetRowClassName" @checkbox-change="onSelectionChange"
               @checkbox-all="onSelectionChange" @cell-click="handlePsdSetCellClick">
               <template #idSlot="{ row }">

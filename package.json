@@ -1,6 +1,6 @@
 {
   "name": "yishe-admin",
-  "version": "0.0.86",
+  "version": "0.0.87",
   "description": "基于vue3、vite4、element-plus、typesScript",
   "author": "jc",
   "private": false,
@@ -160,6 +160,7 @@
     "stylelint-config-standard": "^36.0.0",
     "stylelint-order": "^6.0.4",
     "terser": "^5.28.1",
+    "ts-node": "^10.9.2",
     "typescript": "^6.0.2",
     "unocss": "^66.6.8",
     "unplugin-auto-import": "^21.0.0",

@@ -37,6 +37,28 @@
                 </el-form-item>
               </el-col>
               <el-col class="list-page-search-form__col--narrow" :xs="24" :sm="12" :md="8" :lg="4">
+                <el-form-item :label="t('fileResource.fileType')">
+                  <el-select
+                    v-model="queryParams.fileType"
+                    size="small"
+                    :placeholder="t('fileResource.selectFileTypePlaceholder')"
+                    clearable
+                    @change="getList"
+                  >
+                    <el-option :label="t('fileResource.all')" value="" />
+                    <el-option :label="t('fileResource.image')" value="image" />
+                    <el-option :label="t('fileResource.video')" value="video" />
+                    <el-option :label="t('fileResource.audio')" value="audio" />
+                    <el-option :label="t('fileResource.document')" value="document" />
+                    <el-option :label="t('fileResource.archive')" value="archive" />
+                    <el-option :label="t('fileResource.font')" value="font" />
+                    <el-option :label="t('fileResource.3d')" value="3d" />
+                    <el-option :label="t('fileResource.design')" value="design" />
+                    <el-option :label="t('fileResource.other')" value="other" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col class="list-page-search-form__col--narrow" :xs="24" :sm="12" :md="8" :lg="4">
                 <el-form-item :label="t('fileResource.suffix')">
                   <el-select
                     v-model="queryParams.suffix"
@@ -694,6 +716,7 @@ const queryParams = reactive({
   keyword: "",
   startTime: "",
   endTime: "",
+  fileType: "",
   suffix: "",
   id: "",
   sortingFields: "createTime DESC",
