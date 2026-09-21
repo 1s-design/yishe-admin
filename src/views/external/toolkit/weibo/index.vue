@@ -155,26 +155,23 @@
         <template #footer>
           <el-button @click="publishDialogVisible = false">取消</el-button>
           <el-button
+            :loading="creatingTask"
+            :disabled="!canPublish"
+            @click="handleCreateTask"
+          >
+            创建发布任务
+          </el-button>
+          <el-button
             type="primary"
             :loading="publishing"
             :disabled="!canPublish"
             @click="handlePublish"
           >
-            发布
+            直接发布
           </el-button>
         </template>
       </el-dialog>
 
-      <!-- 5. 执行结果 -->
-      <div v-if="lastResult" class="toolkit-result">
-        <div class="result-header">
-          <span class="result-title">执行结果</span>
-          <el-tag :type="lastResult.success ? 'success' : 'danger'" size="small">
-            {{ lastResult.success ? '成功' : '失败' }}
-          </el-tag>
-        </div>
-        <pre class="result-content">{{ JSON.stringify(lastResult, null, 2) }}</pre>
-      </div>
     </div>
   </ContentWrap>
 </template>
@@ -226,6 +223,7 @@ const pendingCommandId = ref('');
 const lastResult = ref<any>(null);
 const publishDialogVisible = ref(false);
 const publishing = ref(false);
+const creatingTask = ref(false);
 
 // 发布表单
 const publishForm = ref({
@@ -414,17 +412,14 @@ const handlePublish = async () => {
     return;
   }
 
-  publishing.value = true;
-  lastResult.value = null;
-  try {
-    const urls = imageUrlList.value;
-    if (urls.length === 0) {
-      ElMessage.warning('请输入至少1张图片的URL');
-      publishing.value = false;
-      return;
-    }
+  const urls = imageUrlList.value;
+  if (urls.length === 0) {
+    ElMessage.warning('请输入至少1张图片的URL');
+    return;
+  }
 
-    // 调用设计服务器 REST API → 设计服务器通过 WebSocket → 客户端执行
+  publishing.value = true;
+  try {
     const { directPublish } = await import('@/api/external/directPublish');
     const res = await directPublish({
       platform: 'weibo',
@@ -434,15 +429,61 @@ const handlePublish = async () => {
       ...(selectedProfileId.value ? { profileId: selectedProfileId.value } : {}),
       ...(selectedClientId.value ? { clientId: selectedClientId.value } : {}),
     });
-    lastResult.value = res;
     if (res.success) {
-      ElMessage.success('直发命令已发送');
+      ElMessage.success('正在发布...');
+      publishDialogVisible.value = false;
+      publishForm.value = { imageUrls: '', content: '', tags: [] };
     } else {
       ElMessage.error(res.message || '发送失败');
     }
   } catch (error: any) {
     ElMessage.error(error?.message || '发布失败');
+  } finally {
     publishing.value = false;
+  }
+};
+
+/**
+ * 创建发布任务（只建记录，不执行）
+ */
+const handleCreateTask = async () => {
+  if (!selectedClientId.value || !selectedProfileId.value) {
+    ElMessage.warning("请先选择客户端和环境");
+    return;
+  }
+  if (!canPublish.value) {
+    ElMessage.warning("请输入图片URL并填写正文");
+    return;
+  }
+
+  const urls = imageUrlList.value;
+  if (urls.length === 0) {
+    ElMessage.warning('请输入至少1张图片的URL');
+    return;
+  }
+
+  creatingTask.value = true;
+  try {
+    const { createPublishTask } = await import('@/api/external/directPublish');
+    const res = await createPublishTask({
+      platform: 'weibo',
+      images: urls,
+      content: publishForm.value.content,
+      tags: publishForm.value.tags,
+      ...(selectedProfileId.value ? { profileId: selectedProfileId.value } : {}),
+      ...(selectedClientId.value ? { clientId: selectedClientId.value } : {}),
+    });
+    if (res.success) {
+      ElMessage.success(`发布任务已创建: ${res.taskId}`);
+      publishDialogVisible.value = false;
+      publishForm.value = { imageUrls: '', content: '', tags: [] };
+    } else {
+      ElMessage.error(res.message || '创建失败');
+    }
+  } catch (error: any) {
+    ElMessage.error(error?.message || '创建任务失败');
+  } finally {
+    creatingTask.value = false;
   }
 };
 
