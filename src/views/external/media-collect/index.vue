@@ -486,13 +486,12 @@ onMounted(() => {
   border: 1px solid var(--el-border-color-lighter);
   background: var(--el-bg-color);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .item-card:hover {
   background: var(--el-fill-color-lighter);
   border-color: var(--el-border-color);
-  transform: translateX(2px);
 }
 
 .item-card.is-selected {
@@ -500,8 +499,13 @@ onMounted(() => {
   background: var(--el-color-primary-light-9);
 }
 
+.item-card.is-selected .item-title {
+  color: var(--el-color-primary);
+}
+
 .card-checkbox {
   flex-shrink: 0;
+  width: 16px;
 }
 
 .item-cover {
