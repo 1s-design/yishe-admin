@@ -1,7 +1,6 @@
 <template>
   <div class="collect-page">
     <div class="collect-layout">
-      <!-- 左侧菜单 -->
       <aside class="collect-menu">
         <div class="menu-header">媒体采集</div>
         <nav class="menu-list">
@@ -17,22 +16,9 @@
               <span class="menu-item-text">{{ item.name }}</span>
             </div>
           </div>
-          <div class="menu-group">
-            <div class="menu-group__label">媒体类型</div>
-            <div
-              v-for="type in mediaTypes"
-              :key="type.value"
-              class="menu-item"
-              :class="{ 'is-active': activeMediaType === type.value }"
-              @click="switchMediaType(type.value)"
-            >
-              <span class="menu-item-text">{{ type.label }}</span>
-            </div>
-          </div>
         </nav>
       </aside>
 
-      <!-- 右侧内容 -->
       <main class="collect-body">
         <div class="media-panel" v-loading="loading">
           <!-- 顶部工具条 -->
@@ -41,6 +27,15 @@
               <div class="platform-header">
                 <span class="platform-name">{{ activeProvider?.name || '媒体采集' }}</span>
               </div>
+              <el-radio-group v-model="activeMediaType" size="default" @change="handleMediaTypeChange">
+                <el-radio-button
+                  v-for="type in supportedTypes"
+                  :key="type.value"
+                  :value="type.value"
+                >
+                  {{ type.label }}
+                </el-radio-button>
+              </el-radio-group>
             </div>
             <div class="toolbar-right">
               <el-input
@@ -87,12 +82,10 @@
               :class="{ 'has-cover': Boolean(item.thumbnailUrl), 'is-selected': isSelected(item) }"
               @click="toggleSelect(item)"
             >
-              <!-- 选择框 -->
               <div class="card-checkbox" @click.stop="toggleSelect(item)">
                 <el-checkbox :model-value="isSelected(item)" />
               </div>
 
-              <!-- 封面缩略图 -->
               <div v-if="item.thumbnailUrl" class="item-cover">
                 <img
                   :src="item.thumbnailUrl"
@@ -102,14 +95,12 @@
                 />
               </div>
 
-              <!-- 类型标识（无封面时显示） -->
               <div v-else class="item-type-icon">
                 <el-icon v-if="item.mediaType === 'image'" size="18"><Picture /></el-icon>
                 <el-icon v-else-if="item.mediaType === 'video'" size="18"><VideoPlay /></el-icon>
                 <el-icon v-else-if="item.mediaType === 'audio'" size="18"><Headset /></el-icon>
               </div>
 
-              <!-- 内容区域 -->
               <div class="item-body">
                 <div class="item-header">
                   <span class="item-title" :title="item.title">{{ item.title }}</span>
@@ -132,7 +123,6 @@
             未找到相关资源
           </div>
 
-          <!-- 初始提示 -->
           <div v-else-if="!hasSearched && !loading" class="panel-empty">
             输入关键词开始搜索开放媒体资源
           </div>
@@ -151,7 +141,6 @@
       </main>
     </div>
 
-    <!-- 导入成功提示 -->
     <el-dialog v-model="importDialogVisible" title="导入结果" width="400px">
       <div class="import-result">
         <el-icon class="success-icon" color="#67c23a"><CircleCheck /></el-icon>
@@ -171,7 +160,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive, onMounted } from 'vue'
+import { ref, computed, reactive, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search, Picture, CircleCheck, VideoPlay, Headset } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
@@ -195,13 +184,19 @@ const activeProvider = computed(() =>
   providers.value.find((p) => p.key === activeKey.value),
 )
 
-// 媒体类型
-const mediaTypes = [
+// 媒体类型 — 根据当前源动态过滤
+const allMediaTypes = [
   { label: '图片', value: 'image' },
   { label: '视频', value: 'video' },
   { label: '音频', value: 'audio' },
 ]
 const activeMediaType = ref('image')
+
+const supportedTypes = computed(() => {
+  const provider = activeProvider.value
+  if (!provider) return allMediaTypes
+  return allMediaTypes.filter((t) => provider.supportedTypes.includes(t.value))
+})
 
 // 搜索
 const searchQuery = ref('')
@@ -241,19 +236,22 @@ function switchTab(key: string) {
   if (activeKey.value === key) return
   activeKey.value = key
   selectedItems.value = []
+  items.value = []
+  totalCount.value = 0
+  hasSearched.value = false
+  // 重置媒体类型为第一个支持的
   const provider = providers.value.find((p) => p.key === key)
-  if (provider && !provider.supportedTypes.includes(activeMediaType.value)) {
+  if (provider) {
     activeMediaType.value = provider.supportedTypes[0] || 'image'
   }
-  if (hasSearched.value && searchQuery.value) handleSearch()
 }
 
-// 切换媒体类型
-function switchMediaType(type: string) {
-  if (activeMediaType.value === type) return
-  activeMediaType.value = type
+// 媒体类型切换
+function handleMediaTypeChange() {
   selectedItems.value = []
-  if (hasSearched.value && searchQuery.value) handleSearch()
+  if (hasSearched.value && searchQuery.value) {
+    handleSearch()
+  }
 }
 
 // 搜索
@@ -377,7 +375,11 @@ onMounted(() => {
   font-size: 11px;
   font-weight: 600;
   color: var(--el-text-color-secondary);
-  padding: 0 8px 4px 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 0 8px 8px 8px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--el-border-color-extra-light);
 }
 
 .menu-group {
@@ -435,7 +437,6 @@ onMounted(() => {
   overflow-y: auto;
 }
 
-/* 窄滚动条 */
 .collect-menu::-webkit-scrollbar,
 .collect-body::-webkit-scrollbar {
   width: 4px;
@@ -457,7 +458,6 @@ onMounted(() => {
   background: var(--el-text-color-secondary);
 }
 
-/* 面板内容 */
 .media-panel {
   width: 100%;
   padding: 16px;
@@ -508,7 +508,6 @@ onMounted(() => {
   margin-bottom: 12px;
 }
 
-/* 统一极简卡片列表 - 垂直列表 */
 .items-container {
   display: flex;
   flex-direction: column;
@@ -542,7 +541,6 @@ onMounted(() => {
   flex-shrink: 0;
 }
 
-/* 缩略图 */
 .item-cover {
   position: relative;
   width: 72px;
@@ -560,7 +558,6 @@ onMounted(() => {
   display: block;
 }
 
-/* 类型图标（无封面时） */
 .item-type-icon {
   width: 40px;
   height: 40px;
