@@ -3565,6 +3565,7 @@ export default {
     notBound: 'Not bound; cannot be used',
     notConfiguredPsdTemplate: 'No PSD template configured; cannot be used',
     nothingProcessed: 'No materials were processed. Please try again later.',
+    allPlatforms: 'All Platforms',
     ok: 'OK',
     operationFailed: 'Operation failed. Please try again later.',
     phashSearchDisabled: 'pHash similarity matching is temporarily disabled',

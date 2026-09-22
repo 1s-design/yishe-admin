@@ -3565,6 +3565,7 @@ export default {
     notBound: '未绑定，无法使用',
     notConfiguredPsdTemplate: '未配置PSD模板，无法使用',
     nothingProcessed: '未处理任何素材，请稍后重试',
+    allPlatforms: '全部平台',
     ok: '确定',
     operationFailed: '操作失败，请稍后重试',
     phashSearchDisabled: 'pHash 相似匹配功能暂时禁用',
