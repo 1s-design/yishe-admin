@@ -27,15 +27,6 @@
               <div class="platform-header">
                 <span class="platform-name">{{ activeProvider?.name || '媒体采集' }}</span>
               </div>
-              <el-radio-group v-model="activeMediaType" size="default" @change="handleMediaTypeChange">
-                <el-radio-button
-                  v-for="type in supportedTypes"
-                  :key="type.value"
-                  :value="type.value"
-                >
-                  {{ type.label }}
-                </el-radio-button>
-              </el-radio-group>
             </div>
             <div class="toolbar-right">
               <el-input
@@ -184,20 +175,6 @@ const activeProvider = computed(() =>
   providers.value.find((p) => p.key === activeKey.value),
 )
 
-// 媒体类型 — 根据当前源动态过滤
-const allMediaTypes = [
-  { label: '图片', value: 'image' },
-  { label: '视频', value: 'video' },
-  { label: '音频', value: 'audio' },
-]
-const activeMediaType = ref('image')
-
-const supportedTypes = computed(() => {
-  const provider = activeProvider.value
-  if (!provider) return allMediaTypes
-  return allMediaTypes.filter((t) => provider.supportedTypes.includes(t.value))
-})
-
 // 搜索
 const searchQuery = ref('')
 const loading = ref(false)
@@ -239,19 +216,6 @@ function switchTab(key: string) {
   items.value = []
   totalCount.value = 0
   hasSearched.value = false
-  // 重置媒体类型为第一个支持的
-  const provider = providers.value.find((p) => p.key === key)
-  if (provider) {
-    activeMediaType.value = provider.supportedTypes[0] || 'image'
-  }
-}
-
-// 媒体类型切换
-function handleMediaTypeChange() {
-  selectedItems.value = []
-  if (hasSearched.value && searchQuery.value) {
-    handleSearch()
-  }
 }
 
 // 搜索
@@ -268,7 +232,6 @@ async function handleSearch() {
     const res: any = await searchMediaCollect({
       source: activeKey.value,
       query: searchQuery.value,
-      mediaType: activeMediaType.value,
       page: currentPage.value,
       pageSize: pageSize.value,
     })
