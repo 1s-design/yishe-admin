@@ -496,7 +496,7 @@ onMounted(() => {
 
 .item-card.is-selected {
   border-color: var(--el-color-primary);
-  background: var(--el-color-primary-light-9);
+  background: var(--el-color-primary-light-8);
 }
 
 .item-card.is-selected .item-title {
