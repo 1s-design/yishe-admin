@@ -8,7 +8,7 @@
           <div class="menu-group">
             <div class="menu-group__label">开放素材库</div>
             <div
-              v-for="item in openProviders"
+              v-for="item in providers"
               :key="item.key"
               class="menu-item"
               :class="{ 'is-active': activeKey === item.key }"
@@ -40,7 +40,6 @@
             <div class="toolbar-left">
               <div class="platform-header">
                 <span class="platform-name">{{ activeProvider?.name || '媒体采集' }}</span>
-                <span class="platform-subtitle">{{ typeLabel(activeMediaType) }}</span>
               </div>
             </div>
             <div class="toolbar-right">
@@ -79,54 +78,63 @@
             <span v-if="items.length">，当前显示 {{ items.length }} 条</span>
           </div>
 
-          <!-- 资源网格 -->
-          <div v-if="items.length" class="media-grid">
+          <!-- 数据列表 -->
+          <div v-if="items.length" class="items-container">
             <div
               v-for="item in items"
               :key="item.id"
-              class="media-card"
-              :class="{ 'is-selected': isSelected(item) }"
+              class="item-card"
+              :class="{ 'has-cover': Boolean(item.thumbnailUrl), 'is-selected': isSelected(item) }"
               @click="toggleSelect(item)"
             >
-              <div class="card-select" @click.stop="toggleSelect(item)">
+              <!-- 选择框 -->
+              <div class="card-checkbox" @click.stop="toggleSelect(item)">
                 <el-checkbox :model-value="isSelected(item)" />
               </div>
-              <div class="card-type-badge">{{ typeLabel(item.mediaType) }}</div>
-              <div class="card-thumb">
+
+              <!-- 封面缩略图 -->
+              <div v-if="item.thumbnailUrl" class="item-cover">
                 <img
-                  v-if="item.thumbnailUrl"
                   :src="item.thumbnailUrl"
                   :alt="item.title"
                   loading="lazy"
                   @error="(e) => (e.target as HTMLImageElement).style.display = 'none'"
                 />
-                <div v-else class="thumb-placeholder">
-                  <el-icon size="32"><Picture /></el-icon>
-                </div>
               </div>
-              <div class="card-info">
-                <div class="card-title" :title="item.title">{{ item.title }}</div>
-                <div class="card-meta">
-                  <span v-if="item.width && item.height">{{ item.width }}x{{ item.height }}</span>
-                  <span v-if="item.duration">{{ formatDuration(item.duration) }}</span>
-                  <span v-if="item.fileSize">{{ formatSize(item.fileSize) }}</span>
+
+              <!-- 类型标识（无封面时显示） -->
+              <div v-else class="item-type-icon">
+                <el-icon v-if="item.mediaType === 'image'" size="18"><Picture /></el-icon>
+                <el-icon v-else-if="item.mediaType === 'video'" size="18"><VideoPlay /></el-icon>
+                <el-icon v-else-if="item.mediaType === 'audio'" size="18"><Headset /></el-icon>
+              </div>
+
+              <!-- 内容区域 -->
+              <div class="item-body">
+                <div class="item-header">
+                  <span class="item-title" :title="item.title">{{ item.title }}</span>
+                  <span class="item-type-badge">{{ typeLabel(item.mediaType) }}</span>
+                  <span v-if="item.license" class="item-license">{{ item.license }}</span>
                 </div>
-                <div v-if="item.license" class="card-license">{{ item.license }}</div>
+                <div v-if="item.description" class="item-desc">{{ item.description }}</div>
+                <div class="item-footer">
+                  <span v-if="item.creator" class="meta-item">👤 {{ item.creator }}</span>
+                  <span v-if="item.width && item.height" class="meta-item">{{ item.width }}x{{ item.height }}</span>
+                  <span v-if="item.duration" class="meta-item">⏱ {{ formatDuration(item.duration) }}</span>
+                  <span v-if="item.fileSize" class="meta-item">📦 {{ formatSize(item.fileSize) }}</span>
+                </div>
               </div>
             </div>
           </div>
 
           <!-- 空状态 -->
-          <el-empty
-            v-if="hasSearched && items.length === 0 && !loading"
-            description="未找到相关资源"
-          />
+          <div v-else-if="hasSearched && !loading" class="panel-empty">
+            未找到相关资源
+          </div>
 
           <!-- 初始提示 -->
-          <div v-if="!hasSearched && !loading" class="empty-tip">
-            <el-icon size="48" color="#c0c4cc"><Picture /></el-icon>
-            <p>输入关键词开始搜索开放媒体资源</p>
-            <p class="empty-sub">支持 Wikimedia Commons 和 Internet Archive</p>
+          <div v-else-if="!hasSearched && !loading" class="panel-empty">
+            输入关键词开始搜索开放媒体资源
           </div>
 
           <!-- 分页 -->
@@ -164,8 +172,8 @@
 
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import { Search, Picture, CircleCheck } from '@element-plus/icons-vue'
+import { useRouter } from 'vue-router'
+import { Search, Picture, CircleCheck, VideoPlay, Headset } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import {
   getMediaCollectProviders,
@@ -178,13 +186,10 @@ import {
 defineOptions({ name: 'ExternalMediaCollect' })
 
 const router = useRouter()
-const route = useRoute()
 
 // 采集源
 const providers = ref<MediaCollectProvider[]>([])
 const activeKey = ref('wikimedia')
-
-const openProviders = computed(() => providers.value)
 
 const activeProvider = computed(() =>
   providers.value.find((p) => p.key === activeKey.value),
@@ -236,15 +241,11 @@ function switchTab(key: string) {
   if (activeKey.value === key) return
   activeKey.value = key
   selectedItems.value = []
-  // 检查新源是否支持当前媒体类型
   const provider = providers.value.find((p) => p.key === key)
   if (provider && !provider.supportedTypes.includes(activeMediaType.value)) {
     activeMediaType.value = provider.supportedTypes[0] || 'image'
   }
-  // 自动重新搜索
-  if (hasSearched.value && searchQuery.value) {
-    handleSearch()
-  }
+  if (hasSearched.value && searchQuery.value) handleSearch()
 }
 
 // 切换媒体类型
@@ -252,9 +253,7 @@ function switchMediaType(type: string) {
   if (activeMediaType.value === type) return
   activeMediaType.value = type
   selectedItems.value = []
-  if (hasSearched.value && searchQuery.value) {
-    handleSearch()
-  }
+  if (hasSearched.value && searchQuery.value) handleSearch()
 }
 
 // 搜索
@@ -355,7 +354,7 @@ onMounted(() => {
 })
 </script>
 
-<style scoped lang="scss">
+<style scoped>
 .collect-page {
   width: 100%;
   height: 100%;
@@ -460,198 +459,213 @@ onMounted(() => {
 
 /* 面板内容 */
 .media-panel {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
+  width: 100%;
+  padding: 16px;
 }
 
 .panel-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--el-border-color-lighter);
-  flex-shrink: 0;
   gap: 12px;
+  flex-wrap: wrap;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--el-border-color-lighter, #f3f4f6);
+  margin-bottom: 14px;
 }
 
 .toolbar-left {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .platform-header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
 }
 
 .platform-name {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
-  color: var(--el-text-color-primary);
-}
-
-.platform-subtitle {
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
+  color: var(--el-text-color-primary, #111827);
 }
 
 .toolbar-right {
   display: flex;
-  align-items: center;
   gap: 8px;
 }
 
 .search-input {
-  width: 280px;
+  width: 260px;
 }
 
 .stats-bar {
-  padding: 8px 16px;
   font-size: 12px;
-  color: var(--el-text-color-secondary);
-  border-bottom: 1px solid var(--el-border-color-lighter);
+  color: var(--el-text-color-secondary, #9ca3af);
+  margin-bottom: 12px;
+}
+
+/* 统一极简卡片列表 - 垂直列表 */
+.items-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.item-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--el-border-color-lighter, #f3f4f6);
+  background: var(--el-bg-color, #ffffff);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.item-card:hover {
+  background: var(--el-fill-color-lighter, #fafafa);
+  border-color: var(--el-border-color, #e5e7eb);
+  transform: translateX(2px);
+}
+
+.item-card.is-selected {
+  border-color: var(--el-color-primary);
+  background: var(--el-color-primary-light-9, #ecf5ff);
+}
+
+.card-checkbox {
   flex-shrink: 0;
 }
 
-/* 资源网格 */
-.media-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 16px;
-  padding: 16px;
-  flex: 1;
-  align-content: start;
-}
-
-.media-card {
-  background: #fff;
-  border-radius: 8px;
-  overflow: hidden;
-  cursor: pointer;
-  transition: all 0.2s;
-  border: 2px solid var(--el-border-color-lighter);
+/* 缩略图 */
+.item-cover {
   position: relative;
-
-  &:hover {
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-    transform: translateY(-2px);
-  }
-
-  &.is-selected {
-    border-color: var(--el-color-primary);
-    box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.15);
-  }
-}
-
-.card-select {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  z-index: 2;
-}
-
-.card-type-badge {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  background: rgba(0, 0, 0, 0.6);
-  color: #fff;
-  font-size: 11px;
-  padding: 2px 8px;
+  width: 72px;
+  height: 54px;
+  flex-shrink: 0;
   border-radius: 4px;
-  z-index: 2;
-}
-
-.card-thumb {
-  width: 100%;
-  height: 140px;
-  background: var(--el-fill-color-light);
-  display: flex;
-  align-items: center;
-  justify-content: center;
   overflow: hidden;
-
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .thumb-placeholder {
-    color: #c0c4cc;
-  }
+  background: var(--el-fill-color-light, #f3f4f6);
 }
 
-.card-info {
-  padding: 10px 12px;
-
-  .card-title {
-    font-size: 13px;
-    color: var(--el-text-color-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    margin-bottom: 4px;
-  }
-
-  .card-meta {
-    display: flex;
-    gap: 8px;
-    font-size: 11px;
-    color: var(--el-text-color-secondary);
-    flex-wrap: wrap;
-  }
-
-  .card-license {
-    font-size: 11px;
-    color: var(--el-color-warning);
-    margin-top: 4px;
-  }
+.item-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
-/* 空状态 */
-.empty-tip {
-  flex: 1;
+/* 类型图标（无封面时） */
+.item-type-icon {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  background: var(--el-fill-color-light, #f3f4f6);
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: var(--el-text-color-placeholder);
+  color: var(--el-text-color-secondary, #9ca3af);
+}
+
+.item-body {
+  flex: 1;
+  min-width:: 0;
+}
+
+.item-header {
+  display: flex;
+  align-items: center;
   gap: 8px;
+}
 
-  p {
-    margin: 0;
-    font-size: 14px;
-  }
+.item-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--el-text-color-primary, #1f2937);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
-  .empty-sub {
-    font-size: 12px;
-    color: var(--el-text-color-placeholder);
-  }
+.item-card:hover .item-title {
+  color: var(--el-color-primary, #4f46e5);
+}
+
+.item-type-badge {
+  font-size: 10px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: #eef2ff;
+  color: #4f46e5;
+  flex-shrink: 0;
+  font-weight: 600;
+}
+
+.item-license {
+  font-size: 10px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: #fef2f2;
+  color: #ef4444;
+  flex-shrink: 0;
+  font-weight: 600;
+}
+
+.item-desc {
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary, #6b7280);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--el-text-color-placeholder, #9ca3af);
+}
+
+.meta-item {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel-empty {
+  padding: 80px 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--el-text-color-secondary, #9ca3af);
 }
 
 .pagination {
   display: flex;
   justify-content: center;
-  padding: 16px;
-  flex-shrink: 0;
+  padding: 16px 0;
 }
 
 .import-result {
   display: flex;
   align-items: center;
   gap: 12px;
+}
 
-  .success-icon {
-    font-size: 28px;
-  }
+.success-icon {
+  font-size: 28px;
+}
 
-  .failed-text {
-    color: var(--el-color-danger);
-    margin-top: 4px;
-  }
+.failed-text {
+  color: var(--el-color-danger);
+  margin-top: 4px;
 }
 </style>
