@@ -70,7 +70,7 @@ export const initCOS = async () => {
     SecretKey: cosConfig.SecretKey,
     Bucket: cosConfig.Bucket,
     Region: cosConfig.Region,
-    Timeout: 45000
+    Timeout: 120000
   } as any)
 
   return _cos
@@ -193,9 +193,9 @@ export async function uploadToCOS({
         onProgress?.(progressData);
       }
     })
-    // 超时检测：30秒无响应则抛出错误
+    // 超时检测：120秒无响应则抛出错误
     const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('COS上传超时（30s），可能是网络问题或签名过期')), 30000)
+      setTimeout(() => reject(new Error('COS上传超时（120s），可能是网络问题或文件过大')), 120000)
     })
     const res = await Promise.race([uploadPromise, timeoutPromise])
     console.log("[COS上传] cos.uploadFile 返回结果:", JSON.stringify(res));
