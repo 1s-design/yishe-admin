@@ -483,21 +483,21 @@ onMounted(() => {
   gap: 12px;
   padding: 10px 12px;
   border-radius: 6px;
-  border: 1px solid var(--el-border-color-lighter, #f3f4f6);
-  background: var(--el-bg-color, #ffffff);
+  border: 1px solid var(--el-border-color-lighter);
+  background: var(--el-bg-color);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .item-card:hover {
-  background: var(--el-fill-color-lighter, #fafafa);
-  border-color: var(--el-border-color, #e5e7eb);
+  background: var(--el-fill-color-lighter);
+  border-color: var(--el-border-color);
   transform: translateX(2px);
 }
 
 .item-card.is-selected {
   border-color: var(--el-color-primary);
-  background: var(--el-color-primary-light-9, #ecf5ff);
+  background: var(--el-color-primary-light-9);
 }
 
 .card-checkbox {
@@ -511,7 +511,7 @@ onMounted(() => {
   flex-shrink: 0;
   border-radius: 4px;
   overflow: hidden;
-  background: var(--el-fill-color-light, #f3f4f6);
+  background: var(--el-fill-color-light);
 }
 
 .item-cover img {
@@ -526,11 +526,11 @@ onMounted(() => {
   height: 40px;
   flex-shrink: 0;
   border-radius: 4px;
-  background: var(--el-fill-color-light, #f3f4f6);
+  background: var(--el-fill-color-light);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--el-text-color-secondary, #9ca3af);
+  color: var(--el-text-color-secondary);
 }
 
 .item-body {
@@ -547,22 +547,22 @@ onMounted(() => {
 .item-title {
   font-size: 13px;
   font-weight: 500;
-  color: var(--el-text-color-primary, #1f2937);
+  color: var(--el-text-color-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .item-card:hover .item-title {
-  color: var(--el-color-primary, #4f46e5);
+  color: var(--el-color-primary);
 }
 
 .item-type-badge {
   font-size: 10px;
   padding: 1px 4px;
   border-radius: 3px;
-  background: #eef2ff;
-  color: #4f46e5;
+  background: var(--el-color-primary-light-9);
+  color: var(--el-color-primary);
   flex-shrink: 0;
   font-weight: 600;
 }
@@ -571,8 +571,8 @@ onMounted(() => {
   font-size: 10px;
   padding: 1px 4px;
   border-radius: 3px;
-  background: #fef2f2;
-  color: #ef4444;
+  background: var(--el-color-warning-light-9);
+  color: var(--el-color-warning);
   flex-shrink: 0;
   font-weight: 600;
 }
@@ -580,7 +580,7 @@ onMounted(() => {
 .item-desc {
   margin-top: 3px;
   font-size: 12px;
-  color: var(--el-text-color-secondary, #6b7280);
+  color: var(--el-text-color-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -592,7 +592,7 @@ onMounted(() => {
   gap: 12px;
   margin-top: 4px;
   font-size: 11px;
-  color: var(--el-text-color-placeholder, #9ca3af);
+  color: var(--el-text-color-placeholder);
 }
 
 .meta-item {
