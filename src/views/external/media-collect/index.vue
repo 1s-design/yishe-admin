@@ -177,7 +177,7 @@ const selectedItems = ref<MediaAsset[]>([])
 // 导入
 const importing = ref(false)
 const importDialogVisible = ref(false)
-import const importResult = reactive({ success: 0, failed: 0 })
+const importResult = reactive({ success: 0, failed: 0 })
 
 // 加载采集源
 async function loadProviders() {
