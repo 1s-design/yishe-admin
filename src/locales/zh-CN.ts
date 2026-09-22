@@ -268,6 +268,7 @@ export default {
     browserPlugin: '浏览器插件',
     psAutomation: 'PS 自动化',
     dataCollection: '数据采集',
+    mediaCollect: '媒体采集',
     newsCollect: '新闻资讯采集',
     hotsearchCollect: '热搜采集',
     dataToolsCollect: '数据工具采集',

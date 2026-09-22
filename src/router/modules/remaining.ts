@@ -776,6 +776,15 @@ const remainingRouter: AppRouteRecordRaw[] = [
         },
       },
       {
+        path: "media-collect",
+        component: () => import("@/views/external/media-collect/index.vue"),
+        name: "ExternalMediaCollect",
+        meta: {
+          title: "router.mediaCollect",
+          icon: "lucide:image-down",
+        },
+      },
+      {
         path: "google-art",
         redirect: "/external/data-collect?tab=google-art",
         meta: { hidden: true },

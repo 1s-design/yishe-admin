@@ -266,6 +266,7 @@ export default {
     browserPlugin: 'Browser Extension',
     psAutomation: 'Photoshop Automation',
     dataCollection: 'Data Collection',
+    mediaCollect: 'Media Collection',
     newsCollect: 'News Collection',
     hotsearchCollect: 'Hot Search Collection',
     dataToolsCollect: 'Data Tools Collection',
