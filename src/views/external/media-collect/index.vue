@@ -1,124 +1,146 @@
 <template>
-  <div class="media-collect-page">
-    <!-- 搜索栏 -->
-    <div class="search-bar">
-      <div class="search-row">
-        <el-select
-          v-model="selectedSource"
-          placeholder="选择采集源"
-          style="width: 180px"
-          @change="handleSourceChange"
-        >
-          <el-option
-            v-for="provider in providers"
-            :key="provider.key"
-            :label="provider.name"
-            :value="provider.key"
+  <div class="collect-page">
+    <div class="collect-layout">
+      <!-- 左侧菜单 -->
+      <aside class="collect-menu">
+        <div class="menu-header">媒体采集</div>
+        <nav class="menu-list">
+          <div class="menu-group">
+            <div class="menu-group__label">开放素材库</div>
+            <div
+              v-for="item in openProviders"
+              :key="item.key"
+              class="menu-item"
+              :class="{ 'is-active': activeKey === item.key }"
+              @click="switchTab(item.key)"
+            >
+              <span class="menu-item-text">{{ item.name }}</span>
+            </div>
+          </div>
+          <div class="menu-group">
+            <div class="menu-group__label">媒体类型</div>
+            <div
+              v-for="type in mediaTypes"
+              :key="type.value"
+              class="menu-item"
+              :class="{ 'is-active': activeMediaType === type.value }"
+              @click="switchMediaType(type.value)"
+            >
+              <span class="menu-item-text">{{ type.label }}</span>
+            </div>
+          </div>
+        </nav>
+      </aside>
+
+      <!-- 右侧内容 -->
+      <main class="collect-body">
+        <div class="media-panel" v-loading="loading">
+          <!-- 顶部工具条 -->
+          <div class="panel-toolbar">
+            <div class="toolbar-left">
+              <div class="platform-header">
+                <span class="platform-name">{{ activeProvider?.name || '媒体采集' }}</span>
+                <span class="platform-subtitle">{{ typeLabel(activeMediaType) }}</span>
+              </div>
+            </div>
+            <div class="toolbar-right">
+              <el-input
+                v-model="searchQuery"
+                placeholder="输入搜索关键词..."
+                class="search-input"
+                clearable
+                @keyup.enter="handleSearch"
+              >
+                <template #prefix>
+                  <el-icon><Search /></el-icon>
+                </template>
+              </el-input>
+              <el-button
+                type="primary"
+                :loading="loading"
+                @click="handleSearch"
+              >
+                {{ items.length ? '再次搜索' : '开始搜索' }}
+              </el-button>
+              <el-button
+                v-if="selectedItems.length > 0"
+                type="success"
+                :loading="importing"
+                @click="handleImport"
+              >
+                导入选中 ({{ selectedItems.length }})
+              </el-button>
+            </div>
+          </div>
+
+          <!-- 结果统计 -->
+          <div v-if="hasSearched" class="stats-bar">
+            共找到 <strong>{{ totalCount }}</strong> 条结果
+            <span v-if="items.length">，当前显示 {{ items.length }} 条</span>
+          </div>
+
+          <!-- 资源网格 -->
+          <div v-if="items.length" class="media-grid">
+            <div
+              v-for="item in items"
+              :key="item.id"
+              class="media-card"
+              :class="{ 'is-selected': isSelected(item) }"
+              @click="toggleSelect(item)"
+            >
+              <div class="card-select" @click.stop="toggleSelect(item)">
+                <el-checkbox :model-value="isSelected(item)" />
+              </div>
+              <div class="card-type-badge">{{ typeLabel(item.mediaType) }}</div>
+              <div class="card-thumb">
+                <img
+                  v-if="item.thumbnailUrl"
+                  :src="item.thumbnailUrl"
+                  :alt="item.title"
+                  loading="lazy"
+                  @error="(e) => (e.target as HTMLImageElement).style.display = 'none'"
+                />
+                <div v-else class="thumb-placeholder">
+                  <el-icon size="32"><Picture /></el-icon>
+                </div>
+              </div>
+              <div class="card-info">
+                <div class="card-title" :title="item.title">{{ item.title }}</div>
+                <div class="card-meta">
+                  <span v-if="item.width && item.height">{{ item.width }}x{{ item.height }}</span>
+                  <span v-if="item.duration">{{ formatDuration(item.duration) }}</span>
+                  <span v-if="item.fileSize">{{ formatSize(item.fileSize) }}</span>
+                </div>
+                <div v-if="item.license" class="card-license">{{ item.license }}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 空状态 -->
+          <el-empty
+            v-if="hasSearched && items.length === 0 && !loading"
+            description="未找到相关资源"
           />
-        </el-select>
 
-        <el-input
-          v-model="searchQuery"
-          placeholder="输入搜索关键词..."
-          class="search-input"
-          clearable
-          @keyup.enter="handleSearch"
-        >
-          <template #prefix>
-            <el-icon><Search /></el-icon>
-          </template>
-        </el-input>
+          <!-- 初始提示 -->
+          <div v-if="!hasSearched && !loading" class="empty-tip">
+            <el-icon size="48" color="#c0c4cc"><Picture /></el-icon>
+            <p>输入关键词开始搜索开放媒体资源</p>
+            <p class="empty-sub">支持 Wikimedia Commons 和 Internet Archive</p>
+          </div>
 
-        <el-select
-          v-model="selectedMediaType"
-          placeholder="媒体类型"
-          style="width: 120px"
-        >
-          <el-option label="图片" value="image" />
-          <el-option label="视频" value="video" />
-          <el-option label="音频" value="audio" />
-        </el-select>
-
-        <el-button type="primary" :loading="loading" @click="handleSearch">
-          搜索
-        </el-button>
-      </div>
-    </div>
-
-    <!-- 结果统计 -->
-    <div v-if="hasSearched" class="result-info">
-      共找到 <strong>{{ totalCount }}</strong> 条结果，当前第 {{ currentPage }} 页
-      <el-button
-        v-if="selectedItems.length > 0"
-        type="success"
-        size="small"
-        :loading="importing"
-        @click="handleImport"
-        style="margin-left: 16px"
-      >
-        导入选中 ({{ selectedItems.length }})
-      </el-button>
-    </div>
-
-    <!-- 资源网格 -->
-    <div v-loading="loading" class="media-grid">
-      <div
-        v-for="item in items"
-        :key="item.id"
-        class="media-card"
-        :class="{ 'is-selected': isSelected(item) }"
-        @click="toggleSelect(item)"
-      >
-        <!-- 选择框 -->
-        <div class="card-select" @click.stop="toggleSelect(item)">
-          <el-checkbox :model-value="isSelected(item)" />
-        </div>
-
-        <!-- 类型标签 -->
-        <div class="card-type-badge">{{ typeLabel(item.mediaType) }}</div>
-
-        <!-- 缩略图 -->
-        <div class="card-thumb">
-          <img
-            v-if="item.thumbnailUrl"
-            :src="item.thumbnailUrl"
-            :alt="item.title"
-            loading="lazy"
-            @error="handleImgError"
-          />
-          <div v-else class="thumb-placeholder">
-            <el-icon size="32"><Picture /></el-icon>
+          <!-- 分页 -->
+          <div v-if="totalCount > pageSize" class="pagination">
+            <el-pagination
+              v-model:current-page="currentPage"
+              :page-size="pageSize"
+              :total="totalCount"
+              layout="prev, pager, next, jumper"
+              @current-change="handlePageChange"
+            />
           </div>
         </div>
-
-        <!-- 信息 -->
-        <div class="card-info">
-          <div class="card-title" :title="item.title">{{ item.title }}</div>
-          <div class="card-meta">
-            <span v-if="item.width && item.height">{{ item.width }}x{{ item.height }}</span>
-            <span v-if="item.duration">时长: {{ formatDuration(item.duration) }}</span>
-            <span v-if="item.fileSize">{{ formatSize(item.fileSize) }}</span>
-          </div>
-          <div v-if="item.license" class="card-license">{{ item.license }}</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 空状态 -->
-    <el-empty
-      v-if="hasSearched && items.length === 0 && !loading"
-      description="未找到相关资源"
-    />
-
-    <!-- 分页 -->
-    <div v-if="totalCount > pageSize" class="pagination">
-      <el-pagination
-        v-model:current-page="currentPage"
-        :page-size="pageSize"
-        :total="totalCount"
-        layout="prev, pager, next, jumper"
-        @current-change="handlePageChange"
-      />
+      </main>
     </div>
 
     <!-- 导入成功提示 -->
@@ -141,8 +163,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, reactive, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { Search, Picture, CircleCheck } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import {
@@ -156,14 +178,28 @@ import {
 defineOptions({ name: 'ExternalMediaCollect' })
 
 const router = useRouter()
+const route = useRoute()
 
 // 采集源
 const providers = ref<MediaCollectProvider[]>([])
-const selectedSource = ref('wikimedia')
+const activeKey = ref('wikimedia')
+
+const openProviders = computed(() => providers.value)
+
+const activeProvider = computed(() =>
+  providers.value.find((p) => p.key === activeKey.value),
+)
+
+// 媒体类型
+const mediaTypes = [
+  { label: '图片', value: 'image' },
+  { label: '视频', value: 'video' },
+  { label: '音频', value: 'audio' },
+]
+const activeMediaType = ref('image')
 
 // 搜索
 const searchQuery = ref('')
-const selectedMediaType = ref('image')
 const loading = ref(false)
 const hasSearched = ref(false)
 const items = ref<MediaAsset[]>([])
@@ -185,14 +221,39 @@ async function loadProviders() {
     const res: any = await getMediaCollectProviders()
     if (res?.data?.length) {
       providers.value = res.data
-      // 默认选中第一个支持图片的
       const imgProvider = res.data.find((p: MediaCollectProvider) =>
-        p.supportedTypes.includes('image')
+        p.supportedTypes.includes('image'),
       )
-      if (imgProvider) selectedSource.value = imgProvider.key
+      if (imgProvider) activeKey.value = imgProvider.key
     }
   } catch (e: any) {
     ElMessage.error(`加载采集源失败: ${e.message}`)
+  }
+}
+
+// 切换源
+function switchTab(key: string) {
+  if (activeKey.value === key) return
+  activeKey.value = key
+  selectedItems.value = []
+  // 检查新源是否支持当前媒体类型
+  const provider = providers.value.find((p) => p.key === key)
+  if (provider && !provider.supportedTypes.includes(activeMediaType.value)) {
+    activeMediaType.value = provider.supportedTypes[0] || 'image'
+  }
+  // 自动重新搜索
+  if (hasSearched.value && searchQuery.value) {
+    handleSearch()
+  }
+}
+
+// 切换媒体类型
+function switchMediaType(type: string) {
+  if (activeMediaType.value === type) return
+  activeMediaType.value = type
+  selectedItems.value = []
+  if (hasSearched.value && searchQuery.value) {
+    handleSearch()
   }
 }
 
@@ -205,11 +266,12 @@ async function handleSearch() {
   loading.value = true
   hasSearched.value = true
   selectedItems.value = []
+  currentPage.value = 1
   try {
     const res: any = await searchMediaCollect({
-      source: selectedSource.value,
+      source: activeKey.value,
       query: searchQuery.value,
-      mediaType: selectedMediaType.value,
+      mediaType: activeMediaType.value,
       page: currentPage.value,
       pageSize: pageSize.value,
     })
@@ -228,16 +290,6 @@ async function handleSearch() {
 function handlePageChange(page: number) {
   currentPage.value = page
   handleSearch()
-}
-
-// 源切换
-function handleSourceChange() {
-  selectedItems.value = []
-  // 检查当前媒体类型是否被新源支持
-  const provider = providers.value.find((p) => p.key === selectedSource.value)
-  if (provider && !provider.supportedTypes.includes(selectedMediaType.value)) {
-    selectedMediaType.value = provider.supportedTypes[0] || 'image'
-  }
 }
 
 // 选择
@@ -273,7 +325,7 @@ async function handleImport() {
   }
 }
 
-// 跳转到文件库
+// 跳转文件库
 function goToFileResource() {
   importDialogVisible.value = false
   router.push({ path: '/material/file-resource' })
@@ -298,54 +350,180 @@ function formatSize(bytes: number): string {
   return (bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB'
 }
 
-function handleImgError(e: Event) {
-  const img = e.target as HTMLImageElement
-  img.style.display = 'none'
-}
-
 onMounted(() => {
   loadProviders()
 })
 </script>
 
 <style scoped lang="scss">
-.media-collect-page {
-  padding: 20px;
-  min-height: 600px;
+.collect-page {
+  width: 100%;
+  height: 100%;
 }
 
-.search-bar {
-  background: #fff;
-  border-radius: 8px;
-  padding: 16px 20px;
-  margin-bottom: 16px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
-}
-
-.search-row {
+.collect-layout {
   display: flex;
   gap: 12px;
-  align-items: center;
-
-  .search-input {
-    flex: 1;
-    max-width: 500px;
-  }
+  height: calc(100vh - var(--top-tool-height) - var(--tags-view-height));
 }
 
-.result-info {
-  padding: 8px 0 16px;
-  color: #606266;
-  font-size: 14px;
+.collect-menu {
+  width: 180px;
+  flex-shrink: 0;
+  padding: 8px;
+  overflow-y: auto;
+}
+
+.menu-header {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--el-text-color-secondary);
+  padding: 0 8px 4px 8px;
+}
+
+.menu-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 8px;
+}
+
+.menu-group__label {
+  font-size: 11px;
+  color: var(--el-text-color-placeholder);
+  padding: 0 8px 4px 8px;
+}
+
+.menu-item {
   display: flex;
   align-items: center;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--el-text-color-regular);
+  cursor: pointer;
+  transition: color 0.15s ease;
+  user-select: none;
 }
 
+.menu-item:hover {
+  background: transparent;
+  color: var(--el-text-color-primary);
+}
+
+.menu-item:focus,
+.menu-item:focus-visible {
+  outline: none;
+}
+
+.menu-item.is-active {
+  background: transparent;
+  color: var(--el-color-primary);
+  font-weight: 500;
+}
+
+.menu-item-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.collect-body {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+/* 窄滚动条 */
+.collect-menu::-webkit-scrollbar,
+.collect-body::-webkit-scrollbar {
+  width: 4px;
+}
+
+.collect-menu::-webkit-scrollbar-track,
+.collect-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.collect-menu::-webkit-scrollbar-thumb,
+.collect-body::-webkit-scrollbar-thumb {
+  background: var(--el-border-color);
+  border-radius: 2px;
+}
+
+.collect-menu::-webkit-scrollbar-thumb:hover,
+.collect-body::-webkit-scrollbar-thumb:hover {
+  background: var(--el-text-color-secondary);
+}
+
+/* 面板内容 */
+.media-panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  flex-shrink: 0;
+  gap: 12px;
+}
+
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.platform-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.platform-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.platform-subtitle {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.search-input {
+  width: 280px;
+}
+
+.stats-bar {
+  padding: 8px 16px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  flex-shrink: 0;
+}
+
+/* 资源网格 */
 .media-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 16px;
-  min-height: 200px;
+  padding: 16px;
+  flex: 1;
+  align-content: start;
 }
 
 .media-card {
@@ -354,17 +532,17 @@ onMounted(() => {
   overflow: hidden;
   cursor: pointer;
   transition: all 0.2s;
-  border: 2px solid transparent;
+  border: 2px solid var(--el-border-color-lighter);
   position: relative;
 
   &:hover {
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
     transform: translateY(-2px);
   }
 
   &.is-selected {
-    border-color: #409eff;
-    box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
+    border-color: var(--el-color-primary);
+    box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.15);
   }
 }
 
@@ -390,7 +568,7 @@ onMounted(() => {
 .card-thumb {
   width: 100%;
   height: 140px;
-  background: #f5f7fa;
+  background: var(--el-fill-color-light);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -412,7 +590,7 @@ onMounted(() => {
 
   .card-title {
     font-size: 13px;
-    color: #303133;
+    color: var(--el-text-color-primary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -423,21 +601,43 @@ onMounted(() => {
     display: flex;
     gap: 8px;
     font-size: 11px;
-    color: #909399;
+    color: var(--el-text-color-secondary);
     flex-wrap: wrap;
   }
 
   .card-license {
     font-size: 11px;
-    color: #e6a23c;
+    color: var(--el-color-warning);
     margin-top: 4px;
+  }
+}
+
+/* 空状态 */
+.empty-tip {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--el-text-color-placeholder);
+  gap: 8px;
+
+  p {
+    margin: 0;
+    font-size: 14px;
+  }
+
+  .empty-sub {
+    font-size: 12px;
+    color: var(--el-text-color-placeholder);
   }
 }
 
 .pagination {
   display: flex;
   justify-content: center;
-  padding: 24px 0;
+  padding: 16px;
+  flex-shrink: 0;
 }
 
 .import-result {
@@ -450,7 +650,7 @@ onMounted(() => {
   }
 
   .failed-text {
-    color: #f56c6c;
+    color: var(--el-color-danger);
     margin-top: 4px;
   }
 }
