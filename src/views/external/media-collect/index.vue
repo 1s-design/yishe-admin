@@ -575,7 +575,7 @@ onMounted(() => {
 
 .item-body {
   flex: 1;
-  min-width:: 0;
+  min-width: 0;
 }
 
 .item-header {
