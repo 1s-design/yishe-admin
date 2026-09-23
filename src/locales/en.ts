@@ -3143,6 +3143,7 @@ export default {
     temuSkcSkuTip: 'SKC and SKU specs will be automatically matched during Temu publishing',
     titleConfig: 'Product Title Config',
     titleConfigDesc: 'Configure fixed title or generate product titles smartly via AI prompts',
+    titleImageTip: 'AI title generation uses up to 2 images: the 1st is the original print image (to identify pattern subject, theme, style and colors), the 2nd is the product main image (to confirm product carrier, print effect and scene). Please ensure a clear original print image is uploaded so the title can accurately reflect the print content.',
     titleLimit: 'Title Word Limit',
     totalTemplates: '{count} templates total',
     uploadTime: 'Upload Time',

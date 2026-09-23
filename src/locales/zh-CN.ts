@@ -3143,6 +3143,7 @@ export default {
     temuSkcSkuTip: 'Temu 平台发布时将自动匹配对应 SKC 与 SKU 规格',
     titleConfig: '商品标题配置',
     titleConfigDesc: '支持配置固定标题或通过 AI 提示词智能生成商品标题',
+    titleImageTip: 'AI 标题生成最多使用 2 张图片：第 1 张为原始印花图（识别图案主体、主题、风格和配色），第 2 张为商品主图（确认商品载体、印花效果和场景）。请确保上传清晰的原始印花图，以便标题能准确体现印花内容。',
     titleLimit: '标题字数限制',
     totalTemplates: '共 {count} 个模板',
     uploadTime: '上传时间',

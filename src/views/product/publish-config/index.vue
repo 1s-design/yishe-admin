@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed, watchEffect, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { Plus } from "@element-plus/icons-vue";
+import { Plus, InfoFilled } from "@element-plus/icons-vue";
 import { useUserStore } from "@/store/modules/user";
 import {
   getPublishConfigPageApi,
@@ -2349,6 +2349,10 @@ onMounted(() => {
                   <div>
                     <div class="publish-config-panel__title">{{ titleConfigPanelTitle }}</div>
                     <div class="publish-config-panel__desc">{{ titleConfigPanelDesc }}</div>
+                    <div class="publish-config-panel__image-tip">
+                      <el-icon><InfoFilled /></el-icon>
+                      <span>{{ t('publishConfig.titleImageTip') }}</span>
+                    </div>
                   </div>
                 </div>
 
@@ -3211,6 +3215,26 @@ onMounted(() => {
   font-size: 12px;
   line-height: 1.6;
   color: var(--el-text-color-secondary);
+}
+
+.publish-config-panel__image-tip {
+  margin-top: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--el-text-color-regular);
+  background: var(--el-fill-color-light);
+  border-radius: 4px;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.publish-config-panel__image-tip .el-icon {
+  margin-top: 2px;
+  font-size: 14px;
+  color: var(--el-color-primary);
+  flex-shrink: 0;
 }
 
 .publish-config-platform__notice {

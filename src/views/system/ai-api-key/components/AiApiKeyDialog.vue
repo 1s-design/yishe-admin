@@ -166,9 +166,12 @@ const formData = reactive<AiApiKeyConfig>({
   ...createFormData(),
 });
 
+const isEditMode = computed(() => !!formData.id);
+
 const formRules = {
   name: [{ required: true, message: "请输入名称", trigger: "blur" }],
-  apiKey: [{ required: true, message: "请输入 API Key", trigger: "blur" }],
+  // apiKey 在新增时必填，编辑时可选（留空表示不修改）
+  apiKey: [{ required: !isEditMode, message: "请输入 API Key", trigger: "blur" }],
 };
 
 const resetForm = () => {
@@ -180,21 +183,54 @@ const open = async (id?: number) => {
   dialogTitle.value = id ? "编辑 AI API Key" : "新增 AI API Key";
   resetForm();
 
-  if (!id) return;
+  if (!id) {
+    console.log('[AiApiKeyDialog] 新增模式');
+    return;
+  }
 
   formLoading.value = true;
   try {
     const data = await getAiApiKeyDetail(id);
+    console.log('[AiApiKeyDialog] 获取到详情数据', {
+      id: data.id,
+      name: data.name,
+      model: data.model,
+      apiKey: data.apiKey ? '***' : '',
+      baseUrl: data.baseUrl,
+      isPublic: data.isPublic,
+    });
+
+    // 编辑时，如果 apiKey 为空或看起来是掩码值，则不填充到 formData
+    // 避免提交时把掩码值当作真实 API Key 发送
+    const rawApiKey = String(data.apiKey || "").trim();
+    const isMaskedKey = rawApiKey.includes("...") || rawApiKey.includes("****");
+
+    console.log('[AiApiKeyDialog] apiKey 检测', {
+      rawApiKey: rawApiKey ? '***' : '',
+      isMaskedKey,
+      willFill: !isMaskedKey && !!rawApiKey,
+    });
+
     Object.assign(formData, {
       ...createFormData(),
       ...data,
       model: data.model || "",
-      apiKey: data.apiKey || "",
+      apiKey: isMaskedKey ? "" : rawApiKey,
       baseUrl: data.baseUrl || "",
       isPublic: !!data.isPublic,
       expiresAt: data.expiresAt || "",
       remark: data.remark || "",
     });
+
+    console.log('[AiApiKeyDialog] formData 填充完成', {
+      id: formData.id,
+      name: formData.name,
+      model: formData.model,
+      apiKey: formData.apiKey ? '***' : '',
+      baseUrl: formData.baseUrl,
+    });
+  } catch (error: any) {
+    console.error('[AiApiKeyDialog] 获取详情失败', error);
   } finally {
     formLoading.value = false;
   }
@@ -210,10 +246,26 @@ const copyApiKey = async () => {
 
 const submitForm = async () => {
   const form = unref(formRef);
-  if (!form) return;
+  if (!form) {
+    console.error('[AiApiKeyDialog] formRef is null');
+    return;
+  }
+
+  console.log('[AiApiKeyDialog] submitForm 开始', {
+    isEditMode: isEditMode.value,
+    formData: { ...formData, apiKey: formData.apiKey ? '***' : '' },
+  });
 
   await form.validate(async (valid) => {
-    if (!valid) return;
+    console.log('[AiApiKeyDialog] 表单验证结果', { valid });
+
+    if (!valid) {
+      console.error('[AiApiKeyDialog] 表单验证失败');
+      // 获取验证错误信息
+      const errors = formRef.value?.validateState;
+      console.error('[AiApiKeyDialog] 验证错误详情', errors);
+      return;
+    }
 
     formLoading.value = true;
     try {
@@ -221,16 +273,32 @@ const submitForm = async () => {
         ...formData,
         name: String(formData.name || "").trim(),
         model: String(formData.model || "").trim(),
-        apiKey: String(formData.apiKey || "").trim(),
         baseUrl: String(formData.baseUrl || "").trim(),
         remark: String(formData.remark || "").trim(),
         expiresAt: formData.expiresAt || "",
         enabled: Boolean(formData.enabled),
       };
 
+      // 编辑模式下，如果 apiKey 为空，则不发送该字段，保持后端原值
+      const apiKeyTrimmed = String(formData.apiKey || "").trim();
+      if (apiKeyTrimmed) {
+        payload.apiKey = apiKeyTrimmed;
+      } else if (!payload.id) {
+        // 新增时 apiKey 必填
+        console.error('[AiApiKeyDialog] 新增时 apiKey 为空');
+        ElMessage.error("请输入 API Key");
+        formLoading.value = false;
+        return;
+      }
+
       if (canManagePublic.value) {
         payload.isPublic = Boolean(formData.isPublic);
       }
+
+      console.log('[AiApiKeyDialog] 准备发送请求', {
+        isEdit: !!payload.id,
+        payload: { ...payload, apiKey: payload.apiKey ? '***' : undefined },
+      });
 
       if (payload.id) {
         await updateAiApiKey(payload.id, payload);
@@ -242,6 +310,13 @@ const submitForm = async () => {
 
       dialogVisible.value = false;
       emit("success");
+    } catch (error: any) {
+      console.error('[AiApiKeyDialog] 保存失败', {
+        error: error?.message || error,
+        response: error?.response?.data,
+        status: error?.response?.status,
+      });
+      ElMessage.error(error?.message || "保存失败");
     } finally {
       formLoading.value = false;
     }
