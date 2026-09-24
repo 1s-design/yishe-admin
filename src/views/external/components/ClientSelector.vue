@@ -29,12 +29,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Refresh } from '@element-plus/icons-vue'
-import { usePluginClientNodes } from '@/services/clientNodeState'
+import { useClientNodeState } from '@/services/clientNodeState'
 import type { ImageEngineClientVO, ImageEngineServiceStatus } from '@/api/external/imageEngineApi'
 
-const props = defineProps<{
-  pluginKey: string
-}>()
+defineProps<{ pluginKey?: string }>()
 
 const emit = defineEmits<{
   (e: 'change', clientId: string): void
@@ -42,16 +40,14 @@ const emit = defineEmits<{
 }>()
 
 const {
-  clients: rawClients,
+  onlineClients,
   refresh: refreshClientNodes,
-  getServiceRuntime,
-} = usePluginClientNodes(props.pluginKey)
+} = useClientNodeState()
 
 const selectedClientId = defineModel<string>({ default: '' })
 
 const clients = computed<ImageEngineClientVO[]>(() => {
-  return rawClients.value.map((client) => {
-    const service = (getServiceRuntime(client) as ImageEngineServiceStatus | null) || null
+  return onlineClients.value.map((client) => {
     return {
       clientId: client.id,
       isOnline: client.isOnline,
@@ -62,7 +58,7 @@ const clients = computed<ImageEngineClientVO[]>(() => {
       workspaceDirectory: client.clientInfo?.workspaceDirectory || null,
       machine: client.clientInfo?.machine || null,
       location: client.clientInfo?.location || null,
-      service,
+      service: null as ImageEngineServiceStatus | null,
     }
   })
 })
@@ -72,15 +68,8 @@ const selectedClient = computed<ImageEngineClientVO | null>(() => {
   return clients.value.find((c) => c.clientId === selectedClientId.value) || null
 })
 
-const currentService = computed<ImageEngineServiceStatus | null>(
-  () => selectedClient.value?.service || null,
-)
-
 const isOnline = computed(() => !!selectedClient.value?.isOnline)
-const isServiceConnected = computed(() => !!currentService.value?.connected)
-const isAvailable = computed(
-  () => isOnline.value && (isServiceConnected.value || currentService.value?.available),
-)
+const isAvailable = computed(() => isOnline.value)
 
 function handleChange(val: string) {
   selectedClientId.value = val
@@ -91,6 +80,11 @@ async function handleRefresh() {
   await refreshClientNodes()
   emit('refresh')
 }
+
+defineExpose({
+  clients,
+  refresh: refreshClientNodes,
+})
 </script>
 
 <style scoped>

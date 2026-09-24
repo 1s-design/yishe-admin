@@ -10,3 +10,5 @@ types/generated
 .history
 target
 *.map
+*.pid
+*.tsbuildinfo

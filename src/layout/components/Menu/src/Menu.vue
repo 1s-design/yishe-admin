@@ -247,9 +247,13 @@ export default defineComponent({
           hideAfter={0}
           popperClass={`${prefixCls}__status-tooltip-popper`}
         >
-          <span class={`${prefixCls}__status-indicator`} aria-label={title}>
-            {dotNode}
-          </span>
+          {{
+            default: () => (
+              <span class={`${prefixCls}__status-indicator`} aria-label={title}>
+                {dotNode}
+              </span>
+            ),
+          }}
         </ElTooltip>
       );
     };

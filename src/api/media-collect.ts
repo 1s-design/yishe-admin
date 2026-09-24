@@ -48,13 +48,12 @@ interface CommandResponse {
 
 async function sendCommandAndWait(
   clientId: string,
-  pluginKey: string,
   action: 'search' | 'import' | 'refreshRuntime',
   payload: Record<string, any>,
   timeoutMs = 120000,
 ) {
   const response = await sendServiceCommand({
-    target: { clientId, pluginKey },
+    target: { clientId, pluginKey: 'media-collect' },
     command: { name: action, payload },
     mode: 'production',
   }) as CommandResponse
@@ -73,7 +72,7 @@ async function sendCommandAndWait(
 
 /** 刷新指定客户端的媒体采集服务状态 */
 export async function refreshRuntime(clientId: string, source: string) {
-  return await sendCommandAndWait(clientId, source, 'refreshRuntime', {}, 30000)
+  return await sendCommandAndWait(clientId, 'refreshRuntime', { source }, 30000)
 }
 
 /** 在指定客户端搜索媒体资源 */
@@ -87,7 +86,7 @@ export async function searchMediaCollect(
     pageSize?: number
   },
 ): Promise<MediaSearchResult> {
-  const data = await sendCommandAndWait(clientId, params.source, 'search', params)
+  const data = await sendCommandAndWait(clientId, 'search', params)
   return data || {}
 }
 
@@ -96,5 +95,5 @@ export async function importMediaCollect(
   clientId: string,
   items: Partial<MediaAsset>[],
 ) {
-  return await sendCommandAndWait(clientId, 'media-collect', 'import', { items }, 300000)
+  return await sendCommandAndWait(clientId, 'import', { items }, 300000)
 }

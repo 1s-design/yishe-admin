@@ -24,12 +24,13 @@
           <div class="standard-collect-page">
             <ClientSelector
               v-model="selectedClientId"
-              :plugin-key="clientPluginKey"
+              ref="clientSelectorRef"
+              plugin-key="media-collect"
               @change="handleSelectClient"
               @refresh="loadClients"
             />
 
-            <div class="standard-collect-layout" v-loading="loading">
+            <div class="standard-collect-layout">
               <section class="collect-main">
                 <div v-if="selectedClient" class="collect-panel">
                   <div class="collect-section">
@@ -334,7 +335,6 @@ import { useRouter } from 'vue-router'
 import { Headset, Picture, VideoPlay } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import ClientSelector from '../components/ClientSelector.vue'
-import { usePluginClientNodes } from '@/services/clientNodeState'
 import {
   importMediaCollect,
   refreshRuntime,
@@ -353,33 +353,17 @@ const providers = [
 ]
 const activeKey = ref('wikimedia')
 const activeProvider = computed(() => providers.find((item) => item.key === activeKey.value))
-const clientPluginKey = computed(() => activeKey.value)
-
-type SourceClientState = ReturnType<typeof usePluginClientNodes>
-const sourceClients: Record<string, SourceClientState> = {
-  wikimedia: usePluginClientNodes('wikimedia'),
-  'internet-archive': usePluginClientNodes('internet-archive'),
-  pexels: usePluginClientNodes('pexels'),
-}
-const activeClientState = computed(() => sourceClients[activeKey.value])
-const rawClients = computed(() => activeClientState.value?.clients?.value || [])
-const loading = computed(() => activeClientState.value?.loading?.value || false)
-const refreshClientNodes = async () => {
-  await Promise.all(Object.values(sourceClients).map((state) => state.refresh()))
-}
-const getServiceRuntime = (client?: any) =>
-  activeClientState.value.getServiceRuntime(client)
+const clientSelectorRef = ref<{
+  clients: { clientId: string; isOnline?: boolean }[]
+  refresh: () => Promise<void>
+} | null>(null)
+const rawClients = computed(() => clientSelectorRef.value?.clients || [])
 
 const selectedClientId = ref('')
 const selectedClient = computed(() =>
-  rawClients.value.find((client) => client.id === selectedClientId.value) || null,
+  rawClients.value.find((client) => client.clientId === selectedClientId.value) || null,
 )
-const mediaService = computed(() => getServiceRuntime(selectedClient.value))
-const isAvailable = computed(
-  () =>
-    !!selectedClient.value?.isOnline &&
-    !!(mediaService.value?.available || mediaService.value?.connected),
-)
+const isAvailable = computed(() => !!selectedClient.value?.isOnline)
 
 // 每个数据源独立维护搜索状态（key 与 providers 的 key 保持一致）
 const sourceStates = reactive({
@@ -456,7 +440,7 @@ const isIndeterminate = computed(
 )
 
 async function loadClients() {
-  await refreshClientNodes()
+  await clientSelectorRef.value?.refresh?.()
 }
 
 function handleSelectClient() {
@@ -472,7 +456,6 @@ function handleSelectClient() {
 function switchTab(key: string) {
   if (activeKey.value === key) return
   activeKey.value = key
-  selectedClientId.value = ''
 }
 
 async function handleRefreshRuntime() {
@@ -480,7 +463,7 @@ async function handleRefreshRuntime() {
   actionLoading.refreshRuntime = true
   try {
     await refreshRuntime(selectedClientId.value, activeKey.value)
-    await refreshClientNodes()
+    await loadClients()
     ElMessage.success('运行状态刷新请求已发送')
   } catch (error: any) {
     ElMessage.error(error?.message || '刷新运行状态失败')
@@ -632,11 +615,8 @@ watch(
   rawClients,
   (list) => {
     if (!selectedClientId.value && list.length > 0) {
-      const onlineClient = list.find((client) => {
-        const runtime = getServiceRuntime(client)
-        return client.isOnline && !!(runtime?.available || runtime?.connected)
-      })
-      selectedClientId.value = onlineClient?.id || list[0].id
+      const onlineClient = list.find((client) => client.isOnline)
+      selectedClientId.value = onlineClient?.clientId || list[0].clientId
     }
   },
   { immediate: true },
