@@ -362,8 +362,8 @@ const sourceClients: Record<string, SourceClientState> = {
   pexels: usePluginClientNodes('pexels'),
 }
 const activeClientState = computed(() => sourceClients[activeKey.value])
-const rawClients = computed(() => activeClientState.value.clients)
-const loading = computed(() => activeClientState.value.loading)
+const rawClients = computed(() => activeClientState.value?.clients?.value || [])
+const loading = computed(() => activeClientState.value?.loading?.value || false)
 const refreshClientNodes = async () => {
   await Promise.all(Object.values(sourceClients).map((state) => state.refresh()))
 }
