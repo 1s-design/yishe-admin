@@ -40,6 +40,7 @@ export type ClientPluginKey =
   | "video-template"
   | "file-download"
   | "media-collect"
+  | "internet-archive"
   // 新闻资讯源 (client local services)
   | "hackernews"
   | "arxiv"

@@ -346,8 +346,6 @@ import '@/styles/external-collect.css'
 defineOptions({ name: 'ExternalMediaCollect' })
 
 const router = useRouter()
-const clientPluginKey = 'media-collect'
-
 const providers = [
   { key: 'wikimedia', name: 'Wikimedia Commons' },
   { key: 'internet-archive', name: 'Internet Archive' },
@@ -355,13 +353,22 @@ const providers = [
 ]
 const activeKey = ref('wikimedia')
 const activeProvider = computed(() => providers.find((item) => item.key === activeKey.value))
+const clientPluginKey = computed(() => activeKey.value)
 
-const {
-  clients: rawClients,
-  loading,
-  refresh: refreshClientNodes,
-  getServiceRuntime,
-} = usePluginClientNodes(clientPluginKey)
+type SourceClientState = ReturnType<typeof usePluginClientNodes>
+const sourceClients: Record<string, SourceClientState> = {
+  wikimedia: usePluginClientNodes('wikimedia'),
+  'internet-archive': usePluginClientNodes('internet-archive'),
+  pexels: usePluginClientNodes('pexels'),
+}
+const activeClientState = computed(() => sourceClients[activeKey.value])
+const rawClients = computed(() => activeClientState.value.clients)
+const loading = computed(() => activeClientState.value.loading)
+const refreshClientNodes = async () => {
+  await Promise.all(Object.values(sourceClients).map((state) => state.refresh()))
+}
+const getServiceRuntime = (client?: any) =>
+  activeClientState.value.getServiceRuntime(client)
 
 const selectedClientId = ref('')
 const selectedClient = computed(() =>
@@ -465,13 +472,14 @@ function handleSelectClient() {
 function switchTab(key: string) {
   if (activeKey.value === key) return
   activeKey.value = key
+  selectedClientId.value = ''
 }
 
 async function handleRefreshRuntime() {
   if (!selectedClientId.value) return
   actionLoading.refreshRuntime = true
   try {
-    await refreshRuntime(selectedClientId.value)
+    await refreshRuntime(selectedClientId.value, activeKey.value)
     await refreshClientNodes()
     ElMessage.success('运行状态刷新请求已发送')
   } catch (error: any) {
