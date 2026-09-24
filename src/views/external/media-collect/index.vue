@@ -59,7 +59,7 @@
                           <div class="collect-search__field">
                             <span class="collect-search__label">类型</span>
                             <el-select
-                              v-model="sourceStates.internetArchive.mediaType"
+                              v-model="sourceStates['internet-archive'].mediaType"
                               size="small"
                               style="width: 110px"
                               aria-label="媒体类型"
@@ -72,7 +72,7 @@
                           <div class="collect-search__field">
                             <span class="collect-search__label">排序</span>
                             <el-select
-                              v-model="sourceStates.internetArchive.sort"
+                              v-model="sourceStates['internet-archive'].sort"
                               size="small"
                               style="width: 100px"
                             >
@@ -358,7 +358,7 @@ const isAvailable = computed(
     !!(mediaService.value?.available || mediaService.value?.connected),
 )
 
-// 每个数据源独立维护搜索状态
+// 每个数据源独立维护搜索状态（key 与 providers 的 key 保持一致）
 const sourceStates = reactive({
   wikimedia: {
     searchKeyword: '',
@@ -370,7 +370,7 @@ const sourceStates = reactive({
     hasSearched: false,
     selectedItems: [] as string[],
   },
-  internetArchive: {
+  'internet-archive': {
     searchKeyword: '',
     mediaType: 'image' as 'image' | 'video' | 'audio',
     sort: 'relevance',
