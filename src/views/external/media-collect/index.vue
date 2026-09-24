@@ -81,6 +81,21 @@
                             </el-select>
                           </div>
                         </template>
+                        <!-- Pexels 专用参数 -->
+                        <template v-else-if="activeKey === 'pexels'">
+                          <div class="collect-search__field">
+                            <span class="collect-search__label">类型</span>
+                            <el-select
+                              v-model="sourceStates.pexels.mediaType"
+                              size="small"
+                              style="width: 110px"
+                              aria-label="媒体类型"
+                            >
+                              <el-option value="image" label="图片" />
+                              <el-option value="video" label="视频" />
+                            </el-select>
+                          </div>
+                        </template>
                         <div class="collect-search__field">
                           <span class="collect-search__label">每页数量</span>
                           <el-select
@@ -336,6 +351,7 @@ const clientPluginKey = 'media-collect'
 const providers = [
   { key: 'wikimedia', name: 'Wikimedia Commons' },
   { key: 'internet-archive', name: 'Internet Archive' },
+  { key: 'pexels', name: 'Pexels' },
 ]
 const activeKey = ref('wikimedia')
 const activeProvider = computed(() => providers.find((item) => item.key === activeKey.value))
@@ -374,6 +390,16 @@ const sourceStates = reactive({
     searchKeyword: '',
     mediaType: 'image' as 'image' | 'video' | 'audio',
     sort: 'relevance',
+    searchResults: [] as MediaAsset[],
+    searchTotal: 0,
+    currentPage: 1,
+    pageSize: 10,
+    hasSearched: false,
+    selectedItems: [] as string[],
+  },
+  pexels: {
+    searchKeyword: '',
+    mediaType: 'image' as 'image' | 'video' | 'audio',
     searchResults: [] as MediaAsset[],
     searchTotal: 0,
     currentPage: 1,
