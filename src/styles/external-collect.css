@@ -121,6 +121,107 @@
   font-size: 16px;
 }
 
+.collect-item__thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  cursor: pointer;
+}
+
+.collect-item__thumb-video {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  cursor: pointer;
+}
+
+.collect-item__thumb-video-el {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.collect-item__thumb-video-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.collect-item__thumb-play-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  pointer-events: none;
+}
+
+.collect-item__thumb-audio {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: var(--el-color-primary-light-9);
+  color: var(--el-color-primary);
+  cursor: pointer;
+}
+
+/* 预览弹窗 */
+.preview-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+
+.preview-image {
+  max-width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+}
+
+.preview-video {
+  max-width: 100%;
+  max-height: 60vh;
+}
+
+.preview-audio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  padding: 30px 20px;
+  color: var(--el-color-primary);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.preview-audio-player {
+  width: 100%;
+  min-width: 300px;
+  height: 40px;
+}
+
+.preview-audio-error {
+  font-size: 13px;
+  color: var(--el-color-danger);
+}
+
 .collect-item__info {
   flex: 1;
   min-width: 0;
@@ -270,11 +371,25 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 16px;
+  flex-wrap: wrap;
   margin-top: 16px;
   padding-top: 12px;
   border-top: 1px solid var(--el-border-color-lighter);
 }
+
+.collect-pagination__extra {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.collect-pagination__label {
+  white-space: nowrap;
+}
+
 
 .collect-pagination__current {
   font-size: 13px;

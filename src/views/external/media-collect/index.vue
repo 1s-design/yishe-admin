@@ -20,298 +20,596 @@
       </aside>
 
       <main class="collect-body">
-        <div class="media-panel" v-loading="loading">
-          <!-- 顶部工具条 -->
-          <div class="panel-toolbar">
-            <div class="toolbar-left">
-              <div class="platform-header">
-                <span class="platform-name">{{ activeProvider?.name || '媒体采集' }}</span>
-              </div>
-            </div>
-            <div class="toolbar-right">
-              <el-input
-                v-model="searchQuery"
-                placeholder="输入搜索关键词..."
-                class="search-input"
-                clearable
-                @keyup.enter="handleSearch"
-              >
-                <template #prefix>
-                  <el-icon><Search /></el-icon>
-                </template>
-              </el-input>
-              <el-button
-                type="primary"
-                :loading="loading"
-                @click="handleSearch"
-              >
-                {{ items.length ? '再次搜索' : '开始搜索' }}
-              </el-button>
-              <el-button
-                v-if="selectedItems.length > 0"
-                type="success"
-                :loading="importing"
-                @click="handleImport"
-              >
-                导入选中 ({{ selectedItems.length }})
-              </el-button>
-            </div>
-          </div>
-
-          <!-- 结果统计 -->
-          <div v-if="hasSearched" class="stats-bar">
-            共找到 <strong>{{ totalCount }}</strong> 条结果
-            <span v-if="items.length">，当前显示 {{ items.length }} 条</span>
-          </div>
-
-          <!-- 数据列表 -->
-          <div v-if="items.length" class="items-container">
-            <div
-              v-for="item in items"
-              :key="item.id"
-              class="item-card"
-              :class="{ 'has-cover': Boolean(item.thumbnailUrl), 'is-selected': isSelected(item) }"
-              @click="toggleSelect(item)"
-            >
-              <div class="card-checkbox" @click.stop="toggleSelect(item)">
-                <el-checkbox :model-value="isSelected(item)" />
-              </div>
-
-              <div v-if="item.thumbnailUrl" class="item-cover">
-                <img
-                  :src="item.thumbnailUrl"
-                  :alt="item.title"
-                  loading="lazy"
-                  @error="(e) => (e.target as HTMLImageElement).style.display = 'none'"
-                />
-              </div>
-
-              <div v-else class="item-type-icon">
-                <el-icon v-if="item.mediaType === 'image'" size="18"><Picture /></el-icon>
-                <el-icon v-else-if="item.mediaType === 'video'" size="18"><VideoPlay /></el-icon>
-                <el-icon v-else-if="item.mediaType === 'audio'" size="18"><Headset /></el-icon>
-              </div>
-
-              <div class="item-body">
-                <div class="item-header">
-                  <span class="item-title" :title="item.title">{{ item.title }}</span>
-                  <span class="item-type-badge">{{ typeLabel(item.mediaType) }}</span>
-                  <span v-if="item.license" class="item-license">{{ item.license }}</span>
-                </div>
-                <div v-if="item.description" class="item-desc">{{ item.description }}</div>
-                <div class="item-footer">
-                  <span v-if="item.creator" class="meta-item">👤 {{ item.creator }}</span>
-                  <span v-if="item.width && item.height" class="meta-item">{{ item.width }}x{{ item.height }}</span>
-                  <span v-if="item.duration" class="meta-item">⏱ {{ formatDuration(item.duration) }}</span>
-                  <span v-if="item.fileSize" class="meta-item">📦 {{ formatSize(item.fileSize) }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 空状态 -->
-          <div v-else-if="hasSearched && !loading" class="panel-empty">
-            未找到相关资源
-          </div>
-
-          <div v-else-if="!hasSearched && !loading" class="panel-empty">
-            输入关键词开始搜索开放媒体资源
-          </div>
-
-          <!-- 分页 -->
-          <div v-if="totalCount > pageSize" class="pagination">
-            <el-pagination
-              v-model:current-page="currentPage"
-              :page-size="pageSize"
-              :total="totalCount"
-              layout="prev, pager, next, jumper"
-              @current-change="handlePageChange"
+        <ContentWrap :plain="true">
+          <div class="standard-collect-page">
+            <ClientSelector
+              v-model="selectedClientId"
+              :plugin-key="clientPluginKey"
+              @change="handleSelectClient"
+              @refresh="loadClients"
             />
+
+            <div class="standard-collect-layout" v-loading="loading">
+              <section class="collect-main">
+                <div v-if="selectedClient" class="collect-panel">
+                  <div class="collect-section">
+                    <div class="collect-search__header">
+                      <div class="collect-section__title">
+                        {{ activeProvider?.name || '媒体采集' }}
+                      </div>
+                      <div class="collect-search__opts">
+                        <!-- Wikimedia 专用参数 -->
+                        <template v-if="activeKey === 'wikimedia'">
+                          <div class="collect-search__field">
+                            <span class="collect-search__label">类型</span>
+                            <el-select
+                              v-model="sourceStates.wikimedia.mediaType"
+                              size="small"
+                              style="width: 110px"
+                              aria-label="媒体类型"
+                            >
+                              <el-option value="image" label="图片" />
+                              <el-option value="video" label="视频" />
+                              <el-option value="audio" label="音频" />
+                            </el-select>
+                          </div>
+                        </template>
+                        <!-- Internet Archive 专用参数 -->
+                        <template v-else-if="activeKey === 'internet-archive'">
+                          <div class="collect-search__field">
+                            <span class="collect-search__label">类型</span>
+                            <el-select
+                              v-model="sourceStates.internetArchive.mediaType"
+                              size="small"
+                              style="width: 110px"
+                              aria-label="媒体类型"
+                            >
+                              <el-option value="image" label="图片" />
+                              <el-option value="video" label="影片" />
+                              <el-option value="audio" label="音频" />
+                            </el-select>
+                          </div>
+                          <div class="collect-search__field">
+                            <span class="collect-search__label">排序</span>
+                            <el-select
+                              v-model="sourceStates.internetArchive.sort"
+                              size="small"
+                              style="width: 100px"
+                            >
+                              <el-option value="relevance" label="相关度" />
+                              <el-option value="date" label="日期" />
+                            </el-select>
+                          </div>
+                        </template>
+                        <div class="collect-search__field">
+                          <span class="collect-search__label">每页数量</span>
+                          <el-select
+                            v-model="currentPageSize"
+                            size="small"
+                            style="width: 100px"
+                            @change="handleSizeChange"
+                          >
+                            <el-option :value="10" label="10 条" />
+                            <el-option :value="20" label="20 条" />
+                            <el-option :value="30" label="30 条" />
+                            <el-option :value="50" label="50 条" />
+                          </el-select>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="collect-inline">
+                      <el-input
+                        v-model="currentSearchKeyword"
+                        clearable
+                        :placeholder="`输入关键词搜索 ${activeProvider?.name || '媒体资源'}（如 cat, landscape, architecture）`"
+                        @keyup.enter="handleSearch"
+                      />
+                      <el-button
+                        type="primary"
+                        :loading="searchLoading"
+                        @click="handleSearch"
+                      >
+                        搜索
+                      </el-button>
+                    </div>
+
+                    <div v-if="searchResults.length > 0" class="collect-search__results">
+                      <div class="collect-search__header">
+                        <div class="collect-search__info">
+                          共 {{ searchTotal }} 个结果，第 {{ currentPage }} / {{ totalPages }} 页
+                        </div>
+                        <div class="collect-actions-bar">
+                          <el-checkbox
+                            :model-value="isAllSelected"
+                            :indeterminate="isIndeterminate"
+                            @change="toggleSelectAll"
+                          >
+                            全选
+                          </el-checkbox>
+                          <span class="collect-actions-bar__count">
+                            已选 {{ selectedItems.length }} 项
+                          </span>
+                          <el-button
+                            type="primary"
+                            size="small"
+                            :disabled="selectedItems.length === 0"
+                            :loading="importing"
+                            @click="handleImport"
+                          >
+                            批量入库
+                          </el-button>
+                          <el-button
+                            size="small"
+                            :disabled="selectedItems.length === 0"
+                            @click="copySelectedLinks"
+                          >
+                            复制链接
+                          </el-button>
+                          <el-button size="small" @click="clearSelection">清空</el-button>
+                        </div>
+                      </div>
+
+                      <div class="collect-list">
+                        <div
+                          v-for="item in searchResults"
+                          :key="item.id"
+                          class="collect-item"
+                          :class="{ 'is-selected': selectedItems.includes(item.id) }"
+                        >
+                          <el-checkbox
+                            :model-value="selectedItems.includes(item.id)"
+                            @change="toggleSelect(item)"
+                          />
+                          <div class="collect-item__thumb" @click.stop="openPreview(item)">
+                            <!-- 图片缩略图 -->
+                            <img
+                              v-if="(item.thumbnailUrl || item.previewUrl) && item.mediaType === 'image'"
+                              :src="item.thumbnailUrl || item.previewUrl"
+                              :alt="item.title || 'Media Asset'"
+                              loading="lazy"
+                              class="collect-item__thumb-img"
+                              @error="onImageError"
+                            />
+                            <!-- 视频预览 -->
+                            <div v-else-if="item.mediaType === 'video'" class="collect-item__thumb-video">
+                              <video
+                                v-if="item.thumbnailUrl"
+                                :src="item.fileUrl || item.previewUrl"
+                                :poster="item.thumbnailUrl"
+                                preload="metadata"
+                                muted
+                                class="collect-item__thumb-video-el"
+                              ></video>
+                              <div v-else class="collect-item__thumb-video-placeholder">
+                                <el-icon size="24"><VideoPlay /></el-icon>
+                              </div>
+                              <div class="collect-item__thumb-play-icon">
+                                <el-icon size="20"><VideoPlay /></el-icon>
+                              </div>
+                            </div>
+                            <!-- 音频 -->
+                            <div v-else-if="item.mediaType === 'audio'" class="collect-item__thumb-audio">
+                              <el-icon size="24"><Headset /></el-icon>
+                            </div>
+                            <!-- 默认图标 -->
+                            <div v-else class="collect-item__thumb-error">
+                              <el-icon><Picture /></el-icon>
+                            </div>
+                          </div>
+
+                          <div class="collect-item__info">
+                            <div class="collect-item__title" :title="item.title">
+                              {{ item.title || '未命名资源' }}
+                            </div>
+                            <div class="collect-item__meta">
+                              <span>{{ typeLabel(item.mediaType) }}</span>
+                              <span v-if="item.creator">👤 {{ item.creator }}</span>
+                              <span v-if="item.width && item.height">
+                                {{ item.width }} × {{ item.height }}
+                              </span>
+                              <span v-if="item.duration">⏱ {{ formatDuration(item.duration) }}</span>
+                              <span v-if="item.license">{{ item.license }}</span>
+                            </div>
+                          </div>
+
+                          <div class="collect-item__actions">
+                            <el-button
+                              size="small"
+                              @click.stop="copyLink(item.fileUrl || item.previewUrl || '')"
+                            >
+                              复制链接
+                            </el-button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="collect-pagination">
+                        <el-pagination
+                          v-model:current-page="currentPage"
+                          :page-size="currentPageSize"
+                          :total="searchTotal"
+                          layout="total, prev, pager, next, jumper"
+                          background
+                          @current-change="handlePageChange"
+                        />
+                        <div class="collect-pagination__extra">
+                          <span class="collect-pagination__label">每页</span>
+                          <el-select
+                            v-model="currentPageSize"
+                            size="small"
+                            style="width: 80px"
+                            @change="handleSizeChange"
+                          >
+                            <el-option :value="10" label="10 条" />
+                            <el-option :value="20" label="20 条" />
+                            <el-option :value="30" label="30 条" />
+                            <el-option :value="50" label="50 条" />
+                          </el-select>
+                          <span class="collect-pagination__label">条</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <el-empty
+                      v-else-if="hasSearched && !searchLoading"
+                      description="未找到相关资源"
+                      :image-size="80"
+                    />
+                    <el-empty
+                      v-else-if="!searchLoading"
+                      description="输入关键词开始搜索开放媒体资源"
+                      :image-size="80"
+                    />
+                  </div>
+                </div>
+
+                <el-empty v-else description="请先在上方选择客户端节点" />
+              </section>
+            </div>
           </div>
-        </div>
+        </ContentWrap>
       </main>
     </div>
 
-    <el-dialog v-model="importDialogVisible" title="导入结果" width="400px">
-      <div class="import-result">
-        <el-icon class="success-icon" color="#67c23a"><CircleCheck /></el-icon>
-        <div>
-          <p>成功导入 <strong>{{ importResult.success }}</strong> 个资源到文件库</p>
-          <p v-if="importResult.failed > 0" class="failed-text">
-            失败 <strong>{{ importResult.failed }}</strong> 个
-          </p>
+    <!-- 预览弹窗 -->
+    <el-dialog v-model="previewDialogVisible" :title="previewItem?.title || '预览'" width="700px" align-center>
+      <div class="preview-container">
+        <!-- 图片预览 -->
+        <img
+          v-if="previewItem?.mediaType === 'image' && previewItem?.fileUrl"
+          :src="previewItem.fileUrl"
+          :alt="previewItem.title"
+          class="preview-image"
+        />
+        <!-- 视频预览 -->
+        <video
+          v-else-if="previewItem?.mediaType === 'video' && previewItem?.fileUrl"
+          :src="previewItem.fileUrl"
+          controls
+          autoplay
+          class="preview-video"
+        ></video>
+        <!-- 音频预览 -->
+        <div v-else-if="previewItem?.mediaType === 'audio'" class="preview-audio">
+          <el-icon size="48"><Headset /></el-icon>
+          <audio
+            v-if="previewItem?.fileUrl"
+            :src="previewItem.fileUrl"
+            controls
+            preload="auto"
+            class="preview-audio-player"
+          ></audio>
+          <span v-else class="preview-audio-error">音频地址无效</span>
         </div>
+        <el-empty v-else description="无法预览此资源" />
       </div>
       <template #footer>
-        <el-button @click="importDialogVisible = false">关闭</el-button>
-        <el-button type="primary" @click="goToFileResource">查看文件库</el-button>
+        <el-button @click="previewDialogVisible = false">关闭</el-button>
+        <el-button type="primary" @click="previewItem && toggleSelect(previewItem)">选择并关闭</el-button>
       </template>
     </el-dialog>
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive, onMounted, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { Search, Picture, CircleCheck, VideoPlay, Headset } from '@element-plus/icons-vue'
+import { Headset, Picture, VideoPlay } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import ClientSelector from '../components/ClientSelector.vue'
+import { usePluginClientNodes } from '@/services/clientNodeState'
 import {
-  getMediaCollectProviders,
-  searchMediaCollect,
   importMediaCollect,
-  type MediaCollectProvider,
+  refreshRuntime,
+  searchMediaCollect,
   type MediaAsset,
 } from '@/api/media-collect'
+import '@/styles/external-collect.css'
 
 defineOptions({ name: 'ExternalMediaCollect' })
 
 const router = useRouter()
+const clientPluginKey = 'media-collect'
 
-// 采集源
-const providers = ref<MediaCollectProvider[]>([])
+const providers = [
+  { key: 'wikimedia', name: 'Wikimedia Commons' },
+  { key: 'internet-archive', name: 'Internet Archive' },
+]
 const activeKey = ref('wikimedia')
+const activeProvider = computed(() => providers.find((item) => item.key === activeKey.value))
 
-const activeProvider = computed(() =>
-  providers.value.find((p) => p.key === activeKey.value),
+const {
+  clients: rawClients,
+  loading,
+  refresh: refreshClientNodes,
+  getServiceRuntime,
+} = usePluginClientNodes(clientPluginKey)
+
+const selectedClientId = ref('')
+const selectedClient = computed(() =>
+  rawClients.value.find((client) => client.id === selectedClientId.value) || null,
+)
+const mediaService = computed(() => getServiceRuntime(selectedClient.value))
+const isAvailable = computed(
+  () =>
+    !!selectedClient.value?.isOnline &&
+    !!(mediaService.value?.available || mediaService.value?.connected),
 )
 
-// 搜索
-const searchQuery = ref('')
-const loading = ref(false)
-const hasSearched = ref(false)
-const items = ref<MediaAsset[]>([])
-const totalCount = ref(0)
-const currentPage = ref(1)
-const pageSize = ref(20)
+// 每个数据源独立维护搜索状态
+const sourceStates = reactive({
+  wikimedia: {
+    searchKeyword: '',
+    mediaType: 'image' as 'image' | 'video' | 'audio',
+    searchResults: [] as MediaAsset[],
+    searchTotal: 0,
+    currentPage: 1,
+    pageSize: 10,
+    hasSearched: false,
+    selectedItems: [] as string[],
+  },
+  internetArchive: {
+    searchKeyword: '',
+    mediaType: 'image' as 'image' | 'video' | 'audio',
+    sort: 'relevance',
+    searchResults: [] as MediaAsset[],
+    searchTotal: 0,
+    currentPage: 1,
+    pageSize: 10,
+    hasSearched: false,
+    selectedItems: [] as string[],
+  },
+})
 
-// 选择
-const selectedItems = ref<MediaAsset[]>([])
+// 当前激活 source 的计算属性
+const currentSource = computed(() => sourceStates[activeKey.value as keyof typeof sourceStates])
+const currentSearchKeyword = computed({
+  get: () => currentSource.value.searchKeyword,
+  set: (val) => { currentSource.value.searchKeyword = val },
+})
+const currentPageSize = computed({
+  get: () => currentSource.value.pageSize,
+  set: (val) => { currentSource.value.pageSize = val },
+})
+const searchResults = computed(() => currentSource.value.searchResults)
+const searchTotal = computed(() => currentSource.value.searchTotal)
+const currentPage = computed(() => currentSource.value.currentPage)
+const totalPages = computed(() => Math.ceil(currentSource.value.searchTotal / currentSource.value.pageSize) || 1)
+const selectedItems = computed({
+  get: () => currentSource.value.selectedItems,
+  set: (val) => { currentSource.value.selectedItems = val },
+})
+const hasSearched = computed(() => currentSource.value.hasSearched)
 
-// 导入
+const searchLoading = ref(false)
 const importing = ref(false)
-const importDialogVisible = ref(false)
-const importResult = reactive({ success: 0, failed: 0 })
 
-// 加载采集源
-async function loadProviders() {
-  try {
-    const res: any = await getMediaCollectProviders()
-    if (res?.data?.length) {
-      providers.value = res.data
-      const imgProvider = res.data.find((p: MediaCollectProvider) =>
-        p.supportedTypes.includes('image'),
-      )
-      if (imgProvider) activeKey.value = imgProvider.key
-    }
-  } catch (e: any) {
-    ElMessage.error(`加载采集源失败: ${e.message}`)
-  }
+// 预览弹窗
+const previewDialogVisible = ref(false)
+const previewItem = ref<MediaAsset | null>(null)
+const actionLoading = reactive({ refreshRuntime: false })
+
+const isAllSelected = computed(
+  () =>
+    searchResults.value.length > 0 &&
+    selectedItems.value.length === searchResults.value.length,
+)
+const isIndeterminate = computed(
+  () =>
+    selectedItems.value.length > 0 &&
+    selectedItems.value.length < searchResults.value.length,
+)
+
+async function loadClients() {
+  await refreshClientNodes()
 }
 
-// 切换源
+function handleSelectClient() {
+  // 重置当前 source 的搜索状态
+  const src = currentSource.value
+  src.searchResults = []
+  src.selectedItems = []
+  src.hasSearched = false
+  src.searchTotal = 0
+  src.currentPage = 1
+}
+
 function switchTab(key: string) {
   if (activeKey.value === key) return
   activeKey.value = key
-  selectedItems.value = []
-  items.value = []
-  totalCount.value = 0
-  hasSearched.value = false
 }
 
-// 搜索
-async function handleSearch() {
-  if (!searchQuery.value.trim()) {
+async function handleRefreshRuntime() {
+  if (!selectedClientId.value) return
+  actionLoading.refreshRuntime = true
+  try {
+    await refreshRuntime(selectedClientId.value)
+    await refreshClientNodes()
+    ElMessage.success('运行状态刷新请求已发送')
+  } catch (error: any) {
+    ElMessage.error(error?.message || '刷新运行状态失败')
+  } finally {
+    actionLoading.refreshRuntime = false
+  }
+}
+
+function handleSizeChange() {
+  if (searchResults.value.length > 0) {
+    handleSearch()
+  }
+}
+
+async function doSearch(page = 1) {
+  if (!selectedClientId.value) {
+    ElMessage.warning('请先选择客户端节点')
+    return
+  }
+  const src = currentSource.value
+  if (!src.searchKeyword.trim()) {
     ElMessage.warning('请输入搜索关键词')
     return
   }
-  loading.value = true
-  hasSearched.value = true
-  selectedItems.value = []
-  currentPage.value = 1
+
+  searchLoading.value = true
+  src.selectedItems = []
+  src.hasSearched = true
   try {
-    const res: any = await searchMediaCollect({
+    const result = await searchMediaCollect(selectedClientId.value, {
       source: activeKey.value,
-      query: searchQuery.value,
-      page: currentPage.value,
-      pageSize: pageSize.value,
+      query: src.searchKeyword.trim(),
+      mediaType: src.mediaType,
+      page,
+      pageSize: src.pageSize,
     })
-    if (res?.data) {
-      items.value = res.data.items || []
-      totalCount.value = res.data.total || 0
-    }
-  } catch (e: any) {
-    ElMessage.error(`搜索失败: ${e.message}`)
+    src.searchResults = result.items || []
+    src.searchTotal = result.total || 0
+    src.currentPage = page
+  } catch (error: any) {
+    src.searchResults = []
+    src.searchTotal = 0
+    ElMessage.error(error?.message || '搜索失败')
   } finally {
-    loading.value = false
+    searchLoading.value = false
   }
 }
 
-// 分页
-function handlePageChange(page: number) {
-  currentPage.value = page
-  handleSearch()
+function handleSearch() {
+  currentSource.value.currentPage = 1
+  doSearch(1)
 }
 
-// 选择
-function isSelected(item: MediaAsset) {
-  return selectedItems.value.some((s) => s.id === item.id)
+function handlePageChange(page: number) {
+  doSearch(page)
+}
+
+function getItemById(id: string) {
+  return searchResults.value.find((item) => item.id === id)
 }
 
 function toggleSelect(item: MediaAsset) {
-  const idx = selectedItems.value.findIndex((s) => s.id === item.id)
-  if (idx >= 0) {
-    selectedItems.value.splice(idx, 1)
+  const index = selectedItems.value.indexOf(item.id)
+  if (index > -1) {
+    selectedItems.value.splice(index, 1)
   } else {
-    selectedItems.value.push(item)
+    selectedItems.value.push(item.id)
   }
 }
 
-// 导入
+function toggleSelectAll(value: boolean) {
+  selectedItems.value = value ? searchResults.value.map((item) => item.id) : []
+}
+
+function clearSelection() {
+  selectedItems.value = []
+}
+
+async function copyLink(url: string) {
+  if (!url) return
+  try {
+    await navigator.clipboard.writeText(url)
+    ElMessage.success('链接已复制')
+  } catch {
+    ElMessage.error('复制失败')
+  }
+}
+
+async function copySelectedLinks() {
+  const links = selectedItems.value
+    .map((id) => getItemById(id))
+    .map((item) => item?.fileUrl || item?.previewUrl || '')
+    .filter(Boolean)
+  if (!links.length) return
+  await copyLink(links.join('\n'))
+}
+
 async function handleImport() {
-  if (selectedItems.value.length === 0) return
+  if (!selectedClientId.value) {
+    ElMessage.warning('请先选择客户端节点')
+    return
+  }
+  if (selectedItems.value.length === 0) {
+    ElMessage.warning('请先选择要导入的资源')
+    return
+  }
   importing.value = true
   try {
-    const res: any = await importMediaCollect(selectedItems.value)
-    if (res?.data) {
-      importResult.success = res.data.success || 0
-      importResult.failed = res.data.failed || 0
-      importDialogVisible.value = true
-      selectedItems.value = []
-    }
-  } catch (e: any) {
-    ElMessage.error(`导入失败: ${e.message}`)
+    const items = selectedItems.value
+      .map((id) => getItemById(id))
+      .filter((item): item is MediaAsset => !!item)
+    const result = await importMediaCollect(selectedClientId.value, items)
+    selectedItems.value = []
+    ElMessage.success('导入完成')
+  } catch (error: any) {
+    ElMessage.error(error?.message || '导入失败')
   } finally {
     importing.value = false
   }
 }
 
-// 跳转文件库
-function goToFileResource() {
-  importDialogVisible.value = false
-  router.push({ path: '/material/file-resource' })
+function onImageError(event: Event) {
+  const target = event.target as HTMLImageElement
+  target.style.display = 'none'
 }
 
-// 工具函数
+function openPreview(item: MediaAsset) {
+  previewItem.value = item
+  previewDialogVisible.value = true
+}
+
 function typeLabel(type: string) {
-  const map: Record<string, string> = { image: '图片', video: '视频', audio: '音频' }
-  return map[type] || type
+  const labels: Record<string, string> = {
+    image: '图片',
+    video: '视频',
+    audio: '音频',
+  }
+  return labels[type] || type
 }
 
-function formatDuration(seconds: number): string {
-  const m = Math.floor(seconds / 60)
-  const s = Math.floor(seconds % 60)
-  return `${m}:${s.toString().padStart(2, '0')}`
+function formatDuration(seconds?: number) {
+  if (!seconds) return ''
+  const minutes = Math.floor(seconds / 60)
+  const rest = Math.floor(seconds % 60)
+  return `${minutes}:${rest.toString().padStart(2, '0')}`
 }
 
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return bytes + ' B'
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
-  if (bytes < 1024 * 1024 * 1024) return (bytes / 1024 / 1024).toFixed(1) + ' MB'
-  return (bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB'
-}
+watch(
+  rawClients,
+  (list) => {
+    if (!selectedClientId.value && list.length > 0) {
+      const onlineClient = list.find((client) => {
+        const runtime = getServiceRuntime(client)
+        return client.isOnline && !!(runtime?.available || runtime?.connected)
+      })
+      selectedClientId.value = onlineClient?.id || list[0].id
+    }
+  },
+  { immediate: true },
+)
 
 onMounted(() => {
-  loadProviders()
+  loadClients()
 })
 </script>
 
@@ -335,14 +633,14 @@ onMounted(() => {
 }
 
 .menu-header {
+  padding: 0 8px 8px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--el-border-color-extra-light);
   font-size: 11px;
   font-weight: 600;
   color: var(--el-text-color-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  padding: 0 8px 8px 8px;
-  margin-bottom: 4px;
-  border-bottom: 1px solid var(--el-border-color-extra-light);
 }
 
 .menu-group {
@@ -353,9 +651,9 @@ onMounted(() => {
 }
 
 .menu-group__label {
+  padding: 0 8px 4px;
   font-size: 11px;
   color: var(--el-text-color-placeholder);
-  padding: 0 8px 4px 8px;
 }
 
 .menu-item {
@@ -367,18 +665,13 @@ onMounted(() => {
   font-size: 12px;
   color: var(--el-text-color-regular);
   cursor: pointer;
-  transition: color 0.15s ease;
   user-select: none;
+  transition: color 0.15s ease;
 }
 
 .menu-item:hover {
   background: transparent;
   color: var(--el-text-color-primary);
-}
-
-.menu-item:focus,
-.menu-item:focus-visible {
-  outline: none;
 }
 
 .menu-item.is-active {
@@ -400,14 +693,19 @@ onMounted(() => {
   overflow-y: auto;
 }
 
+.standard-collect-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.standard-collect-layout {
+  width: 100%;
+}
+
 .collect-menu::-webkit-scrollbar,
 .collect-body::-webkit-scrollbar {
   width: 4px;
-}
-
-.collect-menu::-webkit-scrollbar-track,
-.collect-body::-webkit-scrollbar-track {
-  background: transparent;
 }
 
 .collect-menu::-webkit-scrollbar-thumb,
@@ -416,215 +714,4 @@ onMounted(() => {
   border-radius: 2px;
 }
 
-.collect-menu::-webkit-scrollbar-thumb:hover,
-.collect-body::-webkit-scrollbar-thumb:hover {
-  background: var(--el-text-color-secondary);
-}
-
-.media-panel {
-  width: 100%;
-  padding: 16px;
-}
-
-.panel-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--el-border-color-lighter, #f3f4f6);
-  margin-bottom: 14px;
-}
-
-.toolbar-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.platform-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.platform-name {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--el-text-color-primary, #111827);
-}
-
-.toolbar-right {
-  display: flex;
-  gap: 8px;
-}
-
-.search-input {
-  width: 260px;
-}
-
-.stats-bar {
-  font-size: 12px;
-  color: var(--el-text-color-secondary, #9ca3af);
-  margin-bottom: 12px;
-}
-
-.items-container {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.item-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  border-radius: 6px;
-  border: 1px solid var(--el-border-color-lighter);
-  background: var(--el-bg-color);
-  cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
-
-.item-card:hover {
-  background: var(--el-fill-color-lighter);
-  border-color: var(--el-border-color);
-}
-
-.item-card.is-selected {
-  border-color: var(--el-color-primary);
-}
-
-.card-checkbox {
-  flex-shrink: 0;
-  width: 16px;
-}
-
-.item-cover {
-  position: relative;
-  width: 72px;
-  height: 54px;
-  flex-shrink: 0;
-  border-radius: 4px;
-  overflow: hidden;
-  background: var(--el-fill-color-light);
-}
-
-.item-cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.item-type-icon {
-  width: 40px;
-  height: 40px;
-  flex-shrink: 0;
-  border-radius: 4px;
-  background: var(--el-fill-color-light);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--el-text-color-secondary);
-}
-
-.item-body {
-  flex: 1;
-  min-width: 0;
-}
-
-.item-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.item-title {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--el-text-color-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.item-card:hover .item-title {
-  color: var(--el-color-primary);
-}
-
-.item-type-badge {
-  font-size: 10px;
-  padding: 1px 4px;
-  border-radius: 3px;
-  background: var(--el-color-primary-light-9);
-  color: var(--el-color-primary);
-  flex-shrink: 0;
-  font-weight: 600;
-}
-
-.item-license {
-  font-size: 10px;
-  padding: 1px 4px;
-  border-radius: 3px;
-  background: var(--el-color-warning-light-9);
-  color: var(--el-color-warning);
-  flex-shrink: 0;
-  font-weight: 600;
-}
-
-.item-desc {
-  margin-top: 3px;
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.item-footer {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 4px;
-  font-size: 11px;
-  color: var(--el-text-color-placeholder);
-}
-
-.meta-item {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.panel-empty {
-  padding: 80px 0;
-  text-align: center;
-  font-size: 13px;
-  color: var(--el-text-color-secondary, #9ca3af);
-}
-
-.pagination {
-  display: flex;
-  justify-content: center;
-  padding: 16px 0;
-}
-
-.import-result {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.success-icon {
-  font-size: 28px;
-}
-
-.failed-text {
-  color: var(--el-color-danger);
-  margin-top: 4px;
-}
 </style>

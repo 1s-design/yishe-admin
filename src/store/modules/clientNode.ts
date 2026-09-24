@@ -39,6 +39,7 @@ export type ClientPluginKey =
   | "image-processing"
   | "video-template"
   | "file-download"
+  | "media-collect"
   // 新闻资讯源 (client local services)
   | "hackernews"
   | "arxiv"
@@ -345,6 +346,9 @@ export const getClientServiceRuntime = (
   if (pluginKey === "file-download") {
     return services["file-download"] || null;
   }
+  if (pluginKey === "media-collect") {
+    return services["media-collect"] || null;
+  }
   if (pluginKey === "pinterest") {
     return services["pinterest"] || null;
   }
@@ -484,6 +488,7 @@ export const useClientNodeStore = defineStore("client-node", () => {
       "image-processing": "offline",
       "video-template": "offline",
       "file-download": "offline",
+      "media-collect": "offline",
       "openclipart": "offline",
       "undraw": "offline",
       "iconify": "offline",
@@ -565,6 +570,7 @@ export const useClientNodeStore = defineStore("client-node", () => {
         "image-processing",
         "video-template",
         "file-download",
+        "media-collect",
         "openclipart",
         "undraw",
         "iconify",

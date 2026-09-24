@@ -1,11 +1,12 @@
-import request from '@/config/axios'
+/**
+ * 媒体采集 API
+ *
+ * 与 data-collect 标准链路保持一致：后台向指定在线客户端发送 service-command，
+ * 并通过 WebSocket 等待执行结果。搜索、下载、上传全部在所选客户端执行。
+ */
 
-/** 采集源信息 */
-export interface MediaCollectProvider {
-  key: string
-  name: string
-  supportedTypes: string[]
-}
+import { sendServiceCommand } from '@/api/system/websocket'
+import { websocketClient } from '@/services/websocketClient'
 
 /** 媒体资源 */
 export interface MediaAsset {
@@ -34,43 +35,65 @@ export interface MediaSearchResult {
   page: number
   pageSize: number
   items: MediaAsset[]
+  hasMore?: boolean
 }
 
-/** 列出所有采集源 */
-export function getMediaCollectProviders() {
-  return request.get<{ code: number; data: MediaCollectProvider[] }>({
-    url: '/media-collect/providers',
-  })
+interface CommandResponse {
+  success: boolean
+  message: string
+  data?: {
+    commandId?: string
+  }
 }
 
-/** 搜索媒体资源 */
-export function searchMediaCollect(params: {
-  source: string
-  query: string
-  mediaType?: string
-  page?: number
-  pageSize?: number
-  license?: string
-  sort?: string
-}) {
-  return request.get<{ code: number; data: MediaSearchResult }>({
-    url: '/media-collect/search',
-    params,
-  })
+async function sendCommandAndWait(
+  clientId: string,
+  action: 'search' | 'import' | 'refreshRuntime',
+  payload: Record<string, any>,
+  timeoutMs = 120000,
+) {
+  const response = await sendServiceCommand({
+    target: { clientId, pluginKey: 'media-collect' },
+    command: { name: action, payload },
+    mode: 'production',
+  }) as CommandResponse
+
+  const commandId = response?.data?.commandId
+  if (!response?.success || !commandId) {
+    throw new Error(response?.message || '媒体采集命令发送失败')
+  }
+
+  const result = await websocketClient.waitForServiceCommandResult(commandId, timeoutMs)
+  if (!result?.success) {
+    throw new Error(result?.message || '媒体采集命令执行失败')
+  }
+  return result.data
 }
 
-/** 获取单个资源详情 */
-export function getMediaCollectAsset(source: string, id: string) {
-  return request.get<{ code: number; data: MediaAsset | null }>({
-    url: '/media-collect/asset',
-    params: { source, id },
-  })
+/** 刷新指定客户端的媒体采集服务状态 */
+export async function refreshRuntime(clientId: string) {
+  return await sendCommandAndWait(clientId, 'refreshRuntime', {}, 30000)
 }
 
-/** 导入媒体到文件库 */
-export function importMediaCollect(items: Partial<MediaAsset>[]) {
-  return request.post<{ code: number; data: any }>({
-    url: '/media-collect/import',
-    data: { items },
-  })
+/** 在指定客户端搜索媒体资源 */
+export async function searchMediaCollect(
+  clientId: string,
+  params: {
+    source: string
+    query: string
+    mediaType?: string
+    page?: number
+    pageSize?: number
+  },
+): Promise<MediaSearchResult> {
+  const data = await sendCommandAndWait(clientId, 'search', params)
+  return data || {}
+}
+
+/** 在指定客户端导入媒体（下载 -> COS -> 后端记录） */
+export async function importMediaCollect(
+  clientId: string,
+  items: Partial<MediaAsset>[],
+) {
+  return await sendCommandAndWait(clientId, 'import', { items }, 300000)
 }

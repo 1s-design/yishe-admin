@@ -59,6 +59,21 @@
                 </el-form-item>
               </el-col>
               <el-col class="list-page-search-form__col--narrow" :xs="24" :sm="12" :md="8" :lg="4">
+                <el-form-item :label="t('fileResource.uploadType')">
+                  <el-select
+                    v-model="queryParams.uploadType"
+                    size="small"
+                    :placeholder="t('fileResource.selectUploadTypePlaceholder')"
+                    clearable
+                    @change="getList"
+                  >
+                    <el-option :label="t('fileResource.all')" value="" />
+                    <el-option :label="t('fileResource.uploadTypeUser')" value="user" />
+                    <el-option :label="t('fileResource.uploadTypeSystem')" value="system" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col class="list-page-search-form__col--narrow" :xs="24" :sm="12" :md="8" :lg="4">
                 <el-form-item :label="t('fileResource.suffix')">
                   <el-select
                     v-model="queryParams.suffix"
