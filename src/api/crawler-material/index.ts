@@ -72,5 +72,22 @@ export const CrawlerMaterialApi = {
   // 批量入库到贴纸
   batchImportToSticker: async (data: { ids: string[], userId?: string }) => {
     return await request.post<CrawlerMaterialImportTaskResponse>({ url: `/crawler/material/import-to-sticker`, data })
+  },
+
+  // 从 COS URL 批量导入（媒体采集客户端上传 COS 后调用）
+  importFromCos: async (items: any[]) => {
+    return await request.post({ url: `/crawler/material/import-from-cos`, data: { items } })
+  },
+
+  // 单个素材从 COS 导入
+  addFromCos: async (data: {
+    url: string
+    name?: string
+    description?: string
+    source?: string
+    suffix?: string
+    meta?: any
+  }) => {
+    return await request.post({ url: `/crawler/material/import-from-cos`, data: { items: [data] } })
   }
 }

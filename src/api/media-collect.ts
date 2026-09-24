@@ -97,3 +97,12 @@ export async function importMediaCollect(
 ) {
   return await sendCommandAndWait(clientId, 'import', { items }, 300000)
 }
+
+/**
+ * 媒体采集入库到 crawler_material（客户端上传 COS 后调用）
+ * 直接使用 crawler_material API，不经过 media-collect 后端服务
+ */
+export async function importMediaToCrawlerMaterial(items: Partial<MediaAsset>[]) {
+  const { CrawlerMaterialApi } = await import('@/api/crawler-material')
+  return await CrawlerMaterialApi.importFromCos(items as any[])
+}
