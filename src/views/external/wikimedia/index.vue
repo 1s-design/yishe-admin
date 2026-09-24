@@ -78,7 +78,7 @@
                       :loading="batchDownloadLoading"
                       @click="handleBatchDownload"
                     >
-                      批量入库
+                      批量采集
                     </el-button>
                     <el-button
                       size="small"
@@ -140,7 +140,7 @@
                         @click.stop="handleSyncOne(item)"
                         title="同步到素材库"
                       >
-                        入库
+                        采集入库
                       </el-button>
                     </div>
                   </div>
@@ -495,7 +495,7 @@ const handleSyncOne = async (item: WikimediaFile) => {
     if (result.success) {
       const resultData = result.data?.data || result.data || {};
       if (!resultData.cosUrl) {
-        ElMessage.error('图片未成功上传至个人 COS 存储，入库取消');
+        ElMessage.error('图片未成功上传至个人 COS 存储，采集取消');
         return;
       }
       await uploadMaterialFile({
@@ -510,10 +510,10 @@ const handleSyncOne = async (item: WikimediaFile) => {
       });
       ElMessage.success(`已保存到贴纸素材库: ${item.title || item.id}`);
     } else {
-      ElMessage.error(`入库失败: ${result.message || "未知错误"}`);
+      ElMessage.error(`采集失败: ${result.message || "未知错误"}`);
     }
   } catch (error: any) {
-    ElMessage.error(`入库异常: ${error?.message}`);
+    ElMessage.error(`采集异常: ${error?.message}`);
   } finally {
     loadingItems.value.delete(item.id);
   }
@@ -527,7 +527,7 @@ const handleBatchDownload = async () => {
   let failCount = 0;
 
   ElNotification.info({
-    title: "批量入库",
+    title: "批量采集",
     message: `开始处理 ${selectedItems.value.length} 个内容...`,
     duration: 3000,
   });

@@ -83,7 +83,7 @@
                       :loading="batchDownloadLoading"
                       @click="handleBatchDownload"
                     >
-                      批量入库
+                      批量采集
                     </el-button>
                     <el-button
                       size="small"
@@ -141,7 +141,7 @@
                         @click.stop="openZoomDialog(item)"
                         title="添加到素材库"
                       >
-                        入库
+                        采集入库
                       </el-button>
                     </div>
                   </div>
@@ -258,7 +258,7 @@
                 :disabled="selectedZoomLevel === null || selectedZoomLevel === undefined"
                 @click="confirmDownload"
               >
-                确认入库
+                确认采集
               </el-button>
             </template>
           </el-dialog>
@@ -629,7 +629,7 @@ const handleBatchDownload = async () => {
       const sortedZooms = [...zoomsResult.data.zooms].sort((a, b) => (a.width * a.height) - (b.width * b.height))
       const targetZoom = batchQualityPreference.value === 'min' ? sortedZooms[0] : sortedZooms[sortedZooms.length - 1]
 
-      // 下载并入库
+      // 下载并采集
       const syncResult = await syncGoogleArtToMaterialLibraryAndWait(selectedClientId.value, {
         url,
         zoomLevel: targetZoom.idx,
@@ -703,13 +703,13 @@ const confirmDownload = async () => {
       zoomLevel: Number(selectedZoomLevel.value),
     })
     if (syncResult.success) {
-      ElMessage.success(`已入库: ${zoomDialogItem.value.title || 'Google Art 素材'}`)
+      ElMessage.success(`已采集: ${zoomDialogItem.value.title || 'Google Art 素材'}`)
       zoomDialogVisible.value = false
     } else {
-      ElMessage.error(`入库失败: ${syncResult.message || '未知错误'}`)
+      ElMessage.error(`采集失败: ${syncResult.message || '未知错误'}`)
     }
   } catch (error: any) {
-    ElMessage.error(`入库异常: ${error?.message || '网络或客户端执行错误'}`)
+    ElMessage.error(`采集异常: ${error?.message || '网络或客户端执行错误'}`)
   } finally {
     zoomDialogLoading.value = false
   }
@@ -916,7 +916,7 @@ const downloadOne = async (item: GoogleArtAsset) => {
     if (syncResult.success) {
       const resultData = syncResult.data?.data || syncResult.data || {}
       if (!resultData.cosUrl) {
-        ElMessage.error('图片未成功上传至个人 COS 存储，入库取消')
+        ElMessage.error('图片未成功上传至个人 COS 存储，采集取消')
         return
       }
       await uploadMaterialFile({
@@ -931,10 +931,10 @@ const downloadOne = async (item: GoogleArtAsset) => {
       })
       ElMessage.success(`已成功保存到贴纸素材库: ${item.title}`)
     } else {
-      ElMessage.error(`入库失败: ${syncResult.message}`)
+      ElMessage.error(`采集失败: ${syncResult.message}`)
     }
   } catch (error: any) {
-    ElMessage.error(`入库异常: ${error?.message}`)
+    ElMessage.error(`采集异常: ${error?.message}`)
   } finally {
     loadingItems.value.delete(item.id)
   }

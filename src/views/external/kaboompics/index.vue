@@ -75,7 +75,7 @@
                       :loading="batchDownloadLoading"
                       @click="handleBatchDownload"
                     >
-                      批量入库
+                      批量采集
                     </el-button>
                     <el-button
                       size="small"
@@ -139,7 +139,7 @@
                         :disabled="!selectedClientId || !selectedClient?.isOnline"
                         @click.stop="handleSyncOne(item)"
                       >
-                        入库
+                        采集入库
                       </el-button>
                     </div>
                   </div>
@@ -441,7 +441,7 @@ const handleSyncOne = async (item: KaboompicsPhoto) => {
     if (result.success) {
       const resultData = result.data?.data || result.data || {};
       if (!resultData.cosUrl) {
-        ElMessage.error('图片未成功上传至个人 COS 存储，入库取消');
+        ElMessage.error('图片未成功上传至个人 COS 存储，采集取消');
         return;
       }
       await uploadMaterialFile({
@@ -456,7 +456,7 @@ const handleSyncOne = async (item: KaboompicsPhoto) => {
       });
       ElMessage.success(`已成功保存到贴纸素材库: ${item.title || item.id}`);
     } else {
-      ElMessage.error(`入库失败: ${result.message || '未知错误'}`);
+      ElMessage.error(`采集失败: ${result.message || '未知错误'}`);
     }
   } catch (error: any) {
     ElMessage.error(`同步出错: ${error.message || '网络或服务端错误'}`);

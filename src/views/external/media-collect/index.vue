@@ -153,7 +153,7 @@
                             :loading="importing"
                             @click="handleImport"
                           >
-                            批量入库
+                            批量采集
                           </el-button>
                           <el-button
                             size="small"

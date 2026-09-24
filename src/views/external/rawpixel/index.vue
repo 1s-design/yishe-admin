@@ -69,7 +69,7 @@
                       :loading="batchDownloadLoading"
                       @click="handleBatchDownload"
                     >
-                      批量入库
+                      批量采集
                     </el-button>
                     <el-button
                       size="small"
@@ -132,7 +132,7 @@
                         @click.stop="handleSyncOne(item)"
                         title="同步到素材库"
                       >
-                        入库
+                        采集入库
                       </el-button>
                     </div>
                   </div>
@@ -181,7 +181,7 @@
         </div>
         <template #footer>
           <el-button @click="previewVisible = false">关闭</el-button>
-          <el-button type="primary" @click="handleSyncOne(activePhoto)">入库素材库</el-button>
+          <el-button type="primary" @click="handleSyncOne(activePhoto)">采集到素材库</el-button>
         </template>
       </el-dialog>
     </div>
@@ -396,7 +396,7 @@ const handlePreviewPhoto = (photo: RawpixelPhoto) => {
   previewVisible.value = true
 }
 
-// 单张入库
+// 单张采集
 const handleSyncOne = async (item: RawpixelPhoto | null) => {
   if (!item || !selectedClientId.value) return
   loadingItems.value.add(item.id)
@@ -415,7 +415,7 @@ const handleSyncOne = async (item: RawpixelPhoto | null) => {
     if (result.success) {
       const resultData = result.data?.data || result.data || {}
       if (!resultData.cosUrl) {
-        ElMessage.error('图片未成功上传至个人 COS 存储，入库取消')
+        ElMessage.error('图片未成功上传至个人 COS 存储，采集取消')
         return
       }
       await uploadMaterialFile({
@@ -430,7 +430,7 @@ const handleSyncOne = async (item: RawpixelPhoto | null) => {
       })
       ElMessage.success(`《${item.title || item.id}》已成功保存到贴纸素材库！`)
     } else {
-      ElMessage.error(`入库失败: ${result.message || '未知错误'}`)
+      ElMessage.error(`采集失败: ${result.message || '未知错误'}`)
     }
   } catch (e: any) {
     ElMessage.error(e?.message || '同步失败')
@@ -439,10 +439,10 @@ const handleSyncOne = async (item: RawpixelPhoto | null) => {
   }
 }
 
-// 批量入库
+// 批量采集
 const handleBatchDownload = async () => {
   if (selectedItems.value.length === 0) {
-    ElMessage.warning('请先勾选需要入库的图片')
+    ElMessage.warning('请先勾选需要采集的图片')
     return
   }
   if (!selectedClientId.value) {
@@ -498,9 +498,9 @@ const handleBatchDownload = async () => {
 
   batchDownloadLoading.value = false
   if (failCount === 0) {
-    ElMessage.success(`批量入库成功：${successCount} 个`)
+    ElMessage.success(`批量采集成功：${successCount} 个`)
   } else {
-    ElMessage.warning(`批量入库完成：成功 ${successCount} 个，失败 ${failCount} 个`)
+    ElMessage.warning(`批量采集完成：成功 ${successCount} 个，失败 ${failCount} 个`)
   }
 }
 </script>

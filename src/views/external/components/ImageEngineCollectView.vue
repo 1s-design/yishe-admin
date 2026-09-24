@@ -52,7 +52,7 @@
         :disabled="selectedItems.length === 0"
         @click="handleBatchSync"
       >
-        批量入库 ({{ selectedItems.length }})
+        批量采集 ({{ selectedItems.length }})
       </el-button>
     </div>
 
@@ -97,7 +97,7 @@
             :disabled="!selectedClientId || !selectedClient?.isOnline"
             @click.stop="handleSyncOne(index)"
           >
-            入库
+            采集入库
           </el-button>
         </div>
       </div>
@@ -342,7 +342,7 @@ function openImagePreview(item: ImageEnginePhoto) {
   previewVisible.value = true
 }
 
-// ─── 单图入库 ──────────────────────────────────────────────
+// ─── 单图采集 ──────────────────────────────────────────────
 
 async function handleSyncOne(index: number) {
   const item = searchResults.value[index]
@@ -364,16 +364,16 @@ async function handleSyncOne(index: number) {
     if (res.success) {
       ElMessage.success(`「${item.title || '素材'}」已同步到素材库`)
     } else {
-      ElMessage.error(res.message || '入库失败')
+      ElMessage.error(res.message || '采集失败')
     }
   } catch (e: any) {
-    ElMessage.error(e?.message || '入库异常')
+    ElMessage.error(e?.message || '采集异常')
   } finally {
     loadingItems.value.delete(`sync-${index}`)
   }
 }
 
-// ─── 批量入库 ──────────────────────────────────────────────
+// ─── 批量采集 ──────────────────────────────────────────────
 
 async function handleBatchSync() {
   if (!selectedClientId.value || selectedItems.value.length === 0) return
@@ -411,9 +411,9 @@ async function handleBatchSync() {
 
   batchDownloadLoading.value = false
   if (successCount > 0) {
-    ElMessage.success(`批量入库完成: 成功 ${successCount} 项${failCount > 0 ? `, 失败 ${failCount} 项` : ''}`)
+    ElMessage.success(`批量采集完成: 成功 ${successCount} 项${failCount > 0 ? `, 失败 ${failCount} 项` : ''}`)
   } else {
-    ElMessage.error('批量入库失败')
+    ElMessage.error('批量采集失败')
   }
 }
 </script>

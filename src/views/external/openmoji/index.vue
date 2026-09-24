@@ -38,7 +38,7 @@
                   <div class="collect-actions-bar">
                     <el-checkbox :model-value="isAllSelected" :indeterminate="isIndeterminate" @change="toggleSelectAll">全选</el-checkbox>
                     <span class="collect-actions-bar__count">已选 {{ selectedItems.length }} 项</span>
-                    <el-button type="primary" size="small" :disabled="selectedItems.length === 0" :loading="batchDownloadLoading" @click="handleBatchDownload">批量入库</el-button>
+                    <el-button type="primary" size="small" :disabled="selectedItems.length === 0" :loading="batchDownloadLoading" @click="handleBatchDownload">批量采集</el-button>
                     <el-button size="small" :disabled="selectedItems.length === 0" @click="copySelectedLinks">复制链接</el-button>
                     <el-button size="small" @click="clearSelection">清空</el-button>
                   </div>
@@ -56,7 +56,7 @@
                     </div>
                     <div class="collect-item__actions">
                       <el-button size="small" @click.stop="copyLink(item.svgUrl || item.image)">复制</el-button>
-                      <el-button type="primary" size="small" :loading="loadingItems.has(item.id)" :disabled="!selectedClientId || !selectedClient?.isOnline" @click.stop="handleSyncOne(item)">入库</el-button>
+                      <el-button type="primary" size="small" :loading="loadingItems.has(item.id)" :disabled="!selectedClientId || !selectedClient?.isOnline" @click.stop="handleSyncOne(item)">采集入库</el-button>
                     </div>
                   </div>
                 </div>
@@ -162,7 +162,7 @@ const handleSyncOne = async (item: OpenMojiEmoji) => {
     const result = await syncOpenMojiToMaterialLibraryAndWait(selectedClientId.value, { imageUrl: targetUrl, metadata: { title: item.title, hexcode: item.hexcode, id: item.id } });
     if (result.success) { const d = result.data?.data || result.data || {}; if (!d.cosUrl) { ElMessage.error('上传 COS 失败'); return; }
       await uploadMaterialFile({ url: d.cosUrl, originUrl: item.url || targetUrl, title: item.title || `openmoji_${item.id}`, category: 'sticker', suffix: 'svg', meta: item });
-      ElMessage.success(`已保存: ${item.title}`); } else { ElMessage.error(`入库失败: ${result.message}`); }
+      ElMessage.success(`已保存: ${item.title}`); } else { ElMessage.error(`采集失败: ${result.message}`); }
   } catch (e: any) { ElMessage.error(`同步出错: ${e.message}`); } finally { loadingItems.value.delete(item.id); }
 };
 const handleBatchDownload = async () => {
