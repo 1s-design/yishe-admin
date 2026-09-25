@@ -1,11 +1,19 @@
 <template>
   <div class="ai-desktop" :class="{ 'ai-desktop--sidebar-open': sidebarOpen }">
     <aside class="sidebar">
-      <div class="sidebar__logo">
-        <button class="sidebar__new" @click="handleCreateConversation">+ 新建会话</button>
+      <div class="sidebar__header">
+        <div class="sidebar__brand">
+          <span class="sidebar__brand-text">{{ brandText }}</span>
+          <span class="sidebar__brand-cursor" aria-hidden="true" />
+        </div>
       </div>
       <div class="sidebar__nav">
         <div class="sidebar__section">
+          <button class="sidebar__new-btn" @click="handleCreateConversation">
+            <el-icon :size="15"><Plus /></el-icon>
+            <span>新建对话</span>
+          </button>
+          <div class="sidebar__section-label">历史</div>
           <div v-for="conv in store.conversations" :key="conv.id" class="sidebar__item"
             :class="{ active: store.currentConversationId === conv.id }" @click="handleSelectConversation(conv.id)"
             @mouseenter="showConversationDetail(conv, $event)" @mouseleave="hideConversationDetail">
@@ -20,56 +28,57 @@
         </div>
       </div>
 
-      <!-- 对话详情浮层 -->
-      <div v-if="hoveredConversation" class="conversation-detail-popup" :style="popupStyle">
-        <div class="conversation-detail-header">
-          <span class="conversation-detail-title">{{
-            hoveredConversation.title || "未命名会话"
-            }}</span>
-        </div>
-        <div class="conversation-detail-body">
-          <div class="detail-row">
-            <span class="detail-label">创建时间</span>
-            <span class="detail-value">{{ formatTime(hoveredConversation.createdAt) }}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">消息数</span>
-            <span class="detail-value">{{ hoveredConversation.messageCount || 0 }} 条</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">运行次数</span>
-            <span class="detail-value">
-              {{ hoveredConversation.successfulRunCount || 0 }} 成功 /
-              {{ hoveredConversation.failedRunCount || 0 }} 失败
-            </span>
-          </div>
-          <div class="detail-row" v-if="hoveredConversation.totalDurationMs">
-            <span class="detail-label">总耗时</span>
-            <span class="detail-value">{{
-              formatDuration(hoveredConversation.totalDurationMs)
-              }}</span>
-          </div>
-          <div class="detail-row" v-if="hoveredConversation.avgAiResponseMs">
-            <span class="detail-label">平均AI响应</span>
-            <span class="detail-value">{{
-              formatDuration(hoveredConversation.avgAiResponseMs)
-              }}</span>
-          </div>
-        </div>
-      </div>
       <div class="sidebar__bottom">
-        <el-tooltip effect="dark" content="工具" placement="top">
-          <button class="sidebar__item sidebar__item--icon" @click="handleOpenToolDialog">
-            <el-icon :size="14"><Tools /></el-icon>
+        <el-tooltip effect="dark" content="工具目录" placement="top">
+          <button class="sidebar__item--icon" @click="handleOpenToolDialog">
+            <el-icon :size="15"><Tools /></el-icon>
           </button>
         </el-tooltip>
-        <el-tooltip effect="dark" content="清空所有会话与历史记录" placement="top">
-          <button class="sidebar__item sidebar__item--icon sidebar__item--danger" @click="store.clearAllConversations()">
-            <el-icon :size="14"><Delete /></el-icon>
+        <el-tooltip effect="dark" content="清空所有会话" placement="top">
+          <button class="sidebar__item--icon sidebar__item--danger" @click="store.clearAllConversations()">
+            <el-icon :size="15"><Delete /></el-icon>
           </button>
         </el-tooltip>
       </div>
     </aside>
+
+    <!-- 对话详情浮层（放在侧边栏外避免层级问题） -->
+    <div v-if="hoveredConversation" class="conversation-detail-popup" :style="popupStyle">
+      <div class="conversation-detail-header">
+        <span class="conversation-detail-title">{{
+          hoveredConversation.title || "未命名会话"
+          }}</span>
+      </div>
+      <div class="conversation-detail-body">
+        <div class="detail-row">
+          <span class="detail-label">创建时间</span>
+          <span class="detail-value">{{ formatTime(hoveredConversation.createdAt) }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">消息数</span>
+          <span class="detail-value">{{ hoveredConversation.messageCount || 0 }} 条</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">运行次数</span>
+          <span class="detail-value">
+            {{ hoveredConversation.successfulRunCount || 0 }} 成功 /
+            {{ hoveredConversation.failedRunCount || 0 }} 失败
+          </span>
+        </div>
+        <div class="detail-row" v-if="hoveredConversation.totalDurationMs">
+          <span class="detail-label">总耗时</span>
+          <span class="detail-value">{{
+            formatDuration(hoveredConversation.totalDurationMs)
+            }}</span>
+        </div>
+        <div class="detail-row" v-if="hoveredConversation.avgAiResponseMs">
+          <span class="detail-label">平均AI响应</span>
+          <span class="detail-value">{{
+            formatDuration(hoveredConversation.avgAiResponseMs)
+            }}</span>
+        </div>
+      </div>
+    </div>
 
     <div class="workspace">
       <header class="topbar">
@@ -106,23 +115,45 @@
             </template>
             <template v-for="msg in visibleMessages" :key="msg.id">
               <div class="msg" :class="[`msg--${msg.role}`]">
+                <div v-if="msg.role === 'assistant'" class="msg__avatar">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                    <path d="M2 17l10 5 10-5" />
+                    <path d="M2 12l10 5 10-5" />
+                  </svg>
+                </div>
                 <div class="msg__body">
                   <div class="msg__content">
                     <template v-if="msg.role === 'user'">
                       <span class="msg__text">{{ msg.content }}</span>
                     </template>
                     <template v-else>
-                      <template v-if="msg.toolCalls?.length">
-                        <div v-for="tc in msg.toolCalls" :key="tc.id" class="tool-card">
-                          <div class="tool-card__head">
-                            <span class="tool-card__dot"></span>
-                            <span class="tool-card__name">{{ tc.name }}</span>
+                      <div v-if="msg.toolCalls?.length" class="agent-tools">
+                        <div v-for="tc in msg.toolCalls" :key="tc.id" class="agent-tool"
+                          :class="[`agent-tool--${tc.status || 'done'}`]">
+                          <div class="agent-tool__header" @click="toggleTool(tc.id)">
+                            <el-icon class="agent-tool__icon"><Tools /></el-icon>
+                            <span class="agent-tool__name">{{ tc.name }}</span>
+                            <span class="agent-tool__status" :class="`is-${tc.status || 'done'}`">
+                              <span class="agent-tool__status-dot" />
+                              {{ tc.status === 'running' ? '执行中' : tc.status === 'error' ? '失败' : '完成' }}
+                            </span>
+                            <span class="agent-tool__chevron" :class="{ expanded: expandedTools.has(tc.id) }">
+                              ▾
+                            </span>
                           </div>
-                          <div v-if="tc.result" class="tool-card__result">
-                            <pre class="tool-card__pre">{{ formatToolResult(tc.result) }}</pre>
+                          <div v-if="expandedTools.has(tc.id)" class="agent-tool__body">
+                            <div v-if="tc.args && Object.keys(tc.args).length" class="agent-tool__section">
+                              <div class="agent-tool__section-label">参数</div>
+                              <pre class="agent-tool__pre">{{ formatJson(tc.args) }}</pre>
+                            </div>
+                            <div v-if="tc.result || tc.error" class="agent-tool__section">
+                              <div class="agent-tool__section-label">{{ tc.error ? '错误' : '结果' }}</div>
+                              <pre class="agent-tool__pre" :class="{ 'is-error': tc.error }">{{ tc.error || formatJson(tc.result) }}</pre>
+                            </div>
                           </div>
                         </div>
-                      </template>
+                      </div>
                       <div v-if="msg.content" class="md-body">
                         <MarkdownView :content="msg.content" />
                       </div>
@@ -131,9 +162,9 @@
                         store.thinkingText &&
                         store.loading &&
                         msg === visibleMessages[visibleMessages.length - 1]
-                      " class="thinking-block">
-                        <span class="thinking-dot"></span>
-                        <span>{{ store.thinkingText }}</span>
+                      " class="agent-streaming-loader">
+                        <span class="agent-thinking-spinner" />
+                        <span>{{ store.thinkingText || '正在思考' }}</span>
                       </div>
                     </template>
                   </div>
@@ -207,6 +238,11 @@
                     <InteractionRenderer :payload="store.pendingInteraction" @submit="handleInteractionSubmit"
                       @reject="handleInteractionReject" />
                   </template>
+                  <div v-if="msg.content" class="msg__actions">
+                    <button class="msg__action-btn" title="复制" @click="copyText(msg.content)">
+                      <el-icon :size="14"><CopyDocument /></el-icon>
+                    </button>
+                  </div>
                 </div>
               </div>
             </template>
@@ -226,7 +262,7 @@
               @input="autoResize"></textarea>
             <div class="composer__actions">
               <button class="composer__send" :disabled="!canSend || store.loading" @click="handleSend">
-                发送
+                <el-icon :size="16"><ArrowUp v-if="!store.loading" /><Loading v-else class="is-loading" /></el-icon>
               </button>
             </div>
           </div>
@@ -343,7 +379,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { ElMessage } from "element-plus";
-import { Delete, InfoFilled, Loading, Refresh, Search, Tools } from "@element-plus/icons-vue";
+import { ArrowUp, CopyDocument, Delete, InfoFilled, Loading, Plus, Refresh, Search, Tools } from "@element-plus/icons-vue";
 import { AiAssistantApi } from "@/api/aiAssistant";
 import { useAiAssistantStore } from "@/store/modules/aiAssistant";
 import { websocketClient } from "@/services/websocketClient";
@@ -372,6 +408,34 @@ const toolCatalogUpdatedAt = ref("");
 const hoveredConversation = ref<any>(null);
 const popupStyle = ref<Record<string, string>>({});
 const sidebarOpen = ref(false);
+const expandedTools = ref<Set<string>>(new Set());
+
+// Brand text typewriter effect
+const BRAND_PHRASES = ["衣设助手", "让设计快 1 秒", "设计灵感即刻呈现", "你的贴身设计搭档"];
+const brandText = ref("");
+let brandIndex = 0;
+let phraseIndex = 0;
+let brandTimer: ReturnType<typeof setTimeout> | null = null;
+
+function streamBrand() {
+  brandText.value = "";
+  brandIndex = 0;
+  const phrase = BRAND_PHRASES[phraseIndex % BRAND_PHRASES.length];
+  const tick = () => {
+    if (brandIndex >= phrase.length) {
+      brandTimer = setTimeout(() => {
+        phraseIndex = (phraseIndex + 1) % BRAND_PHRASES.length;
+        streamBrand();
+      }, 2000);
+      return;
+    }
+    const size = Math.floor(Math.random() * 2) + 1;
+    brandText.value += phrase.slice(brandIndex, brandIndex + size);
+    brandIndex += size;
+    brandTimer = setTimeout(tick, Math.random() * 120 + 120);
+  };
+  tick();
+}
 
 function handleResizeOpen() {
   if (window.innerWidth > 768) sidebarOpen.value = true
@@ -508,8 +572,20 @@ function toggleToolGroup(key: string) {
 
 function formatToolResult(result: any) {
   if (!result) return "";
-  const text = result?.content?.[0]?.text || JSON.stringify(result, null, 2);
-  return text.length > 500 ? text.slice(0, 500) + "..." : text;
+  if (typeof result === 'string') return result;
+  if (result?.content?.[0]?.text) {
+    const text = result.content[0].text;
+    try {
+      return JSON.stringify(JSON.parse(text), null, 2);
+    } catch {
+      return text.length > 500 ? text.slice(0, 500) + "..." : text;
+    }
+  }
+  try {
+    return JSON.stringify(result, null, 2);
+  } catch {
+    return String(result);
+  }
 }
 
 function autoResize() {
@@ -728,6 +804,29 @@ function setToolSourceFilter(filter: string) {
   handleToolSearch();
 }
 
+function toggleTool(toolId: string) {
+  const next = new Set(expandedTools.value);
+  next.has(toolId) ? next.delete(toolId) : next.add(toolId);
+  expandedTools.value = next;
+}
+
+function formatJson(value: any): string {
+  try {
+    return typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+  } catch {
+    return String(value || '');
+  }
+}
+
+async function copyText(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    ElMessage.success('已复制');
+  } catch {
+    ElMessage.error('复制失败');
+  }
+}
+
 function handleMcpAsyncResult(data: { requestId: string; toolName: string; result: any }) {
   const { toolName, result } = data || {};
   if (!result) return;
@@ -745,16 +844,32 @@ function handleMcpAsyncResult(data: { requestId: string; toolName: string; resul
 watch(() => store.messages.length, scrollToBottom);
 watch(() => store.loading, scrollToBottom);
 
+// Auto-expand running tools
+watch(
+  () => store.messages.map(m => m.toolCalls?.map(tc => `${tc.id}:${tc.status}`).join(',')).join('|'),
+  () => {
+    store.messages.forEach(m => {
+      m.toolCalls?.forEach(tc => {
+        if (tc.status === 'running') {
+          expandedTools.value.add(tc.id);
+        }
+      });
+    });
+  }
+);
+
 onMounted(() => {
   store.initialize();
   websocketClient.events.on("mcp-async-result", handleMcpAsyncResult);
   handleResizeOpen();
+  streamBrand();
   window.addEventListener("resize", handleResizeOpen);
 });
 
 onUnmounted(() => {
   websocketClient.events.off("mcp-async-result", handleMcpAsyncResult);
   window.removeEventListener("resize", handleResizeOpen);
+  if (brandTimer) clearTimeout(brandTimer);
 });
 </script>
 
@@ -907,15 +1022,29 @@ onUnmounted(() => {
 
 .ai-desktop {
   --bg: var(--app-content-bg-color);
-  --surface: var(--bg);
+  --surface: var(--app-content-surface-color);
   --surface-hover: var(--el-fill-color-light);
   --border: var(--app-content-border-color);
+  --ai-sidebar-bg: #f4f6f8;
+  --ai-border: rgba(148, 163, 184, 0.18);
+  --ai-item-hover: rgba(148, 163, 184, 0.08);
+  --ai-item-active: rgba(148, 163, 184, 0.12);
   --text: var(--el-text-color-primary);
   --text-2: var(--el-text-color-regular);
   --text-3: var(--el-text-color-secondary);
   --primary: var(--el-color-primary);
   --success: var(--el-color-success);
   --danger: var(--el-color-danger);
+
+  /* Agent theme variables (aligned with yishe-client) */
+  --agent-sidebar-bg: var(--app-content-surface-color);
+  --agent-main-bg: var(--bg);
+  --agent-surface: var(--surface);
+  --agent-border: var(--border);
+  --agent-border-soft: color-mix(in srgb, var(--border) 60%, transparent);
+  --agent-text: var(--text);
+  --agent-muted: var(--text-3);
+  --agent-user-bubble: color-mix(in srgb, var(--surface) 88%, var(--bg));
 
   display: flex;
   height: 100%;
@@ -934,60 +1063,89 @@ onUnmounted(() => {
 .sidebar {
   display: flex;
   width: 260px;
-  background: var(--bg);
-  border-right: 1px solid var(--border);
+  background: var(--ai-sidebar-bg);
+  border-right: 1px solid var(--ai-border);
   flex-shrink: 0;
   flex-direction: column;
+  position: relative;
 }
 
-.sidebar__logo {
+/* ── Sidebar Header ── */
+.sidebar__header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px;
+  justify-content: space-between;
+  min-height: 60px;
+  padding: 20px 14px 10px;
   flex-shrink: 0;
 }
 
-.sidebar__new {
-  display: flex;
-  flex: 1;
-  height: 32px;
-  font-size: 12px;
-  color: var(--text-2);
-  cursor: pointer;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  transition: all 0.15s;
+.sidebar__brand {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: 6px;
 }
 
-.sidebar__new:hover {
+.sidebar__brand-text {
+  font-size: 15px;
+  font-weight: 700;
   color: var(--text);
-  background: var(--surface-hover);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
 }
 
-.sidebar__clear-all {
+.sidebar__brand-cursor {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--el-color-primary);
+  animation: brandBreathe 1.8s ease-in-out infinite;
+}
+
+@keyframes brandBreathe {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+.is-loading {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+
+/* ── New Button ── */
+.sidebar__new-btn {
   display: flex;
-  width: 32px;
-  height: 32px;
-  font-size: 14px;
-  color: #f56c6c;
+  width: 100%;
+  min-height: 36px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
   cursor: pointer;
   background: transparent;
-  border: 1px solid var(--border);
+  border: none;
   border-radius: 8px;
-  transition: all 0.15s;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
+  text-align: left;
+  transition: background 150ms ease;
 }
 
-.sidebar__clear-all:hover {
-  background: rgba(245, 108, 108, 0.1);
-  border-color: #f56c6c;
+.sidebar__new-btn:hover {
+  background: var(--ai-item-hover);
 }
+
+.sidebar__new-btn .el-icon {
+  font-size: 14px;
+  color: var(--text-2);
+}
+
 
 .topbar__btn--danger {
   color: #f56c6c !important;
@@ -1007,32 +1165,44 @@ onUnmounted(() => {
 .sidebar__section {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
+}
+
+.sidebar__section-label {
+  padding: 8px 12px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .sidebar__item {
   display: flex;
   width: 100%;
-  padding: 9px 12px;
-  font-size: 12px;
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 12.5px;
   color: var(--text-2);
   text-align: left;
   cursor: pointer;
   background: none;
   border: none;
   border-radius: 8px;
-  transition: background 0.12s;
+  transition: background 150ms ease;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .sidebar__item:hover {
   color: var(--text);
-  background: var(--surface-hover);
+  background: var(--ai-item-hover);
 }
 
 .sidebar__item.active {
-  background: var(--el-fill-color-light);
+  color: var(--text);
+  background: var(--ai-item-active);
+  font-weight: 550;
 }
 
 .sidebar__item-text {
@@ -1079,20 +1249,27 @@ onUnmounted(() => {
 }
 
 .conversation-detail-popup {
-  z-index: 1000;
+  z-index: 2000;
   width: 280px;
   padding: 16px;
-  background: var(--bg);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
-  box-shadow: 0 8px 32px rgb(0 0 0 / 15%);
+  box-shadow: 0 12px 40px rgb(0 0 0 / 0.18), 0 2px 8px rgb(0 0 0 / 0.06);
   animation: fadeIn 0.15s ease;
+  position: fixed;
+}
+
+html.dark .ai-desktop .conversation-detail-popup {
+  background: #1a1a1a;
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 12px 40px rgb(0 0 0 / 0.5), 0 2px 8px rgb(0 0 0 / 0.3);
 }
 
 .conversation-detail-header {
   padding-bottom: 8px;
   margin-bottom: 12px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--agent-border-soft);
 }
 
 .conversation-detail-title {
@@ -1150,48 +1327,43 @@ onUnmounted(() => {
 }
 
 .sidebar__empty {
-  padding: 24px 0;
-  font-size: 13px;
+  padding: 20px 10px;
+  font-size: 12px;
   color: var(--text-3);
   text-align: center;
+  line-height: 1.5;
 }
 
 .sidebar__bottom {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
   gap: 4px;
   flex-shrink: 0;
-  padding: 0 10px 8px;
+  padding: 8px 12px 12px;
 }
 
 .sidebar__item--icon {
+  display: flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border-radius: 6px;
-  transition: all 0.2s ease;
+  border-radius: 8px;
+  transition: background 150ms ease;
+  color: var(--text-3);
+  cursor: pointer;
+  background: transparent;
+  border: none;
 }
 
 .sidebar__item--icon:hover {
-  color: var(--primary);
-  background: color-mix(in srgb, var(--el-color-primary) 10%, transparent);
-  transform: scale(1.08);
-}
-
-.sidebar__item--danger {
-  color: #f56c6c;
+  color: var(--text);
+  background: var(--ai-item-hover);
 }
 
 .sidebar__item--danger:hover {
-  color: #f56c6c !important;
-  background: rgba(245, 108, 108, 0.12) !important;
-  transform: scale(1.08);
-}
-
-.sidebar__item--icon:active {
-  transform: scale(0.95);
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
 }
 
 /* ── Workspace ── */
@@ -1315,14 +1487,14 @@ onUnmounted(() => {
 
 .chat__scroll {
   min-height: 0;
-  padding: 12px 0 80px;
+  padding: 16px 0 100px;
   overflow-y: auto;
   flex: 1;
 }
 
 .chat__list {
-  max-width: 800px;
-  padding: 0 16px;
+  max-width: 760px;
+  padding: 0 20px;
   margin: 0 auto;
 }
 
@@ -1331,19 +1503,33 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 24px 0;
+  padding: 48px 0;
 }
 
 .chat__empty-text {
-  font-size: 14px;
-  color: var(--text-3);
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--agent-muted);
+  margin: 0;
 }
 
 /* ── Message ── */
 .msg {
   display: flex;
   gap: 10px;
-  padding: 5px 0;
+  padding: 4px 0;
+  animation: msgFadeIn 0.25s ease;
+}
+
+@keyframes msgFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .msg--user {
@@ -1351,18 +1537,19 @@ onUnmounted(() => {
 }
 
 .msg--user .msg__body {
-  max-width: 85%;
+  max-width: min(82%, 620px);
 }
 
 .msg--user .msg__text {
   display: inline-block;
-  padding: 7px 12px;
-  font-size: 13px;
+  padding: 11px 16px;
+  font-size: 14px;
   line-height: 1.55;
-  color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px 12px 3px;
+  color: var(--agent-text);
+  background: var(--agent-user-bubble);
+  border-radius: 22px;
+  max-width: 100%;
+  word-break: break-word;
 }
 
 .msg--assistant {
@@ -1374,14 +1561,56 @@ onUnmounted(() => {
   min-width: 0;
 }
 
+.msg--assistant .msg__content {
+  width: 100%;
+}
+
 .msg__content {
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--text);
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--agent-text);
 }
 
 .msg__text {
   white-space: pre-wrap;
+}
+
+/* ── Message Hover Actions ── */
+.msg__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+.msg:hover .msg__actions {
+  opacity: 1;
+}
+
+.msg--user .msg__actions {
+  justify-content: flex-end;
+}
+
+.msg__action-btn {
+  display: flex;
+  width: 27px;
+  height: 27px;
+  font-size: 13px;
+  color: var(--agent-muted);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  align-items: center;
+  justify-content: center;
+  transition: all 150ms ease;
+}
+
+.msg__action-btn:hover {
+  color: var(--agent-text);
+  background: var(--surface-hover);
 }
 
 .msg__meta {
@@ -1403,22 +1632,23 @@ onUnmounted(() => {
 }
 
 .msg__meta-toggle {
-  width: 18px;
-  height: 18px;
+  width: 27px;
+  height: 27px;
   padding: 0;
   font-size: 13px;
   line-height: 1;
-  color: var(--text-3);
+  color: var(--agent-muted);
   vertical-align: top;
   cursor: pointer;
   background: transparent;
   border: none;
-  border-radius: 50%;
+  border-radius: 6px;
+  transition: all 150ms ease;
 }
 
 .msg__meta-toggle:hover,
 .msg__meta-toggle:focus-visible {
-  color: var(--text-2);
+  color: var(--agent-text);
   background: var(--surface-hover);
 }
 
@@ -1604,73 +1834,187 @@ onUnmounted(() => {
   border-top: 1px solid var(--border);
 }
 
-/* ── Tool Card ── */
-.tool-card {
-  padding: 8px 10px;
-  margin: 4px 0;
-  background: var(--el-fill-color-lighter);
-  border: 1px solid var(--border);
-  border-radius: 10px;
+/* ── Agent Tool (Collapsible Card) ── */
+.agent-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 6px 0;
 }
 
-.tool-card__head {
+.agent-tool {
+  width: calc(100% - 16px);
+  margin: 0 8px;
+  padding: 7px 8px 8px;
+  background: var(--agent-surface);
+  border: 1px solid var(--agent-border-soft);
+  border-radius: 11px;
+  transition: border-color 0.15s;
+}
+
+.agent-tool:hover {
+  border-color: var(--border);
+}
+
+.agent-tool__header {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--text-2);
+  gap: 8px;
+  min-height: 45px;
+  padding: 0 12px;
+  cursor: pointer;
+  user-select: none;
 }
 
-.tool-card__dot {
-  width: 6px;
-  height: 6px;
-  background: var(--success);
+.agent-tool__icon {
+  font-size: 14px;
+  color: var(--agent-muted);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.agent-tool__name {
+  font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-tool__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-family: "JetBrains Mono", monospace;
+  text-transform: capitalize;
+}
+
+.agent-tool__status-dot {
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
 }
 
-.tool-card__name {
-  font-family: "JetBrains Mono", monospace;
-  font-weight: 500;
-  color: var(--text);
+.agent-tool__status.is-running {
+  color: #d97706;
+}
+.agent-tool__status.is-running .agent-tool__status-dot {
+  background: #f59e0b;
+  animation: pulse 1.4s infinite;
 }
 
-.tool-card__result {
-  margin-top: 6px;
+.agent-tool__status.is-done {
+  color: #059669;
+}
+.agent-tool__status.is-done .agent-tool__status-dot {
+  background: #10b981;
 }
 
-.tool-card__pre {
-  padding: 8px;
+.agent-tool__status.is-error {
+  color: #dc2626;
+}
+.agent-tool__status.is-error .agent-tool__status-dot {
+  background: #ef4444;
+}
+
+.agent-tool__chevron {
+  font-size: 12px;
+  color: var(--agent-muted);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.agent-tool__chevron.expanded {
+  transform: rotate(180deg);
+}
+
+.agent-tool__body {
+  padding: 0 12px 8px;
+}
+
+.agent-tool__section {
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--agent-border-soft);
+}
+
+.agent-tool__section-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--agent-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.agent-tool__pre {
+  max-height: 220px;
+  overflow: auto;
+  padding: 8px 10px;
   margin: 0;
-  overflow-x: auto;
-  font-family: "JetBrains Mono", monospace;
+  font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace;
   font-size: 11px;
-  line-height: 1.45;
+  line-height: 1.55;
   color: var(--text-2);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 6px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
-/* ── Thinking Block ── */
-.thinking-block {
+.agent-tool__pre.is-error {
+  color: #dc2626;
+  border-color: rgba(220, 38, 38, 0.3);
+  background: rgba(220, 38, 38, 0.04);
+}
+
+/* ── Streaming Loader ── */
+.agent-streaming-loader {
   display: inline-flex;
-  padding: 6px 12px;
-  margin-top: 6px;
-  font-size: 12px;
-  color: var(--text-2);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--agent-muted);
+  line-height: 1.5;
 }
 
-.thinking-dot {
-  width: 6px;
-  height: 6px;
-  background: var(--text-3);
-  border-radius: 50%;
-  animation: pulse 1.4s infinite;
+.agent-thinking-spinner {
+  display: inline-grid;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  aspect-ratio: 1;
+  padding: 3px;
+  box-sizing: border-box;
+  filter: contrast(10);
+}
+
+.agent-thinking-spinner::before,
+.agent-thinking-spinner::after {
+  content: "";
+  grid-area: 1/1;
+  width: 8px;
+  height: 8px;
+  background: var(--el-color-primary);
+  animation: l7 2s infinite;
+}
+
+.agent-thinking-spinner::after {
+  animation-delay: -1s;
+}
+
+@keyframes l7 {
+  0%   { transform: translate(0, 0); }
+  25%  { transform: translate(100%, 0); }
+  50%  { transform: translate(100%, 100%); }
+  75%  { transform: translate(0, 100%); }
+  100% { transform: translate(0, 0); }
 }
 
 /* ── Typing Indicator ── */
@@ -1696,14 +2040,29 @@ onUnmounted(() => {
   animation-delay: 0.4s;
 }
 
+/* ── Avatar ── */
+.msg__avatar {
+  display: flex;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-2);
+}
+
 /* ── Composer ── */
 .composer {
   position: absolute;
   right: 0;
   bottom: 0;
   left: 0;
-  padding: 0 16px 8px;
+  padding: 0 16px 12px;
   pointer-events: none;
+  background: var(--bg);
 }
 
 .composer__wrap {
@@ -1711,54 +2070,59 @@ onUnmounted(() => {
   display: flex;
   max-width: 700px;
   margin: 0 auto;
+  padding: 6px;
   pointer-events: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  align-items: center;
+  gap: 8px;
+}
+
+.composer__wrap:focus-within {
+  border-color: var(--el-color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--el-color-primary) 15%, transparent);
 }
 
 .composer__input {
-  width: 100%;
+  flex: 1;
   max-height: 160px;
-  min-height: 38px;
-  padding: 8px 48px 8px 14px;
+  min-height: 36px;
+  padding: 8px 8px 8px 12px;
   font-family: inherit;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.5;
   color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 16px;
+  background: transparent;
+  border: none;
   outline: none;
-  transition: border-color 0.15s;
   resize: none;
-  backdrop-filter: blur(12px);
 }
 
 .composer__input::placeholder {
   color: var(--text-3);
 }
 
-.composer__input:focus {
-  border-color: var(--el-color-primary);
-}
-
 .composer__actions {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  right: 6px;
   display: flex;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .composer__send {
-  padding: 4px 10px;
-  font-size: 12px;
-  font-weight: 500;
+  display: flex;
+  width: 32px;
+  height: 32px;
+  font-size: 14px;
   color: #fff;
   cursor: pointer;
   background: var(--el-color-primary);
   border: none;
-  border-radius: 8px;
-  transition: opacity 0.15s;
+  border-radius: 50%;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s, transform 0.15s;
 }
 
 .composer__send:disabled {
@@ -1768,6 +2132,11 @@ onUnmounted(() => {
 
 .composer__send:not(:disabled):hover {
   opacity: 0.85;
+  transform: scale(1.08);
+}
+
+.composer__send:not(:disabled):active {
+  transform: scale(0.92);
 }
 
 /* ── Tools Dialog (dark) ── */
@@ -2183,6 +2552,16 @@ onUnmounted(() => {
 }
 
 /* ════════════════════════════════════════
-   AI Assistant — Adaptive Theme
+   AI Assistant — Dark Mode Overrides
    ════════════════════════════════════════ */
+html.dark .ai-desktop {
+  --bg: #000000;
+  --surface: #000000;
+  --ai-sidebar-bg: #000000;
+  --ai-border: rgba(255, 255, 255, 0.06);
+  --ai-item-hover: rgba(255, 255, 255, 0.04);
+  --ai-item-active: rgba(255, 255, 255, 0.07);
+  --border: rgba(255, 255, 255, 0.06);
+  --surface-hover: rgba(255, 255, 255, 0.04);
+}
 </style>
