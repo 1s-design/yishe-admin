@@ -29,6 +29,7 @@ import {
   emojipediaIcon,
   svgrepoIcon,
   kaboompicsIcon,
+  nappyIcon,
   v2exIcon,
   thirtySixKrIcon,
   ithomeIcon,
@@ -138,6 +139,7 @@ export type NodeType =
   | 'media_wikimedia'
   | 'media_internet_archive'
   | 'media_openverse'
+  | 'media_nappy'
   | 'media_pexels'
   | 'rawpixel_search'
   | 'douyin_jingxuan_search'
@@ -1561,6 +1563,28 @@ export const NODE_MANIFEST_REGISTRY: NodeManifest[] = [
       { field: 'keyword', label: '搜索关键词', type: 'string', required: true, placeholder: '例如: cat, landscape, music' },
       { field: 'maxCount', label: '采集数量', type: 'number', defaultValue: 10, description: '每次最多采集数量 (1-50)' },
       { field: 'mediaType', label: '媒体类型', type: 'select', defaultValue: 'image', options: [{ label: '图片', value: 'image' }, { label: '音频', value: 'audio' }] },
+    ],
+    outputSchema: [
+      { field: 'successCount', label: '成功数量', type: 'number' },
+      { field: 'failCount', label: '失败数量', type: 'number' },
+      { field: 'images', label: '素材列表', type: 'array' },
+    ],
+    requirements: [
+      { type: 'client', label: '需客户端在线' },
+      { type: 'internet', label: '需外网' },
+    ],
+  },
+  {
+    type: 'media_nappy',
+    name: 'Nappy 图片采集',
+    category: 'material',
+    description: '从 Nappy 搜索高质量免费图片素材，专为 POC 和生活方式品牌设计。所有图片免费可用于商业项目。需客户端在线且可访问外网。',
+    iconImage: nappyIcon,
+    color: '#f9a825',
+    defaultData: { label: 'Nappy 图片采集', config: { keyword: '', maxCount: 10 } },
+    inputSchema: [
+      { field: 'keyword', label: '搜索关键词', type: 'string', required: true, placeholder: '例如: iphone, woman, nature' },
+      { field: 'maxCount', label: '采集数量', type: 'number', defaultValue: 10, description: '每次最多采集数量 (1-50)' },
     ],
     outputSchema: [
       { field: 'successCount', label: '成功数量', type: 'number' },

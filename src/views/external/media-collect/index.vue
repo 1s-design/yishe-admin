@@ -97,6 +97,7 @@
                             </el-select>
                           </div>
                         </template>
+                        <!-- Nappy: 仅图片，无需类型选择器 -->
                         <!-- Pexels 专用参数 -->
                         <template v-else-if="activeKey === 'pexels'">
                           <div class="collect-search__field">
@@ -148,7 +149,7 @@
                     <div v-if="searchResults.length > 0" class="collect-search__results">
                       <div class="collect-search__header">
                         <div class="collect-search__info">
-                          <template v-if="activeKey === 'openverse'">
+                          <template v-if="activeKey === 'openverse' || activeKey === 'nappy'">
                             第 {{ currentPage }} 页，{{ searchResults.length }} 条
                           </template>
                           <template v-else>
@@ -259,8 +260,8 @@
                         </div>
                       </div>
 
-                      <!-- Openverse: 简单分页（不依赖总数） -->
-                      <div v-if="activeKey === 'openverse'" class="collect-pagination collect-pagination--simple">
+                      <!-- Openverse / Nappy: 简单分页（不依赖总数） -->
+                      <div v-if="activeKey === 'openverse' || activeKey === 'nappy'" class="collect-pagination collect-pagination--simple">
                         <el-button
                           :disabled="currentPage <= 1"
                           @click="handlePageChange(currentPage - 1)"
@@ -401,6 +402,7 @@ const providers = [
   { key: 'wikimedia', name: 'Wikimedia Commons' },
   { key: 'internet-archive', name: 'Internet Archive' },
   { key: 'openverse', name: 'Openverse' },
+  { key: 'nappy', name: 'Nappy' },
   { key: 'pexels', name: 'Pexels' },
 ]
 const activeKey = ref('wikimedia')
@@ -441,6 +443,16 @@ const sourceStates = reactive({
     selectedItems: [] as string[],
   },
   openverse: {
+    searchKeyword: '',
+    mediaType: 'image' as 'image' | 'video' | 'audio',
+    searchResults: [] as MediaAsset[],
+    searchTotal: 0,
+    currentPage: 1,
+    pageSize: 10,
+    hasSearched: false,
+    selectedItems: [] as string[],
+  },
+  nappy: {
     searchKeyword: '',
     mediaType: 'image' as 'image' | 'video' | 'audio',
     searchResults: [] as MediaAsset[],
@@ -568,8 +580,8 @@ async function doSearch(page = 1) {
     src.searchResults = result.items || []
     src.searchTotal = result.total || 0
     src.currentPage = page
-    // Openverse: 根据返回数量判断是否有下一页
-    if (activeKey.value === 'openverse') {
+    // Openverse / Nappy: 不返回总数，根据返回数量判断是否有下一页
+    if (activeKey.value === 'openverse' || activeKey.value === 'nappy') {
       hasMore.value = (result.items?.length || 0) >= src.pageSize
     }
   } catch (error: any) {
