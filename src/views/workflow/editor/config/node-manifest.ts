@@ -135,6 +135,9 @@ export type NodeType =
   | 'wikimedia_culture'
   | 'pexels_search'
   | 'pixabay_search'
+  | 'media_wikimedia'
+  | 'media_internet_archive'
+  | 'media_pexels'
   | 'rawpixel_search'
   | 'douyin_jingxuan_search'
   | 'stocksnap_search'
@@ -1469,6 +1472,76 @@ export const NODE_MANIFEST_REGISTRY: NodeManifest[] = [
       { field: 'successCount', label: '成功数量', type: 'number' },
       { field: 'failCount', label: '失败数量', type: 'number' },
       { field: 'images', label: '图片列表', type: 'array' },
+    ],
+    requirements: [
+      { type: 'client', label: '需客户端在线' },
+      { type: 'internet', label: '需外网' },
+    ],
+  },
+  // ─── media-collect 媒体采集节点（支持图片/视频/音频）─────────────
+  {
+    type: 'media_wikimedia',
+    name: 'Wikimedia 媒体采集',
+    category: 'material',
+    description: '从 Wikimedia Commons 搜索自由版权图片、视频、音频，批量采集到素材库。支持图片/视频/音频三种媒体类型。需客户端在线且可访问外网。',
+    iconImage: wikimediaIcon,
+    color: '#006699',
+    defaultData: { label: 'Wikimedia 媒体采集', config: { keyword: '', maxCount: 10, mediaType: 'image' } },
+    inputSchema: [
+      { field: 'keyword', label: '搜索关键词', type: 'string', required: true, placeholder: '例如: nature, cat, landscape' },
+      { field: 'maxCount', label: '采集数量', type: 'number', defaultValue: 10, description: '每次最多采集数量 (1-50)' },
+      { field: 'mediaType', label: '媒体类型', type: 'select', defaultValue: 'image', options: [{ label: '图片', value: 'image' }, { label: '视频', value: 'video' }, { label: '音频', value: 'audio' }] },
+    ],
+    outputSchema: [
+      { field: 'successCount', label: '成功数量', type: 'number' },
+      { field: 'failCount', label: '失败数量', type: 'number' },
+      { field: 'images', label: '素材列表', type: 'array' },
+    ],
+    requirements: [
+      { type: 'client', label: '需客户端在线' },
+      { type: 'internet', label: '需外网' },
+    ],
+  },
+  {
+    type: 'media_internet_archive',
+    name: 'Internet Archive 媒体采集',
+    category: 'material',
+    description: '从 Internet Archive 搜索历史图片、影片、音频资源，批量采集到素材库。支持图片/视频/音频三种媒体类型，包含大量历史公共领域素材。需客户端在线。',
+    iconImage: wikimediaIcon,
+    color: '#4a148c',
+    defaultData: { label: 'Internet Archive 媒体采集', config: { keyword: '', maxCount: 10, mediaType: 'image' } },
+    inputSchema: [
+      { field: 'keyword', label: '搜索关键词', type: 'string', required: true, placeholder: '例如: vintage, music, film' },
+      { field: 'maxCount', label: '采集数量', type: 'number', defaultValue: 10, description: '每次最多采集数量 (1-50)' },
+      { field: 'mediaType', label: '媒体类型', type: 'select', defaultValue: 'image', options: [{ label: '图片', value: 'image' }, { label: '视频', value: 'video' }, { label: '音频', value: 'audio' }] },
+    ],
+    outputSchema: [
+      { field: 'successCount', label: '成功数量', type: 'number' },
+      { field: 'failCount', label: '失败数量', type: 'number' },
+      { field: 'images', label: '素材列表', type: 'array' },
+    ],
+    requirements: [
+      { type: 'client', label: '需客户端在线' },
+      { type: 'internet', label: '需外网' },
+    ],
+  },
+  {
+    type: 'media_pexels',
+    name: 'Pexels 媒体采集',
+    category: 'material',
+    description: '从 Pexels 搜索高清图片与视频素材，批量采集到素材库。支持图片/视频两种媒体类型。需客户端在线且可访问外网。',
+    iconImage: pexelsIcon,
+    color: '#05a081',
+    defaultData: { label: 'Pexels 媒体采集', config: { keyword: '', maxCount: 10, mediaType: 'image' } },
+    inputSchema: [
+      { field: 'keyword', label: '搜索关键词', type: 'string', required: true, placeholder: '例如: nature, cat, landscape' },
+      { field: 'maxCount', label: '采集数量', type: 'number', defaultValue: 10, description: '每次最多采集数量 (1-50)' },
+      { field: 'mediaType', label: '媒体类型', type: 'select', defaultValue: 'image', options: [{ label: '图片', value: 'image' }, { label: '视频', value: 'video' }] },
+    ],
+    outputSchema: [
+      { field: 'successCount', label: '成功数量', type: 'number' },
+      { field: 'failCount', label: '失败数量', type: 'number' },
+      { field: 'images', label: '素材列表', type: 'array' },
     ],
     requirements: [
       { type: 'client', label: '需客户端在线' },
