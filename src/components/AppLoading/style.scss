@@ -45,22 +45,30 @@
 }
 
 .app-loading-shell__text p {
+  --color-1: var(--app-loading-text);
+
   position: relative;
   margin: 0;
-  color: var(--app-loading-text);
-  font-family: "SFMono-Regular", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
-  font-size: clamp(1rem, 1.6vw, 1.15rem);
-  font-weight: 500;
-  letter-spacing: -0.03em;
+  color: var(--color-1);
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: clamp(0.85rem, 1.3vw, 1.1rem);
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: 0.04em;
   line-height: 1.2;
-}
-
-.app-loading-shell__text p::after {
-  position: absolute;
-  left: calc(100% + 0.08em);
-  animation: app-loading-dots var(--app-loading-duration) infinite linear;
-  color: var(--app-loading-text);
-  content: '';
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    #000 30%,
+    #000 70%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(90deg, transparent 0%, #000 30%, #000 70%, transparent 100%);
+  -webkit-mask-size: 250% 100%;
+  mask-size: 250% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  animation: app-loading-mask var(--app-loading-duration) linear infinite;
 }
 
 .app-loading-shell__meta {
@@ -103,25 +111,14 @@ html.light .app-loading-shell {
   }
 }
 
-@keyframes app-loading-dots {
+@keyframes app-loading-mask {
   0% {
-    content: '';
+    -webkit-mask-position: 150% 0;
+    mask-position: 150% 0;
   }
-
-  10% {
-    content: '.';
-  }
-
-  40% {
-    content: '..';
-  }
-
-  70% {
-    content: '...';
-  }
-
   100% {
-    content: '';
+    -webkit-mask-position: -150% 0;
+    mask-position: -150% 0;
   }
 }
 

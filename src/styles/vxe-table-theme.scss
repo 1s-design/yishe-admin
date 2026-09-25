@@ -242,22 +242,75 @@ html.light {
 }
 
 /* 4. Checkbox Styling */
-.vxe-checkbox--icon {
-  border-radius: 4px !important;
-  border-color: rgba(255, 255, 255, 0.15) !important;
-  background-color: transparent !important;
-  transition: all 0.2s ease !important;
-}
+.vxe-table .vxe-cell--checkbox .vxe-checkbox--icon,
+.vxe-grid .vxe-cell--checkbox .vxe-checkbox--icon {
+  position: relative;
+  display: inline-block;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid rgba(255, 255, 255, 0.22) !important;
+  border-radius: 6px;
+  background-color: transparent;
+  color: transparent !important;
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    box-shadow 0.2s ease;
+  vertical-align: middle;
 
-html.light {
-  .vxe-checkbox--icon {
-    border-color: rgba(0, 0, 0, 0.15) !important;
+  &::before {
+    content: none !important;
+  }
+
+  &::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 4px;
+    height: 2px;
+    border-radius: 1px;
+    background-color: #fff;
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.6);
+    transition:
+      opacity 0.2s ease,
+      transform 0.2s ease;
   }
 }
 
-.vxe-checkbox.is--checked .vxe-checkbox--icon {
-  background-color: var(--el-color-primary) !important;
+html.light {
+  .vxe-table .vxe-cell--checkbox .vxe-checkbox--icon,
+  .vxe-grid .vxe-cell--checkbox .vxe-checkbox--icon {
+    border-color: rgba(0, 0, 0, 0.18) !important;
+  }
+}
+
+.vxe-table .vxe-cell--checkbox:not(.is--disabled):hover .vxe-checkbox--icon,
+.vxe-grid .vxe-cell--checkbox:not(.is--disabled):hover .vxe-checkbox--icon {
   border-color: var(--el-color-primary) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--el-color-primary) 15%, transparent);
+}
+
+.vxe-table .vxe-cell--checkbox.is--checked .vxe-checkbox--icon,
+.vxe-table .vxe-cell--checkbox.is--indeterminate .vxe-checkbox--icon,
+.vxe-grid .vxe-cell--checkbox.is--checked .vxe-checkbox--icon,
+.vxe-grid .vxe-cell--checkbox.is--indeterminate .vxe-checkbox--icon {
+  border-color: var(--el-color-primary) !important;
+  background-color: var(--el-color-primary);
+
+  &::after {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.vxe-table .vxe-cell--checkbox.is--disabled .vxe-checkbox--icon,
+.vxe-grid .vxe-cell--checkbox.is--disabled .vxe-checkbox--icon {
+  border-color: rgba(148, 163, 184, 0.3) !important;
+  background-color: rgba(148, 163, 184, 0.12);
+  box-shadow: none;
 }
 
 /* 5. Custom Status Pill Badges */
