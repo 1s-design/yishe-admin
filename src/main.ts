@@ -79,7 +79,7 @@ import { initCOS } from '@/api/cos'
 // import 'vue3-video-play/dist/style.css' // 引入css
 
 mountBootLoading('#app', {
-  text: '1s design admin',
+  text: '1s design admin...',
   label: '',
   caption: ''
 })

@@ -82,6 +82,21 @@
                             </el-select>
                           </div>
                         </template>
+                        <!-- Openverse 专用参数 -->
+                        <template v-else-if="activeKey === 'openverse'">
+                          <div class="collect-search__field">
+                            <span class="collect-search__label">类型</span>
+                            <el-select
+                              v-model="sourceStates.openverse.mediaType"
+                              size="small"
+                              style="width: 110px"
+                              aria-label="媒体类型"
+                            >
+                              <el-option value="image" label="图片" />
+                              <el-option value="audio" label="音频" />
+                            </el-select>
+                          </div>
+                        </template>
                         <!-- Pexels 专用参数 -->
                         <template v-else-if="activeKey === 'pexels'">
                           <div class="collect-search__field">
@@ -133,7 +148,12 @@
                     <div v-if="searchResults.length > 0" class="collect-search__results">
                       <div class="collect-search__header">
                         <div class="collect-search__info">
-                          共 {{ searchTotal }} 个结果，第 {{ currentPage }} / {{ totalPages }} 页
+                          <template v-if="activeKey === 'openverse'">
+                            第 {{ currentPage }} 页，{{ searchResults.length }} 条
+                          </template>
+                          <template v-else>
+                            共 {{ searchTotal }} 个结果，第 {{ currentPage }} / {{ totalPages }} 页
+                          </template>
                         </div>
                         <div class="collect-actions-bar">
                           <el-checkbox
@@ -221,10 +241,9 @@
                             <div class="collect-item__meta">
                               <span>{{ typeLabel(item.mediaType) }}</span>
                               <span v-if="item.creator">👤 {{ item.creator }}</span>
-                              <span v-if="item.width && item.height">
+                              <span v-if="item.mediaType !== 'audio' && item.width && item.height">
                                 {{ item.width }} × {{ item.height }}
                               </span>
-                              <span v-if="item.duration">⏱ {{ formatDuration(item.duration) }}</span>
                               <span v-if="item.license">{{ item.license }}</span>
                             </div>
                           </div>
@@ -240,7 +259,39 @@
                         </div>
                       </div>
 
-                      <div class="collect-pagination">
+                      <!-- Openverse: 简单分页（不依赖总数） -->
+                      <div v-if="activeKey === 'openverse'" class="collect-pagination collect-pagination--simple">
+                        <el-button
+                          :disabled="currentPage <= 1"
+                          @click="handlePageChange(currentPage - 1)"
+                        >
+                          上一页
+                        </el-button>
+                        <el-button
+                          :disabled="!hasMore"
+                          :loading="searchLoading"
+                          @click="handlePageChange(currentPage + 1)"
+                        >
+                          下一页
+                        </el-button>
+                        <div class="collect-pagination__extra">
+                          <span class="collect-pagination__label">每页</span>
+                          <el-select
+                            v-model="currentPageSize"
+                            size="small"
+                            style="width: 80px"
+                            @change="handleSizeChange"
+                          >
+                            <el-option :value="10" label="10 条" />
+                            <el-option :value="20" label="20 条" />
+                            <el-option :value="30" label="30 条" />
+                            <el-option :value="50" label="50 条" />
+                          </el-select>
+                          <span class="collect-pagination__label">条</span>
+                        </div>
+                      </div>
+                      <!-- 其他源: el-pagination -->
+                      <div v-else class="collect-pagination">
                         <el-pagination
                           v-model:current-page="currentPage"
                           :page-size="currentPageSize"
@@ -349,6 +400,7 @@ const router = useRouter()
 const providers = [
   { key: 'wikimedia', name: 'Wikimedia Commons' },
   { key: 'internet-archive', name: 'Internet Archive' },
+  { key: 'openverse', name: 'Openverse' },
   { key: 'pexels', name: 'Pexels' },
 ]
 const activeKey = ref('wikimedia')
@@ -388,6 +440,16 @@ const sourceStates = reactive({
     hasSearched: false,
     selectedItems: [] as string[],
   },
+  openverse: {
+    searchKeyword: '',
+    mediaType: 'image' as 'image' | 'video' | 'audio',
+    searchResults: [] as MediaAsset[],
+    searchTotal: 0,
+    currentPage: 1,
+    pageSize: 10,
+    hasSearched: false,
+    selectedItems: [] as string[],
+  },
   pexels: {
     searchKeyword: '',
     mediaType: 'image' as 'image' | 'video' | 'audio',
@@ -419,6 +481,9 @@ const selectedItems = computed({
   set: (val) => { currentSource.value.selectedItems = val },
 })
 const hasSearched = computed(() => currentSource.value.hasSearched)
+
+// Openverse 专用：是否有下一页
+const hasMore = ref(false)
 
 const searchLoading = ref(false)
 const importing = ref(false)
@@ -503,6 +568,10 @@ async function doSearch(page = 1) {
     src.searchResults = result.items || []
     src.searchTotal = result.total || 0
     src.currentPage = page
+    // Openverse: 根据返回数量判断是否有下一页
+    if (activeKey.value === 'openverse') {
+      hasMore.value = (result.items?.length || 0) >= src.pageSize
+    }
   } catch (error: any) {
     src.searchResults = []
     src.searchTotal = 0
@@ -562,6 +631,7 @@ async function copySelectedLinks() {
 }
 
 async function handleImport() {
+  console.log('[handleImport] 触发, clientId=', selectedClientId.value, 'selectedItems=', selectedItems.value.length)
   if (!selectedClientId.value) {
     ElMessage.warning('请先选择客户端节点')
     return
@@ -575,9 +645,17 @@ async function handleImport() {
     const items = selectedItems.value
       .map((id) => getItemById(id))
       .filter((item): item is MediaAsset => !!item)
+    console.log('[handleImport] 开始导入, items=', items.length)
     const result = await importMediaCollect(selectedClientId.value, items)
+    console.log('[handleImport] 导入完成, result=', result)
     selectedItems.value = []
-    ElMessage.success('导入完成')
+    const ok = result?.success || 0
+    const fail = result?.failed || 0
+    if (fail > 0) {
+      ElMessage.warning(`导入完成：成功 ${ok}，失败 ${fail}`)
+    } else {
+      ElMessage.success(`导入成功：共 ${ok} 项`)
+    }
   } catch (error: any) {
     ElMessage.error(error?.message || '导入失败')
   } finally {

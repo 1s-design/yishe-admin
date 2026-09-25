@@ -12,7 +12,7 @@ export interface AppLoadingOptions {
 }
 
 const DEFAULT_LOADING_OPTIONS: Required<AppLoadingOptions> = {
-  text: '1s design admin',
+  text: '1s design admin...',
   label: '',
   caption: '',
   duration: 3

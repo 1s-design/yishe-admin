@@ -10,7 +10,7 @@ const props = withDefaults(
     duration?: number
   }>(),
   {
-    text: '1s design admin',
+    text: '1s design admin...',
     label: '',
     caption: '',
     fullscreen: false,

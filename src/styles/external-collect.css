@@ -378,6 +378,10 @@
   border-top: 1px solid var(--el-border-color-lighter);
 }
 
+.collect-pagination--simple {
+  gap: 8px;
+}
+
 .collect-pagination__extra {
   display: flex;
   align-items: center;

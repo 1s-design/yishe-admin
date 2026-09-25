@@ -137,6 +137,7 @@ export type NodeType =
   | 'pixabay_search'
   | 'media_wikimedia'
   | 'media_internet_archive'
+  | 'media_openverse'
   | 'media_pexels'
   | 'rawpixel_search'
   | 'douyin_jingxuan_search'
@@ -1537,6 +1538,29 @@ export const NODE_MANIFEST_REGISTRY: NodeManifest[] = [
       { field: 'keyword', label: '搜索关键词', type: 'string', required: true, placeholder: '例如: nature, cat, landscape' },
       { field: 'maxCount', label: '采集数量', type: 'number', defaultValue: 10, description: '每次最多采集数量 (1-50)' },
       { field: 'mediaType', label: '媒体类型', type: 'select', defaultValue: 'image', options: [{ label: '图片', value: 'image' }, { label: '视频', value: 'video' }] },
+    ],
+    outputSchema: [
+      { field: 'successCount', label: '成功数量', type: 'number' },
+      { field: 'failCount', label: '失败数量', type: 'number' },
+      { field: 'images', label: '素材列表', type: 'array' },
+    ],
+    requirements: [
+      { type: 'client', label: '需客户端在线' },
+      { type: 'internet', label: '需外网' },
+    ],
+  },
+  {
+    type: 'media_openverse',
+    name: 'Openverse 媒体采集',
+    category: 'material',
+    description: '从 Openverse 搜索 CC0 / 开放授权的图片与音频素材，批量采集到素材库。支持图片/音频两种媒体类型，6 亿+ 免费素材。需客户端在线且可访问外网。',
+    iconImage: openverseIcon,
+    color: '#00c4cc',
+    defaultData: { label: 'Openverse 媒体采集', config: { keyword: '', maxCount: 10, mediaType: 'image' } },
+    inputSchema: [
+      { field: 'keyword', label: '搜索关键词', type: 'string', required: true, placeholder: '例如: cat, landscape, music' },
+      { field: 'maxCount', label: '采集数量', type: 'number', defaultValue: 10, description: '每次最多采集数量 (1-50)' },
+      { field: 'mediaType', label: '媒体类型', type: 'select', defaultValue: 'image', options: [{ label: '图片', value: 'image' }, { label: '音频', value: 'audio' }] },
     ],
     outputSchema: [
       { field: 'successCount', label: '成功数量', type: 'number' },
