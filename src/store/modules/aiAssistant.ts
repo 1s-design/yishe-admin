@@ -187,11 +187,50 @@ export const useAiAssistantStore = defineStore("ai-assistant", () => {
           conversationId: currentConversationId.value || undefined,
         }),
       );
+      // 加载完成后，检查是否有已委派但结果未更新的 assistant 消息
+      refreshDelegatedMessages();
     } catch (error) {
       console.error("加载消息失败:", error);
       ElMessage.error("加载消息失败");
     } finally {
       historyLoading.value = false;
+    }
+  }
+
+  /** 检查已委派到 Agent Run Engine 的消息，如果 run 已完成则拉取结果更新内容 */
+  function refreshDelegatedMessages() {
+    for (const msg of messages.value) {
+      if (msg.role !== "assistant") continue;
+      const agentRunId = msg.runTrace?.agentRunId;
+      if (!agentRunId) continue;
+      // 如果消息内容还是初始的"已创建执行管线"，说明结果还没更新
+      if (!msg.content || msg.content.includes("已创建执行管线") || msg.content.includes("正在执行中")) {
+        AgentRunApi.detail(agentRunId).then((detail) => {
+          if (detail.status === "success") {
+            const parts: string[] = ["✅ 任务执行完成"];
+            if (detail.artifacts?.length) {
+              const descs = detail.artifacts.map((a: any) => {
+                if (a.url) return `  - [${a.name || a.type}](${a.url})`;
+                if (a.contentText) return `  - ${a.name || a.type}: ${a.contentText.slice(0, 100)}`;
+                return `  - ${a.name || a.type}`;
+              }).join("\n");
+              parts.push(`\n**产出物：**\n${descs}`);
+            }
+            if (detail.output && typeof detail.output === "object") {
+              const t = detail.output.text || detail.output.content || detail.output.result;
+              if (t) parts.push(`\n**输出：**\n${t}`);
+            }
+            msg.content = msg.content
+              ? `${msg.content}\n\n${parts.join("\n")}`
+              : parts.join("\n");
+          } else if (detail.status === "failed") {
+            msg.content = msg.content
+              ? `${msg.content}\n\n❌ 任务执行失败：${detail.errorMessage || "未知错误"}`
+              : `❌ 任务执行失败：${detail.errorMessage || "未知错误"}`;
+          }
+          // running / waiting 状态不处理，等 WebSocket 推送
+        }).catch(() => {});
+      }
     }
   }
 
