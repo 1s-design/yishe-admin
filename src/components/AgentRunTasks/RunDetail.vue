@@ -74,10 +74,28 @@
               <div v-if="stage.output" class="rd__stage-output">
                 <pre class="rd__stage-pre">{{ formatJson(stage.output) }}</pre>
               </div>
+              <!-- 执行日志折叠面板 -->
+              <details v-if="parseLogs(stage.logs).length" class="rd__stage-logs-details">
+                <summary class="rd__stage-logs-summary">
+                  <span>执行日志 ({{ parseLogs(stage.logs).length }} 条)</span>
+                </summary>
+                <div class="rd__stage-logs-body">
+                  <div
+                    v-for="(logLine, lIdx) in parseLogs(stage.logs)"
+                    :key="lIdx"
+                    class="rd__stage-log-line"
+                  >
+                    {{ logLine }}
+                  </div>
+                </div>
+              </details>
               <!-- 审批按钮 -->
               <div v-if="stage.status === 'waiting' && runDetail.status === 'waiting'" class="rd__stage-actions">
                 <el-button size="small" type="primary" @click="handleApprove(stage.stageIndex, true)">
-                  通过
+                  直接通过
+                </el-button>
+                <el-button v-if="stage.output?.text" size="small" type="success" @click="openEditDialog(stage)">
+                  修改文案并确认
                 </el-button>
                 <el-button size="small" @click="handleApprove(stage.stageIndex, false)">
                   拒绝
@@ -113,6 +131,13 @@
             >
               下载 ↗
             </a>
+            <!-- 音频播放组件 -->
+            <audio
+              v-if="artifact.url && (artifact.type === 'audio' || artifact.url.endsWith('.mp3') || artifact.url.endsWith('.wav'))"
+              :src="artifact.url"
+              controls
+              class="rd__artifact-audio"
+            />
             <span v-if="artifact.contentText" class="rd__artifact-text">
               {{ truncate(artifact.contentText, 200) }}
             </span>
@@ -125,6 +150,31 @@
         <div class="rd__section-title">最终输出</div>
         <pre class="rd__output-pre">{{ formatJson(runDetail.output) }}</pre>
       </div>
+
+      <!-- 修改文案审批弹窗 -->
+      <el-dialog
+        v-model="editDialogVisible"
+        title="修改文案并确认通过"
+        width="650px"
+        append-to-body
+      >
+        <el-form label-position="top">
+          <el-form-item label="文案内容（修改后将作为后续配音等阶段的输入）">
+            <el-input
+              v-model="editingText"
+              type="textarea"
+              :rows="12"
+              placeholder="请输入修改后的文案..."
+            />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="editDialogVisible = false">取消</el-button>
+          <el-button type="primary" :loading="approving" @click="submitEditedApproval">
+            确认通过并继续
+          </el-button>
+        </template>
+      </el-dialog>
     </template>
   </div>
 </template>
@@ -146,6 +196,34 @@ const emit = defineEmits<{
 
 const loading = ref(false);
 const runDetail = ref<AgentRunDetail | null>(null);
+const editDialogVisible = ref(false);
+const editingStageIndex = ref<number>(0);
+const editingText = ref("");
+const approving = ref(false);
+
+function openEditDialog(stage: AgentRunStage) {
+  editingStageIndex.value = stage.stageIndex;
+  editingText.value = stage.output?.text || "";
+  editDialogVisible.value = true;
+}
+
+async function submitEditedApproval() {
+  approving.value = true;
+  try {
+    await AgentRunApi.approveStage(props.run.runId, editingStageIndex.value, {
+      approved: true,
+      modifiedParams: { text: editingText.value },
+    });
+    ElMessage.success("已通过并更新文案");
+    editDialogVisible.value = false;
+    emit("refresh");
+    fetchDetail();
+  } catch (e: any) {
+    ElMessage.error(e?.message || "操作失败");
+  } finally {
+    approving.value = false;
+  }
+}
 
 async function fetchDetail() {
   loading.value = true;
@@ -247,6 +325,18 @@ function formatJson(value: any): string {
 
 function truncate(text: string, max: number): string {
   return text.length > max ? text.slice(0, max) + "..." : text;
+}
+
+function parseLogs(logs: string | string[] | null | undefined): string[] {
+  if (!logs) return [];
+  if (Array.isArray(logs)) return logs;
+  try {
+    const parsed = JSON.parse(logs);
+    if (Array.isArray(parsed)) return parsed;
+    return [String(parsed)];
+  } catch {
+    return [logs];
+  }
 }
 
 onMounted(() => {
@@ -492,6 +582,44 @@ onMounted(() => {
   overflow-wrap: anywhere;
 }
 
+.rd__stage-logs-details {
+  margin-top: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+.rd__stage-logs-summary {
+  cursor: pointer;
+  padding: 6px 10px;
+  color: var(--text-3);
+  font-weight: 500;
+  user-select: none;
+}
+
+.rd__stage-logs-summary:hover {
+  color: var(--text);
+}
+
+.rd__stage-logs-body {
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.02);
+  max-height: 180px;
+  overflow-y: auto;
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rd__stage-log-line {
+  color: var(--text-2);
+  line-height: 1.4;
+  word-break: break-all;
+}
+
 .rd__stage-actions {
   display: flex;
   gap: 8px;
@@ -556,6 +684,11 @@ onMounted(() => {
 
 .rd__artifact-link:hover {
   text-decoration: underline;
+}
+
+.rd__artifact-audio {
+  height: 28px;
+  max-width: 260px;
 }
 
 .rd__artifact-text {

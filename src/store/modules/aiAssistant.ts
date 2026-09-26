@@ -201,7 +201,10 @@ export const useAiAssistantStore = defineStore("ai-assistant", () => {
   function refreshDelegatedMessages() {
     for (const msg of messages.value) {
       if (msg.role !== "assistant") continue;
-      const agentRunId = msg.runTrace?.agentRunId;
+      const agentRunId =
+        msg.runTrace?.agentRunId ||
+        (msg.runTrace?.runId?.startsWith("arun_") ? msg.runTrace.runId : null) ||
+        (msg.runId?.startsWith("arun_") ? msg.runId : null);
       if (!agentRunId) continue;
       // 如果消息内容还是初始的"已创建执行管线"，说明结果还没更新
       if (!msg.content || msg.content.includes("已创建执行管线") || msg.content.includes("正在执行中")) {
@@ -512,30 +515,29 @@ export const useAiAssistantStore = defineStore("ai-assistant", () => {
         break;
       case "agent-run.created":
         // AI 助手委托给 Agent Run Engine — 关联 runId 到当前 assistant 消息
+        const arunId = data?.agentRunId || data?.runId;
         if (context.assistantMsg) {
-          context.assistantMsg.runId = data?.runId || context.assistantMsg.runId;
+          context.assistantMsg.runId = arunId || context.assistantMsg.runId;
           context.assistantMsg.runTrace = {
             ...(context.assistantMsg.runTrace || {}),
-            runId: data?.runId || context.assistantMsg.runTrace?.runId,
-            agentRunId: data?.agentRunId,  // arun_xxx — WebSocket 事件用的 ID
+            runId: arunId || context.assistantMsg.runTrace?.runId,
+            agentRunId: arunId,
             agentRunEngine: true,
             totalStages: data?.totalStages,
             stages: data?.stages,
           };
         }
         // 初始化 Stage 进度追踪（同时追踪 airun 和 arun ID）
-        if (data?.runId && Array.isArray(data?.stages)) {
+        if (Array.isArray(data?.stages)) {
           const stages: AgentRunStageProgress[] = data.stages.map((s: any) => ({
             stageIndex: s.index,
             capabilityId: s.capabilityId,
             name: s.name,
             status: s.status,
           }));
-          agentRunStages.value.set(data.runId, stages);
-          // 如果有 agentRunId（arun_xxx），也映射到同一 stages
-          if (data?.agentRunId && data.agentRunId !== data.runId) {
-            agentRunStages.value.set(data.agentRunId, stages);
-          }
+          if (data?.runId) agentRunStages.value.set(data.runId, stages);
+          if (data?.aiRunId) agentRunStages.value.set(data.aiRunId, stages);
+          if (arunId) agentRunStages.value.set(arunId, stages);
         }
         break;
       case "run.completed":
@@ -658,6 +660,29 @@ export const useAiAssistantStore = defineStore("ai-assistant", () => {
   ) {
     const runId = currentRunId.value;
     if (!runId || loading.value) return;
+
+    // 如果当前交互属于 Agent Run Engine (arun_xxx)
+    if (runId.startsWith("arun_")) {
+      loading.value = true;
+      try {
+        const detail = await AgentRunApi.detail(runId);
+        const waitingStage = detail.stages.find((s) => s.status === "waiting");
+        const stageIndex = waitingStage ? waitingStage.stageIndex : detail.currentStage;
+        await AgentRunApi.approveStage(runId, stageIndex, {
+          approved: confirmed,
+          modifiedParams: resumeInput,
+        });
+        pendingInteraction.value = null;
+        ElMessage.success(confirmed ? "已审批通过，管线继续执行" : "已拒绝");
+      } catch (err: any) {
+        ElMessage.error(err?.message || "审批操作失败");
+      } finally {
+        loading.value = false;
+        runtimeStatus.value = "idle";
+        markAiAssistantRuntimeIdle();
+      }
+      return;
+    }
 
     loading.value = true;
     runtimeStatus.value = "thinking";
