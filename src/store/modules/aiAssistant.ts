@@ -478,12 +478,13 @@ export const useAiAssistantStore = defineStore("ai-assistant", () => {
           context.assistantMsg.runTrace = {
             ...(context.assistantMsg.runTrace || {}),
             runId: data?.runId || context.assistantMsg.runTrace?.runId,
+            agentRunId: data?.agentRunId,  // arun_xxx — WebSocket 事件用的 ID
             agentRunEngine: true,
             totalStages: data?.totalStages,
             stages: data?.stages,
           };
         }
-        // 初始化 Stage 进度追踪
+        // 初始化 Stage 进度追踪（同时追踪 airun 和 arun ID）
         if (data?.runId && Array.isArray(data?.stages)) {
           const stages: AgentRunStageProgress[] = data.stages.map((s: any) => ({
             stageIndex: s.index,
@@ -492,6 +493,10 @@ export const useAiAssistantStore = defineStore("ai-assistant", () => {
             status: s.status,
           }));
           agentRunStages.value.set(data.runId, stages);
+          // 如果有 agentRunId（arun_xxx），也映射到同一 stages
+          if (data?.agentRunId && data.agentRunId !== data.runId) {
+            agentRunStages.value.set(data.agentRunId, stages);
+          }
         }
         break;
       case "run.completed":
@@ -724,9 +729,9 @@ export const useAiAssistantStore = defineStore("ai-assistant", () => {
         case "run.success":
         case "run.failed": {
           agentRunStages.value.delete(runId);
-          // 查找关联的 assistant 消息并更新为最终结果
+          // 查找关联的 assistant 消息（WebSocket runId 是 arun_xxx，匹配 agentRunId 或 runId）
           const linkedMsg = messages.value.find(
-            (m) => m.role === "assistant" && m.runTrace?.runId === runId,
+            (m) => m.role === "assistant" && (m.runTrace?.agentRunId === runId || m.runTrace?.runId === runId),
           );
           if (linkedMsg) {
             // 拉取 run 详情（含 artifacts / output）
