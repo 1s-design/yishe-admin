@@ -286,8 +286,8 @@ import {
 } from '@/api/external/googleArt'
 import { websocketClient, type ServiceCommandResultEvent } from '@/services/websocketClient'
 import { uploadMaterialFile } from '@/api/material'
-import { usePluginClientNodes } from '@/services/clientNodeState'
-import { formatDate } from '@/utils/formatTime'
+import { useClientNodeState } from '@/services/clientNodeState'
+import { getClientServiceRuntime } from '@/store/modules/clientNode';import { formatDate } from '@/utils/formatTime'
 import ExternalClientSidebar, {
   type ClientNodeItem,
 } from '../components/ExternalClientSidebar.vue'
@@ -300,11 +300,11 @@ const GOOGLE_ART_QUICK_LINK = 'https://artsandculture.google.com/search/asset?q'
 // ─── 客户端节点 ──────────────────────────────────────────────
 
 const {
-  clients: rawClients,
+  onlineClients,
   loading,
   refresh: refreshClientNodes,
-  getServiceRuntime,
-} = usePluginClientNodes('google-art')
+} = useClientNodeState();
+const _getServiceRuntime = (c: any) => getClientServiceRuntime(c, 'google-art');
 
 const selectedClientId = ref('')
 const artUrl = ref('')
@@ -358,11 +358,11 @@ const mapGoogleArtClient = (client: any): GoogleArtClientVO => ({
   appVersion: client.clientInfo?.appVersion || null,
   machine: client.clientInfo?.machine || null,
   location: client.clientInfo?.location || null,
-  googleArt: (getServiceRuntime(client) as GoogleArtServiceStatus | null) || null,
+  googleArt: (_getServiceRuntime(client) as GoogleArtServiceStatus | null) || null,
 })
 
 const clients = computed<GoogleArtClientVO[]>(() =>
-  rawClients.value.map((client) => mapGoogleArtClient(client)),
+  onlineClients.value.map((client) => mapGoogleArtClient(client)),
 )
 
 const selectedClient = computed(

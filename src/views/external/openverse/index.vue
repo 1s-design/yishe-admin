@@ -198,19 +198,19 @@
 import { ref, computed, watch, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Picture } from '@element-plus/icons-vue'
-import { usePluginClientNodes } from '@/services/clientNodeState'
-import { searchOpenverseAndWait, syncOpenverseToMaterialLibraryAndWait, type OpenversePhoto } from '@/api/external/openverse'
+import { useClientNodeState } from '@/services/clientNodeState'
+import { getClientServiceRuntime } from '@/store/modules/clientNode';import { searchOpenverseAndWait, syncOpenverseToMaterialLibraryAndWait, type OpenversePhoto } from '@/api/external/openverse'
 import { uploadMaterialFile } from '@/api/material'
 import '@/styles/external-collect.css'
 import ClientSelector from '../components/ClientSelector.vue'
 defineOptions({ name: 'ExternalOpenverse' })
 
 const {
-  clients: rawClients,
+  onlineClients,
   loading,
   refresh: refreshClientNodes,
-  getServiceRuntime,
-} = usePluginClientNodes('openverse')
+} = useClientNodeState();
+const _getServiceRuntime = (c: any) => getClientServiceRuntime(c, 'openverse');
 
 const selectedClientId = ref('')
 const searchKeyword = ref('')
@@ -230,8 +230,8 @@ const activePhoto = ref<OpenversePhoto | null>(null)
 const previewVisible = ref(false)
 
 const clients = computed(() => {
-  return rawClients.value.map((client) => {
-    const openverse = getServiceRuntime(client) || null
+  return onlineClients.value.map((client) => {
+    const openverse = _getServiceRuntime(client) || null
     return {
       clientId: client.id,
       isOnline: client.isOnline,

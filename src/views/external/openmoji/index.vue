@@ -97,7 +97,8 @@
 import { ref, computed, watch, reactive, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Picture } from '@element-plus/icons-vue';
-import { usePluginClientNodes } from '@/services/clientNodeState';
+import { useClientNodeState } from '@/services/clientNodeState';
+import { getClientServiceRuntime } from '@/store/modules/clientNode';
 import { searchOpenMojiAndWait, syncOpenMojiToMaterialLibraryAndWait, refreshOpenMojiStatus, type OpenMojiEmoji, type OpenMojiClientVO, type OpenMojiServiceStatus } from '@/api/external/openmoji';
 import { uploadMaterialFile } from '@/api/material';
 import '@/styles/external-collect.css';
@@ -105,10 +106,11 @@ import ClientSelector from '../components/ClientSelector.vue'
 defineOptions({ name: 'ExternalOpenMoji' });
 const style = ref<'color' | 'black'>('color');
 const actionLoading = reactive({ refreshRuntime: false });
-const { clients: rawClients, loading, refresh: refreshClientNodes, getServiceRuntime } = usePluginClientNodes('openmoji');
+const { onlineClients, loading, refresh: refreshClientNodes } = useClientNodeState();
+const _getServiceRuntime = (c: any) => getClientServiceRuntime(c, 'openmoji');
 const selectedClientId = ref('');
-const clients = computed<OpenMojiClientVO[]>(() => rawClients.value.map((c: any) => {
-  const s = getServiceRuntime(c) as OpenMojiServiceStatus | null;
+const clients = computed<OpenMojiClientVO[]>(() => onlineClients.value.map((c: any) => {
+  const s = _getServiceRuntime(c) as OpenMojiServiceStatus | null;
   return {
     clientId: c.id,
     isOnline: c.isOnline,

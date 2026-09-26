@@ -211,8 +211,8 @@
 import { ref, computed, watch, reactive, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Picture } from '@element-plus/icons-vue';
-import { usePluginClientNodes } from '@/services/clientNodeState';
-import {
+import { useClientNodeState } from '@/services/clientNodeState';
+import { getClientServiceRuntime } from '@/store/modules/clientNode';import {
   searchKaboompicsAndWait,
   syncKaboompicsToMaterialLibraryAndWait,
   refreshKaboompicsStatus,
@@ -233,11 +233,11 @@ const actionLoading = reactive({
 // ─── 客户端节点 ──────────────────────────────────────────────
 
 const {
-  clients: rawClients,
+  onlineClients,
   loading,
   refresh: refreshClientNodes,
-  getServiceRuntime,
-} = usePluginClientNodes('kaboompics');
+} = useClientNodeState();
+const _getServiceRuntime = (c: any) => getClientServiceRuntime(c, 'kaboompics');;
 
 const selectedClientId = ref('');
 const lastResult = ref<{
@@ -263,8 +263,8 @@ const previewVisible = ref(false);
 const previewItem = ref<KaboompicsPhoto | null>(null);
 
 const clients = computed<KaboompicsClientVO[]>(() => {
-  return rawClients.value.map((client) => {
-    const kaboompics = (getServiceRuntime(client) as KaboompicsServiceStatus | null) || null;
+  return onlineClients.value.map((client) => {
+    const kaboompics = (_getServiceRuntime(client) as KaboompicsServiceStatus | null) || null;
     return {
       clientId: client.id,
       isOnline: client.isOnline,

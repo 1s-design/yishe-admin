@@ -92,7 +92,8 @@
 import { ref, computed, watch, reactive, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Picture } from '@element-plus/icons-vue';
-import { usePluginClientNodes } from '@/services/clientNodeState';
+import { useClientNodeState } from '@/services/clientNodeState';
+import { getClientServiceRuntime } from '@/store/modules/clientNode';
 import { searchEmojipediaAndWait, syncEmojipediaToMaterialLibraryAndWait, refreshEmojipediaStatus, type EmojipediaItem, type EmojipediaClientVO, type EmojipediaServiceStatus } from '@/api/external/emojipedia';
 import { uploadMaterialFile } from '@/api/material';
 import '@/styles/external-collect.css';
@@ -100,10 +101,11 @@ import ClientSelector from '../components/ClientSelector.vue'
 defineOptions({ name: 'ExternalEmojipedia' });
 const category = ref('stickers');
 const actionLoading = reactive({ refreshRuntime: false });
-const { clients: rawClients, loading, refresh: refreshClientNodes, getServiceRuntime } = usePluginClientNodes('emojipedia');
+const { onlineClients, loading, refresh: refreshClientNodes } = useClientNodeState();
+const _getServiceRuntime = (c: any) => getClientServiceRuntime(c, 'emojipedia');
 const selectedClientId = ref('');
-const clients = computed<EmojipediaClientVO[]>(() => rawClients.value.map((c: any) => {
-  const s = getServiceRuntime(c) as EmojipediaServiceStatus | null;
+const clients = computed<EmojipediaClientVO[]>(() => onlineClients.value.map((c: any) => {
+  const s = _getServiceRuntime(c) as EmojipediaServiceStatus | null;
   return {
     clientId: c.id,
     isOnline: c.isOnline,

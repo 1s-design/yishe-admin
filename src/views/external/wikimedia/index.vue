@@ -184,8 +184,8 @@ import {
 } from "@/api/external/wikimedia";
 import { websocketClient, type ServiceCommandResultEvent } from "@/services/websocketClient";
 import { uploadMaterialFile } from "@/api/material";
-import { usePluginClientNodes } from "@/services/clientNodeState";
-import { formatDate } from "@/utils/formatTime";
+import { useClientNodeState } from "@/services/clientNodeState";
+import { getClientServiceRuntime } from '@/store/modules/clientNode';import { formatDate } from "@/utils/formatTime";
 import ExternalClientSidebar, {
   type ClientNodeItem,
 } from "../components/ExternalClientSidebar.vue";
@@ -196,11 +196,11 @@ defineOptions({ name: "ExternalWikimedia" });
 // ─── 客户端节点 ──────────────────────────────────────────────
 
 const {
-  clients: rawClients,
+  onlineClients,
   loading,
   refresh: refreshClientNodes,
-  getServiceRuntime,
-} = usePluginClientNodes("wikimedia");
+} = useClientNodeState();
+const _getServiceRuntime = (c: any) => getClientServiceRuntime(c, 'wikimedia');;
 
 const selectedClientId = ref("");
 const lastResult = ref<{
@@ -243,11 +243,11 @@ const mapWikimediaClient = (client: any): WikimediaClientVO => ({
   appVersion: client.clientInfo?.appVersion || null,
   machine: client.clientInfo?.machine || null,
   location: client.clientInfo?.location || null,
-  wikimedia: (getServiceRuntime(client) as WikimediaServiceStatus | null) || null,
+  wikimedia: (_getServiceRuntime(client) as WikimediaServiceStatus | null) || null,
 });
 
 const clients = computed<WikimediaClientVO[]>(() =>
-  rawClients.value.map((client) => mapWikimediaClient(client)),
+  onlineClients.value.map((client) => mapWikimediaClient(client)),
 );
 
 watch(

@@ -210,8 +210,8 @@
 import { ref, computed, watch, reactive, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Picture } from '@element-plus/icons-vue';
-import { usePluginClientNodes } from '@/services/clientNodeState';
-import {
+import { useClientNodeState } from '@/services/clientNodeState';
+import { getClientServiceRuntime } from '@/store/modules/clientNode';import {
   searchNounProjectAndWait,
   syncNounProjectToMaterialLibraryAndWait,
   refreshNounProjectStatus,
@@ -232,17 +232,17 @@ const actionLoading = reactive({
 // ─── 客户端节点 ──────────────────────────────────────────────
 
 const {
-  clients: rawClients,
+  onlineClients,
   loading,
   refresh: refreshClientNodes,
-  getServiceRuntime,
-} = usePluginClientNodes('nounproject');
+} = useClientNodeState();
+const _getServiceRuntime = (c: any) => getClientServiceRuntime(c, 'nounproject');;
 
 const selectedClientId = ref('');
 
 const clients = computed<NounProjectClientVO[]>(() => {
-  return rawClients.value.map((c: any) => {
-    const rawService = getServiceRuntime(c) as NounProjectServiceStatus | null;
+  return onlineClients.value.map((c: any) => {
+    const rawService = _getServiceRuntime(c) as NounProjectServiceStatus | null;
     const runtimeService: NounProjectServiceStatus | null = rawService
       ? {
           key: rawService.key,

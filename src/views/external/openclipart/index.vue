@@ -207,8 +207,8 @@
 import { ref, computed, watch, reactive, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Picture } from '@element-plus/icons-vue';
-import { usePluginClientNodes } from '@/services/clientNodeState';
-import {
+import { useClientNodeState } from '@/services/clientNodeState';
+import { getClientServiceRuntime } from '@/store/modules/clientNode';import {
   searchOpenclipartAndWait,
   syncOpenclipartToMaterialLibraryAndWait,
   refreshOpenclipartStatus,
@@ -229,17 +229,17 @@ const actionLoading = reactive({
 // ─── 客户端节点 ──────────────────────────────────────────────
 
 const {
-  clients: rawClients,
+  onlineClients,
   loading,
   refresh: refreshClientNodes,
-  getServiceRuntime,
-} = usePluginClientNodes('openclipart');
+} = useClientNodeState();
+const _getServiceRuntime = (c: any) => getClientServiceRuntime(c, 'openclipart');;
 
 const selectedClientId = ref('');
 
 const clients = computed<OpenclipartClientVO[]>(() => {
-  return rawClients.value.map((c: any) => {
-    const rawService = getServiceRuntime(c) as OpenclipartServiceStatus | null;
+  return onlineClients.value.map((c: any) => {
+    const rawService = _getServiceRuntime(c) as OpenclipartServiceStatus | null;
     const runtimeService: OpenclipartServiceStatus | null = rawService
       ? {
           key: rawService.key,

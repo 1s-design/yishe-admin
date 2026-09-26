@@ -210,8 +210,8 @@
 import { ref, computed, watch, reactive, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Picture } from '@element-plus/icons-vue';
-import { usePluginClientNodes } from '@/services/clientNodeState';
-import {
+import { useClientNodeState } from '@/services/clientNodeState';
+import { getClientServiceRuntime } from '@/store/modules/clientNode';import {
   searchSvgrepoAndWait,
   syncSvgrepoToMaterialLibraryAndWait,
   refreshSvgrepoStatus,
@@ -232,17 +232,17 @@ const actionLoading = reactive({
 // ─── 客户端节点 ──────────────────────────────────────────────
 
 const {
-  clients: rawClients,
+  onlineClients,
   loading,
   refresh: refreshClientNodes,
-  getServiceRuntime,
-} = usePluginClientNodes('svgrepo');
+} = useClientNodeState();
+const _getServiceRuntime = (c: any) => getClientServiceRuntime(c, 'svgrepo');;
 
 const selectedClientId = ref('');
 
 const clients = computed<SvgrepoClientVO[]>(() => {
-  return rawClients.value.map((c: any) => {
-    const rawService = getServiceRuntime(c) as SvgrepoServiceStatus | null;
+  return onlineClients.value.map((c: any) => {
+    const rawService = _getServiceRuntime(c) as SvgrepoServiceStatus | null;
     const runtimeService: SvgrepoServiceStatus | null = rawService
       ? {
           key: rawService.key,

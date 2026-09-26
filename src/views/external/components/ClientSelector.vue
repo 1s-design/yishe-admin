@@ -5,6 +5,7 @@
       placeholder="选择客户端节点"
       size="small"
       class="client-select"
+      :disabled="disabled"
       @change="handleChange"
     >
       <el-option
@@ -32,7 +33,7 @@ import { Refresh } from '@element-plus/icons-vue'
 import { useClientNodeState } from '@/services/clientNodeState'
 import type { ImageEngineClientVO, ImageEngineServiceStatus } from '@/api/external/imageEngineApi'
 
-defineProps<{ pluginKey?: string }>()
+defineProps<{ pluginKey?: string; disabled?: boolean }>()
 
 const emit = defineEmits<{
   (e: 'change', clientId: string): void

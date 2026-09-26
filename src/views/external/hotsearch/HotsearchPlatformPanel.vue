@@ -30,31 +30,15 @@
         </el-select>
 
         <!-- 客户端节点选择（始终显示，服务端模式下仅作参考） -->
-        <el-select
+        <ClientSelector
+          ref="clientSelectorRef"
           v-model="selectedClientId"
-          placeholder="选择客户端节点"
-          size="default"
-          style="width: 200px"
           :disabled="executionMode === 'server'"
-        >
-          <el-option
-            v-for="item in clientOptions"
-            :key="item.clientId"
-            :label="item.machine?.code || item.clientId"
-            :value="item.clientId"
-          >
-            <div class="client-option">
-              <span>{{ item.machine?.code || item.clientId }}</span>
-              <el-tag :type="item.isOnline ? 'success' : 'info'" size="small">
-                {{ item.isOnline ? '在线' : '离线' }}
-              </el-tag>
-            </div>
-          </el-option>
-        </el-select>
+          @refresh="loadClients"
+        />
       </div>
 
       <div class="toolbar-right">
-        <el-button @click="loadClients">刷新节点</el-button>
         <el-button v-if="items.length" @click="copyRaw">复制数据</el-button>
         <el-button
           type="primary"
@@ -121,12 +105,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { usePluginClientNodes } from '@/services/clientNodeState'
 import { genericSearchAndWait } from '@/api/external/genericCommand'
 import { executeNodeCapability, supportsServerExecution } from '@/api/external/hotsearch'
 import * as appIcons from '@/assets/icons/apps'
+import ClientSelector from '../components/ClientSelector.vue'
 
 defineOptions({ name: 'HotsearchPlatformPanel' })
 
@@ -164,21 +148,12 @@ const executionMode = ref<'server' | 'client'>('server')
 // 当前节点是否支持服务端执行
 const supportsServer = computed(() => supportsServerExecution(props.pluginKey))
 
-const { clients: rawClients, loading, refresh } = usePluginClientNodes(props.pluginKey as any, {
-  includeOffline: true,
-})
-
-const clientOptions = computed(() =>
-  rawClients.value.map((c: any) => ({
-    clientId: c.id,
-    isOnline: !!c.isOnline,
-    machine: c.clientInfo?.machine || null,
-  })),
-)
+const clientSelectorRef = ref<InstanceType<typeof ClientSelector> | null>(null)
+const loading = ref(false)
 
 const selectedClientId = ref('')
 const selectedClient = computed(() =>
-  clientOptions.value.find((c) => c.clientId === selectedClientId.value),
+  clientSelectorRef.value?.clients?.find((c: any) => c.clientId === selectedClientId.value) || null,
 )
 const searching = ref(false)
 const items = ref<any[]>([])
@@ -194,10 +169,11 @@ const isReady = computed(() => {
 })
 
 const loadClients = async () => {
-  await refresh()
-  if (clientOptions.value.length > 0 && !selectedClientId.value) {
-    const online = clientOptions.value.find((c) => c.isOnline)
-    selectedClientId.value = online?.clientId || clientOptions.value[0].clientId
+  loading.value = true
+  try {
+    await clientSelectorRef.value?.refresh()
+  } finally {
+    loading.value = false
   }
 }
 
@@ -294,16 +270,6 @@ const copyRaw = async () => {
   }
 }
 
-watch(
-  clientOptions,
-  (list) => {
-    if (list.length > 0 && !selectedClientId.value) {
-      const online = list.find((c: any) => c.isOnline)
-      selectedClientId.value = online?.clientId || list[0].clientId
-    }
-  },
-  { immediate: true },
-)
 
 watch(
   () => props.pluginKey,
@@ -370,14 +336,6 @@ watch(
   font-size: 15px;
   font-weight: 600;
   color: var(--el-text-color-primary, #111827);
-}
-
-.client-option {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  gap: 8px;
 }
 
 .mode-option {

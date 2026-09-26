@@ -169,8 +169,8 @@
 import { ref, computed, watch, reactive, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Picture } from '@element-plus/icons-vue';
-import { usePluginClientNodes } from '@/services/clientNodeState';
-import {
+import { useClientNodeState } from '@/services/clientNodeState';
+import { getClientServiceRuntime } from '@/store/modules/clientNode';import {
   searchPexelsAndWait,
   syncPexelsToMaterialLibraryAndWait,
   refreshPexelsStatus,
@@ -191,11 +191,11 @@ const actionLoading = reactive({
 // ─── 客户端节点 ──────────────────────────────────────────────
 
 const {
-  clients: rawClients,
+  onlineClients,
   loading,
   refresh: refreshClientNodes,
-  getServiceRuntime,
-} = usePluginClientNodes('pexels');
+} = useClientNodeState();
+const _getServiceRuntime = (c: any) => getClientServiceRuntime(c, 'pexels');;
 
 const selectedClientId = ref('');
 const lastResult = ref<{
@@ -219,8 +219,8 @@ const loadingItems = ref<Set<string>>(new Set());
 const batchDownloadLoading = ref(false);
 
 const clients = computed<PexelsClientVO[]>(() => {
-  return rawClients.value.map((client) => {
-    const pexels = (getServiceRuntime(client) as PexelsServiceStatus | null) || null;
+  return onlineClients.value.map((client) => {
+    const pexels = (_getServiceRuntime(client) as PexelsServiceStatus | null) || null;
     return {
       clientId: client.id,
       isOnline: client.isOnline,

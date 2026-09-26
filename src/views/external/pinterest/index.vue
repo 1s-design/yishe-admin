@@ -192,8 +192,8 @@ import {
 } from "@/api/external/pinterest";
 import { websocketClient, type ServiceCommandResultEvent } from "@/services/websocketClient";
 import { uploadMaterialFile } from "@/api/material";
-import { usePluginClientNodes } from "@/services/clientNodeState";
-import { formatDate } from "@/utils/formatTime";
+import { useClientNodeState } from "@/services/clientNodeState";
+import { getClientServiceRuntime } from '@/store/modules/clientNode';import { formatDate } from "@/utils/formatTime";
 import ExternalClientSidebar, {
   type ClientNodeItem,
 } from "../components/ExternalClientSidebar.vue";
@@ -204,11 +204,11 @@ defineOptions({ name: "ExternalPinterest" });
 // ─── 客户端节点 ──────────────────────────────────────────────
 
 const {
-  clients: rawClients,
+  onlineClients,
   loading,
   refresh: refreshClientNodes,
-  getServiceRuntime,
-} = usePluginClientNodes("pinterest");
+} = useClientNodeState();
+const _getServiceRuntime = (c: any) => getClientServiceRuntime(c, 'pinterest');;
 
 const selectedClientId = ref("");
 const lastResult = ref<{
@@ -251,11 +251,11 @@ const mapPinterestClient = (client: any): PinterestClientVO => ({
   appVersion: client.clientInfo?.appVersion || null,
   machine: client.clientInfo?.machine || null,
   location: client.clientInfo?.location || null,
-  pinterest: (getServiceRuntime(client) as PinterestServiceStatus | null) || null,
+  pinterest: (_getServiceRuntime(client) as PinterestServiceStatus | null) || null,
 });
 
 const clients = computed<PinterestClientVO[]>(() =>
-  rawClients.value.map((client) => mapPinterestClient(client)),
+  onlineClients.value.map((client) => mapPinterestClient(client)),
 );
 
 watch(

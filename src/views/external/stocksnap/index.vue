@@ -194,8 +194,8 @@
 import { ref, computed, watch, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Picture } from '@element-plus/icons-vue'
-import { usePluginClientNodes } from '@/services/clientNodeState'
-import {
+import { useClientNodeState } from '@/services/clientNodeState'
+import { getClientServiceRuntime } from '@/store/modules/clientNode';import {
   searchStockSnapAndWait,
   syncStockSnapToMaterialLibraryAndWait,
   collectStockSnap,
@@ -207,11 +207,11 @@ import ClientSelector from '../components/ClientSelector.vue'
 defineOptions({ name: 'ExternalStockSnap' })
 
 const {
-  clients: rawClients,
+  onlineClients,
   loading,
   refresh: refreshClientNodes,
-  getServiceRuntime,
-} = usePluginClientNodes('stocksnap')
+} = useClientNodeState();
+const _getServiceRuntime = (c: any) => getClientServiceRuntime(c, 'stocksnap');
 
 const selectedClientId = ref('')
 const searchKeyword = ref('')
@@ -232,8 +232,8 @@ const activePhoto = ref<StockSnapPhoto | null>(null)
 const previewVisible = ref(false)
 
 const clients = computed(() => {
-  return rawClients.value.map((client) => {
-    const stocksnap = getServiceRuntime(client) || null
+  return onlineClients.value.map((client) => {
+    const stocksnap = _getServiceRuntime(client) || null
     return {
       clientId: client.id,
       isOnline: client.isOnline,

@@ -192,8 +192,8 @@
 import { ref, computed, watch, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Picture } from '@element-plus/icons-vue'
-import { usePluginClientNodes } from '@/services/clientNodeState'
-import {
+import { useClientNodeState } from '@/services/clientNodeState'
+import { getClientServiceRuntime } from '@/store/modules/clientNode';import {
   searchRawpixelAndWait,
   syncRawpixelToMaterialLibraryAndWait,
   collectRawpixel,
@@ -206,11 +206,11 @@ import ClientSelector from '../components/ClientSelector.vue'
 defineOptions({ name: 'ExternalRawpixel' })
 
 const {
-  clients: rawClients,
+  onlineClients,
   loading,
   refresh: refreshClientNodes,
-  getServiceRuntime,
-} = usePluginClientNodes('rawpixel')
+} = useClientNodeState();
+const _getServiceRuntime = (c: any) => getClientServiceRuntime(c, 'rawpixel');
 
 const selectedClientId = ref('')
 const searchKeyword = ref('')
@@ -231,8 +231,8 @@ const activePhoto = ref<RawpixelPhoto | null>(null)
 const previewVisible = ref(false)
 
 const clients = computed(() => {
-  return rawClients.value.map((client) => {
-    const rawpixel = getServiceRuntime(client) || null
+  return onlineClients.value.map((client) => {
+    const rawpixel = _getServiceRuntime(client) || null
     return {
       clientId: client.id,
       isOnline: client.isOnline,

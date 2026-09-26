@@ -96,7 +96,8 @@
 import { ref, computed, watch, reactive, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Picture } from '@element-plus/icons-vue';
-import { usePluginClientNodes } from '@/services/clientNodeState';
+import { useClientNodeState } from '@/services/clientNodeState';
+import { getClientServiceRuntime } from '@/store/modules/clientNode';
 import { searchGoogleIconsAndWait, syncGoogleIconsToMaterialLibraryAndWait, refreshGoogleIconsStatus, type GoogleIcon, type GoogleIconsClientVO, type GoogleIconsServiceStatus } from '@/api/external/googleicons';
 import { uploadMaterialFile } from '@/api/material';
 import '@/styles/external-collect.css';
@@ -104,10 +105,11 @@ import ClientSelector from '../components/ClientSelector.vue'
 defineOptions({ name: 'ExternalGoogleIcons' });
 const iconStyle = ref<'outlined' | 'rounded' | 'sharp' | 'two-tone'>('outlined');
 const actionLoading = reactive({ refreshRuntime: false });
-const { clients: rawClients, loading, refresh: refreshClientNodes, getServiceRuntime } = usePluginClientNodes('google-icons');
+const { onlineClients, loading, refresh: refreshClientNodes } = useClientNodeState();
+const _getServiceRuntime = (c: any) => getClientServiceRuntime(c, 'google-icons');
 const selectedClientId = ref('');
-const clients = computed<GoogleIconsClientVO[]>(() => rawClients.value.map((c: any) => {
-  const s = getServiceRuntime(c) as GoogleIconsServiceStatus | null;
+const clients = computed<GoogleIconsClientVO[]>(() => onlineClients.value.map((c: any) => {
+  const s = _getServiceRuntime(c) as GoogleIconsServiceStatus | null;
   return {
     clientId: c.id,
     isOnline: c.isOnline,

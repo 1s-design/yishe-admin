@@ -7,30 +7,14 @@
           {{ title }}
           <span class="service-panel__subtitle">{{ subtitle }}</span>
         </div>
-        <el-select
+        <ClientSelector
+          ref="clientSelectorRef"
           v-model="selectedClientId"
-          placeholder="选择客户端节点"
-          size="default"
-          style="width: 200px"
           @change="handleSelectClient"
-        >
-          <el-option
-            v-for="item in clientOptions"
-            :key="item.clientId"
-            :label="item.machine?.code || item.clientId"
-            :value="item.clientId"
-          >
-            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
-              <span>{{ item.machine?.code || item.clientId }}</span>
-              <el-tag :type="item.isOnline ? 'success' : 'info'" size="small">
-                {{ item.isOnline ? '在线' : '离线' }}
-              </el-tag>
-            </div>
-          </el-option>
-        </el-select>
+          @refresh="loadClients"
+        />
       </div>
       <div class="service-panel__actions">
-        <el-button @click="loadClients">刷新节点</el-button>
         <el-button
           type="primary"
           :disabled="!isReady"
@@ -100,10 +84,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { usePluginClientNodes } from '@/services/clientNodeState'
 import { genericSearchAndWait } from '@/api/external/genericCommand'
+import ClientSelector from './ClientSelector.vue'
 
 export interface PanelField {
   key: string
@@ -120,31 +104,12 @@ const props = defineProps<{
   fields?: PanelField[]
 }>()
 
-const { clients: rawClients, loading, refresh } = usePluginClientNodes(props.pluginKey as any, {
-  includeOffline: true,
-})
-
-interface ClientOptionVO {
-  clientId: string
-  isOnline: boolean
-  nodeStatus?: string
-  machine?: any
-  appVersion?: string | null
-}
-
-const clientOptions = computed<ClientOptionVO[]>(() =>
-  rawClients.value.map((c: any) => ({
-    clientId: c.id,
-    isOnline: !!c.isOnline,
-    nodeStatus: c.nodeStatus,
-    machine: c.clientInfo?.machine || null,
-    appVersion: c.clientInfo?.appVersion || null,
-  })),
-)
+const clientSelectorRef = ref<InstanceType<typeof ClientSelector> | null>(null)
+const loading = ref(false)
 
 const selectedClientId = ref('')
 const selectedClient = computed(() =>
-  clientOptions.value.find((c) => c.clientId === selectedClientId.value),
+  clientSelectorRef.value?.clients?.find((c: any) => c.clientId === selectedClientId.value) || null,
 )
 const searching = ref(false)
 const rawData = ref<any>(null)
@@ -168,10 +133,11 @@ const handleSelectClient = () => {
 }
 
 const loadClients = async () => {
-  await refresh()
-  if (clientOptions.value.length > 0 && !selectedClientId.value) {
-    const online = clientOptions.value.find((c) => c.isOnline)
-    selectedClientId.value = online?.clientId || (clientOptions.value[0] as any).clientId
+  loading.value = true
+  try {
+    await clientSelectorRef.value?.refresh()
+  } finally {
+    loading.value = false
   }
 }
 
@@ -245,17 +211,6 @@ const displayMeta = (item: any) =>
 const displayLink = (item: any) => item.url || item.link || item.href || ''
 
 const prettyRaw = computed(() => JSON.stringify(rawData.value ?? {}, null, 2))
-
-watch(
-  clientOptions,
-  (list) => {
-    if (list.length > 0 && !selectedClientId.value) {
-      const online = list.find((c: any) => c.isOnline)
-      selectedClientId.value = online?.clientId || (list[0] as any).clientId
-    }
-  },
-  { immediate: true },
-)
 
 onMounted(() => {
   buildForm()

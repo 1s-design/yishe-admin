@@ -41,6 +41,7 @@ export type ClientPluginKey =
   | "file-download"
   | "media-collect"
   | "internet-archive"
+  | "nappy"
   // 新闻资讯源 (client local services)
   | "hackernews"
   | "arxiv"
@@ -88,6 +89,10 @@ export type ClientPluginKey =
   | "kuaishou"
   | "v2ex"
   | "ithome"
+  | "baidu"
+  | "tencent_news"
+  | "tencent_tech"
+  | "xiaohongshu"
   | "google_trends"
   | "wikipedia"
   | "bbc_news"
@@ -95,6 +100,7 @@ export type ClientPluginKey =
   | "nytimes"
   | "aljazeera"
   | "devto"
+  | "lobsters"
   | "ebay_trending"
   | "shopify_trending"
   | "douyin_jingxuan";
@@ -423,15 +429,21 @@ export const getClientServiceRuntime = (
     "v2ex",
     "36kr",
     "ithome",
+    "baidu",
+    "tencent_news",
+    "tencent_tech",
+    "xiaohongshu",
     "google_trends",
     "wikipedia",
     "bbc_news",
     "nytimes",
     "aljazeera",
     "devto",
+    "lobsters",
     "ebay_trending",
     "shopify_trending",
     "douyin_jingxuan",
+    "nappy",
   ];
   if (directServiceKeys.includes(pluginKey)) {
     return services[pluginKey] || null;
@@ -490,6 +502,7 @@ export const useClientNodeStore = defineStore("client-node", () => {
       "video-template": "offline",
       "file-download": "offline",
       "media-collect": "offline",
+      "internet-archive": "offline",
       "openclipart": "offline",
       "undraw": "offline",
       "iconify": "offline",
@@ -547,6 +560,10 @@ export const useClientNodeStore = defineStore("client-node", () => {
       "kuaishou": "offline",
       "v2ex": "offline",
       "ithome": "offline",
+      "baidu": "offline",
+      "tencent_news": "offline",
+      "tencent_tech": "offline",
+      "xiaohongshu": "offline",
       "google_trends": "offline",
       "wikipedia": "offline",
       "bbc_news": "offline",
@@ -554,9 +571,11 @@ export const useClientNodeStore = defineStore("client-node", () => {
       "nytimes": "offline",
       "aljazeera": "offline",
       "devto": "offline",
+      "lobsters": "offline",
       "ebay_trending": "offline",
       "shopify_trending": "offline",
       "douyin_jingxuan": "offline",
+      "nappy": "offline",
     };
 
     (
@@ -572,6 +591,7 @@ export const useClientNodeStore = defineStore("client-node", () => {
         "video-template",
         "file-download",
         "media-collect",
+        "internet-archive",
         "openclipart",
         "undraw",
         "iconify",
@@ -629,6 +649,10 @@ export const useClientNodeStore = defineStore("client-node", () => {
         "kuaishou",
         "v2ex",
         "ithome",
+        "baidu",
+        "tencent_news",
+        "tencent_tech",
+        "xiaohongshu",
         "google_trends",
         "wikipedia",
         "bbc_news",
@@ -636,9 +660,11 @@ export const useClientNodeStore = defineStore("client-node", () => {
         "nytimes",
         "aljazeera",
         "devto",
+        "lobsters",
         "ebay_trending",
         "shopify_trending",
         "douyin_jingxuan",
+        "nappy",
       ] as ClientPluginKey[]
     ).forEach(
       (pluginKey) => {

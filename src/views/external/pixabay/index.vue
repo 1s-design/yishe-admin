@@ -169,8 +169,8 @@
 import { ref, computed, watch, reactive, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Picture } from '@element-plus/icons-vue';
-import { usePluginClientNodes } from '@/services/clientNodeState';
-import {
+import { useClientNodeState } from '@/services/clientNodeState';
+import { getClientServiceRuntime } from '@/store/modules/clientNode';import {
   searchPixabayAndWait,
   syncPixabayToMaterialLibraryAndWait,
   refreshPixabayStatus,
@@ -191,11 +191,11 @@ const actionLoading = reactive({
 // ─── 客户端节点 ──────────────────────────────────────────────
 
 const {
-  clients: rawClients,
+  onlineClients,
   loading,
   refresh: refreshClientNodes,
-  getServiceRuntime,
-} = usePluginClientNodes('pixabay');
+} = useClientNodeState();
+const _getServiceRuntime = (c: any) => getClientServiceRuntime(c, 'pixabay');;
 
 const selectedClientId = ref('');
 const lastResult = ref<{
@@ -219,8 +219,8 @@ const loadingItems = ref<Set<string>>(new Set());
 const batchDownloadLoading = ref(false);
 
 const clients = computed<PixabayClientVO[]>(() => {
-  return rawClients.value.map((client) => {
-    const pixabay = (getServiceRuntime(client) as PixabayServiceStatus | null) || null;
+  return onlineClients.value.map((client) => {
+    const pixabay = (_getServiceRuntime(client) as PixabayServiceStatus | null) || null;
     return {
       clientId: client.id,
       isOnline: client.isOnline,
