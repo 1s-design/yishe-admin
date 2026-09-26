@@ -563,6 +563,14 @@ const remainingRouter: AppRouteRecordRaw[] = [
         },
       },
       {
+        path: "agent-runs",
+        component: () => import("@/views/ai/agent-runs/index.vue"),
+        name: "AgentRunTasks",
+        meta: {
+          title: "router.agentRunTasks",
+        },
+      },
+      {
         path: "skills",
         component: () => import("@/views/ai/skills/index.vue"),
         name: "AiSkills",

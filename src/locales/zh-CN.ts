@@ -249,6 +249,7 @@ export default {
     designInspiration: '设计灵感',
     aiCreation: 'AI创作',
     aiAssistant: '智能助手',
+    agentRunTasks: '任务管理',
     aiSkills: 'Skills',
     mcpManagement: 'MCP 管理',
     aiTextToImage: 'AI文字生成图片',

@@ -177,6 +177,14 @@ export interface PublishTaskRuntimeEvent {
   reportedAt?: string;
 }
 
+/** Agent Run Engine 事件 payload（通过 WebSocket 推送） */
+export interface AgentRunEventPayload {
+  type: string;
+  runId: string;
+  timestamp: number;
+  data?: Record<string, any>;
+}
+
 export interface GlobalNotificationEvent {
   id: string;
   title: string;
@@ -468,6 +476,7 @@ export type WebsocketEvents = {
   "remote-result": RemoteResultEvent;
   "mcp-async-result": { requestId: string; toolName: string; result: any };
   "workflow:updated": any;
+  "agent-run-event": AgentRunEventPayload;
 };
 
 const emitter = mitt<WebsocketEvents>();
@@ -963,6 +972,11 @@ function bindSocketEvents(currentSocket: Socket) {
 
   currentSocket.on("mcp-async-result", (data: { requestId: string; toolName: string; result: any }) => {
     emitter.emit("mcp-async-result", data);
+  });
+
+  // Agent Run Engine 事件
+  currentSocket.on("agent-run.event", (data: AgentRunEventPayload) => {
+    emitter.emit("agent-run-event", data);
   });
 }
 

@@ -247,6 +247,7 @@ export default {
     designInspiration: 'Design Inspiration',
     aiCreation: 'AI Creation',
     aiAssistant: 'AI Assistant',
+    agentRunTasks: 'Run Tasks',
     aiSkills: 'Skills',
     mcpManagement: 'MCP Management',
     aiTextToImage: 'AI Text to Image',

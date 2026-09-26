@@ -10,11 +10,13 @@ import {
 import type {
   InteractionPayload,
 } from "@/components/AiAssistant/interactions/types";
+import { AgentRunApi } from "@/api/agentRun";
 import {
   markAiAssistantRuntimeIdle,
   markAiAssistantRuntimeRunning,
 } from "@/services/aiAssistantRuntimeState";
 import { useWorkflowAiContext } from "@/composables/useWorkflowAiContext";
+import { websocketClient } from "@/services/websocketClient";
 
 // ========== Internal Types ==========
 
@@ -22,6 +24,20 @@ interface StreamContext {
   fullReply: string;
   assistantMsg: AiAssistantMessage | null;
 }
+
+/** Agent Run Stage 进度追踪 */
+export interface AgentRunStageProgress {
+  stageIndex: number;
+  capabilityId: string;
+  name: string;
+  status: "pending" | "running" | "success" | "failed" | "timeout" | "waiting";
+  output?: Record<string, any>;
+  error?: string;
+  durationMs?: number;
+}
+
+/** 模块级 WebSocket 订阅清理函数 */
+let agentRunUnsubscribe: (() => void) | null = null;
 
 // ========== Store ==========
 
@@ -40,6 +56,16 @@ export const useAiAssistantStore = defineStore("ai-assistant", () => {
   const thinkingText = ref("");
   const currentRunId = ref("");
   const pendingInteraction = ref<InteractionPayload | null>(null);
+
+  // ========== Agent Run Stage 进度 ==========
+
+  const agentRunStages = ref<Map<string, AgentRunStageProgress[]>>(new Map());
+
+  // ========== Reasoning 思考块 ==========
+
+  const expandedReasoning = ref<Set<string | number>>(new Set());
+  const reasoningStartTimes = ref<Map<string | number, number>>(new Map());
+  const reasoningDurations = ref<Map<string | number, number>>(new Map());
 
   // ========== Computed ==========
 
@@ -371,6 +397,10 @@ export const useAiAssistantStore = defineStore("ai-assistant", () => {
         runtimeStatus.value = "thinking";
         thinkingText.value = "正在分析你的需求...";
         ensureAssistantMessage(context);
+        // 记录思考开始
+        if (context.assistantMsg?.id) {
+          markReasoningStart(context.assistantMsg.id);
+        }
         break;
       case "assistant.status":
         runtimeStatus.value = data?.status || "thinking";
@@ -430,12 +460,39 @@ export const useAiAssistantStore = defineStore("ai-assistant", () => {
       case "assistant.answer.delta":
         thinkingText.value = "正在回复...";
         appendAssistantDelta(data?.content || data?.delta || "", context);
+        // 首次收到内容 → 思考结束
+        if (context.assistantMsg?.id && !reasoningDurations.value.has(context.assistantMsg.id)) {
+          markReasoningEnd(context.assistantMsg.id);
+        }
         break;
       case "interrupt":
       case "run.waiting":
         applyInterrupt(data?.interrupt || data);
         loading.value = false;
         runtimeStatus.value = "waiting_user";
+        break;
+      case "agent-run.created":
+        // AI 助手委托给 Agent Run Engine — 关联 runId 到当前 assistant 消息
+        if (context.assistantMsg) {
+          context.assistantMsg.runId = data?.runId || context.assistantMsg.runId;
+          context.assistantMsg.runTrace = {
+            ...(context.assistantMsg.runTrace || {}),
+            runId: data?.runId || context.assistantMsg.runTrace?.runId,
+            agentRunEngine: true,
+            totalStages: data?.totalStages,
+            stages: data?.stages,
+          };
+        }
+        // 初始化 Stage 进度追踪
+        if (data?.runId && Array.isArray(data?.stages)) {
+          const stages: AgentRunStageProgress[] = data.stages.map((s: any) => ({
+            stageIndex: s.index,
+            capabilityId: s.capabilityId,
+            name: s.name,
+            status: s.status,
+          }));
+          agentRunStages.value.set(data.runId, stages);
+        }
         break;
       case "run.completed":
         if (data?.reply) {
@@ -604,6 +661,149 @@ export const useAiAssistantStore = defineStore("ai-assistant", () => {
     } finally {
       historyLoading.value = false;
     }
+    subscribeAgentRunEvents();
+  }
+
+  /** 订阅 Agent Run Engine WebSocket 事件 */
+  function subscribeAgentRunEvents() {
+    if (agentRunUnsubscribe) return; // 已订阅
+
+    agentRunUnsubscribe = websocketClient.events.on("agent-run-event", (event) => {
+      const { type, runId, data } = event || {};
+      if (!runId) return;
+
+      switch (type) {
+        case "run.started": {
+          currentRunId.value = runId;
+          agentRunStages.value.set(runId, []);
+          break;
+        }
+        case "run.stage.started": {
+          const stages = agentRunStages.value.get(runId) || [];
+          stages.push({
+            stageIndex: data?.stageIndex ?? stages.length,
+            capabilityId: data?.capabilityId || "",
+            name: data?.name || data?.capabilityId || `Stage ${stages.length}`,
+            status: "running",
+          });
+          agentRunStages.value.set(runId, stages);
+          break;
+        }
+        case "run.stage.completed": {
+          const stages = agentRunStages.value.get(runId) || [];
+          const stage = stages.find((s) => s.stageIndex === data?.stageIndex);
+          if (stage) {
+            stage.status = "success";
+            stage.output = data?.output;
+          }
+          break;
+        }
+        case "run.stage.failed":
+        case "run.stage.timeout": {
+          const stages = agentRunStages.value.get(runId) || [];
+          const stage = stages.find((s) => s.stageIndex === data?.stageIndex);
+          if (stage) {
+            stage.status = type === "run.stage.timeout" ? "timeout" : "failed";
+            stage.error = data?.error;
+          }
+          break;
+        }
+        case "run.waiting": {
+          // 显示等待审批交互
+          applyInterrupt({
+            runId,
+            type: "confirm",
+            question: data?.question || "请确认是否继续",
+            toolName: data?.name,
+          });
+          const stages = agentRunStages.value.get(runId) || [];
+          const stage = stages.find((s) => s.stageIndex === data?.stageIndex);
+          if (stage) stage.status = "waiting";
+          break;
+        }
+        case "run.success":
+        case "run.failed": {
+          agentRunStages.value.delete(runId);
+          // 查找关联的 assistant 消息并更新为最终结果
+          const linkedMsg = messages.value.find(
+            (m) => m.role === "assistant" && m.runTrace?.runId === runId,
+          );
+          if (linkedMsg) {
+            // 拉取 run 详情（含 artifacts / output）
+            AgentRunApi.detail(runId).then((detail) => {
+              if (type === "run.success") {
+                // 拼接产物信息到消息内容
+                const parts: string[] = ["✅ 任务执行完成"];
+                if (detail.artifacts?.length) {
+                  const artifactDescs = detail.artifacts
+                    .map((a: any) => {
+                      if (a.url) return `  - [${a.name || a.type}](${a.url})`;
+                      if (a.contentText) return `  - ${a.name || a.type}: ${a.contentText.slice(0, 100)}`;
+                      return `  - ${a.name || a.type}`;
+                    })
+                    .join("\n");
+                  parts.push(`\n**产出物：**\n${artifactDescs}`);
+                }
+                if (detail.output && typeof detail.output === "object") {
+                  const textOutput = detail.output.text || detail.output.content || detail.output.result;
+                  if (textOutput) parts.push(`\n**输出：**\n${textOutput}`);
+                }
+                linkedMsg.content = linkedMsg.content
+                  ? `${linkedMsg.content}\n\n${parts.join("\n")}`
+                  : parts.join("\n");
+              } else {
+                linkedMsg.content = linkedMsg.content
+                  ? `${linkedMsg.content}\n\n❌ 任务执行失败：${data?.error || detail?.errorMessage || "未知错误"}`
+                  : `❌ 任务执行失败：${data?.error || detail?.errorMessage || "未知错误"}`;
+              }
+              linkedMsg.completedAt = detail.finishedAt || new Date().toISOString();
+            }).catch(() => {
+              linkedMsg.content = linkedMsg.content
+                ? `${linkedMsg.content}\n\n${type === "run.success" ? "✅ 任务已完成" : "❌ 任务执行失败"}`
+                : (type === "run.success" ? "✅ 任务已完成" : "❌ 任务执行失败");
+            });
+          }
+          break;
+        }
+      }
+    });
+  }
+
+  /** 切换 Reasoning 展开/收起 */
+  function toggleReasoning(msgId: string | number) {
+    const next = new Set(expandedReasoning.value);
+    if (next.has(msgId)) {
+      next.delete(msgId);
+    } else {
+      next.add(msgId);
+    }
+    expandedReasoning.value = next;
+  }
+
+  /** 记录思考开始时间 */
+  function markReasoningStart(msgId: string | number) {
+    if (!reasoningStartTimes.value.has(msgId)) {
+      reasoningStartTimes.value.set(msgId, Date.now());
+    }
+    // 自动展开
+    const next = new Set(expandedReasoning.value);
+    next.add(msgId);
+    expandedReasoning.value = next;
+  }
+
+  /** 记录思考结束时间 → 计算耗时 → 1秒后自动收起 */
+  function markReasoningEnd(msgId: string | number) {
+    const start = reasoningStartTimes.value.get(msgId);
+    if (start) {
+      const duration = Math.ceil((Date.now() - start) / 1000);
+      reasoningDurations.value.set(msgId, duration);
+    }
+    // 1秒后自动收起
+    setTimeout(() => {
+      const next = new Set(expandedReasoning.value);
+      next.delete(msgId);
+      expandedReasoning.value = next;
+    }, 1000);
   }
 
   function resetLoadingState() {
@@ -650,6 +850,9 @@ export const useAiAssistantStore = defineStore("ai-assistant", () => {
     thinkingText,
     currentRunId,
     pendingInteraction,
+    agentRunStages,
+    expandedReasoning,
+    reasoningDurations,
     // Computed
     activeConversation,
     activeConversationTitle,
@@ -671,5 +874,8 @@ export const useAiAssistantStore = defineStore("ai-assistant", () => {
     clearMessages,
     resetLoadingState,
     addSystemMessage,
+    toggleReasoning,
+    markReasoningStart,
+    markReasoningEnd,
   };
 });

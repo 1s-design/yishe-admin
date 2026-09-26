@@ -24,7 +24,7 @@
         当前还没有可用 Key。请先新增自己的 Key，或联系管理员开放公开 Key 和共享 AI 使用权限。
       </div>
 
-      <div v-loading="loading" class="ai-usage__body">
+      <div v-loading="loading" class="ai-usage__body" style="overflow-y: auto; padding-right: 8px; margin-right: -8px;">
         <div v-for="group in featureGroups" :key="group.group" class="ai-usage__group">
           <div class="ai-usage__group-head">
             <span class="ai-usage__group-name">{{ group.group }}</span>
@@ -44,13 +44,10 @@
                   {{ getStatusText(row) }}
                 </span>
                 <span class="ai-usage__row-name">{{ row.label }}</span>
+                <span class="ai-usage__row-code">{{ row.code }}</span>
                 <span v-if="row.description" class="ai-usage__row-desc">{{ row.description }}</span>
               </div>
               <div class="ai-usage__row-right">
-                <div v-if="row.specCode" class="ai-usage__row-spec">
-                  <span v-if="!row.code.includes('__')" class="ai-usage__row-spec-label">{{ resolveSpecLabel(row.specCode) }}</span>
-                  <span v-if="resolveSpecModel(row.specCode)" class="ai-usage__row-spec-meta">{{ resolveSpecModel(row.specCode) }}</span>
-                </div>
                 <el-select
                   :model-value="row.keyId"
                   placeholder="选择 Key"
@@ -443,12 +440,10 @@ defineExpose({ open, reload: loadConfig });
 }
 
 .ai-usage__empty {
-  padding: 20px;
+  padding: 16px 0;
   font-size: 13px;
   color: var(--el-text-color-placeholder);
   text-align: center;
-  background: var(--el-fill-color-lighter);
-  border-radius: 8px;
 }
 
 /* ── Body ── */
@@ -460,29 +455,29 @@ defineExpose({ open, reload: loadConfig });
 
 /* ── Group ── */
 .ai-usage__group {
-  overflow: hidden;
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .ai-usage__group-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
-  background: var(--el-fill-color-lighter);
-  border-bottom: 1px solid var(--el-border-color-lighter);
+  padding: 8px 0 4px;
 }
 
 .ai-usage__group-name {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--el-text-color-primary);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--el-text-color-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .ai-usage__group-count {
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
+  font-size: 11px;
+  color: var(--el-text-color-placeholder);
 }
 
 /* ── Rows ── */
@@ -501,12 +496,11 @@ defineExpose({ open, reload: loadConfig });
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--el-border-color-extra-light);
+  padding: 6px 8px 6px 0;
+  margin-right: 4px;
+  border-radius: 4px;
   transition: background .1s;
 }
-
-.ai-usage__row:last-child { border-bottom: none; }
 
 .ai-usage__row:hover { background: var(--el-fill-color-lighter); }
 
@@ -532,30 +526,20 @@ defineExpose({ open, reload: loadConfig });
   white-space: nowrap;
 }
 
+.ai-usage__row-code {
+  margin-left: 8px;
+  font-size: 11px;
+  font-family: var(--el-font-family-monospace, 'SFMono-Regular', 'Consolas', monospace);
+  color: var(--el-text-color-secondary);
+  white-space: nowrap;
+}
+
 .ai-usage__row-desc {
   overflow: hidden;
   font-size: 12px;
   color: var(--el-text-color-secondary);
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.ai-usage__row-spec {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-  white-space: nowrap;
-}
-
-.ai-usage__row-spec-label {
-  font-size: 12px;
-  color: var(--el-text-color-regular);
-}
-
-.ai-usage__row-spec-meta {
-  font-size: 11px;
-  color: var(--el-text-color-secondary);
 }
 
 .ai-usage__row-select {
@@ -565,49 +549,47 @@ defineExpose({ open, reload: loadConfig });
 .ai-usage__toggle {
   display: flex;
   width: 100%;
-  padding: 8px 0;
-  margin-top: 4px;
-  font-size: 12px;
-  color: var(--el-color-primary);
+  padding: 4px 0;
+  font-size: 11px;
+  color: var(--el-text-color-secondary);
   cursor: pointer;
   background: transparent;
   border: none;
-  border-radius: 6px;
-  transition: background .1s;
   align-items: center;
   justify-content: center;
+  transition: color .1s;
 }
 
 .ai-usage__toggle:hover {
-  background: var(--el-fill-color-light);
+  color: var(--el-color-primary);
 }
 
 /* ── Tags ── */
 .ai-usage__tag {
   display: inline-flex;
-  height: 20px;
-  padding: 0 8px;
-  font-size: 11px;
+  height: 18px;
+  padding: 0 6px;
+  font-size: 10px;
   font-weight: 500;
-  line-height: 20px;
-  border-radius: 4px;
+  line-height: 18px;
+  border-radius: 3px;
   align-items: center;
   flex-shrink: 0;
 }
 
 .ai-usage__tag--bound {
   color: var(--el-color-success);
-  background: var(--el-color-success-light-9);
+  background: transparent;
 }
 
 .ai-usage__tag--invalid {
   color: var(--el-color-danger);
-  background: var(--el-color-danger-light-9);
+  background: transparent;
 }
 
 .ai-usage__tag--unbound {
   color: var(--el-text-color-placeholder);
-  background: var(--el-fill-color);
+  background: transparent;
 }
 
 /* ── Footer ── */

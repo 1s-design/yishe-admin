@@ -1,5 +1,5 @@
 <template>
-  <div class="ai-desktop" :class="{ 'ai-desktop--sidebar-open': sidebarOpen }">
+  <div class="ai-desktop agent-chat-theme" :class="{ 'ai-desktop--sidebar-open': sidebarOpen }">
     <aside class="sidebar">
       <div class="sidebar__header">
         <div class="sidebar__brand">
@@ -105,7 +105,7 @@
         </div>
       </header>
 
-      <div class="chat" v-loading="store.historyLoading" element-loading-text="正在读取会话历史...">
+      <div class="chat">
         <div class="chat__scroll" ref="chatScrollRef">
           <div class="chat__list">
             <template v-if="!visibleMessages.length && !store.loading">
@@ -116,11 +116,7 @@
             <template v-for="msg in visibleMessages" :key="msg.id">
               <div class="msg" :class="[`msg--${msg.role}`]">
                 <div v-if="msg.role === 'assistant'" class="msg__avatar">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                    <path d="M2 17l10 5 10-5" />
-                    <path d="M2 12l10 5 10-5" />
-                  </svg>
+                  <span class="mdi mdi-robot-outline msg__avatar-icon" />
                 </div>
                 <div class="msg__body">
                   <div class="msg__content">
@@ -142,93 +138,95 @@
                               ▾
                             </span>
                           </div>
-                          <div v-if="expandedTools.has(tc.id)" class="agent-tool__body">
-                            <div v-if="tc.args && Object.keys(tc.args).length" class="agent-tool__section">
-                              <div class="agent-tool__section-label">参数</div>
-                              <pre class="agent-tool__pre">{{ formatJson(tc.args) }}</pre>
+                          <Transition name="collapse">
+                            <div v-if="expandedTools.has(tc.id)" class="collapse-inner">
+                              <div class="agent-tool__body">
+                                <div v-if="tc.args && Object.keys(tc.args).length" class="agent-tool__section">
+                                  <div class="agent-tool__section-label">参数</div>
+                                  <pre class="agent-tool__pre">{{ formatJson(tc.args) }}</pre>
+                                </div>
+                                <div v-if="tc.result || tc.error" class="agent-tool__section">
+                                  <div class="agent-tool__section-label">{{ tc.error ? '错误' : '结果' }}</div>
+                                  <pre class="agent-tool__pre" :class="{ 'is-error': tc.error }">{{ tc.error || formatJson(tc.result) }}</pre>
+                                </div>
+                              </div>
                             </div>
-                            <div v-if="tc.result || tc.error" class="agent-tool__section">
-                              <div class="agent-tool__section-label">{{ tc.error ? '错误' : '结果' }}</div>
-                              <pre class="agent-tool__pre" :class="{ 'is-error': tc.error }">{{ tc.error || formatJson(tc.result) }}</pre>
-                            </div>
+                          </Transition>
+                        </div>
+                      </div>
+                      <!-- Agent Run Stage 进度 -->
+                      <div
+                        v-if="getRunStages(msg.runTrace?.runId).length"
+                        class="agent-run-stages"
+                      >
+                        <div class="agent-run-stages__header">
+                          <el-icon class="agent-run-stages__icon"><Promotion /></el-icon>
+                          <span class="agent-run-stages__title">执行管线</span>
+                        </div>
+                        <div class="agent-run-stages__list">
+                          <div
+                            v-for="stage in getRunStages(msg.runTrace?.runId)"
+                            :key="stage.stageIndex"
+                            class="agent-run-stage"
+                            :class="`is-${stage.status}`"
+                          >
+                            <span class="agent-run-stage__dot" />
+                            <span class="agent-run-stage__name">{{ stage.name }}</span>
+                            <span class="agent-run-stage__status">
+                              {{ stageStatusText(stage.status) }}
+                            </span>
                           </div>
                         </div>
+                      </div>
+                      <!-- Reasoning 可折叠思考块 -->
+                      <div
+                        v-if="store.thinkingText && msg === visibleMessages[visibleMessages.length - 1]"
+                        class="agent-reasoning"
+                      >
+                        <button
+                          class="agent-reasoning__trigger"
+                          :aria-expanded="store.expandedReasoning.has(msg.id)"
+                          @click="store.toggleReasoning(msg.id)"
+                        >
+                          <span class="agent-reasoning__icon mdi mdi-brain" />
+                          <span class="agent-reasoning__label">
+                            {{ store.loading ? '正在思考' : '思考过程' }}
+                          </span>
+                          <span
+                            v-if="store.reasoningDurations.has(msg.id)"
+                            class="agent-reasoning__duration"
+                          >
+                            {{ store.reasoningDurations.get(msg.id) }}s
+                          </span>
+                          <span
+                            class="agent-reasoning__chevron"
+                            :class="{ 'is-expanded': store.expandedReasoning.has(msg.id) }"
+                          >
+                            <el-icon><ArrowDown /></el-icon>
+                          </span>
+                        </button>
+                        <Transition name="collapse">
+                          <div v-if="store.expandedReasoning.has(msg.id)" class="collapse-inner">
+                            <div class="agent-reasoning__body">
+                              <span
+                                v-if="store.loading"
+                                class="agent-thinking-spinner"
+                                aria-hidden="true"
+                              />
+                              <span class="agent-reasoning__text">
+                                {{ store.thinkingText || '分析中...' }}
+                              </span>
+                            </div>
+                          </div>
+                        </Transition>
                       </div>
                       <div v-if="msg.content" class="md-body">
                         <MarkdownView :content="msg.content" />
                       </div>
-                      <div v-if="
-                        msg.content &&
-                        store.thinkingText &&
-                        store.loading &&
-                        msg === visibleMessages[visibleMessages.length - 1]
-                      " class="agent-streaming-loader">
-                        <span class="agent-thinking-spinner" />
-                        <span>{{ store.thinkingText || '正在思考' }}</span>
-                      </div>
+                      <p v-if="msg.errorText" class="agent-message-error">
+                        {{ msg.errorText }}
+                      </p>
                     </template>
-                  </div>
-                  <div v-if="hasMessageDetails(msg)" class="msg__meta">
-                    <el-popover trigger="click" placement="bottom-start" :width="360"
-                      popper-class="ai-message-detail-popover">
-                      <template #reference>
-                        <span>
-                          <el-tooltip effect="dark" placement="top" :content="getMessageDetailsTooltip(msg)">
-                            <button class="msg__meta-toggle" aria-label="消息详情">
-                              <el-icon>
-                                <InfoFilled />
-                              </el-icon>
-                            </button>
-                          </el-tooltip>
-                        </span>
-                      </template>
-                      <div class="msg__meta-panel">
-                        <div class="msg__meta-row">
-                          <span>创建时间</span>
-                          <strong>{{ formatTime(msg.createdAt) }}</strong>
-                        </div>
-                        <div v-if="msg.startedAt" class="msg__meta-row">
-                          <span>开始处理</span>
-                          <strong>{{ formatTime(msg.startedAt) }}</strong>
-                        </div>
-                        <div v-if="msg.completedAt" class="msg__meta-row">
-                          <span>完成时间</span>
-                          <strong>{{ formatTime(msg.completedAt) }}</strong>
-                        </div>
-                        <div v-if="hasMetric(msg.durationMs)" class="msg__meta-row">
-                          <span>总耗时</span>
-                          <strong>{{ formatDuration(msg.durationMs) }}</strong>
-                        </div>
-                        <div v-if="hasMetric(msg.aiResponseMs)" class="msg__meta-row">
-                          <span>AI 响应</span>
-                          <strong>{{ formatDuration(msg.aiResponseMs) }}</strong>
-                        </div>
-                        <div v-if="hasMetric(msg.toolExecutionMs)" class="msg__meta-row">
-                          <span>工具耗时</span>
-                          <strong>{{ formatDuration(msg.toolExecutionMs) }}</strong>
-                        </div>
-                        <div v-if="msg.toolKey" class="msg__meta-row">
-                          <span>工具</span>
-                          <strong>{{ msg.toolLabel || msg.toolKey }}</strong>
-                        </div>
-                        <div v-if="getMessageToolDetails(msg).length" class="msg__meta-tools">
-                          <div class="msg__meta-tools-title">工具调用</div>
-                          <div v-for="tool in getMessageToolDetails(msg)"
-                            :key="`${tool.tool}-${tool.startedAt || tool.summary}`" class="msg__meta-tool">
-                            <div class="msg__meta-tool-main">
-                              <span class="msg__meta-tool-status" :class="{ failed: tool.success === false }"></span>
-                              <strong>{{ tool.label || tool.tool }}</strong>
-                            </div>
-                            <span>{{ formatDuration(tool.durationMs) }}</span>
-                            <small v-if="tool.summary">{{ tool.summary }}</small>
-                          </div>
-                        </div>
-                        <div v-if="getMessageRunId(msg)" class="msg__meta-row">
-                          <span>Run ID</span>
-                          <strong>{{ getMessageRunId(msg) }}</strong>
-                        </div>
-                      </div>
-                    </el-popover>
                   </div>
                   <template v-if="
                     msg.role === 'assistant' &&
@@ -238,27 +236,111 @@
                     <InteractionRenderer :payload="store.pendingInteraction" @submit="handleInteractionSubmit"
                       @reject="handleInteractionReject" />
                   </template>
-                  <div v-if="msg.content" class="msg__actions">
-                    <button class="msg__action-btn" title="复制" @click="copyText(msg.content)">
-                      <el-icon :size="14"><CopyDocument /></el-icon>
+                  <!-- 消息工具栏：复制 + 详情 水平排列 -->
+                  <div v-if="msg.content || hasMessageDetails(msg)" class="msg__toolbar">
+                    <button v-if="msg.content" class="msg__action-btn" title="复制" @click="copyText(msg.content, msg.id)">
+                      <el-icon :size="14">
+                        <Check v-if="copiedMessageId === msg.id" />
+                        <CopyDocument v-else />
+                      </el-icon>
                     </button>
+                    <div v-if="hasMessageDetails(msg)" class="msg__meta">
+                      <el-popover trigger="click" placement="bottom-start" :width="360"
+                        popper-class="ai-message-detail-popover">
+                        <template #reference>
+                          <span>
+                            <el-tooltip effect="dark" placement="top" :content="getMessageDetailsTooltip(msg)">
+                              <button class="msg__action-btn" aria-label="消息详情">
+                                <el-icon :size="14">
+                                  <InfoFilled />
+                                </el-icon>
+                              </button>
+                            </el-tooltip>
+                          </span>
+                        </template>
+                        <div class="msg__meta-panel">
+                          <div class="msg__meta-row">
+                            <span>创建时间</span>
+                            <strong>{{ formatTime(msg.createdAt) }}</strong>
+                          </div>
+                          <div v-if="msg.startedAt" class="msg__meta-row">
+                            <span>开始处理</span>
+                            <strong>{{ formatTime(msg.startedAt) }}</strong>
+                          </div>
+                          <div v-if="msg.completedAt" class="msg__meta-row">
+                            <span>完成时间</span>
+                            <strong>{{ formatTime(msg.completedAt) }}</strong>
+                          </div>
+                          <div v-if="hasMetric(msg.durationMs)" class="msg__meta-row">
+                            <span>总耗时</span>
+                            <strong>{{ formatDuration(msg.durationMs) }}</strong>
+                          </div>
+                          <div v-if="hasMetric(msg.aiResponseMs)" class="msg__meta-row">
+                            <span>AI 响应</span>
+                            <strong>{{ formatDuration(msg.aiResponseMs) }}</strong>
+                          </div>
+                          <div v-if="hasMetric(msg.toolExecutionMs)" class="msg__meta-row">
+                            <span>工具耗时</span>
+                            <strong>{{ formatDuration(msg.toolExecutionMs) }}</strong>
+                          </div>
+                          <div v-if="msg.toolKey" class="msg__meta-row">
+                            <span>工具</span>
+                            <strong>{{ msg.toolLabel || msg.toolKey }}</strong>
+                          </div>
+                          <div v-if="getMessageToolDetails(msg).length" class="msg__meta-tools">
+                            <div class="msg__meta-tools-title">工具调用</div>
+                            <div v-for="tool in getMessageToolDetails(msg)"
+                              :key="`${tool.tool}-${tool.startedAt || tool.summary}`" class="msg__meta-tool">
+                              <div class="msg__meta-tool-main">
+                                <span class="msg__meta-tool-status" :class="{ failed: tool.success === false }"></span>
+                                <strong>{{ tool.label || tool.tool }}</strong>
+                              </div>
+                              <span>{{ formatDuration(tool.durationMs) }}</span>
+                              <small v-if="tool.summary">{{ tool.summary }}</small>
+                            </div>
+                          </div>
+                          <div v-if="getMessageRunId(msg)" class="msg__meta-row">
+                            <span>Run ID</span>
+                            <strong>{{ getMessageRunId(msg) }}</strong>
+                          </div>
+                        </div>
+                      </el-popover>
+                    </div>
                   </div>
                 </div>
               </div>
             </template>
             <div v-if="store.loading && !store.pendingInteraction" class="msg msg--assistant">
+              <div class="msg__avatar">
+                <span class="mdi mdi-robot-outline msg__avatar-icon" />
+              </div>
               <div class="msg__body">
-                <div v-if="!lastAssistantHasContent" class="typing-indicator">
-                  <span></span><span></span><span></span>
+                <div v-if="!lastAssistantHasContent" class="agent-streaming-loader">
+                  <span class="agent-thinking-spinner" aria-hidden="true" />
+                  <span>正在思考</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
+        <!-- 滚动到底部按钮 -->
+        <Transition name="fade">
+          <button
+            v-if="!stickToBottom"
+            class="agent-scroll-bottom"
+            title="滚动到底部"
+            @click="scrollToBottom"
+          >
+            <el-icon><ArrowDown /></el-icon>
+          </button>
+        </Transition>
         <div class="composer">
           <div class="composer__wrap">
             <textarea ref="textareaRef" v-model="inputMessage" class="composer__input"
-              :placeholder="store.senderPlaceholder" rows="1" @keydown.enter.exact.prevent="handleSend"
+              :placeholder="store.senderPlaceholder" rows="1"
+              @compositionstart="isComposing = true"
+              @compositionend="isComposing = false"
+              @keydown="handleKeyDown"
               @input="autoResize"></textarea>
             <div class="composer__actions">
               <button class="composer__send" :disabled="!canSend || store.loading" @click="handleSend">
@@ -379,7 +461,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { ElMessage } from "element-plus";
-import { ArrowUp, CopyDocument, Delete, InfoFilled, Loading, Plus, Refresh, Search, Tools } from "@element-plus/icons-vue";
+import { ArrowDown, ArrowUp, Check, CopyDocument, Delete, InfoFilled, Loading, Plus, Promotion, Refresh, Search, Tools } from "@element-plus/icons-vue";
 import { AiAssistantApi } from "@/api/aiAssistant";
 import { useAiAssistantStore } from "@/store/modules/aiAssistant";
 import { websocketClient } from "@/services/websocketClient";
@@ -409,6 +491,8 @@ const hoveredConversation = ref<any>(null);
 const popupStyle = ref<Record<string, string>>({});
 const sidebarOpen = ref(false);
 const expandedTools = ref<Set<string>>(new Set());
+const isComposing = ref(false);
+const copiedMessageId = ref<string | number | null>(null);
 
 // Brand text typewriter effect
 const BRAND_PHRASES = ["衣设助手", "让设计快 1 秒", "设计灵感即刻呈现", "你的贴身设计搭档"];
@@ -595,12 +679,61 @@ function autoResize() {
   el.style.height = Math.min(el.scrollHeight, 200) + "px";
 }
 
-function scrollToBottom() {
-  nextTick(() => {
-    if (chatScrollRef.value) {
-      chatScrollRef.value.scrollTop = chatScrollRef.value.scrollHeight;
+/** 智能滚动：底部跟随 + 用户上滚暂停 */
+let scrollObserver: MutationObserver | null = null;
+let resizeObs: ResizeObserver | null = null;
+let stickToBottom = true;
+let rafScheduled = false;
+
+function isNearBottom(el: HTMLElement) {
+  return el.scrollHeight - el.scrollTop - el.clientHeight <= 72;
+}
+
+function scheduleScrollToBottom() {
+  if (rafScheduled || !stickToBottom) return;
+  rafScheduled = true;
+  requestAnimationFrame(() => {
+    rafScheduled = false;
+    if (stickToBottom && chatScrollRef.value) {
+      chatScrollRef.value.scrollTo({
+        top: chatScrollRef.value.scrollHeight,
+        behavior: 'smooth',
+      });
     }
   });
+}
+
+function scrollToBottom() {
+  stickToBottom = true;
+  scheduleScrollToBottom();
+}
+
+function initSmartScroll() {
+  const el = chatScrollRef.value;
+  if (!el) return;
+
+  el.addEventListener('scroll', () => {
+    stickToBottom = isNearBottom(el);
+  });
+
+  scrollObserver = new MutationObserver(scheduleScrollToBottom);
+  scrollObserver.observe(el, {
+    childList: true,
+    characterData: true,
+    subtree: true,
+  });
+
+  resizeObs = new ResizeObserver(scheduleScrollToBottom);
+  resizeObs.observe(el);
+}
+
+function destroySmartScroll() {
+  const el = chatScrollRef.value;
+  if (el) el.removeEventListener('scroll', () => {});
+  scrollObserver?.disconnect();
+  resizeObs?.disconnect();
+  scrollObserver = null;
+  resizeObs = null;
 }
 
 function buildPageContext() {
@@ -622,6 +755,14 @@ function handleSend() {
   if (textareaRef.value) textareaRef.value.style.height = "auto";
   store.sendMessage(text, buildPageContext());
   scrollToBottom();
+}
+
+/** IME 感知：中文输入时不发送 */
+function handleKeyDown(e: KeyboardEvent) {
+  if (e.key === 'Enter' && !e.shiftKey && !isComposing.value && !e.isComposing) {
+    e.preventDefault();
+    handleSend();
+  }
 }
 
 async function handleRefresh() {
@@ -818,14 +959,18 @@ function formatJson(value: any): string {
   }
 }
 
-async function copyText(text: string) {
+async function copyText(text: string, msgId: string | number) {
   try {
     await navigator.clipboard.writeText(text);
-    ElMessage.success('已复制');
+    copiedMessageId.value = msgId;
+    setTimeout(() => {
+      copiedMessageId.value = null;
+    }, 1500);
   } catch {
     ElMessage.error('复制失败');
   }
 }
+
 
 function handleMcpAsyncResult(data: { requestId: string; toolName: string; result: any }) {
   const { toolName, result } = data || {};
@@ -841,6 +986,26 @@ function handleMcpAsyncResult(data: { requestId: string; toolName: string; resul
   store.addSystemMessage(`[客户端工具 ${toolName}] 执行完成:\n${display}`);
 }
 
+/** 获取消息关联的 Agent Run Stage 进度 */
+function getRunStages(runId: string | undefined) {
+  if (!runId) return [];
+  return store.agentRunStages.get(runId) || [];
+}
+
+/** Stage 状态文本 */
+function stageStatusText(status: string): string {
+  const map: Record<string, string> = {
+    pending: "等待中",
+    running: "执行中",
+    success: "完成",
+    failed: "失败",
+    timeout: "超时",
+    waiting: "待审批",
+  };
+  return map[status] || status;
+}
+
+// 保留 watch 作为兜底（MutationObserver 已处理主要场景）
 watch(() => store.messages.length, scrollToBottom);
 watch(() => store.loading, scrollToBottom);
 
@@ -864,14 +1029,21 @@ onMounted(() => {
   handleResizeOpen();
   streamBrand();
   window.addEventListener("resize", handleResizeOpen);
+  // 初始化智能滚动（等 DOM 渲染后）
+  nextTick(() => initSmartScroll());
 });
 
 onUnmounted(() => {
   websocketClient.events.off("mcp-async-result", handleMcpAsyncResult);
   window.removeEventListener("resize", handleResizeOpen);
+  destroySmartScroll();
   if (brandTimer) clearTimeout(brandTimer);
 });
 </script>
+
+<style>
+@import "./agent-chat.css";
+</style>
 
 <style scoped>
 @keyframes fadeIn {
@@ -886,32 +1058,8 @@ onUnmounted(() => {
   }
 }
 
-@keyframes pulse {
 
-  0%,
-  100% {
-    opacity: 0.4;
-  }
 
-  50% {
-    opacity: 1;
-  }
-}
-
-@keyframes typingBounce {
-
-  0%,
-  60%,
-  100% {
-    opacity: 0.4;
-    transform: translateY(0);
-  }
-
-  30% {
-    opacity: 1;
-    transform: translateY(-4px);
-  }
-}
 
 /* ── Mobile ── */
 @media (width <=768px) {
@@ -971,15 +1119,6 @@ onUnmounted(() => {
     padding-bottom: 70px;
   }
 
-  .composer {
-    padding: 0 12px 8px;
-  }
-
-  .composer__input {
-    min-height: 40px;
-    font-size: 14px;
-  }
-
   .msg {
     gap: 8px;
   }
@@ -1035,16 +1174,6 @@ onUnmounted(() => {
   --primary: var(--el-color-primary);
   --success: var(--el-color-success);
   --danger: var(--el-color-danger);
-
-  /* Agent theme variables (aligned with yishe-client) */
-  --agent-sidebar-bg: var(--app-content-surface-color);
-  --agent-main-bg: var(--bg);
-  --agent-surface: var(--surface);
-  --agent-border: var(--border);
-  --agent-border-soft: color-mix(in srgb, var(--border) 60%, transparent);
-  --agent-text: var(--text);
-  --agent-muted: var(--text-3);
-  --agent-user-bubble: color-mix(in srgb, var(--surface) 88%, var(--bg));
 
   display: flex;
   height: 100%;
@@ -1487,15 +1616,14 @@ html.dark .ai-desktop .conversation-detail-popup {
 
 .chat__scroll {
   min-height: 0;
-  padding: 16px 0 100px;
+  padding: 24px 8px 100px;
   overflow-y: auto;
   flex: 1;
 }
 
 .chat__list {
-  max-width: 760px;
-  padding: 0 20px;
-  margin: 0 auto;
+  width: 100%;
+  padding: 0 40px;
 }
 
 .chat__empty {
@@ -1513,630 +1641,21 @@ html.dark .ai-desktop .conversation-detail-popup {
   margin: 0;
 }
 
-/* ── Message ── */
-.msg {
-  display: flex;
-  gap: 10px;
-  padding: 4px 0;
-  animation: msgFadeIn 0.25s ease;
-}
-
-@keyframes msgFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.msg--user {
-  justify-content: flex-end;
-}
-
-.msg--user .msg__body {
-  max-width: min(82%, 620px);
-}
-
-.msg--user .msg__text {
-  display: inline-block;
-  padding: 11px 16px;
-  font-size: 14px;
-  line-height: 1.55;
-  color: var(--agent-text);
-  background: var(--agent-user-bubble);
-  border-radius: 22px;
-  max-width: 100%;
-  word-break: break-word;
-}
-
-.msg--assistant {
-  justify-content: flex-start;
-}
-
-.msg--assistant .msg__body {
-  flex: 1;
-  min-width: 0;
-}
-
-.msg--assistant .msg__content {
-  width: 100%;
-}
-
-.msg__content {
-  font-size: 14px;
-  line-height: 1.65;
-  color: var(--agent-text);
-}
-
-.msg__text {
-  white-space: pre-wrap;
-}
-
-/* ── Message Hover Actions ── */
-.msg__actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 6px;
-  opacity: 0;
-  transition: opacity 150ms ease;
-}
-
-.msg:hover .msg__actions {
-  opacity: 1;
-}
-
-.msg--user .msg__actions {
-  justify-content: flex-end;
-}
-
-.msg__action-btn {
-  display: flex;
-  width: 27px;
-  height: 27px;
-  font-size: 13px;
-  color: var(--agent-muted);
-  cursor: pointer;
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  align-items: center;
-  justify-content: center;
-  transition: all 150ms ease;
-}
-
-.msg__action-btn:hover {
-  color: var(--agent-text);
-  background: var(--surface-hover);
-}
-
-.msg__meta {
-  margin-top: 6px;
-  font-size: 12px;
-  color: var(--text-3);
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.15s ease-in-out;
-}
-
-.msg:hover .msg__meta {
-  pointer-events: auto;
-  opacity: 1;
-}
-
-.msg--user .msg__meta {
-  text-align: right;
-}
-
-.msg__meta-toggle {
-  width: 27px;
-  height: 27px;
-  padding: 0;
-  font-size: 13px;
-  line-height: 1;
-  color: var(--agent-muted);
-  vertical-align: top;
-  cursor: pointer;
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  transition: all 150ms ease;
-}
-
-.msg__meta-toggle:hover,
-.msg__meta-toggle:focus-visible {
-  color: var(--agent-text);
-  background: var(--surface-hover);
-}
-
-.msg__meta-panel {
-  display: grid;
-  gap: 4px;
-  max-width: 100%;
-  text-align: left;
-}
-
-.msg__meta-row {
-  display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
-  gap: 8px;
-  align-items: baseline;
-}
-
-.msg__meta-row strong {
-  min-width: 0;
-  font-weight: 500;
-  color: var(--text-2);
-  overflow-wrap: anywhere;
-}
-
-.msg__meta-tools {
-  display: grid;
-  padding-top: 6px;
-  margin-top: 2px;
-  border-top: 1px solid var(--border);
-  gap: 5px;
-}
-
-.msg__meta-tools-title {
-  color: var(--text-3);
-}
-
-.msg__meta-tool {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 6px 10px;
-  align-items: center;
-}
-
-.msg__meta-tool-main {
-  display: inline-flex;
-  min-width: 0;
-  align-items: center;
-  gap: 6px;
-}
-
-.msg__meta-tool-main strong {
-  overflow: hidden;
-  font-weight: 500;
-  color: var(--text-2);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.msg__meta-tool-status {
-  width: 6px;
-  height: 6px;
-  background: #16a34a;
-  border-radius: 50%;
-  flex: 0 0 auto;
-}
-
-.msg__meta-tool-status.failed {
-  background: #dc2626;
-}
-
-.msg__meta-tool small {
-  grid-column: 1 / -1;
-  min-width: 0;
-  overflow-wrap: anywhere;
-  color: var(--text-3);
-}
-
-:global(.ai-message-detail-popover) {
-  padding: 10px 12px;
-  border-radius: 6px;
-}
-
-/* ── Markdown body (scoped overrides) ── */
-.md-body :deep(p) {
-  margin: 0 0 8px;
-}
-
-.md-body :deep(p:last-child) {
-  margin-bottom: 0;
-}
-
-.md-body :deep(pre) {
-  padding: 14px;
-  margin: 8px 0;
-  overflow-x: auto;
-  font-family: "JetBrains Mono", "Fira Code", monospace;
-  font-size: 13px;
-  line-height: 1.5;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-}
-
-.md-body :deep(code) {
-  font-family: "JetBrains Mono", "Fira Code", monospace;
-  font-size: 13px;
-}
-
-.md-body :deep(:not(pre) > code) {
-  padding: 1px 5px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-}
-
-.md-body :deep(ul),
-.md-body :deep(ol) {
-  padding-left: 20px;
-  margin: 6px 0;
-}
-
-.md-body :deep(li) {
-  margin: 2px 0;
-}
-
-.md-body :deep(blockquote) {
-  padding-left: 12px;
-  margin: 8px 0;
-  color: var(--text-2);
-  border-left: 2px solid var(--border);
-}
-
-.md-body :deep(table) {
-  margin: 8px 0;
-  font-size: 13px;
-  border-collapse: collapse;
-}
-
-.md-body :deep(th),
-.md-body :deep(td) {
-  padding: 6px 10px;
-  text-align: left;
-  border: 1px solid var(--border);
-}
-
-.md-body :deep(th) {
-  font-weight: 600;
-  background: var(--surface);
-}
-
-.md-body :deep(a) {
-  color: var(--el-color-primary);
-  text-decoration: none;
-}
-
-.md-body :deep(a:hover) {
-  text-decoration: underline;
-}
-
-.md-body :deep(h1),
-.md-body :deep(h2),
-.md-body :deep(h3),
-.md-body :deep(h4) {
-  margin: 12px 0 6px;
-  font-weight: 600;
-}
-
-.md-body :deep(h1) {
-  font-size: 20px;
-}
-
-.md-body :deep(h2) {
-  font-size: 17px;
-}
-
-.md-body :deep(h3) {
-  font-size: 15px;
-}
-
-.md-body :deep(hr) {
-  margin: 12px 0;
-  border: none;
-  border-top: 1px solid var(--border);
-}
-
-/* ── Agent Tool (Collapsible Card) ── */
-.agent-tools {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin: 6px 0;
-}
-
-.agent-tool {
-  width: calc(100% - 16px);
-  margin: 0 8px;
-  padding: 7px 8px 8px;
-  background: var(--agent-surface);
-  border: 1px solid var(--agent-border-soft);
-  border-radius: 11px;
-  transition: border-color 0.15s;
-}
-
-.agent-tool:hover {
-  border-color: var(--border);
-}
-
-.agent-tool__header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 45px;
-  padding: 0 12px;
-  cursor: pointer;
-  user-select: none;
-}
-
-.agent-tool__icon {
-  font-size: 14px;
-  color: var(--agent-muted);
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-}
-
-.agent-tool__name {
-  font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text);
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.agent-tool__status {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 10px;
-  font-family: "JetBrains Mono", monospace;
-  text-transform: capitalize;
-}
-
-.agent-tool__status-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-}
-
-.agent-tool__status.is-running {
-  color: #d97706;
-}
-.agent-tool__status.is-running .agent-tool__status-dot {
-  background: #f59e0b;
-  animation: pulse 1.4s infinite;
-}
-
-.agent-tool__status.is-done {
-  color: #059669;
-}
-.agent-tool__status.is-done .agent-tool__status-dot {
-  background: #10b981;
-}
-
-.agent-tool__status.is-error {
-  color: #dc2626;
-}
-.agent-tool__status.is-error .agent-tool__status-dot {
-  background: #ef4444;
-}
-
-.agent-tool__chevron {
-  font-size: 12px;
-  color: var(--agent-muted);
-  transition: transform 0.2s ease;
-  flex-shrink: 0;
-}
-
-.agent-tool__chevron.expanded {
-  transform: rotate(180deg);
-}
-
-.agent-tool__body {
-  padding: 0 12px 8px;
-}
-
-.agent-tool__section {
-  margin-top: 8px;
-  padding-top: 12px;
-  border-top: 1px solid var(--agent-border-soft);
-}
-
-.agent-tool__section-label {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--agent-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 6px;
-}
-
-.agent-tool__pre {
-  max-height: 220px;
-  overflow: auto;
-  padding: 8px 10px;
-  margin: 0;
-  font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace;
-  font-size: 11px;
-  line-height: 1.55;
-  color: var(--text-2);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.agent-tool__pre.is-error {
-  color: #dc2626;
-  border-color: rgba(220, 38, 38, 0.3);
-  background: rgba(220, 38, 38, 0.04);
-}
-
-/* ── Streaming Loader ── */
-.agent-streaming-loader {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--agent-muted);
-  line-height: 1.5;
-}
-
-.agent-thinking-spinner {
-  display: inline-grid;
-  width: 22px;
-  height: 22px;
-  flex: 0 0 22px;
-  aspect-ratio: 1;
-  padding: 3px;
-  box-sizing: border-box;
-  filter: contrast(10);
-}
-
-.agent-thinking-spinner::before,
-.agent-thinking-spinner::after {
-  content: "";
-  grid-area: 1/1;
-  width: 8px;
-  height: 8px;
-  background: var(--el-color-primary);
-  animation: l7 2s infinite;
-}
-
-.agent-thinking-spinner::after {
-  animation-delay: -1s;
-}
-
-@keyframes l7 {
-  0%   { transform: translate(0, 0); }
-  25%  { transform: translate(100%, 0); }
-  50%  { transform: translate(100%, 100%); }
-  75%  { transform: translate(0, 100%); }
-  100% { transform: translate(0, 0); }
-}
-
-/* ── Typing Indicator ── */
-.typing-indicator {
-  display: inline-flex;
-  gap: 3px;
-  padding: 2px 0;
-}
-
-.typing-indicator span {
-  width: 5px;
-  height: 5px;
-  background: var(--text-3);
-  border-radius: 50%;
-  animation: typingBounce 1.4s infinite;
-}
-
-.typing-indicator span:nth-child(2) {
-  animation-delay: 0.2s;
-}
-
-.typing-indicator span:nth-child(3) {
-  animation-delay: 0.4s;
-}
-
-/* ── Avatar ── */
-.msg__avatar {
-  display: flex;
-  width: 32px;
-  height: 32px;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text-2);
-}
-
-/* ── Composer ── */
+/* ── Composer 容器 ── */
 .composer {
   position: absolute;
   right: 0;
   bottom: 0;
   left: 0;
-  padding: 0 16px 12px;
+  padding: 0 40px 16px;
   pointer-events: none;
   background: var(--bg);
 }
 
-.composer__wrap {
-  position: relative;
-  display: flex;
-  max-width: 700px;
-  margin: 0 auto;
-  padding: 6px;
-  pointer-events: auto;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 24px;
-  transition: border-color 0.15s, box-shadow 0.15s;
-  align-items: center;
-  gap: 8px;
-}
-
-.composer__wrap:focus-within {
-  border-color: var(--el-color-primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--el-color-primary) 15%, transparent);
-}
-
-.composer__input {
-  flex: 1;
-  max-height: 160px;
-  min-height: 36px;
-  padding: 8px 8px 8px 12px;
-  font-family: inherit;
-  font-size: 14px;
-  line-height: 1.5;
-  color: var(--text);
-  background: transparent;
-  border: none;
-  outline: none;
-  resize: none;
-}
-
-.composer__input::placeholder {
-  color: var(--text-3);
-}
-
-.composer__actions {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.composer__send {
-  display: flex;
-  width: 32px;
-  height: 32px;
-  font-size: 14px;
-  color: #fff;
-  cursor: pointer;
-  background: var(--el-color-primary);
-  border: none;
-  border-radius: 50%;
-  align-items: center;
-  justify-content: center;
-  transition: opacity 0.15s, transform 0.15s;
-}
-
-.composer__send:disabled {
-  cursor: not-allowed;
-  opacity: 0.3;
-}
-
-.composer__send:not(:disabled):hover {
-  opacity: 0.85;
-  transform: scale(1.08);
-}
-
-.composer__send:not(:disabled):active {
-  transform: scale(0.92);
+/* ── Popover (global) ── */
+:global(.ai-message-detail-popover) {
+  padding: 10px 12px;
+  border-radius: 6px;
 }
 
 /* ── Tools Dialog (dark) ── */
@@ -2563,5 +2082,11 @@ html.dark .ai-desktop {
   --ai-item-active: rgba(255, 255, 255, 0.07);
   --border: rgba(255, 255, 255, 0.06);
   --surface-hover: rgba(255, 255, 255, 0.04);
+  --agent-reasoning-bg: color-mix(in srgb, var(--surface) 94%, transparent);
+  --agent-stage-connector: rgba(255, 255, 255, 0.08);
+}
+
+html.dark .agent-scroll-bottom {
+  box-shadow: 0 2px 8px rgb(0 0 0 / 30%);
 }
 </style>

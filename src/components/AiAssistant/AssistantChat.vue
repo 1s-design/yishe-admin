@@ -210,80 +210,63 @@ defineExpose({ scrollToBottom, focusInput: () => textareaRef.value?.focus() });
 </script>
 
 <template>
-  <div class="chat">
+  <div class="chat agent-chat-theme">
     <el-scrollbar ref="messageScrollbarRef" class="chat__scroll">
       <div ref="messageListRef" class="chat__messages">
         <!-- Empty -->
         <div v-if="!visibleMessages.length && !loading" class="chat__empty">
-          <div class="chat__empty-icon">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
-              stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-            </svg>
-          </div>
-          <h2 class="chat__empty-title">有什么可以帮你的？</h2>
-          <div v-if="promptItems.length" class="chat__prompts">
-            <button v-for="p in promptItems" :key="p.key" class="chat__prompt" @click="handlePromptClick(p.key)">
-              {{ p.label }}
-            </button>
-          </div>
+          <p class="chat__empty-text">有什么可以帮你的？</p>
         </div>
 
         <!-- Messages -->
         <template v-else>
-          <div v-for="msg in visibleMessages" :key="msg.id" class="msg" :class="`msg--${msg.role}`">
+          <div v-for="msg in visibleMessages" :key="msg.id" class="agent-msg msg" :class="`msg--${msg.role}`">
             <!-- User -->
-            <div v-if="msg.role === 'user'" class="msg__row msg__row--right">
-              <div class="msg__bubble msg__bubble--user">{{ msg.content }}</div>
+            <div v-if="msg.role === 'user'" class="msg__body">
+              <span class="msg__text">{{ msg.content }}</span>
             </div>
 
             <!-- Assistant -->
-            <div v-else-if="msg.role === 'assistant'" class="msg__row msg__row--left">
-              <div class="msg__icon">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-                  stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                  <path d="M2 17l10 5 10-5" />
-                  <path d="M2 12l10 5 10-5" />
-                </svg>
+            <template v-else-if="msg.role === 'assistant'">
+              <div class="msg__avatar">
+                <span class="mdi mdi-robot-outline msg__avatar-icon" />
               </div>
-              <div class="msg__content">
-                <MarkdownView v-if="msg.content" :content="msg.content" />
-                <span v-else class="msg__pending">正在回复...</span>
+              <div class="msg__body">
+                <div class="msg__content">
+                  <div v-if="msg.content" class="md-body">
+                    <MarkdownView :content="msg.content" />
+                  </div>
+                  <span v-else class="agent-streaming-loader">
+                    <span class="agent-thinking-spinner" aria-hidden="true" />
+                    <span>正在思考</span>
+                  </span>
+                </div>
               </div>
-            </div>
+            </template>
 
             <!-- Tool -->
-            <div v-else class="msg__row msg__row--left">
-              <div class="msg__icon">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-                  stroke-linecap="round" stroke-linejoin="round">
-                  <path
-                    d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-                </svg>
+            <template v-else>
+              <div class="msg__body">
+                <div class="msg__tool" :class="toolMessageClass(msg)">
+                  <span class="msg__tool-dot" />
+                  <span class="msg__tool-name">{{ msg.toolLabel || msg.toolKey }}</span>
+                  <span class="msg__tool-sep">·</span>
+                  <span class="msg__tool-result">{{ formatToolContent(msg) }}</span>
+                </div>
               </div>
-              <div class="msg__tool" :class="toolMessageClass(msg)">
-                <span class="msg__tool-dot" />
-                <span class="msg__tool-name">{{ msg.toolLabel || msg.toolKey }}</span>
-                <span class="msg__tool-sep">·</span>
-                <span class="msg__tool-result">{{ formatToolContent(msg) }}</span>
-              </div>
-            </div>
+            </template>
           </div>
 
           <!-- Typing -->
-          <div v-if="loading && !hasPendingAssistantMessage" class="msg__row msg__row--left">
-            <div class="msg__icon">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-                stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                <path d="M2 17l10 5 10-5" />
-                <path d="M2 12l10 5 10-5" />
-              </svg>
+          <div v-if="loading && !hasPendingAssistantMessage" class="agent-msg msg msg--assistant">
+            <div class="msg__avatar">
+              <span class="mdi mdi-robot-outline msg__avatar-icon" />
             </div>
-            <div class="msg__typing">
-              <span class="dot" /><span class="dot" /><span class="dot" />
-              <span class="msg__typing-text">{{ thinkingText || "思考中" }}</span>
+            <div class="msg__body">
+              <div class="agent-streaming-loader">
+                <span class="agent-thinking-spinner" aria-hidden="true" />
+                <span>{{ thinkingText || "正在思考" }}</span>
+              </div>
             </div>
           </div>
 
@@ -298,94 +281,28 @@ defineExpose({ scrollToBottom, focusInput: () => textareaRef.value?.focus() });
 
     <!-- Input -->
     <div class="chat__input">
-      <div class="chat__input-box">
+      <div class="composer__wrap">
         <CommandPopup ref="commandPopupRef" :visible="cmdPopupVisible" :commands="slashCommands" :filter="cmdFilter"
           :trigger="cmdTrigger" :anchor-rect="cmdAnchorRect" @select="handleCommandSelect"
           @close="handleCommandClose" />
-        <textarea ref="textareaRef" v-model="inputMessage" class="chat__textarea" :placeholder="inputPlaceholder"
+        <textarea ref="textareaRef" v-model="inputMessage" class="composer__input" :placeholder="inputPlaceholder"
           rows="1" @keydown="handleKeydown" @input="handleInputChange" />
-        <button class="chat__send" :disabled="!canSendComputed" @click="handleSend">
-          <el-icon :size="16"><ArrowUp v-if="!props.loading" /><Loading v-else class="is-loading" /></el-icon>
-        </button>
+        <div class="composer__actions">
+          <button class="composer__send" :disabled="!canSendComputed" @click="handleSend">
+            <el-icon :size="16"><ArrowUp v-if="!props.loading" /><Loading v-else class="is-loading" /></el-icon>
+          </button>
+        </div>
       </div>
-      <!-- hint removed -->
     </div>
   </div>
 </template>
 
+<style>
+@import "./agent-chat.css";
+</style>
+
 <style scoped>
-
-@keyframes msgFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes pulse {
-
-  0%,
-  100% {
-    opacity: .4;
-  }
-
-  50% {
-    opacity: 1;
-  }
-}
-
-@keyframes bounce {
-
-  0%,
-  60%,
-  100% {
-    opacity: .4;
-    transform: translateY(0);
-  }
-
-  30% {
-    opacity: 1;
-    transform: translateY(-3px);
-  }
-}
-
-@keyframes l7 {
-  0%   { transform: translate(0, 0); }
-  25%  { transform: translate(100%, 0); }
-  50%  { transform: translate(100%, 100%); }
-  75%  { transform: translate(0, 100%); }
-  100% { transform: translate(0, 0); }
-}
-
-/* Agent theme variables */
-.chat {
-  --agent-text: var(--el-text-color-primary);
-  --agent-muted: var(--el-text-color-secondary);
-  --agent-surface: var(--el-bg-color);
-  --agent-border: var(--el-border-color-lighter);
-  --agent-border-soft: color-mix(in srgb, var(--el-border-color-lighter) 60%, transparent);
-  --agent-user-bubble: color-mix(in srgb, var(--el-bg-color) 88%, var(--el-fill-color-light));
-}
-
-/* ── Responsive ── */
-@media (width <= 767px) {
-  .msg__row {
-    padding: 4px 12px;
-  }
-
-  .chat__input {
-    padding: 6px 12px 10px;
-  }
-
-  .msg__bubble--user {
-    max-width: 85%;
-  }
-}
-
+/* ── Layout (仅小面板特有) ── */
 .chat {
   display: flex;
   flex-direction: column;
@@ -401,7 +318,7 @@ defineExpose({ scrollToBottom, focusInput: () => textareaRef.value?.focus() });
 .chat__messages {
   display: flex;
   min-height: 100%;
-  padding-top: 24px;
+  padding: 16px 20px;
   flex-direction: column;
 }
 
@@ -411,115 +328,18 @@ defineExpose({ scrollToBottom, focusInput: () => textareaRef.value?.focus() });
   display: flex;
   flex-direction: column;
   align-items: center;
-  line-height: 22px;
   justify-content: center;
-  gap: 8px;
-  padding: 24px 16px;
+  padding: 24px 0;
 }
 
-.chat__empty-icon {
-  color: var(--el-text-color-placeholder);
-}
-
-.chat__empty-title {
-  margin: 0;
-  font-size: 18px;
+.chat__empty-text {
+  font-size: 16px;
   font-weight: 500;
-  color: var(--el-text-color-primary);
+  color: var(--agent-muted);
+  margin: 0;
 }
 
-.chat__prompts {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 6px;
-  margin-top: 4px;
-}
-
-.chat__prompt {
-  height: 30px;
-  padding: 0 12px;
-  font-size: 12px;
-  color: var(--el-text-color-regular);
-  cursor: pointer;
-  background: transparent;
-  border: 1px solid var(--el-border-color);
-  border-radius: 15px;
-  transition: all .12s;
-}
-
-.chat__prompt:hover {
-  color: var(--el-color-primary);
-  border-color: var(--el-color-primary);
-}
-
-/* ── Message ── */
-.msg {
-  padding: 2px 0;
-}
-
-.msg__row {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 4px 20px;
-  animation: msgFadeIn 0.25s ease;
-}
-
-.msg__row--right {
-  justify-content: flex-end;
-}
-
-.msg__row--left {
-  justify-content: flex-start;
-}
-
-/* ── Icon ── */
-.msg__icon {
-  display: flex;
-  width: 32px;
-  height: 32px;
-  color: var(--el-text-color-regular);
-  background: var(--agent-surface);
-  border: 1px solid var(--agent-border-soft);
-  border-radius: 8px;
-  flex-shrink: 0;
-  margin-top: auto;
-  margin-bottom: auto;
-  align-items: center;
-  justify-content: center;
-}
-
-/* ── Content ── */
-.msg__content {
-  flex: 1;
-  min-width: 0;
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--el-text-color-primary);
-  word-break: break-word;
-}
-
-.msg__pending {
-  font-size: 13px;
-  color: var(--el-text-color-placeholder);
-}
-
-/* ── User Bubble ── */
-.msg__bubble--user {
-  display: inline-block;
-  max-width: min(82%, 620px);
-  padding: 11px 16px;
-  font-size: 14px;
-  line-height: 1.55;
-  color: var(--agent-text);
-  word-break: break-word;
-  background: var(--agent-user-bubble);
-  border-radius: 22px;
-  animation: msgFadeIn 0.25s ease;
-}
-
-/* ── Tool (Card style) ── */
+/* ── Tool (小面板简化版) ── */
 .msg__tool {
   display: inline-flex;
   padding: 6px 10px;
@@ -527,31 +347,19 @@ defineExpose({ scrollToBottom, focusInput: () => textareaRef.value?.focus() });
   line-height: 1.4;
   background: var(--agent-surface);
   border: 1px solid var(--agent-border-soft);
-  border-radius: 11px;
+  border-radius: 10px;
   align-items: center;
   gap: 6px;
 }
 
-.msg__tool.is-running {
-  border-color: rgba(245, 158, 11, 0.3);
-}
-
+.msg__tool.is-running { border-color: rgba(245, 158, 11, 0.3); }
 .msg__tool.is-running .msg__tool-dot {
   background: #f59e0b;
-  animation: pulse 1.2s infinite;
+  animation: agent-thinking-pulse 1.2s infinite;
 }
-
-.msg__tool.is-done .msg__tool-dot {
-  background: #10b981;
-}
-
-.msg__tool.is-error {
-  border-color: rgba(239, 68, 68, 0.3);
-}
-
-.msg__tool.is-error .msg__tool-dot {
-  background: #ef4444;
-}
+.msg__tool.is-done .msg__tool-dot { background: #10b981; }
+.msg__tool.is-error { border-color: rgba(239, 68, 68, 0.3); }
+.msg__tool.is-error .msg__tool-dot { background: #ef4444; }
 
 .msg__tool-dot {
   width: 5px;
@@ -563,123 +371,27 @@ defineExpose({ scrollToBottom, focusInput: () => textareaRef.value?.focus() });
 .msg__tool-name {
   font-weight: 500;
   font-family: "JetBrains Mono", "SF Mono", monospace;
-  color: var(--el-text-color-primary);
+  color: var(--agent-text);
 }
 
-.msg__tool-sep {
-  color: var(--agent-muted);
-}
+.msg__tool-sep { color: var(--agent-muted); }
 
 .msg__tool-result {
-  color: var(--el-text-color-secondary);
+  color: var(--agent-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-/* ── Typing ── */
-.msg__typing {
-  display: flex;
-  align-items: center;
-  line-height: 22px;
-  gap: 4px;
-  padding: 4px 0;
-}
-
-.dot {
-  width: 5px;
-  height: 5px;
-  background: var(--el-text-color-placeholder);
-  border-radius: 50%;
-  animation: bounce 1.4s infinite;
-}
-
-.dot:nth-child(2) {
-  animation-delay: .2s;
-}
-
-.dot:nth-child(3) {
-  animation-delay: .4s;
-}
-
-.msg__typing-text {
-  margin-left: 2px;
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
+  max-width: 200px;
 }
 
 /* ── Interaction ── */
 .chat__interaction {
-  padding: 8px 16px;
+  padding: 8px 0;
 }
 
 /* ── Input ── */
 .chat__input {
   flex-shrink: 0;
-  padding: 6px 12px 8px;
-}
-
-.chat__input-box {
-  position: relative;
-  display: flex;
-  padding: 5px;
-  background: var(--agent-surface);
-  border: 1px solid var(--agent-border-soft);
-  border-radius: 24px;
-  transition: border-color .2s, box-shadow .2s;
-  align-items: center;
-  gap: 6px;
-}
-
-.chat__input-box:focus-within {
-  border-color: var(--el-color-primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--el-color-primary) 15%, transparent);
-}
-
-.chat__textarea {
-  max-height: 120px;
-  min-height: 36px;
-  padding: 8px 8px 8px 12px;
-  font-family: inherit;
-  font-size: 14px;
-  line-height: 1.5;
-  color: var(--el-text-color-primary);
-  background: transparent;
-  border: none;
-  outline: none;
-  resize: none;
-  flex: 1;
-}
-
-.chat__textarea::placeholder {
-  color: var(--el-text-color-placeholder);
-}
-
-.chat__send {
-  display: flex;
-  width: 32px;
-  height: 32px;
-  color: #fff;
-  cursor: pointer;
-  background: var(--el-color-primary);
-  border: none;
-  border-radius: 50%;
-  align-items: center;
-  justify-content: center;
-  transition: opacity .15s, transform .15s;
-  flex-shrink: 0;
-}
-
-.chat__send:hover:not(:disabled) {
-  opacity: .85;
-  transform: scale(1.08);
-}
-.chat__send:active:not(:disabled) {
-  transform: scale(0.92);
-}
-
-.chat__send:disabled {
-  cursor: not-allowed;
-  opacity: .3;
+  padding: 0 28px 12px;
 }
 </style>
