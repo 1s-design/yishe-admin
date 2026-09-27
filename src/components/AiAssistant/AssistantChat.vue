@@ -46,6 +46,7 @@ const messageListRef = ref<HTMLElement>();
 const messageScrollbarRef = ref<ScrollbarInstance>();
 const commandPopupRef = ref<InstanceType<typeof CommandPopup>>();
 const textareaRef = ref<HTMLTextAreaElement>();
+const isComposing = ref(false);
 
 const visibleMessages = computed(() =>
   props.messages.filter((message) => {
@@ -145,10 +146,12 @@ function handleSend() {
 
 function handleKeydown(e: KeyboardEvent) {
   if (cmdPopupVisible.value && commandPopupRef.value?.handleKeydown(e)) return;
+  if (isComposing.value || e.isComposing || e.keyCode === 229) return;
   if (e.key === "Enter" && !e.shiftKey) {
-    if (!canSendComputed.value) return;
     e.preventDefault();
-    handleSend();
+    if (canSendComputed.value) {
+      handleSend();
+    }
   }
 }
 
@@ -228,17 +231,18 @@ defineExpose({ scrollToBottom, focusInput: () => textareaRef.value?.focus() });
 
             <!-- Assistant -->
             <template v-else-if="msg.role === 'assistant'">
-              <div class="msg__avatar">
-                <span class="mdi mdi-robot-outline msg__avatar-icon" />
-              </div>
               <div class="msg__body">
                 <div class="msg__content">
                   <div v-if="msg.content" class="md-body">
                     <MarkdownView :content="msg.content" />
                   </div>
                   <span v-else class="agent-streaming-loader">
-                    <span class="agent-thinking-spinner" aria-hidden="true" />
-                    <span>正在思考</span>
+                    <span class="agent-thinking-dots">
+                      <span />
+                      <span />
+                      <span />
+                    </span>
+                    <span class="agent-thinking-text">{{ thinkingText || "思考中..." }}</span>
                   </span>
                 </div>
               </div>
@@ -259,13 +263,14 @@ defineExpose({ scrollToBottom, focusInput: () => textareaRef.value?.focus() });
 
           <!-- Typing -->
           <div v-if="loading && !hasPendingAssistantMessage" class="agent-msg msg msg--assistant">
-            <div class="msg__avatar">
-              <span class="mdi mdi-robot-outline msg__avatar-icon" />
-            </div>
             <div class="msg__body">
               <div class="agent-streaming-loader">
-                <span class="agent-thinking-spinner" aria-hidden="true" />
-                <span>{{ thinkingText || "正在思考" }}</span>
+                <span class="agent-thinking-dots">
+                  <span />
+                  <span />
+                  <span />
+                </span>
+                <span class="agent-thinking-text">{{ thinkingText || "思考中..." }}</span>
               </div>
             </div>
           </div>
@@ -286,7 +291,8 @@ defineExpose({ scrollToBottom, focusInput: () => textareaRef.value?.focus() });
           :trigger="cmdTrigger" :anchor-rect="cmdAnchorRect" @select="handleCommandSelect"
           @close="handleCommandClose" />
         <textarea ref="textareaRef" v-model="inputMessage" class="composer__input" :placeholder="inputPlaceholder"
-          rows="1" @keydown="handleKeydown" @input="handleInputChange" />
+          rows="1" @compositionstart="isComposing = true" @compositionend="isComposing = false"
+          @keydown="handleKeydown" @input="handleInputChange" />
         <div class="composer__actions">
           <button class="composer__send" :disabled="!canSendComputed" @click="handleSend">
             <el-icon :size="16"><ArrowUp v-if="!props.loading" /><Loading v-else class="is-loading" /></el-icon>

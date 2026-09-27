@@ -16,7 +16,19 @@ export function hasClientServiceRuntime(runtime?: ClientServiceRuntimeLike): boo
 
 export function isClientServiceRuntimeAvailable(runtime?: ClientServiceRuntimeLike): boolean {
   const safeRuntime = getClientServiceRuntimeSafe(runtime);
-  return !!(safeRuntime.available || safeRuntime.details?.photoshopReady === true);
+  const status = String(safeRuntime.status || "").toLowerCase();
+  const state = String(safeRuntime.state || "").toLowerCase();
+  if (status === "error" || state === "error" || status === "disconnected") {
+    return false;
+  }
+  return !!(
+    safeRuntime.available ||
+    safeRuntime.connected ||
+    status === "connected" ||
+    safeRuntime.details?.photoshopReady === true ||
+    safeRuntime.details?.serviceStatus === "connected" ||
+    safeRuntime.details?.serviceHealthy === true
+  );
 }
 
 export function isClientServiceRuntimeBusy(runtime?: ClientServiceRuntimeLike): boolean {

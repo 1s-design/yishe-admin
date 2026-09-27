@@ -652,8 +652,7 @@ import {
   getBrowserAutomationServiceText,
 } from "@/services/browserAutomationRuntime";
 import { websocketClient, type ServiceCommandResultEvent } from "@/services/websocketClient";
-import { useClientNodeState } from "@/services/clientNodeState";
-import { getClientServiceRuntime } from "@/store/modules/clientNode";
+import { usePluginClientNodes } from "@/services/clientNodeState";
 import { useI18n } from "@/hooks/web/useI18n";
 import { buildOperationColumn, commonGridOptions } from "@/common/table";
 import { formatDate } from "@/utils/formatTime";
@@ -682,11 +681,11 @@ interface BrowserDebugFeedback {
 }
 
 const {
-  onlineClients,
+  clients: rawClients,
   loading,
   refresh: refreshClientNodes,
-} = useClientNodeState();
-const getServiceRuntime = (client: any) => getClientServiceRuntime(client, "browser-automation");
+  getServiceRuntime,
+} = usePluginClientNodes("browser-automation");
 const selectedClientId = ref("");
 const activeTab = ref("browser");
 const pageList = ref<Record<string, any>[]>([]);
@@ -803,7 +802,7 @@ const mapBrowserAutomationClient = (client: any): BrowserAutomationClientVO => (
 });
 
 const clients = computed<BrowserAutomationClientVO[]>(() =>
-  onlineClients.value.map((client) => mapBrowserAutomationClient(client)),
+  rawClients.value.map((client) => mapBrowserAutomationClient(client)),
 );
 
 const selectedClient = computed(

@@ -115,9 +115,6 @@
             </template>
             <template v-for="msg in visibleMessages" :key="msg.id">
               <div class="msg" :class="[`msg--${msg.role}`]">
-                <div v-if="msg.role === 'assistant'" class="msg__avatar">
-                  <span class="mdi mdi-robot-outline msg__avatar-icon" />
-                </div>
                 <div class="msg__body">
                   <div class="msg__content">
                     <template v-if="msg.role === 'user'">
@@ -178,7 +175,7 @@
                           </div>
                         </div>
                       </div>
-                      <!-- Reasoning 可折叠思考块 -->
+                      <!-- Reasoning 极简思考折叠 -->
                       <div
                         v-if="store.thinkingText && msg === visibleMessages[visibleMessages.length - 1]"
                         class="agent-reasoning"
@@ -188,9 +185,14 @@
                           :aria-expanded="store.expandedReasoning.has(msg.id)"
                           @click="store.toggleReasoning(msg.id)"
                         >
-                          <span class="agent-reasoning__icon mdi mdi-brain" />
+                          <span
+                            class="agent-reasoning__chevron"
+                            :class="{ 'is-expanded': store.expandedReasoning.has(msg.id) }"
+                          >
+                            <el-icon><ArrowDown /></el-icon>
+                          </span>
                           <span class="agent-reasoning__label">
-                            {{ store.loading ? '正在思考' : '思考过程' }}
+                            {{ store.loading ? (store.thinkingText || '正在思考...') : '思考过程' }}
                           </span>
                           <span
                             v-if="store.reasoningDurations.has(msg.id)"
@@ -198,23 +200,12 @@
                           >
                             {{ store.reasoningDurations.get(msg.id) }}s
                           </span>
-                          <span
-                            class="agent-reasoning__chevron"
-                            :class="{ 'is-expanded': store.expandedReasoning.has(msg.id) }"
-                          >
-                            <el-icon><ArrowDown /></el-icon>
-                          </span>
                         </button>
                         <Transition name="collapse">
                           <div v-if="store.expandedReasoning.has(msg.id)" class="collapse-inner">
                             <div class="agent-reasoning__body">
-                              <span
-                                v-if="store.loading"
-                                class="agent-thinking-spinner"
-                                aria-hidden="true"
-                              />
                               <span class="agent-reasoning__text">
-                                {{ store.thinkingText || '分析中...' }}
+                                {{ store.thinkingText }}
                               </span>
                             </div>
                           </div>
@@ -311,13 +302,14 @@
               </div>
             </template>
             <div v-if="store.loading && !store.pendingInteraction" class="msg msg--assistant">
-              <div class="msg__avatar">
-                <span class="mdi mdi-robot-outline msg__avatar-icon" />
-              </div>
               <div class="msg__body">
                 <div v-if="!lastAssistantHasContent" class="agent-streaming-loader">
-                  <span class="agent-thinking-spinner" aria-hidden="true" />
-                  <span>正在思考</span>
+                  <span class="agent-thinking-dots">
+                    <span />
+                    <span />
+                    <span />
+                  </span>
+                  <span class="agent-thinking-text">{{ store.thinkingText || "思考中..." }}</span>
                 </div>
               </div>
             </div>
@@ -476,6 +468,7 @@ const store = useAiAssistantStore();
 const chatScrollRef = ref<HTMLElement>();
 const textareaRef = ref<HTMLTextAreaElement>();
 const inputMessage = ref("");
+const isComposing = ref(false);
 
 const showToolDialog = ref(false);
 const toolSearchQuery = ref("");
@@ -491,8 +484,9 @@ const hoveredConversation = ref<any>(null);
 const popupStyle = ref<Record<string, string>>({});
 const sidebarOpen = ref(false);
 const expandedTools = ref<Set<string>>(new Set());
-const isComposing = ref(false);
 const copiedMessageId = ref<string | number | null>(null);
+
+
 
 // Brand text typewriter effect
 const BRAND_PHRASES = ["衣设助手", "让设计快 1 秒", "设计灵感即刻呈现", "你的贴身设计搭档"];
@@ -757,11 +751,19 @@ function handleSend() {
   scrollToBottom();
 }
 
-/** IME 感知：中文输入时不发送 */
+/** 键盘事件：Enter 发送，Shift+Enter 换行，支持 IME 中文输入法选词防误触 */
 function handleKeyDown(e: KeyboardEvent) {
-  if (e.key === 'Enter' && !e.shiftKey && !isComposing.value && !e.isComposing) {
+  // 中文输入法（IME）选词/确认拼音阶段直接放行给输入法
+  if (isComposing.value || e.isComposing || e.keyCode === 229) {
+    return;
+  }
+
+  // 纯回车发送，Shift + 回车换行
+  if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
-    handleSend();
+    if (canSend.value && !store.loading) {
+      handleSend();
+    }
   }
 }
 
@@ -1164,10 +1166,10 @@ onUnmounted(() => {
   --surface: var(--app-content-surface-color);
   --surface-hover: var(--el-fill-color-light);
   --border: var(--app-content-border-color);
-  --ai-sidebar-bg: #f4f6f8;
-  --ai-border: rgba(148, 163, 184, 0.18);
-  --ai-item-hover: rgba(148, 163, 184, 0.08);
-  --ai-item-active: rgba(148, 163, 184, 0.12);
+  --ai-sidebar-bg: var(--left-menu-bg-color);
+  --ai-border: var(--left-menu-border-color, var(--app-content-border-color));
+  --ai-item-hover: var(--left-menu-hover-color, var(--el-fill-color-light));
+  --ai-item-active: var(--left-menu-bg-active-color, color-mix(in srgb, var(--el-color-primary) 12%, transparent));
   --text: var(--el-text-color-primary);
   --text-2: var(--el-text-color-regular);
   --text-3: var(--el-text-color-secondary);
@@ -1178,12 +1180,7 @@ onUnmounted(() => {
   display: flex;
   height: 100%;
   min-height: 0;
-  font-family:
-    Inter,
-    "SF Pro Display",
-    system-ui,
-    -apple-system,
-    sans-serif;
+  font-family: var(--el-font-family, var(--app-font-family-sans, sans-serif));
   color: var(--text);
   background: var(--bg);
 }
@@ -1384,15 +1381,15 @@ onUnmounted(() => {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
-  box-shadow: 0 12px 40px rgb(0 0 0 / 0.18), 0 2px 8px rgb(0 0 0 / 0.06);
+  box-shadow: 0 12px 40px rgb(0 0 0 / 0.12), 0 2px 8px rgb(0 0 0 / 0.04);
   animation: fadeIn 0.15s ease;
   position: fixed;
 }
 
 html.dark .ai-desktop .conversation-detail-popup {
-  background: #1a1a1a;
-  border-color: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 12px 40px rgb(0 0 0 / 0.5), 0 2px 8px rgb(0 0 0 / 0.3);
+  background: var(--app-content-surface-color, #151515);
+  border-color: var(--app-content-border-color, rgba(255, 255, 255, 0.08));
+  box-shadow: 0 12px 40px rgb(0 0 0 / 0.4), 0 2px 8px rgb(0 0 0 / 0.2);
 }
 
 .conversation-detail-header {
@@ -1628,16 +1625,17 @@ html.dark .ai-desktop .conversation-detail-popup {
 
 .chat__empty {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
+  min-height: 240px;
   padding: 48px 0;
 }
 
 .chat__empty-text {
-  font-size: 16px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 400;
   color: var(--agent-muted);
+  letter-spacing: 0.02em;
   margin: 0;
 }
 
@@ -1649,7 +1647,7 @@ html.dark .ai-desktop .conversation-detail-popup {
   left: 0;
   padding: 0 40px 16px;
   pointer-events: none;
-  background: var(--bg);
+  background: linear-gradient(180deg, transparent 0%, var(--bg) 35%, var(--bg) 100%);
 }
 
 /* ── Popover (global) ── */
@@ -2074,14 +2072,14 @@ html.dark .ai-desktop .conversation-detail-popup {
    AI Assistant — Dark Mode Overrides
    ════════════════════════════════════════ */
 html.dark .ai-desktop {
-  --bg: #000000;
-  --surface: #000000;
-  --ai-sidebar-bg: #000000;
-  --ai-border: rgba(255, 255, 255, 0.06);
-  --ai-item-hover: rgba(255, 255, 255, 0.04);
-  --ai-item-active: rgba(255, 255, 255, 0.07);
-  --border: rgba(255, 255, 255, 0.06);
+  --bg: var(--app-content-bg-color);
+  --surface: var(--app-content-surface-color);
   --surface-hover: rgba(255, 255, 255, 0.04);
+  --ai-sidebar-bg: var(--left-menu-bg-color);
+  --ai-border: var(--left-menu-border-color);
+  --ai-item-hover: var(--left-menu-hover-color);
+  --ai-item-active: var(--left-menu-bg-active-color);
+  --border: var(--app-content-border-color);
   --agent-reasoning-bg: color-mix(in srgb, var(--surface) 94%, transparent);
   --agent-stage-connector: rgba(255, 255, 255, 0.08);
 }

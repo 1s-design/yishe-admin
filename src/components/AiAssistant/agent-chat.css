@@ -7,11 +7,11 @@
 .agent-chat-theme {
   --agent-text: var(--text, var(--el-text-color-primary));
   --agent-muted: var(--text-3, var(--el-text-color-secondary));
-  --agent-surface: var(--surface, var(--el-bg-color));
-  --agent-border: var(--border, var(--el-border-color-lighter));
-  --agent-border-soft: color-mix(in srgb, var(--border, var(--el-border-color-lighter)) 60%, transparent);
-  --agent-user-bubble: color-mix(in srgb, var(--surface, var(--el-bg-color)) 88%, var(--bg, var(--el-fill-color-light)));
-  --agent-reasoning-bg: color-mix(in srgb, var(--surface, var(--el-bg-color)) 92%, transparent);
+  --agent-surface: var(--surface, var(--app-content-surface-color, var(--el-bg-color)));
+  --agent-border: var(--border, var(--app-content-border-color, var(--el-border-color-lighter)));
+  --agent-border-soft: color-mix(in srgb, var(--agent-border) 60%, transparent);
+  --agent-user-bubble: color-mix(in srgb, var(--agent-surface) 92%, var(--bg, var(--app-content-bg-color, var(--el-fill-color-light))));
+  --agent-reasoning-bg: color-mix(in srgb, var(--agent-surface) 92%, transparent);
   --agent-reasoning-border: var(--agent-border-soft);
   --agent-tool-running: #d97706;
   --agent-tool-success: #059669;
@@ -30,12 +30,24 @@
   50% { transform: scale(0.6); opacity: 0.4; }
 }
 
-@keyframes agent-l7 {
-  0%   { transform: translate(0, 0); }
-  25%  { transform: translate(14px, 0); }
-  50%  { transform: translate(14px, 14px); }
-  75%  { transform: translate(0, 14px); }
-  100% { transform: translate(0, 0); }
+@keyframes agent-core-pulse {
+  0%, 100% { transform: scale(0.85); opacity: 0.85; }
+  50% { transform: scale(1.15); opacity: 1; }
+}
+
+@keyframes agent-ring-wave {
+  0% { transform: scale(0.6); opacity: 0.85; }
+  100% { transform: scale(2.3); opacity: 0; }
+}
+
+@keyframes agent-text-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes agent-cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
 }
 
 @keyframes agent-stage-pulse {
@@ -51,12 +63,15 @@
 /* ── Message 基础 ── */
 .msg {
   display: flex;
-  gap: 10px;
   animation: agent-msgFadeIn 0.25s ease;
 }
 
+.msg + .msg {
+  margin-top: 24px;
+}
+
 .agent-msg + .msg {
-  margin-top: 34px;
+  margin-top: 24px;
 }
 
 .msg--user {
@@ -64,7 +79,7 @@
 }
 
 .msg--user .msg__body {
-  max-width: min(82%, 620px);
+  max-width: min(85%, 680px);
 }
 
 .msg--assistant {
@@ -74,41 +89,32 @@
 .msg--assistant .msg__body {
   flex: 1;
   min-width: 0;
-  padding-top: 2px;
+  padding-top: 0;
 }
 
 .msg--assistant .msg__content {
   width: 100%;
 }
 
-/* ── Avatar ── */
+/* ── Avatar (全局隐藏，AI对话部分不显示头像) ── */
 .msg__avatar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  flex-shrink: 0;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--primary, var(--el-color-primary)) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--primary, var(--el-color-primary)) 20%, transparent);
+  display: none !important;
 }
 
 .msg__avatar-icon {
-  font-size: 16px;
-  color: var(--primary, var(--el-color-primary));
+  display: none !important;
 }
 
 /* ── User Bubble ── */
 .msg--user .msg__text {
   display: inline-block;
-  padding: 11px 16px;
+  padding: 10px 16px;
   font-size: 14px;
   line-height: 1.55;
   color: var(--agent-text);
   background: var(--agent-user-bubble);
-  border-radius: 16px 16px 4px 16px;
-  corner-shape: squircle;
+  border: 1px solid var(--agent-border-soft);
+  border-radius: 14px 14px 2px 14px;
   max-width: 100%;
   word-break: break-word;
   box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
@@ -129,39 +135,56 @@
   line-height: 1.65;
 }
 
-/* ── Streaming Loader ── */
+/* ── Streaming Loader (极简点状思考波) ── */
 .agent-streaming-loader {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   color: var(--agent-muted);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
+  padding: 2px 0;
+  animation: agent-msgFadeIn 0.2s ease;
 }
 
-.agent-thinking-spinner {
-  display: inline-grid;
-  width: 22px;
-  height: 22px;
-  flex: 0 0 22px;
-  aspect-ratio: 1;
-  padding: 3px;
-  box-sizing: border-box;
-  filter: contrast(10);
+.agent-thinking-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3.5px;
+  height: 12px;
 }
 
-.agent-thinking-spinner::before,
-.agent-thinking-spinner::after {
-  content: "";
-  grid-area: 1/1;
-  width: 8px;
-  height: 8px;
-  background: #3a86ff;
-  animation: agent-l7 2s infinite;
+.agent-thinking-dots span {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--primary, var(--el-color-primary));
+  opacity: 0.35;
+  animation: agent-dot-wave 1.3s ease-in-out infinite;
 }
 
-.agent-thinking-spinner::after {
-  animation-delay: -1s;
+.agent-thinking-dots span:nth-child(2) {
+  animation-delay: 0.18s;
+}
+
+.agent-thinking-dots span:nth-child(3) {
+  animation-delay: 0.36s;
+}
+
+@keyframes agent-dot-wave {
+  0%, 80%, 100% {
+    opacity: 0.3;
+    transform: scale(0.85);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+.agent-thinking-text {
+  color: var(--agent-muted);
+  font-size: 12.5px;
 }
 
 /* ── Message Error ── */
@@ -444,63 +467,58 @@
   color: var(--agent-muted);
 }
 
-/* ── Reasoning ── */
+/* ── Reasoning (极简思考过程) ── */
 .agent-reasoning {
-  margin: 0 0 12px;
-  border: 1px solid var(--agent-reasoning-border);
-  border-radius: 12px;
-  corner-shape: squircle;
-  background: var(--agent-reasoning-bg);
-  overflow: hidden;
+  margin: 2px 0 10px;
 }
 
 .agent-reasoning__trigger {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 8px 12px;
+  gap: 6px;
+  padding: 2px 0;
   border: none;
   background: transparent;
   color: var(--agent-muted);
   cursor: pointer;
   font-size: 12px;
-  font-weight: 500;
-  transition: color 0.15s;
+  user-select: none;
+  transition: color 0.15s ease;
 }
 
-.agent-reasoning__trigger:hover { color: var(--agent-text); }
+.agent-reasoning__trigger:hover {
+  color: var(--agent-text);
+}
 
-.agent-reasoning__icon {
-  font-size: 14px;
-  color: var(--primary, var(--el-color-primary));
+.agent-reasoning__chevron {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  color: var(--agent-muted);
+  transform: rotate(-90deg);
+  transition: transform 0.2s ease;
+}
+
+.agent-reasoning__chevron.is-expanded {
+  transform: rotate(0deg);
 }
 
 .agent-reasoning__label {
-  flex: 1;
-  text-align: left;
+  font-size: 12px;
+  color: inherit;
 }
 
 .agent-reasoning__duration {
   font-size: 11px;
   color: var(--agent-muted);
-  font-weight: 400;
   font-variant-numeric: tabular-nums;
+  opacity: 0.75;
 }
-
-.agent-reasoning__chevron {
-  display: flex;
-  align-items: center;
-  transition: transform 0.2s;
-}
-
-.agent-reasoning__chevron.is-expanded { transform: rotate(180deg); }
 
 .agent-reasoning__body {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 4px 12px 10px 34px;
+  margin: 4px 0 6px 4px;
+  padding: 4px 0 4px 10px;
+  border-left: 1.5px solid var(--agent-border-soft);
 }
 
 .agent-reasoning__text {
@@ -508,6 +526,7 @@
   color: var(--agent-muted);
   line-height: 1.6;
   white-space: pre-wrap;
+  word-break: break-word;
 }
 
 /* ── Composer (输入框) ── */

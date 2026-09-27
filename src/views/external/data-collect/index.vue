@@ -50,6 +50,7 @@ import OpenMojiView from '../openmoji/index.vue'
 import GoogleIconsView from '../googleicons/index.vue'
 import EmojipediaView from '../emojipedia/index.vue'
 import SvgRepoView from '../svgrepo/index.vue'
+import MagnificView from '../magnific/index.vue'
 import BaiduView from '../baidu/index.vue'
 import BingView from '../bing/index.vue'
 import DuckDuckGoView from '../duckduckgo/index.vue'
@@ -88,6 +89,7 @@ type TabKey =
   | 'googleicons'
   | 'emojipedia'
   | 'svgrepo'
+  | 'magnific'
   | 'baidu'
   | 'bing'
   | 'duckduckgo'
@@ -241,6 +243,11 @@ const menuItems = [
     key: 'svgrepo' as TabKey,
     name: 'SVGRepo 50万+开源矢量',
     component: markRaw(SvgRepoView),
+  },
+  {
+    key: 'magnific' as TabKey,
+    name: 'Magnific 视频素材',
+    component: markRaw(MagnificView),
   },
 ]
 

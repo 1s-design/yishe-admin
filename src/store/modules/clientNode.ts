@@ -36,6 +36,7 @@ export type ClientPluginKey =
   | "google-icons"
   | "emojipedia"
   | "svgrepo"
+  | "magnific"
   | "image-processing"
   | "video-template"
   | "file-download"
@@ -180,8 +181,15 @@ const mergeServiceRuntime = (
   previous?: Record<string, any> | null,
   incoming?: Record<string, any> | null,
 ) => {
+  if (!previous && !incoming) {
+    return null;
+  }
   const prev = previous && typeof previous === "object" ? previous : {};
   const next = incoming && typeof incoming === "object" ? incoming : {};
+  if (Object.keys(prev).length === 0 && Object.keys(next).length === 0) {
+    return null;
+  }
+
   const prevDetails = prev.details && typeof prev.details === "object" ? prev.details : {};
   const nextDetails = next.details && typeof next.details === "object" ? next.details : {};
   const mergedDetails = {
@@ -199,6 +207,15 @@ const mergeServiceRuntime = (
     workspaceDir: nextDetails.workspaceDir ?? prevDetails.workspaceDir,
     connection: nextDetails.connection ?? prevDetails.connection,
     pageCount: nextDetails.pageCount ?? prevDetails.pageCount,
+    // Photoshop details
+    serviceHealthy: nextDetails.serviceHealthy ?? prevDetails.serviceHealthy,
+    serviceStatus: nextDetails.serviceStatus ?? prevDetails.serviceStatus,
+    photoshopRunning: nextDetails.photoshopRunning ?? prevDetails.photoshopRunning,
+    photoshopReady: nextDetails.photoshopReady ?? prevDetails.photoshopReady,
+    photoshopStatus: nextDetails.photoshopStatus ?? prevDetails.photoshopStatus,
+    queueCount: nextDetails.queueCount ?? prevDetails.queueCount,
+    activeJobsCount: nextDetails.activeJobsCount ?? prevDetails.activeJobsCount,
+    activeJobId: nextDetails.activeJobId ?? prevDetails.activeJobId,
   };
 
   const merged: Record<string, any> = {
@@ -206,6 +223,25 @@ const mergeServiceRuntime = (
     ...next,
     details: mergedDetails,
   };
+
+  const isPhotoshop =
+    mergedDetails.photoshopReady !== undefined ||
+    mergedDetails.photoshopStatus !== undefined ||
+    next.pluginKey === "ps-automation" ||
+    prev.pluginKey === "ps-automation";
+
+  if (isPhotoshop && mergedDetails.photoshopReady === true) {
+    if (merged.available === undefined || merged.available === false) {
+      merged.available = true;
+    }
+    if (
+      !mergedDetails.photoshopStatus ||
+      mergedDetails.photoshopStatus === "stopped" ||
+      mergedDetails.photoshopStatus === "starting"
+    ) {
+      mergedDetails.photoshopStatus = "ready";
+    }
+  }
 
   const incomingState = String(next.state || "").trim().toLowerCase();
   const incomingTaskId = String(next.currentTaskId || "").trim();
@@ -261,6 +297,22 @@ const mergeServiceRuntime = (
       merged.state = next.state;
     }
     merged.lastCheckedAt = next.lastCheckedAt;
+  } else if (!Number.isFinite(nextCheckedAt) && Object.keys(next).length > 0) {
+    if (Object.prototype.hasOwnProperty.call(next, "busy")) {
+      merged.busy = next.busy === true;
+    }
+    if (Object.prototype.hasOwnProperty.call(next, "currentTaskId")) {
+      merged.currentTaskId = next.currentTaskId ?? null;
+    }
+    if (next.state !== undefined) {
+      merged.state = next.state;
+    }
+    if (next.available !== undefined) {
+      merged.available = next.available;
+    }
+    if (next.connected !== undefined) {
+      merged.connected = next.connected;
+    }
   }
 
   return merged;
@@ -286,7 +338,10 @@ const mergeServiceMap = (
     const aliases = SERVICE_ALIAS_MAP[key as ClientPluginKey] || [];
     const previousRuntime = prev[key] || aliases.map((alias) => prev[alias]).find(Boolean);
     const incomingRuntime = next[key] || aliases.map((alias) => next[alias]).find(Boolean);
-    merged[key] = mergeServiceRuntime(previousRuntime, incomingRuntime);
+    const runtime = mergeServiceRuntime(previousRuntime, incomingRuntime);
+    if (runtime) {
+      merged[key] = runtime;
+    }
   });
 
   return merged;
@@ -377,7 +432,11 @@ export const getClientServiceRuntime = (
   if (pluginKey === "emojipedia") {
     return services["emojipedia"] || null;
   }
+  if (pluginKey === "magnific") {
+    return services["magnific"] || null;
+  }
   const directServiceKeys: string[] = [
+    "internet-archive",
     "hackernews",
     "arxiv",
     "github",
@@ -490,6 +549,7 @@ export const useClientNodeStore = defineStore("client-node", () => {
       "video-template": "offline",
       "file-download": "offline",
       "media-collect": "offline",
+      "internet-archive": "offline",
       "openclipart": "offline",
       "undraw": "offline",
       "iconify": "offline",
@@ -503,6 +563,7 @@ export const useClientNodeStore = defineStore("client-node", () => {
       "stocksnap": "offline",
       "openverse": "offline",
       "kaboompics": "offline",
+      "magnific": "offline",
       "hackernews": "offline",
       "arxiv": "offline",
       "github": "offline",
@@ -572,6 +633,7 @@ export const useClientNodeStore = defineStore("client-node", () => {
         "video-template",
         "file-download",
         "media-collect",
+        "internet-archive",
         "openclipart",
         "undraw",
         "iconify",
@@ -679,8 +741,20 @@ export const useClientNodeStore = defineStore("client-node", () => {
 
     replaceClient(
       event.clientId,
-      (previous) =>
-        ({
+      (previous) => {
+        const nextServices = { ...(previous?.clientInfo?.services || {}) };
+        const mergedRuntime = mergeServiceRuntime(
+          getClientServiceRuntime(previous, pluginKey),
+          event.runtime ? { lastCheckedAt: event.reportedAt, ...event.runtime } : {},
+        );
+        if (mergedRuntime) {
+          nextServices[pluginKey] = mergedRuntime;
+          const aliases = SERVICE_ALIAS_MAP[pluginKey] || [];
+          aliases.forEach((alias) => {
+            delete nextServices[alias];
+          });
+        }
+        return {
           ...(previous || {
             id: event.clientId,
             namespace: "/ws",
@@ -696,15 +770,10 @@ export const useClientNodeStore = defineStore("client-node", () => {
           nodeStatus: "online",
           clientInfo: {
             ...(previous?.clientInfo || {}),
-            services: {
-              ...(previous?.clientInfo?.services || {}),
-              [pluginKey]: mergeServiceRuntime(
-                getClientServiceRuntime(previous, pluginKey),
-                event.runtime || {},
-              ),
-            },
+            services: nextServices,
           },
-        }) as WebsocketConnectionVO,
+        } as WebsocketConnectionVO;
+      },
     );
   };
 
