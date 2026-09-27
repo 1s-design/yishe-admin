@@ -274,29 +274,41 @@ async function saveRow(row: FeatureSettingFormItem) {
 
     // 只更新当前行涉及的 spec，不影响其他 spec
     const specCode = String(row.specCode || "").trim();
+    // 换 key 时必须清掉旧的 model 覆盖，否则会残留上一个 key 的模型名
+    // （model 为空表示回落到 key.model）
+    const upsertBinding = (
+      scope: Record<string, { keyId: number; specCode: string; model?: string; params?: Record<string, any> }>,
+      key: string,
+    ) => {
+      const prev = scope[key];
+      const keyChanged = !prev || prev.keyId !== row.keyId;
+      if (row.keyId) {
+        scope[key] = {
+          ...prev,
+          keyId: row.keyId,
+          specCode,
+          model: keyChanged ? "" : prev?.model,
+        };
+      } else {
+        delete scope[key];
+      }
+    };
+
     if (row.code.includes("__") && specCode) {
       // 多 Provider 展开行：写入 featureBindings[baseCode][specCode]
       const baseCode = row.code.split("__")[0];
       if (!featureBindings[baseCode]) featureBindings[baseCode] = {};
-      if (row.keyId) {
-        featureBindings[baseCode][specCode] = { ...featureBindings[baseCode][specCode], keyId: row.keyId, specCode };
-      } else {
-        delete featureBindings[baseCode][specCode];
-        if (Object.keys(featureBindings[baseCode]).length === 0) {
-          delete featureBindings[baseCode];
-        }
+      upsertBinding(featureBindings[baseCode], specCode);
+      if (Object.keys(featureBindings[baseCode]).length === 0) {
+        delete featureBindings[baseCode];
       }
     } else {
       // 单 Provider 行：写入/删除对应的 spec
       const defaultSpec = getDefaultAiProviderSpecForFeature(row.code);
       if (!featureBindings[row.code]) featureBindings[row.code] = {};
-      if (row.keyId) {
-        featureBindings[row.code][defaultSpec] = { ...featureBindings[row.code][defaultSpec], keyId: row.keyId, specCode: defaultSpec };
-      } else {
-        delete featureBindings[row.code][defaultSpec];
-        if (Object.keys(featureBindings[row.code]).length === 0) {
-          delete featureBindings[row.code];
-        }
+      upsertBinding(featureBindings[row.code], defaultSpec);
+      if (Object.keys(featureBindings[row.code]).length === 0) {
+        delete featureBindings[row.code];
       }
     }
 

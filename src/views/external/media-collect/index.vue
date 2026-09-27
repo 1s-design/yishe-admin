@@ -160,6 +160,22 @@
                             </el-select>
                           </div>
                         </template>
+                        <!-- Midjourney 专用参数：图片 / 视频 -->
+                        <template v-else-if="activeKey === 'midjourney'">
+                          <div class="collect-search__field">
+                            <span class="collect-search__label">类型</span>
+                            <el-select
+                              v-model="sourceStates.midjourney.feed"
+                              size="small"
+                              style="width: 120px"
+                              aria-label="数据类型"
+                              @change="handleMidjourneyFeedChange"
+                            >
+                              <el-option value="top" label="热门图片" />
+                              <el-option value="video_top" label="热门视频" />
+                            </el-select>
+                          </div>
+                        </template>
                         <div class="collect-search__field">
                           <span class="collect-search__label">每页数量</span>
                           <el-select
@@ -181,7 +197,7 @@
                       <el-input
                         v-model="currentSearchKeyword"
                         clearable
-                        :placeholder="`输入关键词搜索 ${activeProvider?.name || '媒体资源'}（如 cat, landscape, architecture）`"
+                        :placeholder="activeKey === 'midjourney' ? '输入提示词或作者过滤（留空直接浏览热门精选）' : `输入关键词搜索 ${activeProvider?.name || '媒体资源'}（如 cat, landscape, architecture）`"
                         @keyup.enter="handleSearch"
                       />
                       <el-button
@@ -303,12 +319,21 @@
                             >
                               复制链接
                             </el-button>
+                            <el-button
+                              v-if="item.source === 'midjourney'"
+                              size="small"
+                              type="info"
+                              plain
+                              @click.stop="copyLink(item.description || item.title || '')"
+                            >
+                              复制Prompt
+                            </el-button>
                           </div>
                         </div>
                       </div>
 
-                      <!-- Openverse / Nappy: 简单分页（不依赖总数） -->
-                      <div v-if="activeKey === 'openverse' || activeKey === 'nappy'" class="collect-pagination collect-pagination--simple">
+                      <!-- Openverse / Nappy / Midjourney: 简单分页（不依赖总数） -->
+                      <div v-if="activeKey === 'openverse' || activeKey === 'nappy' || activeKey === 'midjourney'" class="collect-pagination collect-pagination--simple">
                         <el-button
                           :disabled="currentPage <= 1"
                           @click="handlePageChange(currentPage - 1)"
@@ -418,8 +443,14 @@
           <span v-else class="preview-audio-error">音频地址无效</span>
         </div>
         <el-empty v-else description="无法预览此资源" />
+
+        <div v-if="previewItem?.description" class="preview-prompt-wrap" style="margin-top: 14px; text-align: left; padding: 10px 14px; background: rgba(0,0,0,0.04); border-radius: 8px;">
+          <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px; color: var(--el-text-color-primary);">Prompt 提示词：</div>
+          <div style="font-size: 13px; color: var(--el-text-color-regular); line-height: 1.5; word-break: break-word;">{{ previewItem.description }}</div>
+        </div>
       </div>
       <template #footer>
+        <el-button v-if="previewItem?.description" @click="copyLink(previewItem.description)">复制Prompt</el-button>
         <el-button @click="previewDialogVisible = false">关闭</el-button>
         <el-button type="primary" @click="previewItem && toggleSelect(previewItem)">选择并关闭</el-button>
       </template>
@@ -452,6 +483,7 @@ const providers = [
   { key: 'nappy', name: 'Nappy' },
   { key: 'pexels', name: 'Pexels' },
   { key: 'magnific', name: 'Magnific' },
+  { key: 'midjourney', name: 'Midjourney' },
 ]
 const activeKey = ref('wikimedia')
 const activeProvider = computed(() => providers.find((item) => item.key === activeKey.value))
@@ -533,6 +565,17 @@ const sourceStates = reactive({
     searchTotal: 0,
     currentPage: 1,
     pageSize: 20,
+    hasSearched: false,
+    selectedItems: [] as string[],
+  },
+  midjourney: {
+    searchKeyword: '',
+    mediaType: 'image' as 'image' | 'video' | 'audio',
+    feed: 'top' as 'top' | 'video_top',
+    searchResults: [] as MediaAsset[],
+    searchTotal: 0,
+    currentPage: 1,
+    pageSize: 50,
     hasSearched: false,
     selectedItems: [] as string[],
   },
@@ -624,13 +667,20 @@ function handleMagnificResourceTypeChange(val: 'video' | 'photo' | 'vector' | 'i
   sourceStates.magnific.mediaType = val === 'video' ? 'video' : 'image'
 }
 
+/** Midjourney：feed 切换时同步 mediaType 并重新搜索 */
+function handleMidjourneyFeedChange(val: 'top' | 'video_top') {
+  sourceStates.midjourney.mediaType = val === 'video_top' ? 'video' : 'image'
+  handleSearch()
+}
+
 async function doSearch(page = 1) {
   if (!selectedClientId.value) {
     ElMessage.warning('请先选择客户端节点')
     return
   }
   const src = currentSource.value
-  if (!src.searchKeyword.trim()) {
+  const isMidjourney = activeKey.value === 'midjourney'
+  if (!src.searchKeyword.trim() && !isMidjourney) {
     ElMessage.warning('请输入搜索关键词')
     return
   }
@@ -655,6 +705,11 @@ async function doSearch(page = 1) {
               sourceStates.magnific.resourceType === 'icon' ? undefined : sourceStates.magnific.order,
           }
         : {}),
+      ...(isMidjourney
+        ? {
+            feed: sourceStates.midjourney.feed,
+          }
+        : {}),
     })
     src.searchResults = result.items || []
     src.searchTotal = result.total || 0
@@ -663,8 +718,8 @@ async function doSearch(page = 1) {
     if (isMagnific && result.pageSize) {
       src.pageSize = result.pageSize
     }
-    // Openverse / Nappy: 不返回总数，根据返回数量判断是否有下一页
-    if (activeKey.value === 'openverse' || activeKey.value === 'nappy') {
+    // Openverse / Nappy / Midjourney: 不返回总数，根据返回数量判断是否有下一页
+    if (activeKey.value === 'openverse' || activeKey.value === 'nappy' || isMidjourney) {
       hasMore.value = (result.items?.length || 0) >= src.pageSize
     }
   } catch (error: any) {

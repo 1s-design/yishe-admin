@@ -92,6 +92,8 @@ export async function searchMediaCollect(
     iconType?: 'standard' | 'animated' | 'all'
     /** Magnific 排序：relevance / recent */
     order?: 'relevance' | 'recent'
+    /** Midjourney 专用：数据流（top / video_top） */
+    feed?: string
   },
 ): Promise<MediaSearchResult> {
   const data = await sendCommandAndWait(clientId, 'search', params)
