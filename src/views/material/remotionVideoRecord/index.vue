@@ -107,15 +107,27 @@
                   <div class="record-template-cell">
                     <div class="record-template-name">
                       <el-tag
-                        v-if="row.templateName === '自由创作' || row.templateId === 'ai-universal'"
+                        v-if="isFreeCreationRecord(row)"
                         type="warning"
                         size="small"
-                        class="mr-1"
                       >{{ t('remotionVideoRecord.freeCreation') }}</el-tag>
-                      <span v-else class="record-template-main">{{
-                        row.templateName || row.templateId
-                      }}</span>
-                      <span class="record-template-id">{{ row.templateId }}</span>
+                      <template v-else-if="isAutoMatchRecord(row)">
+                        <el-tag
+                          type="primary"
+                          size="small"
+                          class="mr-1"
+                        >{{ t('remotionVideoRecord.autoMatch') }}</el-tag>
+                        <span v-if="row.templateId && row.templateId !== 'auto'" class="record-template-main">{{
+                          row.templateName || row.templateId
+                        }}</span>
+                        <span v-if="row.templateId && row.templateId !== 'auto'" class="record-template-id">{{ row.templateId }}</span>
+                      </template>
+                      <template v-else>
+                        <span class="record-template-main">{{
+                          row.templateName || row.templateId
+                        }}</span>
+                        <span class="record-template-id">{{ row.templateId }}</span>
+                      </template>
                     </div>
                   </div>
                 </template>
@@ -638,10 +650,14 @@
               <span class="detail-info-label">模板</span>
               <span class="detail-info-value">
                 <el-tag
-                  v-if="currentRow.templateName === '自由创作' || currentRow.templateId === 'ai-universal'"
+                  v-if="isFreeCreationRecord(currentRow)"
                   type="warning"
                   size="small"
                 >{{ t('remotionVideoRecord.freeCreation') }}</el-tag>
+                <div v-else-if="isAutoMatchRecord(currentRow)" style="display: inline-flex; align-items: center; gap: 6px;">
+                  <el-tag type="primary" size="small">{{ t('remotionVideoRecord.autoMatch') }}</el-tag>
+                  <span v-if="currentRow.templateId && currentRow.templateId !== 'auto'">{{ currentRow.templateName || currentRow.templateId }} ({{ currentRow.templateId }})</span>
+                </div>
                 <span v-else>{{ currentRow.templateName || currentRow.templateId }}</span>
               </span>
             </div>
@@ -672,33 +688,56 @@
           </div>
         </div>
 
-        <div v-if="currentRow.responseData?.prompt || currentRow.inputProps?.prompt" class="detail-block">
+        <!-- 1. AI 创作提示词 -->
+        <div v-if="resolveRecordPrompt(currentRow)" class="detail-block">
           <div class="detail-block-title">
-            <span>AI 提示词与参数</span>
+            <span>AI 提示词 (Prompt)</span>
+            <div style="display: flex; gap: 8px;">
+              <el-button
+                type="primary"
+                link
+                size="small"
+                @click="copyPromptText(resolveRecordPrompt(currentRow), '提示词已复制到剪贴板')"
+              >
+                复制提示词
+              </el-button>
+              <el-button
+                type="primary"
+                link
+                size="small"
+                @click="recreateFromDetail(currentRow)"
+              >
+                基于此再次创作
+              </el-button>
+            </div>
+          </div>
+          <div class="detail-prompt-box">
+            {{ resolveRecordPrompt(currentRow) }}
+          </div>
+        </div>
+
+        <!-- 2. 原生 JSON 数据 -->
+        <div class="detail-block detail-json-block">
+          <div class="detail-block-title">
+            <span>原生 JSON 数据</span>
             <el-button
               type="primary"
               link
               size="small"
-              @click="recreateFromDetail(currentRow)"
+              @click="copyCurrentDetailJson"
             >
-              基于此提示词再次创作
+              复制当前 JSON
             </el-button>
           </div>
-          <div class="detail-ai-content">
-            <div v-if="currentRow.responseData?.prompt || currentRow.inputProps?.prompt" class="detail-ai-block">
-              <div class="detail-ai-label">Prompt</div>
-              <div class="detail-ai-text">{{ currentRow.responseData?.prompt || currentRow.inputProps?.prompt }}</div>
-            </div>
-            <div v-if="currentRow.responseData?.params || currentRow.inputProps?.params" class="detail-ai-block">
-              <div class="detail-ai-label">Params</div>
-              <pre class="detail-ai-code">{{ formatJson(currentRow.responseData?.params || currentRow.inputProps?.params) }}</pre>
-            </div>
+          <div class="detail-json-tabs">
+            <el-radio-group v-model="detailJsonTab" size="small">
+              <el-radio-button label="responseData">AI 响应 (responseData)</el-radio-button>
+              <el-radio-button v-if="currentRow.inputProps?.videoConfig" label="videoConfig">分镜配置 (videoConfig)</el-radio-button>
+              <el-radio-button label="inputProps">渲染参数 (inputProps)</el-radio-button>
+              <el-radio-button label="record">全部记录 (Record)</el-radio-button>
+            </el-radio-group>
           </div>
-        </div>
-
-        <div class="detail-block">
-          <div class="detail-block-title">完整参数 (JSON)</div>
-          <pre class="detail-json-code">{{ formatJson(currentRow.inputProps) }}</pre>
+          <pre class="detail-json-code">{{ currentDetailJson }}</pre>
         </div>
       </div>
     </div>
@@ -752,13 +791,6 @@
           <span class="ai-brand-title">AI 视频生成</span>
         </div>
 
-        <!-- 创作模式切换 (极简 Segmented / Radio) -->
-        <div class="ai-header-mode">
-          <el-radio-group v-model="aiForm.mode" size="small">
-            <el-radio-button label="ai-free-generate">自由创作生成</el-radio-button>
-            <el-radio-button label="ai-generate">智能匹配模板</el-radio-button>
-          </el-radio-group>
-        </div>
 
         <!-- 顶部操作按钮组 -->
         <div class="ai-header-actions">
@@ -773,9 +805,6 @@
     <div class="ai-studio-workspace">
       <!-- 左侧：核心输入区 -->
       <div class="ai-editor-column">
-        <div class="ai-editor-header-hint">
-          <span>{{ aiForm.mode === 'ai-free-generate' ? '大模型自主规划分镜场景、视觉排版与转场动画' : '根据提示词关键词与图文素材智能匹配预置模板' }}</span>
-        </div>
 
         <div class="ai-editor-box">
           <el-input
@@ -810,6 +839,17 @@
       <div class="ai-sidebar-column">
         <el-scrollbar class="ai-sidebar-scrollbar">
           <div class="sidebar-inner">
+            <!-- 创作模式下拉 -->
+            <div class="sidebar-group-title">创作模式</div>
+            <el-select
+              v-model="aiForm.mode"
+              style="width: 100%; margin-bottom: 16px;"
+              size="default"
+            >
+              <el-option value="ai-free-generate" label="AI 自由创作" />
+              <el-option value="ai-generate" label="智能匹配模板" />
+            </el-select>
+
             <div class="sidebar-group-title">基础规格</div>
 
             <el-form label-position="top" class="ai-minimal-form">
@@ -1030,7 +1070,7 @@
                     <template #content>
                       <div style="max-width: 280px; font-size: 12px; line-height: 1.5;">
                         <div style="font-weight: 600; margin-bottom: 4px;">{{ skill.name }} ({{ skill.code }})</div>
-                        <div style="color: #cbd5e1; margin-bottom: 6px;">{{ skill.description || '无描述' }}</div>
+                        <div style="color: var(--el-text-color-secondary); margin-bottom: 6px;">{{ skill.description || '无描述' }}</div>
                         <div style="white-space: pre-wrap; font-size: 11px; opacity: 0.85;">{{ skill.promptContent }}</div>
                       </div>
                     </template>
@@ -2396,6 +2436,28 @@ function normalizeProgressValue(progress: unknown) {
   return Math.max(0, Math.min(100, Math.round(numericValue)));
 }
 
+function isFreeCreationRecord(row: any) {
+  if (!row) return false;
+  return (
+    row.templateName === "自由创作" ||
+    row.templateId === "ai-universal" ||
+    row.responseData?.action === "ai-free-generate" ||
+    row.responseData?.action === "ai-free" ||
+    row.responseData?.mode === "free"
+  );
+}
+
+function isAutoMatchRecord(row: any) {
+  if (!row) return false;
+  if (isFreeCreationRecord(row)) return false;
+  return (
+    row.templateName === "智能匹配" ||
+    row.templateId === "auto" ||
+    row.responseData?.action === "ai-generate" ||
+    row.responseData?.mode === "template"
+  );
+}
+
 function resolveRecordMachineCode(row: any) {
   return String(
     row?.responseData?.clientRuntime?.machineCode ||
@@ -2482,6 +2544,14 @@ function getProgressDisplayText(row: any) {
 }
 
 function formatJson(value: any) {
+  if (value === null || value === undefined) return "{}";
+  if (typeof value === "string") {
+    try {
+      return JSON.stringify(JSON.parse(value), null, 2);
+    } catch {
+      return value;
+    }
+  }
   try {
     return JSON.stringify(value || {}, null, 2);
   } catch {
@@ -2829,19 +2899,20 @@ function scheduleProcessingPoll() {
 }
 
 function mergeRecordRow(nextRow: any) {
-  if (!nextRow?.id) {
+  const rowData = nextRow?.data || nextRow;
+  if (!rowData?.id) {
     return;
   }
 
-  const targetRow = dataSource.value.find((item) => item.id === nextRow.id);
+  const targetRow = dataSource.value.find((item) => item.id === rowData.id);
   if (targetRow) {
-    Object.assign(targetRow, nextRow);
+    Object.assign(targetRow, rowData);
   }
 
-  if (currentRow.value?.id === nextRow.id) {
+  if (currentRow.value?.id === rowData.id) {
     currentRow.value = {
       ...currentRow.value,
-      ...nextRow,
+      ...rowData,
     };
   }
 }
@@ -3299,10 +3370,70 @@ async function getList() {
   }
 }
 
+const detailJsonTab = ref<string>('responseData');
+
+const currentDetailJson = computed(() => {
+  if (!currentRow.value) return '{}';
+  switch (detailJsonTab.value) {
+    case 'responseData':
+      return formatJson(currentRow.value.responseData || currentRow.value.response_data || {});
+    case 'videoConfig':
+      return formatJson(currentRow.value.inputProps?.videoConfig || currentRow.value.responseData?.videoConfig || {});
+    case 'inputProps':
+      return formatJson(currentRow.value.inputProps || currentRow.value.input_props || {});
+    case 'record':
+      return formatJson(currentRow.value);
+    default:
+      return '{}';
+  }
+});
+
+function copyCurrentDetailJson() {
+  if (!currentDetailJson.value) return;
+  copyPromptText(currentDetailJson.value, 'JSON 数据已复制到剪贴板');
+}
+
 async function openDetail(row: any) {
-  const result: any = await getRemotionVideoRecordDetail(row.id);
-  currentRow.value = result;
+  try {
+    const result: any = await getRemotionVideoRecordDetail(row.id);
+    const data = result?.data || result || row;
+    if (typeof data.inputProps === "string") {
+      try { data.inputProps = JSON.parse(data.inputProps); } catch {}
+    }
+    if (typeof data.responseData === "string") {
+      try { data.responseData = JSON.parse(data.responseData); } catch {}
+    }
+    currentRow.value = data;
+  } catch {
+    currentRow.value = row;
+  }
+  if (currentRow.value?.responseData && Object.keys(currentRow.value.responseData).length > 0) {
+    detailJsonTab.value = 'responseData';
+  } else if (currentRow.value?.inputProps?.videoConfig) {
+    detailJsonTab.value = 'videoConfig';
+  } else {
+    detailJsonTab.value = 'inputProps';
+  }
   detailVisible.value = true;
+}
+
+function resolveRecordPrompt(row: any): string {
+  if (!row) return '';
+  return String(row.responseData?.prompt || row.inputProps?.prompt || row.prompt || '').trim();
+}
+
+function resolveRecordExtracted(row: any): any {
+  if (!row) return null;
+  return row.responseData?.extracted || null;
+}
+
+function copyPromptText(text: string, successMsg = '提示词已复制到剪贴板') {
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => {
+    ElMessage.success(successMsg);
+  }).catch(() => {
+    ElMessage.info('复制失败，请手动选取复制');
+  });
 }
 
 function resolveRecordVideoUrl(row: any): string {
@@ -3864,81 +3995,18 @@ watch(
 }
 
 /* ==========================================================================
-   Remotion Create Dialog Theme Tokens & Styles (Light & Dark Mode)
+   Remotion Create Dialog (project surface tokens + EP defaults)
    ========================================================================== */
-:global(.remotion-create-dialog) {
-  --rc-bg-dialog: var(--el-bg-color-overlay, #ffffff);
-  --rc-bg-card: var(--el-bg-color, #ffffff);
-  --rc-bg-card-subtle: #f8fafc;
-  --rc-bg-card-hover: #f1f5f9;
-  --rc-bg-card-selected: #eff6ff;
-  --rc-border-card: var(--el-border-color-lighter, #e2e8f0);
-  --rc-border-card-hover: var(--el-color-primary-light-5, #93c5fd);
-  --rc-border-card-selected: var(--el-color-primary, #3b82f6);
-  --rc-shadow-card: 0 1px 3px rgba(15, 23, 42, 0.05), 0 1px 2px rgba(15, 23, 42, 0.03);
-  --rc-shadow-card-hover: 0 6px 18px -4px rgba(59, 130, 246, 0.15), 0 2px 6px -2px rgba(15, 23, 42, 0.04);
-  --rc-shadow-card-selected: 0 0 0 1.5px var(--el-color-primary, #3b82f6), 0 6px 20px -2px rgba(59, 130, 246, 0.22);
-  --rc-step-bg: var(--el-fill-color-light, #f1f5f9);
-  --rc-step-border: var(--el-border-color-lighter, #e2e8f0);
-  --rc-step-text: var(--el-text-color-regular, #475569);
-  --rc-step-active-bg: var(--el-color-primary-light-9, #eff6ff);
-  --rc-step-active-border: var(--el-color-primary, #3b82f6);
-  --rc-step-active-text: var(--el-color-primary, #2563eb);
-  --rc-step-done-bg: var(--el-color-success-light-9, #f0fdf4);
-  --rc-step-done-border: var(--el-color-success-light-5, #86efac);
-  --rc-step-done-text: var(--el-color-success, #16a34a);
-  --rc-tag-bg: var(--el-fill-color-light, #f1f5f9);
-  --rc-tag-text: var(--el-text-color-secondary, #64748b);
-  --rc-code-bg: #f8fafc;
-  --rc-code-text: #0f172a;
-  --rc-code-border: var(--el-border-color-lighter, #cbd5e1);
-  --rc-section-bg: #f8fafc;
-  --rc-section-border: var(--el-border-color-lighter, #e2e8f0);
-}
-
-:global(html.dark) :global(.remotion-create-dialog),
-:global(html.dark .remotion-create-dialog) {
-  --rc-bg-dialog: #14161a;
-  --rc-bg-card: #1c1f26;
-  --rc-bg-card-subtle: #16181f;
-  --rc-bg-card-hover: #222733;
-  --rc-bg-card-selected: rgba(59, 130, 246, 0.15);
-  --rc-border-card: rgba(255, 255, 255, 0.09);
-  --rc-border-card-hover: rgba(96, 165, 250, 0.5);
-  --rc-border-card-selected: #3b82f6;
-  --rc-shadow-card: 0 2px 6px rgba(0, 0, 0, 0.35);
-  --rc-shadow-card-hover: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(96, 165, 250, 0.35);
-  --rc-shadow-card-selected: 0 0 0 1.5px #60a5fa, 0 8px 24px rgba(37, 99, 235, 0.35);
-  --rc-step-bg: rgba(255, 255, 255, 0.05);
-  --rc-step-border: rgba(255, 255, 255, 0.1);
-  --rc-step-text: #94a3b8;
-  --rc-step-active-bg: rgba(59, 130, 246, 0.18);
-  --rc-step-active-border: #60a5fa;
-  --rc-step-active-text: #93c5fd;
-  --rc-step-done-bg: rgba(16, 185, 129, 0.15);
-  --rc-step-done-border: rgba(16, 185, 129, 0.4);
-  --rc-step-done-text: #6ee7b7;
-  --rc-tag-bg: rgba(255, 255, 255, 0.06);
-  --rc-tag-text: #94a3b8;
-  --rc-code-bg: #0b0f17;
-  --rc-code-text: #e2e8f0;
-  --rc-code-border: rgba(255, 255, 255, 0.12);
-  --rc-section-bg: rgba(255, 255, 255, 0.03);
-  --rc-section-border: rgba(255, 255, 255, 0.08);
-}
-
-/* 全屏弹窗基础结构 */
 :global(.remotion-create-dialog.el-dialog),
 :deep(.remotion-create-dialog.el-dialog) {
-  background: var(--rc-bg-dialog) !important;
+  background: var(--app-content-surface-color);
 }
 
 :global(.remotion-create-dialog .el-dialog__header),
 :deep(.remotion-create-dialog .el-dialog__header) {
   padding: 16px 24px 14px;
   margin-right: 0;
-  border-bottom: 1px solid var(--rc-section-border);
-  background: var(--rc-bg-dialog);
+  border-bottom: 1px solid var(--app-content-border-color);
 }
 
 :global(.remotion-create-dialog .el-dialog__title),
@@ -3958,7 +4026,7 @@ watch(
   padding: 12px 24px 18px;
   overflow: hidden;
   flex-direction: column;
-  background: var(--rc-bg-dialog);
+  background: var(--app-content-surface-color);
 }
 
 /* 分步向导工具栏 */
@@ -3966,7 +4034,7 @@ watch(
   display: flex;
   padding: 4px 0 12px;
   margin-bottom: 12px;
-  border-bottom: 1px solid var(--rc-section-border);
+  border-bottom: 1px solid var(--app-content-border-color);
   align-items: center;
   justify-content: space-between;
   gap: 16px;
@@ -3981,78 +4049,75 @@ watch(
 }
 
 .remotion-step-item {
-  position: relative;
   display: flex;
-  height: 34px;
-  min-width: 120px;
-  padding: 0 14px 0 10px;
+  height: 32px;
+  min-width: 110px;
+  padding: 0 12px 0 8px;
   cursor: pointer;
-  background: var(--rc-step-bg);
-  border: 1px solid var(--rc-step-border);
-  border-radius: 999px;
+  background: var(--app-content-surface-muted-color);
+  border: 1px solid var(--app-content-border-color);
+  border-radius: 6px;
   flex-direction: row;
   align-items: center;
   gap: 8px;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s;
   user-select: none;
 }
 
 .remotion-step-item:hover {
-  border-color: var(--rc-border-card-hover);
-  background: var(--rc-bg-card-hover);
+  border-color: var(--el-border-color);
 }
 
 .remotion-step-icon {
   display: flex;
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   font-size: 11px;
-  font-weight: 700;
-  color: var(--rc-step-text);
-  background: rgba(125, 125, 125, 0.15);
+  font-weight: 600;
+  color: var(--el-text-color-regular);
+  background: var(--app-content-surface-color);
+  border: 1px solid var(--app-content-border-color);
   border-radius: 50%;
-  transition: all 0.2s;
   align-items: center;
   justify-content: center;
 }
 
 .remotion-step-label {
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 500;
-  color: var(--rc-step-text);
+  color: var(--el-text-color-regular);
   white-space: nowrap;
-  transition: color 0.2s;
 }
 
 .remotion-step-active {
-  background: var(--rc-step-active-bg);
-  border-color: var(--rc-step-active-border);
-  box-shadow: 0 0 0 1px var(--rc-step-active-border);
+  background: color-mix(in srgb, var(--el-color-primary) 10%, transparent);
+  border-color: var(--el-color-primary);
 }
 
 .remotion-step-active .remotion-step-icon {
-  color: #fff;
-  background: var(--el-color-primary, #3b82f6);
+  color: var(--el-color-white);
+  background: var(--el-color-primary);
+  border-color: var(--el-color-primary);
 }
 
 .remotion-step-active .remotion-step-label {
   font-weight: 600;
-  color: var(--rc-step-active-text);
+  color: var(--el-color-primary);
 }
 
 .remotion-step-done {
-  background: var(--rc-step-done-bg);
-  border-color: var(--rc-step-done-border);
+  background: color-mix(in srgb, var(--el-color-success) 12%, transparent);
+  border-color: var(--el-color-success);
 }
 
 .remotion-step-done .remotion-step-icon {
-  color: #fff;
-  background: var(--el-color-success, #16a34a);
+  color: var(--el-color-white);
+  background: var(--el-color-success);
+  border-color: var(--el-color-success);
 }
 
 .remotion-step-done .remotion-step-label {
-  font-weight: 500;
-  color: var(--rc-step-done-text);
+  color: var(--el-color-success);
 }
 
 .remotion-dialog-actions {
@@ -4065,8 +4130,6 @@ watch(
 
 .remotion-dialog-actions .el-button {
   min-width: 82px;
-  border-radius: 6px;
-  font-weight: 500;
 }
 
 .remotion-step-content {
@@ -4092,7 +4155,7 @@ watch(
   display: flex;
   padding: 0 0 12px;
   margin-bottom: 12px;
-  border-bottom: 1px solid var(--rc-section-border);
+  border-bottom: 1px solid var(--app-content-border-color);
   flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
@@ -4130,24 +4193,21 @@ watch(
 
 .template-filter-reset {
   flex: 0 0 auto;
-  height: 32px;
-  padding: 0 12px;
-  border-radius: 6px;
 }
 
 .template-filter-summary {
   display: inline-flex;
   font-size: 12px;
   line-height: 1;
-  color: var(--rc-tag-text);
+  color: var(--el-text-color-secondary);
   white-space: nowrap;
   flex: 0 0 auto;
   align-items: center;
   gap: 10px;
   padding: 6px 12px;
-  background: var(--rc-step-bg);
-  border: 1px solid var(--rc-section-border);
-  border-radius: 6px;
+  background: var(--app-content-surface-muted-color);
+  border: 1px solid var(--app-content-border-color);
+  border-radius: 4px;
 }
 
 /* 模板分类列表（单滚动容器，彻底杜绝多层滚动条） */
@@ -4171,7 +4231,7 @@ watch(
   display: flex;
   padding-bottom: 8px;
   margin-bottom: 12px;
-  border-bottom: 1px solid var(--rc-section-border);
+  border-bottom: 1px solid var(--app-content-border-color);
   align-items: center;
   gap: 10px;
 }
@@ -4180,26 +4240,14 @@ watch(
   font-size: 14px;
   font-weight: 600;
   color: var(--el-text-color-primary);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.template-category-name::before {
-  content: "";
-  display: inline-block;
-  width: 3px;
-  height: 14px;
-  background: var(--el-color-primary, #3b82f6);
-  border-radius: 2px;
 }
 
 .template-category-count {
-  font-size: 11.5px;
+  font-size: 12px;
   padding: 2px 8px;
-  border-radius: 10px;
-  background: var(--rc-tag-bg);
-  color: var(--rc-tag-text);
+  border-radius: 4px;
+  background: var(--app-content-surface-muted-color);
+  color: var(--el-text-color-secondary);
 }
 
 .template-grid-empty {
@@ -4208,9 +4256,8 @@ watch(
   align-items: center;
   justify-content: center;
   min-height: 260px;
-  border: 1px dashed var(--rc-border-card);
-  border-radius: 8px;
-  background: var(--rc-bg-card-subtle);
+  border: 1px dashed var(--app-content-border-color);
+  border-radius: 4px;
 }
 
 /* 模板卡片网格 */
@@ -4228,27 +4275,22 @@ watch(
   display: flex;
   padding: 14px;
   cursor: pointer;
-  background: var(--rc-bg-card);
-  border: 1px solid var(--rc-border-card);
-  border-radius: 10px;
-  box-shadow: var(--rc-shadow-card);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  background: var(--app-content-surface-color);
+  border: 1px solid var(--app-content-border-color);
+  border-radius: 6px;
+  transition: all 0.2s;
   flex-direction: column;
   gap: 8px;
   overflow: hidden;
 }
 
 .template-card:hover {
-  background: var(--rc-bg-card-hover);
-  border-color: var(--rc-border-card-hover);
-  box-shadow: var(--rc-shadow-card-hover);
-  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--el-color-primary) 40%, transparent);
 }
 
 .template-card-selected {
-  background: var(--rc-bg-card-selected);
-  border-color: var(--rc-border-card-selected);
-  box-shadow: var(--rc-shadow-card-selected);
+  background: color-mix(in srgb, var(--el-color-primary) 10%, transparent);
+  border-color: var(--el-color-primary);
 }
 
 .template-card-header-row {
@@ -4262,9 +4304,8 @@ watch(
   font-size: 11px;
   padding: 2px 7px;
   border-radius: 4px;
-  background: var(--rc-tag-bg);
-  color: var(--rc-tag-text);
-  font-weight: 500;
+  background: var(--app-content-surface-muted-color);
+  color: var(--el-text-color-secondary);
 }
 
 .template-card-selected-badge {
@@ -4273,16 +4314,15 @@ watch(
   justify-content: center;
   width: 18px;
   height: 18px;
-  background: var(--el-color-primary, #3b82f6);
-  color: #ffffff;
+  background: var(--el-color-primary);
+  color: var(--el-color-white);
   border-radius: 50%;
   font-size: 11px;
-  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.4);
 }
 
 .template-card-name {
   overflow: hidden;
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 600;
   line-height: 1.4;
   color: var(--el-text-color-primary);
@@ -4305,11 +4345,11 @@ watch(
   display: flex;
   margin-top: auto;
   padding-top: 6px;
-  border-top: 1px solid var(--rc-section-border);
+  border-top: 1px solid var(--app-content-border-color);
   overflow: hidden;
   font-size: 11px;
   line-height: 1.2;
-  color: var(--rc-tag-text);
+  color: var(--el-text-color-secondary);
   white-space: nowrap;
   align-items: center;
   gap: 6px;
@@ -4318,8 +4358,7 @@ watch(
 .meta-dot {
   width: 3px;
   height: 3px;
-  background: var(--rc-tag-text);
-  opacity: 0.5;
+  background: var(--el-border-color);
   border-radius: 50%;
   flex: 0 0 auto;
 }
@@ -4339,9 +4378,9 @@ watch(
   align-items: center;
   justify-content: space-between;
   padding: 10px 16px;
-  background: var(--rc-bg-card);
-  border: 1px solid var(--rc-border-card);
-  border-radius: 8px;
+  background: var(--app-content-surface-muted-color);
+  border: 1px solid var(--app-content-border-color);
+  border-radius: 4px;
 }
 
 .params-header-info {
@@ -4352,7 +4391,7 @@ watch(
 }
 
 .params-template-name {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--el-text-color-primary);
 }
@@ -4363,14 +4402,14 @@ watch(
 
 .params-template-id {
   font-size: 12px;
-  color: var(--rc-tag-text);
+  color: var(--el-text-color-secondary);
   font-family: Consolas, Monaco, monospace;
 }
 
 .params-editor-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(360px, 0.9fr);
-  gap: 14px;
+  gap: 12px;
   flex: 1;
   min-height: 0;
   box-sizing: border-box;
@@ -4380,10 +4419,9 @@ watch(
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: var(--rc-bg-card);
-  border: 1px solid var(--rc-border-card);
-  border-radius: 10px;
-  box-shadow: var(--rc-shadow-card);
+  background: var(--app-content-surface-color);
+  border: 1px solid var(--app-content-border-color);
+  border-radius: 4px;
   overflow: hidden;
 }
 
@@ -4391,9 +4429,9 @@ watch(
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
-  background: var(--rc-bg-card-subtle);
-  border-bottom: 1px solid var(--rc-section-border);
+  padding: 10px 16px;
+  background: var(--app-content-surface-muted-color);
+  border-bottom: 1px solid var(--app-content-border-color);
   flex: 0 0 auto;
 }
 
@@ -4404,14 +4442,14 @@ watch(
 }
 
 .params-card-title {
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--el-text-color-primary);
 }
 
 .params-card-subtitle {
-  font-size: 11.5px;
-  color: var(--rc-tag-text);
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 
 .params-form {
@@ -4435,7 +4473,7 @@ watch(
 
 .param-help-icon {
   font-size: 13px;
-  color: var(--rc-tag-text);
+  color: var(--el-text-color-secondary);
   cursor: pointer;
   margin-left: 4px;
   vertical-align: -1px;
@@ -4451,12 +4489,11 @@ watch(
   gap: 6px;
   margin-top: 6px;
   padding: 6px 10px;
-  font-size: 11.5px;
+  font-size: 12px;
   line-height: 1.4;
-  color: var(--rc-tag-text);
-  background: var(--rc-bg-card-subtle);
-  border: 1px solid var(--rc-section-border);
-  border-radius: 6px;
+  color: var(--el-text-color-secondary);
+  background: var(--app-content-surface-muted-color);
+  border-radius: 4px;
 }
 
 .param-tip-icon {
@@ -4485,30 +4522,24 @@ watch(
 .json-editor :deep(.el-textarea__inner) {
   height: 100% !important;
   font-family: "JetBrains Mono", "Fira Code", Menlo, Monaco, Consolas, "Courier New", monospace !important;
-  font-size: 12.5px !important;
-  line-height: 1.65 !important;
+  font-size: 12px !important;
+  line-height: 1.6 !important;
   tab-size: 2 !important;
-  background: var(--rc-code-bg) !important;
-  color: var(--rc-code-text) !important;
-  border: 1px solid var(--rc-code-border) !important;
-  border-radius: 8px !important;
+  background: var(--app-content-surface-muted-color) !important;
+  color: var(--el-text-color-primary) !important;
+  border-color: var(--app-content-border-color) !important;
+  border-radius: 4px !important;
   padding: 12px !important;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05) !important;
-}
-
-.json-editor :deep(.el-textarea__inner:focus) {
-  border-color: var(--el-color-primary) !important;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
 }
 
 .json-hint {
   font-size: 12px;
   font-weight: 400;
-  color: var(--rc-tag-text);
+  color: var(--el-text-color-secondary);
 }
 
 .json-hint--error {
-  color: var(--el-color-danger, #ef4444) !important;
+  color: var(--el-color-danger) !important;
   font-weight: 500;
 }
 
@@ -4525,10 +4556,9 @@ watch(
 
 .confirm-section {
   padding: 16px 20px;
-  background: var(--rc-bg-card);
-  border: 1px solid var(--rc-border-card);
-  border-radius: 10px;
-  box-shadow: var(--rc-shadow-card);
+  background: var(--app-content-surface-color);
+  border: 1px solid var(--app-content-border-color);
+  border-radius: 4px;
 }
 
 .confirm-title {
@@ -4540,13 +4570,13 @@ watch(
   font-size: 14px;
   font-weight: 600;
   color: var(--el-text-color-primary);
-  border-bottom: 1px solid var(--rc-section-border);
+  border-bottom: 1px solid var(--app-content-border-color);
 }
 
 .confirm-title-indicator {
   width: 3px;
   height: 14px;
-  background: var(--el-color-primary, #3b82f6);
+  background: var(--el-color-primary);
   border-radius: 2px;
 }
 
@@ -4561,18 +4591,17 @@ watch(
   flex-direction: column;
   gap: 4px;
   padding: 10px 14px;
-  background: var(--rc-bg-card-subtle);
-  border: 1px solid var(--rc-section-border);
-  border-radius: 8px;
+  background: var(--app-content-surface-muted-color);
+  border-radius: 4px;
 }
 
 .confirm-label {
-  font-size: 11.5px;
-  color: var(--rc-tag-text);
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 
 .confirm-value {
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--el-text-color-primary);
 }
@@ -4580,8 +4609,8 @@ watch(
 .confirm-params {
   max-height: 220px;
   overflow-y: auto;
-  border-radius: 8px;
-  border: 1px solid var(--rc-code-border);
+  border-radius: 4px;
+  border: 1px solid var(--app-content-border-color);
 }
 
 .confirm-params pre {
@@ -4592,8 +4621,8 @@ watch(
   line-height: 1.6;
   word-break: break-word;
   white-space: pre-wrap;
-  background: var(--rc-code-bg);
-  color: var(--rc-code-text);
+  background: var(--app-content-surface-muted-color);
+  color: var(--el-text-color-primary);
 }
 
 .confirm-form {
@@ -4622,7 +4651,7 @@ watch(
 
 .detail-layout {
   display: grid;
-  grid-template-columns: 1fr 360px;
+  grid-template-columns: 55% 1fr;
   height: calc(100vh - 56px);
   min-height: 0;
   overflow: hidden;
@@ -4740,21 +4769,43 @@ watch(
   white-space: pre-wrap;
 }
 
+.detail-json-block {
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-json-tabs {
+  margin-bottom: 10px;
+}
+
 .detail-json-code {
-  padding: 8px 10px;
+  padding: 12px 14px;
   margin: 0;
   background: var(--el-fill-color-light);
-  border-radius: 4px;
-  font-family: Consolas, Monaco, monospace;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   font-size: 12px;
-  line-height: 1.5;
+  line-height: 1.55;
   color: var(--el-text-color-primary);
-  max-height: 300px;
+  max-height: 480px;
   overflow: auto;
-  word-break: break-word;
+  word-break: break-all;
   white-space: pre-wrap;
 }
 
+.detail-prompt-box {
+  padding: 10px 12px;
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color-lighter);
+  border-left: 3px solid var(--el-color-primary);
+  border-radius: 4px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--el-text-color-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 .cell-video-player {
   width: 100%;
   height: 100%;
@@ -4767,7 +4818,7 @@ watch(
   position: relative;
   display: inline-flex;
   overflow: hidden;
-  background: rgb(15 23 42 / 4%);
+  background: var(--app-content-surface-muted-color);
   border-radius: 6px;
   align-items: center;
   justify-content: center;
@@ -4862,10 +4913,6 @@ watch(
   letter-spacing: -0.2px;
 }
 
-.ai-header-mode {
-  display: flex;
-  align-items: center;
-}
 
 .ai-header-actions {
   display: flex;
@@ -4914,10 +4961,7 @@ watch(
 }
 
 .ai-editor-header-hint {
-  font-size: 13px;
-  color: var(--el-text-color-secondary);
-  margin-bottom: 12px;
-  user-select: none;
+  display: none;
 }
 
 .ai-editor-box {
@@ -4950,7 +4994,7 @@ watch(
 
 .ai-minimal-textarea :deep(.el-textarea__inner:focus) {
   border-color: var(--el-color-primary);
-  box-shadow: 0 0 0 1px var(--el-color-primary-light-5);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--el-color-primary) 30%, transparent);
 }
 
 .ai-editor-statusbar {
@@ -5315,13 +5359,13 @@ watch(
 }
 
 .skill-chip-card:hover {
-  border-color: var(--el-color-primary-light-5);
+  border-color: color-mix(in srgb, var(--el-color-primary) 40%, transparent);
   background: var(--el-fill-color);
   transform: translateY(-1px);
 }
 
 .skill-chip-card.active {
-  background: rgba(var(--el-color-primary-rgb, 64, 158, 255), 0.08);
+  background: color-mix(in srgb, var(--el-color-primary) 10%, transparent);
   border-color: var(--el-color-primary);
   box-shadow: 0 0 0 1px var(--el-color-primary);
 }
@@ -5359,8 +5403,8 @@ watch(
   line-height: 1.4;
   padding: 0 4px;
   border-radius: 4px;
-  background: var(--el-color-info-light-8);
-  color: var(--el-color-info);
+  background: var(--el-fill-color);
+  color: var(--el-text-color-secondary);
   font-weight: 500;
   flex-shrink: 0;
 }
@@ -5434,8 +5478,8 @@ watch(
 }
 
 .skill-manage-card:hover {
-  border-color: var(--el-color-primary-light-5);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  border-color: color-mix(in srgb, var(--el-color-primary) 40%, transparent);
+  box-shadow: var(--el-box-shadow-light);
 }
 
 .skill-manage-card.disabled {
@@ -5527,8 +5571,8 @@ watch(
 }
 
 .import-tips-banner {
-  background: rgba(var(--el-color-primary-rgb, 64, 158, 255), 0.08);
-  border: 1px solid var(--el-color-primary-light-7);
+  background: color-mix(in srgb, var(--el-color-primary) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--el-color-primary) 24%, transparent);
   border-radius: 6px;
   padding: 10px 14px;
   font-size: 12px;
@@ -5538,7 +5582,7 @@ watch(
 }
 
 .import-tips-banner code {
-  background: rgba(var(--el-color-primary-rgb, 64, 158, 255), 0.15);
+  background: color-mix(in srgb, var(--el-color-primary) 15%, transparent);
   color: var(--el-color-primary);
   padding: 1px 4px;
   border-radius: 3px;
@@ -5575,14 +5619,9 @@ watch(
   flex-wrap: wrap;
   margin-top: 8px;
   padding: 6px 10px;
-  background: var(--el-fill-color-lighter, #f8fafc);
+  background: var(--app-content-surface-muted-color);
   border-radius: 6px;
-  border: 1px solid var(--el-border-color-lighter, #e2e8f0);
-}
-
-:global(html.dark) .selected-skills-tags-wrap {
-  background: #181818;
-  border-color: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--app-content-border-color);
 }
 
 .selected-skill-pill {
@@ -5707,7 +5746,7 @@ html.dark .skill-multi-select-dropdown {
       background-color: rgba(255, 255, 255, 0.06);
     }
     &.is-selected {
-      color: var(--el-color-primary-light-3, var(--el-color-primary));
+      color: color-mix(in srgb, var(--el-color-primary) 70%, white);
     }
   }
 
@@ -5716,7 +5755,7 @@ html.dark .skill-multi-select-dropdown {
   }
 
   .skill-dropdown-code {
-    color: var(--el-color-primary-light-3, var(--el-color-primary));
+    color: color-mix(in srgb, var(--el-color-primary) 70%, white);
     background: color-mix(in srgb, var(--el-color-primary) 18%, transparent);
     border-color: color-mix(in srgb, var(--el-color-primary) 38%, transparent);
   }
@@ -5839,7 +5878,7 @@ html.dark .aspect-ratio-select-dropdown {
       background-color: rgba(255, 255, 255, 0.06);
     }
     &.is-selected {
-      color: var(--el-color-primary-light-3, var(--el-color-primary));
+      color: color-mix(in srgb, var(--el-color-primary) 70%, white);
     }
   }
 
@@ -5848,7 +5887,7 @@ html.dark .aspect-ratio-select-dropdown {
   }
 
   .aspect-ratio-badge {
-    color: var(--el-color-primary-light-3, var(--el-color-primary));
+    color: color-mix(in srgb, var(--el-color-primary) 70%, white);
     background: color-mix(in srgb, var(--el-color-primary) 18%, transparent);
     border-color: color-mix(in srgb, var(--el-color-primary) 38%, transparent);
   }
@@ -5917,7 +5956,7 @@ html.dark .duration-select-dropdown {
       background-color: rgba(255, 255, 255, 0.06);
     }
     &.is-selected {
-      color: var(--el-color-primary-light-3, var(--el-color-primary));
+      color: color-mix(in srgb, var(--el-color-primary) 70%, white);
     }
   }
 

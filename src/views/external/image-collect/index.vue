@@ -1,10 +1,10 @@
 <template>
-  <div class="data-collect-page">
+  <div class="image-collect-page">
     <!-- 主体左右分栏 -->
-    <div class="data-collect-layout">
+    <div class="image-collect-layout">
       <!-- 左侧极简菜单栏 -->
       <aside class="collect-menu">
-        <div class="menu-header">数据采集</div>
+        <div class="menu-header">图片采集</div>
         <nav class="menu-list">
           <div
             v-for="item in menuItems"
@@ -50,7 +50,6 @@ import OpenMojiView from '../openmoji/index.vue'
 import GoogleIconsView from '../googleicons/index.vue'
 import EmojipediaView from '../emojipedia/index.vue'
 import SvgRepoView from '../svgrepo/index.vue'
-import MagnificView from '../magnific/index.vue'
 import BaiduView from '../baidu/index.vue'
 import BingView from '../bing/index.vue'
 import DuckDuckGoView from '../duckduckgo/index.vue'
@@ -63,7 +62,7 @@ import GoogleImagesView from '../googleimages/index.vue'
 import YandexView from '../yandex/index.vue'
 
 defineOptions({
-  name: 'ExternalDataCollect',
+  name: 'ExternalImageCollect',
 })
 
 const route = useRoute()
@@ -89,7 +88,6 @@ type TabKey =
   | 'googleicons'
   | 'emojipedia'
   | 'svgrepo'
-  | 'magnific'
   | 'baidu'
   | 'bing'
   | 'duckduckgo'
@@ -244,11 +242,6 @@ const menuItems = [
     name: 'SVGRepo 50万+开源矢量',
     component: markRaw(SvgRepoView),
   },
-  {
-    key: 'magnific' as TabKey,
-    name: 'Magnific 视频素材',
-    component: markRaw(MagnificView),
-  },
 ]
 
 const activeComponent = computed(() => {
@@ -259,7 +252,7 @@ const activeComponent = computed(() => {
 // 根据当前 tab 获取对应的菜单名称
 const getTabName = (key: TabKey): string => {
   const item = menuItems.find((m) => m.key === key)
-  return item ? item.name : '数据采集'
+  return item ? item.name : '图片采集'
 }
 
 // 更新 TagsView 的 Tab 标题（使用 nextTick 确保 visitedViews 已添加）
@@ -298,12 +291,12 @@ watch(
 </script>
 
 <style scoped>
-.data-collect-page {
+.image-collect-page {
   width: 100%;
   height: 100%;
 }
 
-.data-collect-layout {
+.image-collect-layout {
   display: flex;
   gap: 12px;
   height: calc(100vh - var(--top-tool-height) - var(--tags-view-height));

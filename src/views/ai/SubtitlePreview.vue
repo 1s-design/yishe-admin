@@ -11,8 +11,8 @@
       </div>
 
       <!-- 播放控制 -->
-      <div v-if="row?.resultUrl" class="sp-player">
-        <audio ref="audioRef" :src="row.resultUrl" preload="auto" @loadedmetadata="onLoadedMetadata"
+      <div v-if="row?.resultUrl || row?.url" class="sp-player">
+        <audio ref="audioRef" :src="row.resultUrl || row.url" preload="auto" @loadedmetadata="onLoadedMetadata"
           @timeupdate="onTimeUpdate" @ended="onEnded" @play="onPlay" @pause="onPause" />
         <button class="sp-play-btn" @click="isPlaying ? pause() : play()">
           <el-icon><VideoPause v-if="isPlaying" /><VideoPlay v-else /></el-icon>

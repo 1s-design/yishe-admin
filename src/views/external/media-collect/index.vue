@@ -113,6 +113,53 @@
                             </el-select>
                           </div>
                         </template>
+                        <!-- Magnific 专用参数：视频 / 图片 / 矢量 / 图标 -->
+                        <template v-else-if="activeKey === 'magnific'">
+                          <div class="collect-search__field">
+                            <span class="collect-search__label">类型</span>
+                            <el-select
+                              v-model="sourceStates.magnific.resourceType"
+                              size="small"
+                              style="width: 110px"
+                              aria-label="资源类型"
+                              @change="handleMagnificResourceTypeChange"
+                            >
+                              <el-option value="video" label="视频" />
+                              <el-option value="photo" label="图片" />
+                              <el-option value="vector" label="矢量" />
+                              <el-option value="icon" label="图标" />
+                            </el-select>
+                          </div>
+                          <div
+                            v-if="sourceStates.magnific.resourceType === 'icon'"
+                            class="collect-search__field"
+                          >
+                            <span class="collect-search__label">图标类型</span>
+                            <el-select
+                              v-model="sourceStates.magnific.iconType"
+                              size="small"
+                              style="width: 110px"
+                            >
+                              <el-option value="standard" label="静态" />
+                              <el-option value="animated" label="动图" />
+                              <el-option value="all" label="全部" />
+                            </el-select>
+                          </div>
+                          <div
+                            v-if="sourceStates.magnific.resourceType !== 'icon'"
+                            class="collect-search__field"
+                          >
+                            <span class="collect-search__label">排序</span>
+                            <el-select
+                              v-model="sourceStates.magnific.order"
+                              size="small"
+                              style="width: 100px"
+                            >
+                              <el-option value="relevance" label="相关度" />
+                              <el-option value="recent" label="最新" />
+                            </el-select>
+                          </div>
+                        </template>
                         <div class="collect-search__field">
                           <span class="collect-search__label">每页数量</span>
                           <el-select
@@ -404,6 +451,7 @@ const providers = [
   { key: 'openverse', name: 'Openverse' },
   { key: 'nappy', name: 'Nappy' },
   { key: 'pexels', name: 'Pexels' },
+  { key: 'magnific', name: 'Magnific' },
 ]
 const activeKey = ref('wikimedia')
 const activeProvider = computed(() => providers.find((item) => item.key === activeKey.value))
@@ -469,6 +517,22 @@ const sourceStates = reactive({
     searchTotal: 0,
     currentPage: 1,
     pageSize: 10,
+    hasSearched: false,
+    selectedItems: [] as string[],
+  },
+  magnific: {
+    searchKeyword: '',
+    mediaType: 'video' as 'image' | 'video' | 'audio',
+    /** Magnific 专用：资源类型（video=免费无水印mp4 / photo / vector / icon） */
+    resourceType: 'video' as 'video' | 'photo' | 'vector' | 'icon',
+    /** 图标专用：standard(静态) / animated(动图) / all */
+    iconType: 'standard' as 'standard' | 'animated' | 'all',
+    /** 排序（图标搜索不支持） */
+    order: 'relevance' as 'relevance' | 'recent',
+    searchResults: [] as MediaAsset[],
+    searchTotal: 0,
+    currentPage: 1,
+    pageSize: 20,
     hasSearched: false,
     selectedItems: [] as string[],
   },
@@ -555,6 +619,11 @@ function handleSizeChange() {
   }
 }
 
+/** Magnific：资源类型切换时同步 mediaType（视频=video，图片/矢量/图标=image） */
+function handleMagnificResourceTypeChange(val: 'video' | 'photo' | 'vector' | 'icon') {
+  sourceStates.magnific.mediaType = val === 'video' ? 'video' : 'image'
+}
+
 async function doSearch(page = 1) {
   if (!selectedClientId.value) {
     ElMessage.warning('请先选择客户端节点')
@@ -570,16 +639,30 @@ async function doSearch(page = 1) {
   src.selectedItems = []
   src.hasSearched = true
   try {
+    const isMagnific = activeKey.value === 'magnific'
     const result = await searchMediaCollect(selectedClientId.value, {
       source: activeKey.value,
       query: src.searchKeyword.trim(),
       mediaType: src.mediaType,
       page,
       pageSize: src.pageSize,
+      ...(isMagnific
+        ? {
+            resourceType: sourceStates.magnific.resourceType,
+            iconType:
+              sourceStates.magnific.resourceType === 'icon' ? sourceStates.magnific.iconType : undefined,
+            order:
+              sourceStates.magnific.resourceType === 'icon' ? undefined : sourceStates.magnific.order,
+          }
+        : {}),
     })
     src.searchResults = result.items || []
     src.searchTotal = result.total || 0
     src.currentPage = page
+    // Magnific 图标/图片端点每页条数固定（96/50），以服务端实际值同步分页大小
+    if (isMagnific && result.pageSize) {
+      src.pageSize = result.pageSize
+    }
     // Openverse / Nappy: 不返回总数，根据返回数量判断是否有下一页
     if (activeKey.value === 'openverse' || activeKey.value === 'nappy') {
       hasMore.value = (result.items?.length || 0) >= src.pageSize

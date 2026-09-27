@@ -40,7 +40,7 @@
                 <span v-else>-</span>
               </template>
               <template #configSlot="{ row }">
-                <div class="config-cell">{{ formatConfig(row.configParams) }}</div>
+                <div class="config-cell">{{ formatConfig(row.configParams, row) }}</div>
               </template>
               <template #statusSlot="{ row }">
                 <el-tag v-if="row.status === 'success'" type="success" size="small">{{ t('aiTts.statusSuccess') }}</el-tag>
@@ -63,7 +63,7 @@
                 <div v-else>{{ t('aiTts.noSubtitle') }}</div>
               </template>
               <template #previewSlot="{ row }">
-                <audio v-if="row.resultUrl" :src="row.resultUrl" controls preload="none" class="audio-preview" />
+                <audio v-if="row.resultUrl || row.url" :src="row.resultUrl || row.url" controls preload="none" class="audio-preview" />
                 <span v-else>-</span>
               </template>
               <template #operationSlot="{ row }">
@@ -1029,17 +1029,25 @@ const applyInstructionTemplate = (value: string) => {
   form.instructions = value
 }
 
-const formatConfig = (configParams: any) => {
-  if (!configParams) return '-'
-  const instructions = configParams.instructions
-    ? truncateText(String(configParams.instructions), 60)
+const formatConfig = (configParams: any, row?: any) => {
+  const cfg = configParams || (row?.model || row?.voice ? {
+    voice: row.voice,
+    model: row.model,
+    format: row.format,
+    speed: row.speed,
+    pitch: row.pitch,
+    instructions: row.instructions
+  } : null)
+  if (!cfg) return '-'
+  const instructions = cfg.instructions
+    ? truncateText(String(cfg.instructions), 60)
     : ''
   const parts = [
-    `voice:${configParams.voice || '-'}`,
-    `model:${configParams.model || '-'}`,
-    `format:${configParams.format || '-'}`,
-    `speed:${configParams.speed ?? '-'}`,
-    `pitch:${configParams.pitch ?? '-'}`
+    `voice:${cfg.voice || '-'}`,
+    `model:${cfg.model || '-'}`,
+    `format:${cfg.format || '-'}`,
+    `speed:${cfg.speed ?? '-'}`,
+    `pitch:${cfg.pitch ?? '-'}`
   ]
   if (instructions) {
     parts.push(`instructions:${instructions}`)

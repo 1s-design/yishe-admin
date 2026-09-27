@@ -1,7 +1,7 @@
 /**
  * 媒体采集 API
  *
- * 与 data-collect 标准链路保持一致：后台向指定在线客户端发送 service-command，
+ * 与 image-collect 标准链路保持一致：后台向指定在线客户端发送 service-command，
  * 并通过 WebSocket 等待执行结果。搜索、下载、上传全部在所选客户端执行。
  */
 
@@ -26,6 +26,8 @@ export interface MediaAsset {
   license?: string
   creator?: string
   tags?: string[]
+  /** Magnific 专用：资源类型（video/photo/vector/icon） */
+  resourceType?: 'video' | 'photo' | 'vector' | 'icon'
   rawMeta?: Record<string, any>
 }
 
@@ -84,6 +86,12 @@ export async function searchMediaCollect(
     mediaType?: string
     page?: number
     pageSize?: number
+    /** Magnific 专用：资源类型（video/photo/vector/icon） */
+    resourceType?: 'video' | 'photo' | 'vector' | 'icon'
+    /** Magnific 图标专用：standard(静态) / animated(动图) / all */
+    iconType?: 'standard' | 'animated' | 'all'
+    /** Magnific 排序：relevance / recent */
+    order?: 'relevance' | 'recent'
   },
 ): Promise<MediaSearchResult> {
   const data = await sendCommandAndWait(clientId, 'search', params)
