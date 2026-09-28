@@ -263,6 +263,7 @@ export default {
     sandbox: '沙箱服务',
     videoTemplate: '视频模板',
     remotionSkill: '视频模版skill',
+    remotionTemplate: '视频模板库',
     imageProcessing: '图片处理',
     clientFunction: '客户端功能',
     browserAutomation: '浏览器自动化',

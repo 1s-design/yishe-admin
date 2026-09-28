@@ -261,6 +261,7 @@ export default {
     sandbox: 'Sandbox Service',
     videoTemplate: 'Video Templates',
     remotionSkill: 'Video Template Skills',
+    remotionTemplate: 'Video Templates',
     imageProcessing: 'Image Processing',
     clientFunction: 'Client Functions',
     browserAutomation: 'Browser Automation',

@@ -704,6 +704,17 @@ const remainingRouter: AppRouteRecordRaw[] = [
         },
       },
       {
+        path: "remotion-template",
+        component: () => import("@/views/material/remotionTemplate/index.vue"),
+        name: "RemotionTemplate",
+        meta: {
+          canTo: true,
+          hidden: false,
+          noTagsView: false,
+          title: "router.remotionTemplate",
+        },
+      },
+      {
         path: "image-processing-record",
         component: () => import("@/views/material/imageProcessingRecord/index.vue"),
         name: "ImageProcessingRecord",

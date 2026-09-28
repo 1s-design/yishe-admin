@@ -719,6 +719,14 @@
               >
                 基于此再次创作
               </el-button>
+              <el-button
+                type="success"
+                link
+                size="small"
+                @click="openSaveAsTemplate(currentRow)"
+              >
+                存为模板
+              </el-button>
             </div>
           </div>
           <div class="detail-prompt-box">
@@ -783,6 +791,61 @@
         class="preview-simple-video"
       ></video>
     </div>
+  </el-dialog>
+
+  <!-- 存为模板弹窗 -->
+  <el-dialog
+    v-model="saveTplVisible"
+    title="存为模板"
+    width="720px"
+    destroy-on-close
+    class="remotion-save-tpl-dialog"
+  >
+    <el-form label-width="88px">
+      <el-form-item label="模板名称" required>
+        <el-input v-model="saveTplForm.name" placeholder="例如：三句宣言极简黑底" maxlength="60" />
+      </el-form-item>
+      <el-form-item label="说明">
+        <el-input v-model="saveTplForm.description" type="textarea" :rows="2" placeholder="模板用途简介" />
+      </el-form-item>
+      <el-form-item label="分类">
+        <el-input v-model="saveTplForm.category" placeholder="我的模板" />
+      </el-form-item>
+      <el-form-item label="可见范围">
+        <el-radio-group v-model="saveTplForm.scope">
+          <el-radio-button label="private">私有</el-radio-button>
+          <el-radio-button label="unlisted">未列出</el-radio-button>
+          <el-radio-button label="shared">共享</el-radio-button>
+        </el-radio-group>
+      </el-form-item>
+      <el-form-item label="变量提炼">
+        <div class="save-tpl-vars">
+          <div class="save-tpl-vars__hint">
+            勾选需要在复用时替换的字段，将沉淀为 <code>{{ '{{key}}' }}</code> 占位符参数（Remotion inputProps）
+          </div>
+          <div
+            v-for="f in saveTplFields"
+            :key="f.path"
+            class="save-tpl-vars__item"
+          >
+            <el-checkbox v-model="f.asVar">设为变量</el-checkbox>
+            <div class="save-tpl-vars__meta">
+              <div class="save-tpl-vars__path">{{ f.path }}</div>
+              <div class="save-tpl-vars__value">{{ truncate(f.value, 60) }}</div>
+            </div>
+            <template v-if="f.asVar">
+              <el-input v-model="f.key" placeholder="变量名" style="width: 110px" size="small" />
+              <el-input v-model="f.label" placeholder="显示名" style="width: 110px" size="small" />
+            </template>
+          </div>
+          <el-empty v-if="!saveTplFields.length" description="未检测到可提炼的文本字段" :image-size="60" />
+        </div>
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="saveTplVisible = false">取消</el-button>
+      <el-button type="primary" :loading="saveTplLoading" @click="submitSaveAsTemplate">保存模板</el-button>
+    </template>
   </el-dialog>
 
   <!-- AI 视频生成全屏弹窗 (极简 Studio 风格) -->
@@ -1441,6 +1504,7 @@ import {
   importRemotionSkillMarkdown,
   type RemotionSkillItem,
 } from "@/api/remotion-skill";
+import { saveTemplateFromRecord } from "@/api/remotion-template";
 import ContentWrap from "@/components/ContentWrap/src/ContentWrap.vue";
 import ListPageLayout from "@/components/ListPageLayout/index.vue";
 import Pagination from "@/components/Pagination/index.vue";
@@ -3206,6 +3270,107 @@ function recreateFromDetail(row: any) {
   });
 }
 
+// ─── 存为模板 ───────────────────────────────────────────────
+const saveTplVisible = ref(false);
+const saveTplLoading = ref(false);
+const saveTplRecordId = ref('');
+const saveTplForm = reactive({
+  name: '',
+  description: '',
+  category: '我的模板',
+  scope: 'private' as 'private' | 'unlisted' | 'shared',
+});
+const saveTplFields = ref<
+  Array<{ path: string; value: string; asVar: boolean; key: string; label: string }>
+>([]);
+
+function truncate(s: string, n = 60) {
+  const str = String(s ?? '');
+  return str.length > n ? str.slice(0, n) + '…' : str;
+}
+
+/** 从 SceneGraph 扫描可提炼的文本字段（text/headline/subtext/title/code 等） */
+function collectTemplateFields(videoConfig: any) {
+  const out: Array<{ path: string; value: string; asVar: boolean; key: string; label: string }> = [];
+  const TEXT_KEYS = new Set(['text', 'headline', 'subtext', 'title', 'subtitle', 'label', 'quote', 'cta', 'code']);
+  const walk = (node: any, path: string) => {
+    if (!node || typeof node !== 'object') return;
+    if (Array.isArray(node)) {
+      node.forEach((item, i) => walk(item, `${path}[${i}]`));
+      return;
+    }
+    for (const [k, v] of Object.entries(node)) {
+      const p = path ? `${path}.${k}` : k;
+      if (typeof v === 'string' && TEXT_KEYS.has(k) && v.trim().length > 0) {
+        out.push({
+          path: p,
+          value: v,
+          asVar: false,
+          key: `var${out.length + 1}`,
+          label: k,
+        });
+      } else if (v && typeof v === 'object') {
+        walk(v, p);
+      }
+    }
+  };
+  walk(videoConfig?.scenes, 'scenes');
+  return out.slice(0, 30);
+}
+
+function openSaveAsTemplate(row: any) {
+  if (!row) return;
+  const vc = row.inputProps?.videoConfig;
+  if (!vc?.scenes?.length) {
+    ElMessage.warning('该记录没有可沉淀的 SceneGraph 结构');
+    return;
+  }
+  saveTplRecordId.value = row.id;
+  saveTplForm.name = (row.title || '我的模板').slice(0, 40);
+  saveTplForm.description = `沉淀自「${row.title || row.id}」`;
+  saveTplForm.category = '我的模板';
+  saveTplForm.scope = 'private';
+  saveTplFields.value = collectTemplateFields(vc);
+  saveTplVisible.value = true;
+}
+
+async function submitSaveAsTemplate() {
+  if (!saveTplForm.name.trim()) {
+    ElMessage.warning('请填写模板名称');
+    return;
+  }
+  const params = saveTplFields.value
+    .filter((f) => f.asVar && f.key.trim())
+    .map((f) => ({
+      key: f.key.trim(),
+      label: f.label || f.key.trim(),
+      type: 'text' as const,
+      required: true,
+      bindings: [f.path],
+    }));
+  if (!params.length) {
+    ElMessage.warning('请至少勾选一个变量字段');
+    return;
+  }
+  saveTplLoading.value = true;
+  try {
+    const saved = await saveTemplateFromRecord({
+      recordId: saveTplRecordId.value,
+      name: saveTplForm.name.trim(),
+      description: saveTplForm.description,
+      category: saveTplForm.category || '我的模板',
+      params,
+      scope: saveTplForm.scope,
+    });
+    ElMessage.success(`模板「${saved?.name || saveTplForm.name}」已保存`);
+    saveTplVisible.value = false;
+  } catch (e: any) {
+    ElMessage.error(e?.message || '保存模板失败');
+  } finally {
+    saveTplLoading.value = false;
+  }
+}
+
 async function submitAiGenerate() {
   if (!aiForm.value.prompt?.trim()) return;
 
@@ -4678,6 +4843,62 @@ watch(
 
 .confirm-alert {
   margin-top: 4px;
+}
+
+/* ========== 存为模板弹窗 ========== */
+.save-tpl-vars {
+  width: 100%;
+  max-height: 320px;
+  overflow: auto;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 6px;
+  padding: 8px;
+
+  &__hint {
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
+    margin-bottom: 8px;
+
+    code {
+      padding: 1px 4px;
+      background: var(--el-fill-color);
+      border-radius: 3px;
+    }
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 4px;
+    border-bottom: 1px solid var(--el-border-color-lighter);
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  &__meta {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__path {
+    font-family: monospace;
+    font-size: 11px;
+    color: var(--el-text-color-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__value {
+    font-size: 12px;
+    color: var(--el-text-color-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 
 /* ========== 视频详情弹窗 (扁平化) ========== */
