@@ -235,31 +235,42 @@
     </el-dialog>
 
     <!-- 执行历史 -->
-    <el-dialog v-model="execVisible" title="执行历史" width="860px" destroy-on-close>
-      <div class="task-exec-title">{{ execTask?.title }}</div>
-      <el-table :data="execList" size="small" border>
-        <el-table-column prop="status" label="状态" width="90">
-          <template #default="{ row }">
-            <el-tag size="small" :type="execTagType(row.status)">{{ row.status }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="触发" width="80">
-          <template #default="{ row }">{{ row.triggerSource === 'manual' ? '手动' : '定时' }}</template>
-        </el-table-column>
-        <el-table-column label="计划时间" width="160">
-          <template #default="{ row }">{{ formatTime(row.scheduledAt) }}</template>
-        </el-table-column>
-        <el-table-column label="耗时" width="80">
-          <template #default="{ row }">{{ row.durationMs != null ? `${Math.round(row.durationMs / 1000)}s` : '-' }}</template>
-        </el-table-column>
-        <el-table-column label="结果 / 错误" min-width="220">
-          <template #default="{ row }">
-            <span v-if="row.errorText" class="task-exec-error">{{ row.errorText }}</span>
-            <span v-else>{{ row.resultSummary || '-' }}</span>
-          </template>
-        </el-table-column>
-      </el-table>
-      <div v-if="!execList.length" class="task-exec-empty">暂无执行记录（执行体接入后将在此留痕）</div>
+    <el-dialog v-model="execVisible" fullscreen destroy-on-close class="task-exec-dialog">
+      <template #header>
+        <div class="task-dialog-header">
+          <div class="task-dialog-header__title">
+            <span>执行历史</span>
+            <span v-if="execTask" class="task-dialog-header__code">{{ execTask.title }}</span>
+          </div>
+          <div class="task-dialog-header__actions">
+            <el-button @click="execVisible = false">关闭</el-button>
+          </div>
+        </div>
+      </template>
+
+      <div class="task-exec">
+        <div class="task-section-label">
+          执行记录
+          <span class="task-section-hint">共 {{ execList.length }} 条</span>
+        </div>
+        <div v-if="execList.length" class="task-exec-list">
+          <div v-for="item in execList" :key="item.id" class="task-exec-row">
+            <div class="task-exec-row__main">
+              <el-tag size="small" :type="execTagType(item.status)">{{ execStatusLabel(item.status) }}</el-tag>
+              <span class="task-exec-row__source">{{ item.triggerSource === 'manual' ? '手动' : '定时' }}</span>
+              <span class="task-exec-row__time">{{ formatTime(item.scheduledAt) }}</span>
+              <span class="task-exec-row__duration">
+                {{ item.durationMs != null ? Math.round(item.durationMs / 1000) + 's' : '—' }}
+              </span>
+            </div>
+            <div class="task-exec-row__result">
+              <span v-if="item.errorText" class="task-exec-error">{{ item.errorText }}</span>
+              <span v-else>{{ item.resultSummary || '—' }}</span>
+            </div>
+          </div>
+        </div>
+        <div v-else class="task-exec-empty">暂无执行记录（执行体接入后将在此留痕）</div>
+      </div>
     </el-dialog>
   </ContentWrap>
 </template>
@@ -329,6 +340,17 @@ function formatTime(v?: string | null) {
 
 function execTagType(s: string) {
   return s === 'success' ? 'success' : s === 'failed' ? 'danger' : s === 'running' ? 'warning' : 'info';
+}
+
+function execStatusLabel(s: string) {
+  const map: Record<string, string> = {
+    pending: '待执行',
+    running: '执行中',
+    success: '成功',
+    failed: '失败',
+    skipped: '跳过',
+  };
+  return map[s] || s;
 }
 
 async function load(p = 1) {
@@ -651,22 +673,91 @@ onMounted(() => load(1));
   text-overflow: ellipsis;
 }
 
-.task-exec-title {
-  margin-bottom: 10px;
-  font-weight: 600;
-  color: var(--el-text-color-primary);
+.task-exec {
+  height: 100%;
+  overflow-y: auto;
+  padding: 8px 24px 24px;
 }
+
+.task-exec-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.task-exec-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 2px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+
+  &:first-child {
+    border-top: 1px solid var(--el-border-color-lighter);
+  }
+
+  &__main {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  &__source {
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
+  }
+
+  &__time {
+    font-size: 13px;
+    color: var(--el-text-color-regular);
+  }
+
+  &__duration {
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
+    margin-left: auto;
+  }
+
+  &__result {
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--el-text-color-regular);
+    word-break: break-word;
+  }
+}
+
 .task-exec-error {
   color: var(--el-color-danger);
 }
+
 .task-exec-empty {
-  padding: 20px;
+  padding: 48px 20px;
   text-align: center;
   color: var(--el-text-color-secondary);
 }
 </style>
 
 <style lang="scss">
+.task-exec-dialog.el-dialog.is-fullscreen {
+  display: flex !important;
+  flex-direction: column !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  background: var(--el-bg-color-overlay) !important;
+
+  .el-dialog__header {
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--el-border-color-lighter);
+    margin-right: 0;
+  }
+  .el-dialog__body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0;
+  }
+}
+
 .task-editor-dialog.el-dialog.is-fullscreen {
   display: flex !important;
   flex-direction: column !important;
