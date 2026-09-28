@@ -125,18 +125,33 @@
                 </template>
 
                 <template #operationSlot="{ row }">
-                  <div class="flex items-center gap-2">
-                    <el-button size="small" link type="primary" @click="openDetail(row)">详情</el-button>
-                    <el-button size="small" link type="primary" @click="exportPkg(row)">导出</el-button>
-                    <el-popconfirm
-                      v-if="!row.isSystem"
-                      title="确认删除该模板？"
-                      @confirm="remove(row)"
+                  <div class="flex items-center">
+                    <el-dropdown
+                      class="operation-dropdown"
+                      placement="bottom-end"
+                      @command="(command: string) => handleOperation(command, row)"
                     >
-                      <template #reference>
-                        <el-button size="small" link type="danger">删除</el-button>
+                      <el-button type="primary" link size="small">
+                        操作
+                        <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+                      </el-button>
+                      <template #dropdown>
+                        <el-dropdown-menu>
+                          <el-dropdown-item command="detail">详情</el-dropdown-item>
+                          <el-dropdown-item command="edit">编辑</el-dropdown-item>
+                          <el-dropdown-item command="export">导出</el-dropdown-item>
+                          <el-dropdown-item
+                            v-if="!row.isSystem"
+                            command="delete"
+                            divided
+                            class="operation-menu-danger"
+                          >删除</el-dropdown-item>
+                          <el-dropdown-item v-else command="system-disabled" disabled>
+                            系统内置
+                          </el-dropdown-item>
+                        </el-dropdown-menu>
                       </template>
-                    </el-popconfirm>
+                    </el-dropdown>
                   </div>
                 </template>
               </vxe-grid>
@@ -158,8 +173,8 @@
       </template>
     </ListPageLayout>
 
-    <!-- 新增模板 -->
-    <el-dialog v-model="createVisible" title="新增模板" width="760px" destroy-on-close>
+    <!-- 新增 / 编辑模板 -->
+    <el-dialog v-model="createVisible" :title="editingId ? '编辑模板' : '新增模板'" width="760px" destroy-on-close>
       <el-form :model="createForm" label-width="110px">
         <el-row :gutter="12">
           <el-col :span="12">
@@ -223,7 +238,9 @@
       </el-form>
       <template #footer>
         <el-button @click="createVisible = false">取消</el-button>
-        <el-button type="primary" :loading="createLoading" @click="submitCreate">保存</el-button>
+        <el-button type="primary" :loading="createLoading" @click="submitCreate">
+          {{ editingId ? '保存修改' : '保存' }}
+        </el-button>
       </template>
     </el-dialog>
 
@@ -276,8 +293,8 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
-import { ElMessage } from 'element-plus';
-import { Plus, Search, Upload } from '@element-plus/icons-vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
+import { ArrowDown, Plus, Search, Upload } from '@element-plus/icons-vue';
 import ContentWrap from '@/components/ContentWrap/src/ContentWrap.vue';
 import ListPageLayout from '@/components/ListPageLayout/index.vue';
 import {
@@ -293,6 +310,7 @@ import {
   getRemotionTemplate,
   getRemotionTemplatePage,
   importRemotionTemplate,
+  updateRemotionTemplate,
   type RemotionTemplateItem,
 } from '@/api/remotion-template';
 
@@ -323,7 +341,7 @@ const gridOptions = computed(() => ({
     { title: '版本', field: 'version', width: 80, align: 'center' },
     { title: '范围', field: 'scope', width: 90, align: 'center', slots: { default: 'scopeSlot' } },
     buildTimeColumn('创建时间', 'createTime', 150),
-    buildOperationColumn('operationSlot', 150),
+    buildOperationColumn('operationSlot', 90),
   ],
 }));
 
@@ -374,6 +392,25 @@ async function openDetail(row: RemotionTemplateItem) {
   }
 }
 
+function handleOperation(command: string, row: RemotionTemplateItem) {
+  switch (command) {
+    case 'detail':
+      openDetail(row);
+      break;
+    case 'edit':
+      openEdit(row);
+      break;
+    case 'export':
+      exportPkg(row);
+      break;
+    case 'delete':
+      ElMessageBox.confirm(`确认删除模板「${row.name}」？`, '提示', { type: 'warning' })
+        .then(() => remove(row))
+        .catch(() => undefined);
+      break;
+  }
+}
+
 async function exportPkg(row: RemotionTemplateItem) {
   try {
     const pkg = await exportRemotionTemplate(row.id || row.code);
@@ -399,7 +436,8 @@ async function remove(row: RemotionTemplateItem) {
   }
 }
 
-// ─── 新增模板 ────────────────────────────────────────────────
+// ─── 新增 / 编辑模板 ──────────────────────────────────────────
+const editingId = ref('');
 const createVisible = ref(false);
 const createLoading = ref(false);
 const createForm = reactive({
@@ -407,13 +445,12 @@ const createForm = reactive({
   code: '',
   category: '我的模板',
   description: '',
-  implementationKind: 'structure' as 'structure' | 'component' | 'builtin',
+  implementationKind: 'structure' as 'structure' | 'component',
   width: 1080,
   height: 1920,
   fps: 30,
   defaultPropsJson: '{}',
   structureJson: '',
-  builtinKey: '',
   codeAssetsJson: '[]',
 });
 
@@ -427,7 +464,7 @@ function parseJsonField(raw: string, fallback: any, label: string) {
   }
 }
 
-function openCreate() {
+function resetCreateForm() {
   createForm.name = '';
   createForm.code = '';
   createForm.category = '我的模板';
@@ -438,9 +475,34 @@ function openCreate() {
   createForm.fps = 30;
   createForm.defaultPropsJson = '{}';
   createForm.structureJson = '';
-  createForm.builtinKey = '';
   createForm.codeAssetsJson = '[]';
+}
+
+function openCreate() {
+  editingId.value = '';
+  resetCreateForm();
   createVisible.value = true;
+}
+
+async function openEdit(row: RemotionTemplateItem) {
+  try {
+    const tpl: any = await getRemotionTemplate(row.id || row.code);
+    editingId.value = tpl.id || row.id || '';
+    createForm.name = tpl.name || '';
+    createForm.code = tpl.code || '';
+    createForm.category = tpl.category || '我的模板';
+    createForm.description = tpl.description || '';
+    createForm.implementationKind = (tpl.implementationKind === 'component' ? 'component' : 'structure') as any;
+    createForm.width = tpl.width || 1080;
+    createForm.height = tpl.height || 1920;
+    createForm.fps = tpl.fps || 30;
+    createForm.defaultPropsJson = JSON.stringify(tpl.defaultProps ?? {}, null, 2);
+    createForm.structureJson = tpl.structure ? JSON.stringify(tpl.structure, null, 2) : '';
+    createForm.codeAssetsJson = tpl.codeAssets ? JSON.stringify(tpl.codeAssets, null, 2) : '[]';
+    createVisible.value = true;
+  } catch (e: any) {
+    ElMessage.error(e?.message || '加载模板失败');
+  }
 }
 
 async function submitCreate() {
@@ -470,7 +532,7 @@ async function submitCreate() {
       }
     }
 
-    // 由结构自动推导 durationInFrames
+    // 由结构自动推导 durationInFrames（component 沿用现有帧数）
     const fps = createForm.fps || 30;
     const totalSeconds = (structure?.scenes || []).reduce(
       (acc: number, s: any) => acc + (Number(s?.duration) || 0),
@@ -478,7 +540,7 @@ async function submitCreate() {
     );
     const durationInFrames = totalSeconds > 0 ? Math.round(totalSeconds * fps) : 300;
 
-    await createRemotionTemplate({
+    const payload: any = {
       code: createForm.code.trim(),
       name: createForm.name.trim(),
       description: createForm.description,
@@ -493,12 +555,19 @@ async function submitCreate() {
       structure,
       codeAssets,
       scope: 'private',
-    } as any);
-    ElMessage.success('模板已创建');
+    };
+
+    if (editingId.value) {
+      await updateRemotionTemplate(editingId.value, payload);
+      ElMessage.success('模板已更新');
+    } else {
+      await createRemotionTemplate(payload);
+      ElMessage.success('模板已创建');
+    }
     createVisible.value = false;
     load(1);
   } catch (e: any) {
-    ElMessage.error(e?.message || '创建失败');
+    ElMessage.error(e?.message || (editingId.value ? '保存失败' : '创建失败'));
   } finally {
     createLoading.value = false;
   }
