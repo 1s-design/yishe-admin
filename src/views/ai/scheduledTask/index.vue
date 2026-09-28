@@ -57,10 +57,7 @@
 
                 <template #triggerSlot="{ row }">
                   <div class="task-trigger-cell">
-                    <el-tag size="small" effect="plain">{{ row.triggerType === 'cron' ? 'Cron' : '间隔' }}</el-tag>
-                    <span class="task-trigger-value">
-                      {{ row.triggerType === 'cron' ? row.cronExpr : `每 ${row.intervalMinutes} 分钟` }}
-                    </span>
+                    <span class="task-trigger-value">{{ row.scheduleText || fallbackSchedule(row) }}</span>
                   </div>
                 </template>
 
@@ -156,28 +153,74 @@
           </div>
         </div>
 
-        <div class="task-section-label">时间规则</div>
+        <div class="task-section-label">
+          执行时间
+          <span class="task-section-hint">常用方式直观设置，也可切换为高级 Cron</span>
+        </div>
         <div class="task-grid">
           <div class="task-field">
-            <label>触发类型</label>
-            <el-radio-group v-model="form.triggerType">
-              <el-radio-button label="cron">Cron 表达式</el-radio-button>
-              <el-radio-button label="interval">固定间隔</el-radio-button>
-            </el-radio-group>
+            <label>重复方式</label>
+            <el-select v-model="form.preset" style="width: 100%">
+              <el-option label="每天" value="daily" />
+              <el-option label="每周" value="weekly" />
+              <el-option label="每月" value="monthly" />
+              <el-option label="工作日（周一至周五）" value="weekdays" />
+              <el-option label="每小时" value="hourly" />
+              <el-option label="每隔 N 分钟" value="interval" />
+              <el-option label="高级（Cron 表达式）" value="custom" />
+            </el-select>
           </div>
-          <div v-if="form.triggerType === 'cron'" class="task-field">
+
+          <div v-if="showTimeField" class="task-field">
+            <label>执行时间 <em>*</em></label>
+            <el-time-select
+              v-model="form.time"
+              start="00:00"
+              step="00:15"
+              end="23:45"
+              placeholder="选择时间"
+              style="width: 100%"
+            />
+          </div>
+
+          <div v-if="form.preset === 'weekly'" class="task-field">
+            <label>星期 <em>*</em></label>
+            <el-select v-model="form.weekday" style="width: 100%">
+              <el-option v-for="(label, idx) in weekdayLabels" :key="idx" :label="label" :value="idx" />
+            </el-select>
+          </div>
+
+          <div v-if="form.preset === 'monthly'" class="task-field">
+            <label>日期 <em>*</em></label>
+            <el-input-number v-model="form.monthDay" :min="1" :max="31" controls-position="right" />
+          </div>
+
+          <div v-if="form.preset === 'hourly'" class="task-field">
+            <label>分钟偏移</label>
+            <el-input-number v-model="form.minuteOffset" :min="0" :max="59" controls-position="right" />
+            <span class="task-field-hint">0 表示整点，30 表示每小时 30 分</span>
+          </div>
+
+          <div v-if="form.preset === 'interval'" class="task-field">
+            <label>间隔分钟 <em>*</em></label>
+            <el-input-number v-model="form.intervalMinutes" :min="1" :max="10080" controls-position="right" />
+            <span class="task-field-hint">{{ intervalHint }}</span>
+          </div>
+
+          <div v-if="form.preset === 'custom'" class="task-field">
             <label>Cron 表达式 <em>*</em></label>
             <el-input v-model="form.cronExpr" placeholder="0 8 * * *" />
             <span class="task-field-hint">分 时 日 月 周 · 例：0 8 * * * 每天 8 点</span>
           </div>
-          <div v-else class="task-field">
-            <label>间隔分钟 <em>*</em></label>
-            <el-input-number v-model="form.intervalMinutes" :min="1" :max="10080" controls-position="right" />
-            <span class="task-field-hint">每 N 分钟执行一次</span>
-          </div>
+
           <div class="task-field">
             <label>启用状态</label>
             <el-switch v-model="form.isEnabled" active-text="启用" inactive-text="暂停" />
+          </div>
+
+          <div class="task-field task-field--wide">
+            <label>生效时间预览</label>
+            <div class="task-preview">{{ schedulePreview }}</div>
           </div>
         </div>
       </div>
@@ -314,23 +357,92 @@ async function load(p = 1) {
 const editVisible = ref(false);
 const saving = ref(false);
 const editingId = ref('');
+const weekdayLabels = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+
 const form = reactive({
   title: '',
   instructions: '',
-  triggerType: 'cron' as 'cron' | 'interval',
-  cronExpr: '0 8 * * *',
+  preset: 'daily' as 'daily' | 'weekly' | 'monthly' | 'weekdays' | 'hourly' | 'interval' | 'custom',
+  time: '08:00',
+  weekday: 1,
+  monthDay: 1,
+  minuteOffset: 0,
   intervalMinutes: 30,
+  cronExpr: '0 8 * * *',
   timezone: 'Asia/Shanghai',
   isEnabled: true,
 });
+
+const showTimeField = computed(() =>
+  ['daily', 'weekly', 'monthly', 'weekdays'].includes(form.preset),
+);
+
+const intervalHint = computed(() => {
+  const m = form.intervalMinutes;
+  if (!m) return '每 N 分钟执行一次';
+  return m % 60 === 0 && m >= 60 ? `每 ${m / 60} 小时执行一次` : `每 ${m} 分钟执行一次`;
+});
+
+function pad2(n: number) {
+  return String(n).padStart(2, '0');
+}
+
+const schedulePreview = computed(() => {
+  switch (form.preset) {
+    case 'daily':
+      return `每天 ${form.time}`;
+    case 'weekdays':
+      return `工作日 ${form.time}`;
+    case 'weekly':
+      return `每${weekdayLabels[form.weekday]} ${form.time}`;
+    case 'monthly':
+      return `每月 ${form.monthDay} 号 ${form.time}`;
+    case 'hourly':
+      return form.minuteOffset === 0 ? '每小时整点' : `每小时 :${pad2(form.minuteOffset)}`;
+    case 'interval':
+      return intervalHint.value;
+    case 'custom':
+      return `自定义 Cron：${form.cronExpr || '—'}`;
+  }
+  return '';
+});
+
+function fallbackSchedule(row: any) {
+  if (row.triggerType === 'interval') return `每 ${row.intervalMinutes} 分钟`;
+  return row.cronExpr || '—';
+}
+
+function buildSchedule() {
+  switch (form.preset) {
+    case 'interval':
+      return { preset: 'interval', intervalMinutes: form.intervalMinutes };
+    case 'custom':
+      return { preset: 'custom', cronExpr: form.cronExpr.trim() };
+    case 'hourly':
+      return { preset: 'hourly', minuteOffset: form.minuteOffset };
+    case 'weekly':
+      return { preset: 'weekly', time: form.time, weekday: form.weekday };
+    case 'monthly':
+      return { preset: 'monthly', time: form.time, monthDay: form.monthDay };
+    case 'weekdays':
+      return { preset: 'weekdays', time: form.time };
+    case 'daily':
+    default:
+      return { preset: 'daily', time: form.time };
+  }
+}
 
 function openCreate() {
   editingId.value = '';
   form.title = '';
   form.instructions = '';
-  form.triggerType = 'cron';
-  form.cronExpr = '0 8 * * *';
+  form.preset = 'daily';
+  form.time = '08:00';
+  form.weekday = 1;
+  form.monthDay = 1;
+  form.minuteOffset = 0;
   form.intervalMinutes = 30;
+  form.cronExpr = '0 8 * * *';
   form.timezone = 'Asia/Shanghai';
   form.isEnabled = true;
   editVisible.value = true;
@@ -342,11 +454,24 @@ async function openEdit(row: AiScheduledTaskItem) {
     editingId.value = t.id;
     form.title = t.title || '';
     form.instructions = t.instructions || '';
-    form.triggerType = t.triggerType === 'interval' ? 'interval' : 'cron';
-    form.cronExpr = t.cronExpr || '0 8 * * *';
-    form.intervalMinutes = t.intervalMinutes || 30;
     form.timezone = t.timezone || 'Asia/Shanghai';
     form.isEnabled = t.isEnabled !== false;
+    const hs: any = (t as any).humanSchedule;
+    if (hs?.preset) {
+      form.preset = hs.preset;
+      form.time = hs.time || '08:00';
+      form.weekday = hs.weekday ?? 1;
+      form.monthDay = hs.monthDay ?? 1;
+      form.minuteOffset = hs.minuteOffset ?? 0;
+      form.intervalMinutes = hs.intervalMinutes || t.intervalMinutes || 30;
+      form.cronExpr = hs.cronExpr || t.cronExpr || '0 8 * * *';
+    } else if (t.triggerType === 'interval') {
+      form.preset = 'interval';
+      form.intervalMinutes = t.intervalMinutes || 30;
+    } else {
+      form.preset = 'custom';
+      form.cronExpr = t.cronExpr || '0 8 * * *';
+    }
     editVisible.value = true;
   } catch (e: any) {
     ElMessage.error(e?.message || '加载失败');
@@ -358,21 +483,26 @@ async function submit() {
     ElMessage.warning('请填写标题与执行指令');
     return;
   }
-  if (form.triggerType === 'cron' && !form.cronExpr.trim()) {
+  if (form.preset === 'custom' && !form.cronExpr.trim()) {
     ElMessage.warning('请填写 Cron 表达式');
     return;
   }
   saving.value = true;
   try {
+    const schedule = buildSchedule();
     const payload: any = {
       title: form.title.trim(),
       instructions: form.instructions.trim(),
-      triggerType: form.triggerType,
+      schedule,
       timezone: form.timezone || 'Asia/Shanghai',
       isEnabled: form.isEnabled,
     };
-    if (form.triggerType === 'cron') payload.cronExpr = form.cronExpr.trim();
-    else payload.intervalMinutes = form.intervalMinutes;
+    if (schedule.preset === 'interval') {
+      payload.triggerType = 'interval';
+      payload.intervalMinutes = (schedule as any).intervalMinutes;
+    } else {
+      payload.triggerType = 'cron';
+    }
 
     if (editingId.value) {
       await updateAiScheduledTask(editingId.value, payload);
@@ -629,6 +759,23 @@ onMounted(() => load(1));
   &--wide {
     grid-column: 1 / -1;
   }
+}
+
+.task-section-hint {
+  margin-left: 10px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--el-text-color-secondary);
+}
+
+.task-preview {
+  padding: 10px 12px;
+  border: 1px dashed var(--el-border-color);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--el-color-primary);
+  background: var(--el-fill-color-light);
 }
 
 .task-field-hint {
