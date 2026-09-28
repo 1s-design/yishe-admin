@@ -848,24 +848,22 @@ onMounted(() => load(1));
 .tpl-editor {
   height: 100%;
   overflow-y: auto;
-  padding: 20px 24px 32px;
-  max-width: 1100px;
-  margin: 0 auto;
+  padding: 16px 24px 24px;
 }
 
 .tpl-card {
-  margin-bottom: 16px;
-  padding: 18px 20px;
+  margin-bottom: 14px;
+  padding: 14px 16px;
   border: 1px solid var(--el-border-color-lighter);
-  border-radius: 10px;
-  background: var(--el-bg-color);
+  border-radius: 8px;
+  background: var(--el-fill-color-blank);
 
   &__title {
     display: flex;
     align-items: baseline;
     gap: 10px;
-    margin-bottom: 14px;
-    font-size: 14px;
+    margin-bottom: 12px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--el-text-color-primary);
   }
@@ -879,18 +877,19 @@ onMounted(() => load(1));
 
 .tpl-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px 14px;
 
   &--compact {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: end;
   }
 }
 
 .tpl-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
   min-width: 0;
 
   > label {
@@ -929,16 +928,16 @@ onMounted(() => load(1));
 
 .tpl-stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .tpl-stat {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 10px 12px;
-  border-radius: 8px;
+  gap: 3px;
+  padding: 8px 10px;
+  border-radius: 6px;
   background: var(--el-fill-color-light);
 
   &__label {
@@ -957,7 +956,7 @@ onMounted(() => load(1));
 }
 
 .tpl-desc {
-  margin-top: 14px;
+  margin-top: 12px;
   font-size: 13px;
   line-height: 1.6;
   color: var(--el-text-color-regular);
@@ -967,7 +966,7 @@ onMounted(() => load(1));
   display: flex;
   flex-wrap: wrap;
   gap: 14px;
-  margin-top: 12px;
+  margin-top: 10px;
   font-size: 12px;
   color: var(--el-text-color-secondary);
 }
