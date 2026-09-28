@@ -821,7 +821,7 @@
       <el-form-item label="变量提炼">
         <div class="save-tpl-vars">
           <div class="save-tpl-vars__hint">
-            勾选需要在复用时替换的字段，将沉淀为 <code>{{ '{{key}}' }}</code> 占位符参数（Remotion inputProps）
+            勾选需要在复用时替换的字段，将沉淀为 <code>{{ KEY_PLACEHOLDER }}</code> 占位符参数（Remotion inputProps）
           </div>
           <div
             v-for="f in saveTplFields"
@@ -3271,6 +3271,7 @@ function recreateFromDetail(row: any) {
 }
 
 // ─── 存为模板 ───────────────────────────────────────────────
+const KEY_PLACEHOLDER = "{{key}}";
 const saveTplVisible = ref(false);
 const saveTplLoading = ref(false);
 const saveTplRecordId = ref('');
