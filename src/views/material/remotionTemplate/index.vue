@@ -98,8 +98,6 @@
                 <template #nameSlot="{ row }">
                   <div class="flex items-center gap-1.5">
                     <span class="font-medium text-[var(--el-text-color-primary)]">{{ row.name }}</span>
-                    <el-tag v-if="row.isSystem" size="small" type="info">系统</el-tag>
-                    <el-tag v-else size="small" type="warning">用户</el-tag>
                   </div>
                 </template>
 
@@ -140,14 +138,8 @@
                           <el-dropdown-item command="detail">详情</el-dropdown-item>
                           <el-dropdown-item command="edit">编辑</el-dropdown-item>
                           <el-dropdown-item command="export">导出</el-dropdown-item>
-                          <el-dropdown-item
-                            v-if="!row.isSystem"
-                            command="delete"
-                            divided
-                            class="operation-menu-danger"
-                          >删除</el-dropdown-item>
-                          <el-dropdown-item v-else command="system-disabled" disabled>
-                            系统内置
+                          <el-dropdown-item command="delete" divided class="operation-menu-danger">
+                            删除
                           </el-dropdown-item>
                         </el-dropdown-menu>
                       </template>
@@ -313,14 +305,13 @@
           <div class="tpl-dialog-header__title">
             <span>{{ detail?.name || '模板包详情' }}</span>
             <span v-if="detail?.code" class="tpl-dialog-header__code">{{ detail.code }}</span>
-            <el-tag v-if="detail?.isSystem" size="small" type="info">系统</el-tag>
             <el-tag size="small" :type="kindTagType(detail?.implementationKind)">
               {{ kindLabel(detail?.implementationKind) }}
             </el-tag>
           </div>
           <div class="tpl-dialog-header__actions">
             <el-button v-if="detail" @click="exportPkg(detail)">导出</el-button>
-            <el-button v-if="detail && !detail.isSystem" type="primary" @click="openEdit(detail)">编辑</el-button>
+            <el-button v-if="detail" type="primary" @click="openEdit(detail)">编辑</el-button>
             <el-button @click="detailVisible = false">关闭</el-button>
           </div>
         </div>
