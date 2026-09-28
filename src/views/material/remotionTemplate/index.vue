@@ -74,6 +74,12 @@
               <el-button size="small" type="primary" :icon="Search" :loading="loading" @click="load(1)">
                 搜索
               </el-button>
+              <el-button size="small" type="primary" :icon="Plus" @click="openCreate">
+                新增模板
+              </el-button>
+              <el-button size="small" type="success" plain :icon="Upload" @click="openImport">
+                导入模板包
+              </el-button>
               <el-button size="small" @click="load(1)">刷新</el-button>
             </div>
           </el-form>
@@ -153,6 +159,95 @@
       </template>
     </ListPageLayout>
 
+    <!-- 新增模板 -->
+    <el-dialog v-model="createVisible" title="新增模板" width="760px" destroy-on-close>
+      <el-form :model="createForm" label-width="110px">
+        <el-row :gutter="12">
+          <el-col :span="12">
+            <el-form-item label="模板名称" required>
+              <el-input v-model="createForm.name" placeholder="例如：产品三卡上滑" maxlength="60" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="标识码" required>
+              <el-input v-model="createForm.code" placeholder="例如：product-three-cards" maxlength="80" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="分类">
+              <el-input v-model="createForm.category" placeholder="我的模板" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="实现形态">
+              <el-select v-model="createForm.implementationKind" style="width: 100%">
+                <el-option label="声明式结构 (structure)" value="structure" />
+                <el-option label="代码组件 (component)" value="component" />
+                <el-option label="内置引擎 (builtin)" value="builtin" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="24">
+            <el-form-item label="说明">
+              <el-input v-model="createForm.description" type="textarea" :rows="2" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="12">
+          <el-col :span="8">
+            <el-form-item label="画幅宽">
+              <el-input-number v-model="createForm.width" :min="240" :max="4096" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="画幅高">
+              <el-input-number v-model="createForm.height" :min="240" :max="4096" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="帧率">
+              <el-input-number v-model="createForm.fps" :min="12" :max="60" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-form-item label="默认 defaultProps">
+          <el-input v-model="createForm.defaultPropsJson" type="textarea" :rows="4" placeholder='{"title": "示例标题"}' />
+        </el-form-item>
+
+        <el-form-item v-if="createForm.implementationKind === 'structure'" label="SceneGraph 结构">
+          <el-input v-model="createForm.structureJson" type="textarea" :rows="8" placeholder='{"meta": {}, "scenes": [{"duration": 3, "layers": [{"type": "headline", "text": "{{title}}"}]}]}' />
+        </el-form-item>
+        <el-form-item v-else-if="createForm.implementationKind === 'builtin'" label="内置组件 Key">
+          <el-select v-model="createForm.builtinKey" style="width: 100%" placeholder="选择内置引擎组件">
+            <el-option v-for="t in builtinOptions" :key="t" :label="t" :value="t" />
+          </el-select>
+        </el-form-item>
+        <el-form-item v-else label="组件代码 (TSX)">
+          <el-input v-model="createForm.codeAssetsJson" type="textarea" :rows="6" placeholder='[{"name": "MyComp", "kind": "component", "code": "..."}]' />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="createVisible = false">取消</el-button>
+        <el-button type="primary" :loading="createLoading" @click="submitCreate">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 导入模板包 -->
+    <el-dialog v-model="importVisible" title="导入模板包" width="680px" destroy-on-close>
+      <el-input
+        v-model="importJson"
+        type="textarea"
+        :rows="14"
+        placeholder='粘贴 .ytpkg.json 内容'
+      />
+      <template #footer>
+        <el-button @click="importVisible = false">取消</el-button>
+        <el-button type="primary" :loading="importLoading" @click="submitImport">导入</el-button>
+      </template>
+    </el-dialog>
+
     <el-drawer v-model="detailVisible" title="模板包详情" size="60%">
       <template v-if="detail">
         <el-descriptions :column="2" border>
@@ -189,7 +284,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import { ElMessage } from 'element-plus';
-import { Search } from '@element-plus/icons-vue';
+import { Plus, Search, Upload } from '@element-plus/icons-vue';
 import ContentWrap from '@/components/ContentWrap/src/ContentWrap.vue';
 import ListPageLayout from '@/components/ListPageLayout/index.vue';
 import {
@@ -199,10 +294,12 @@ import {
   useTableMaxHeight,
 } from '@/common/table';
 import {
+  createRemotionTemplate,
   deleteRemotionTemplate,
   exportRemotionTemplate,
   getRemotionTemplate,
   getRemotionTemplatePage,
+  importRemotionTemplate,
   type RemotionTemplateItem,
 } from '@/api/remotion-template';
 
@@ -306,6 +403,159 @@ async function remove(row: RemotionTemplateItem) {
     load(page.value);
   } catch (e: any) {
     ElMessage.error(e?.message || '删除失败');
+  }
+}
+
+// ─── 新增模板 ────────────────────────────────────────────────
+const builtinOptions = [
+  'gradient-image-transition',
+  'simple-fade-text',
+  'slide-up-cards',
+  'progress-steps',
+  'image-showcase',
+  'quote-reveal',
+  'knowledge-cards',
+  'data-insight',
+  'cinematic-story',
+  'mood-kinetic',
+  'editorial-montage',
+];
+
+const createVisible = ref(false);
+const createLoading = ref(false);
+const createForm = reactive({
+  name: '',
+  code: '',
+  category: '我的模板',
+  description: '',
+  implementationKind: 'structure' as 'structure' | 'component' | 'builtin',
+  width: 1080,
+  height: 1920,
+  fps: 30,
+  defaultPropsJson: '{}',
+  structureJson: '',
+  builtinKey: '',
+  codeAssetsJson: '[]',
+});
+
+function parseJsonField(raw: string, fallback: any, label: string) {
+  const text = (raw || '').trim();
+  if (!text) return fallback;
+  try {
+    return JSON.parse(text);
+  } catch (e: any) {
+    throw new Error(`${label} JSON 解析失败: ${e?.message || e}`);
+  }
+}
+
+function openCreate() {
+  createForm.name = '';
+  createForm.code = '';
+  createForm.category = '我的模板';
+  createForm.description = '';
+  createForm.implementationKind = 'structure';
+  createForm.width = 1080;
+  createForm.height = 1920;
+  createForm.fps = 30;
+  createForm.defaultPropsJson = '{}';
+  createForm.structureJson = '';
+  createForm.builtinKey = '';
+  createForm.codeAssetsJson = '[]';
+  createVisible.value = true;
+}
+
+async function submitCreate() {
+  if (!createForm.name.trim() || !createForm.code.trim()) {
+    ElMessage.warning('请填写模板名称与标识码');
+    return;
+  }
+  createLoading.value = true;
+  try {
+    const defaultProps = parseJsonField(createForm.defaultPropsJson, {}, 'defaultProps');
+    const structure =
+      createForm.implementationKind === 'structure'
+        ? parseJsonField(createForm.structureJson, null, 'SceneGraph')
+        : null;
+    const codeAssets =
+      createForm.implementationKind === 'component'
+        ? parseJsonField(createForm.codeAssetsJson, [], 'codeAssets')
+        : null;
+
+    if (createForm.implementationKind === 'structure' && !structure?.scenes?.length) {
+      throw new Error('声明式结构需要包含至少一个 scene');
+    }
+    if (createForm.implementationKind === 'builtin' && !createForm.builtinKey) {
+      throw new Error('请选择内置组件 Key');
+    }
+
+    // 由结构自动推导 durationInFrames
+    const fps = createForm.fps || 30;
+    const totalSeconds = (structure?.scenes || []).reduce(
+      (acc: number, s: any) => acc + (Number(s?.duration) || 0),
+      0,
+    );
+    const durationInFrames = totalSeconds > 0 ? Math.round(totalSeconds * fps) : 300;
+
+    await createRemotionTemplate({
+      code: createForm.code.trim(),
+      name: createForm.name.trim(),
+      description: createForm.description,
+      category: createForm.category || '我的模板',
+      compositionId: `Tpl_${createForm.code.trim()}`,
+      width: createForm.width,
+      height: createForm.height,
+      fps,
+      durationInFrames,
+      defaultProps,
+      implementationKind: createForm.implementationKind,
+      structure,
+      codeAssets,
+      builtinKey: createForm.implementationKind === 'builtin' ? createForm.builtinKey : undefined,
+      scope: 'private',
+    } as any);
+    ElMessage.success('模板已创建');
+    createVisible.value = false;
+    load(1);
+  } catch (e: any) {
+    ElMessage.error(e?.message || '创建失败');
+  } finally {
+    createLoading.value = false;
+  }
+}
+
+// ─── 导入模板包 ──────────────────────────────────────────────
+const importVisible = ref(false);
+const importLoading = ref(false);
+const importJson = ref('');
+
+function openImport() {
+  importJson.value = '';
+  importVisible.value = true;
+}
+
+async function submitImport() {
+  const text = importJson.value.trim();
+  if (!text) {
+    ElMessage.warning('请粘贴模板包 JSON');
+    return;
+  }
+  let pkg: any;
+  try {
+    pkg = JSON.parse(text);
+  } catch (e: any) {
+    ElMessage.error(`JSON 解析失败: ${e?.message || e}`);
+    return;
+  }
+  importLoading.value = true;
+  try {
+    await importRemotionTemplate(pkg);
+    ElMessage.success('模板包已导入');
+    importVisible.value = false;
+    load(1);
+  } catch (e: any) {
+    ElMessage.error(e?.message || '导入失败');
+  } finally {
+    importLoading.value = false;
   }
 }
 
