@@ -1,4 +1,4 @@
-import { request } from '@/config/axios';
+import request from '@/config/axios';
 
 /** Remotion 模板包（对齐官方 Composition 契约） */
 export interface RemotionTemplateItem {
@@ -39,24 +39,37 @@ export function getRemotionTemplatePage(params: {
   scope?: string;
   implementationKind?: string;
   tag?: string;
-}): Promise<{ list: RemotionTemplateItem[]; total: number }> {
-  return request({ url: '/remotion-template/page', method: 'get', params }) as any;
+}) {
+  return request.get({
+    url: '/remotion-template/page',
+    params,
+  }) as unknown as Promise<{ list: RemotionTemplateItem[]; total: number }>;
 }
 
-export function getRemotionTemplate(id: string): Promise<RemotionTemplateItem> {
-  return request({ url: `/remotion-template/${id}`, method: 'get' }) as any;
+export function getRemotionTemplate(id: string) {
+  return request.get({
+    url: `/remotion-template/${id}`,
+  }) as unknown as Promise<RemotionTemplateItem>;
 }
 
-export function createRemotionTemplate(data: Partial<RemotionTemplateItem>): Promise<RemotionTemplateItem> {
-  return request({ url: '/remotion-template', method: 'post', data }) as any;
+export function createRemotionTemplate(data: Partial<RemotionTemplateItem>) {
+  return request.post({
+    url: '/remotion-template',
+    data,
+  }) as unknown as Promise<RemotionTemplateItem>;
 }
 
-export function updateRemotionTemplate(id: string, data: Partial<RemotionTemplateItem>): Promise<RemotionTemplateItem> {
-  return request({ url: `/remotion-template/${id}`, method: 'put', data }) as any;
+export function updateRemotionTemplate(id: string, data: Partial<RemotionTemplateItem>) {
+  return request.put({
+    url: `/remotion-template/${id}`,
+    data,
+  }) as unknown as Promise<RemotionTemplateItem>;
 }
 
-export function deleteRemotionTemplate(id: string): Promise<any> {
-  return request({ url: `/remotion-template/${id}`, method: 'delete' }) as any;
+export function deleteRemotionTemplate(id: string) {
+  return request.delete({
+    url: `/remotion-template/${id}`,
+  }) as unknown as Promise<any>;
 }
 
 export interface SaveTemplateParam {
@@ -79,22 +92,33 @@ export function saveTemplateFromRecord(data: {
   params: SaveTemplateParam[];
   editability?: Record<string, any>;
   scope?: 'private' | 'unlisted' | 'shared';
-}): Promise<RemotionTemplateItem> {
-  return request({ url: '/remotion-template/save-from-record', method: 'post', data }) as any;
+}) {
+  return request.post({
+    url: '/remotion-template/save-from-record',
+    data,
+  }) as unknown as Promise<RemotionTemplateItem>;
 }
 
 /** 套用模板：合并 inputProps 产出渲染载荷 */
 export function applyRemotionTemplate(data: {
   template: string;
   inputProps?: Record<string, any>;
-}): Promise<any> {
-  return request({ url: '/remotion-template/apply', method: 'post', data }) as any;
+}) {
+  return request.post({
+    url: '/remotion-template/apply',
+    data,
+  }) as unknown as Promise<any>;
 }
 
-export function exportRemotionTemplate(id: string): Promise<any> {
-  return request({ url: `/remotion-template/export/${id}`, method: 'get' }) as any;
+export function exportRemotionTemplate(id: string) {
+  return request.get({
+    url: `/remotion-template/export/${id}`,
+  }) as unknown as Promise<any>;
 }
 
-export function importRemotionTemplate(pkg: any): Promise<RemotionTemplateItem> {
-  return request({ url: '/remotion-template/import', method: 'post', data: pkg }) as any;
+export function importRemotionTemplate(pkg: any) {
+  return request.post({
+    url: '/remotion-template/import',
+    data: pkg,
+  }) as unknown as Promise<RemotionTemplateItem>;
 }
