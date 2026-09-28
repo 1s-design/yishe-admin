@@ -186,12 +186,6 @@
             <span>{{ editingId ? '编辑模板' : '新增模板' }}</span>
             <span v-if="createForm.code" class="tpl-dialog-header__code">{{ createForm.code }}</span>
           </div>
-          <div class="tpl-dialog-header__actions">
-            <el-button @click="createVisible = false">取消</el-button>
-            <el-button type="primary" :loading="createLoading" @click="submitCreate">
-              {{ editingId ? '保存修改' : '创建模板' }}
-            </el-button>
-          </div>
         </div>
       </template>
 
@@ -219,7 +213,7 @@
           </div>
           <div class="tpl-field tpl-field--wide">
             <label>说明</label>
-            <el-input v-model="createForm.description" type="textarea" :rows="2" placeholder="模板用途简介" />
+            <el-input v-model="createForm.description" type="textarea" :rows="3" placeholder="模板用途简介" />
           </div>
         </div>
 
@@ -257,7 +251,7 @@
           v-if="createForm.implementationKind === 'structure'"
           v-model="createForm.structureJson"
           type="textarea"
-          :rows="14"
+          :rows="22"
           class="tpl-code-input"
           placeholder='{"meta": {"title": "{{title}}"}, "scenes": [{"duration": 3, "layers": [{"type": "headline", "text": "{{title}}"}]}]}'
         />
@@ -265,7 +259,7 @@
           v-else
           v-model="createForm.codeAssetsJson"
           type="textarea"
-          :rows="14"
+          :rows="22"
           class="tpl-code-input"
           placeholder='[{"name": "MyComp", "kind": "component", "code": "const { frame, props } = scope; return <div>{props.title}</div>;"}]'
         />
@@ -277,11 +271,20 @@
         <el-input
           v-model="createForm.defaultPropsJson"
           type="textarea"
-          :rows="5"
+          :rows="12"
           class="tpl-code-input"
           placeholder='{"title": "示例标题"}'
         />
       </div>
+
+      <template #footer>
+        <div class="tpl-dialog-footer">
+          <el-button @click="createVisible = false">取消</el-button>
+          <el-button type="primary" :loading="createLoading" @click="submitCreate">
+            {{ editingId ? '保存修改' : '创建模板' }}
+          </el-button>
+        </div>
+      </template>
     </el-dialog>
 
     <!-- 导入模板包 -->
@@ -289,7 +292,7 @@
       <el-input
         v-model="importJson"
         type="textarea"
-        :rows="14"
+        :rows="20"
         placeholder="粘贴 .ytpkg.json 内容"
       />
       <template #footer>
@@ -789,6 +792,12 @@ onMounted(() => load(1));
     overflow: hidden;
     padding: 0;
   }
+
+  .el-dialog__footer {
+    padding: 12px 24px;
+    border-top: 1px solid var(--el-border-color-lighter);
+    background: var(--el-bg-color-overlay);
+  }
 }
 
 .tpl-dialog-header {
@@ -828,6 +837,13 @@ onMounted(() => load(1));
     gap: 8px;
     flex-shrink: 0;
   }
+}
+
+.tpl-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 4px 0 2px;
 }
 
 .tpl-editor {
@@ -888,18 +904,36 @@ onMounted(() => load(1));
   &--wide {
     grid-column: 1 / -1;
   }
+
+  :deep(.el-input__wrapper),
+  :deep(.el-input-number),
+  :deep(.el-textarea__inner) {
+    min-height: 36px;
+  }
+
+  :deep(.el-input .el-input__wrapper) {
+    padding: 6px 12px;
+  }
+
+  :deep(.el-textarea__inner) {
+    padding: 10px 12px;
+    line-height: 1.6;
+  }
 }
 
 .tpl-preset-row {
   display: flex;
   gap: 6px;
+  padding-bottom: 2px;
 }
 
 .tpl-code-input {
   :deep(textarea) {
     font-family: var(--el-font-family-monospace, monospace);
-    font-size: 12px;
-    line-height: 1.6;
+    font-size: 13px;
+    line-height: 1.7;
+    padding: 12px 14px;
+    min-height: 320px;
   }
 }
 
@@ -953,13 +987,13 @@ onMounted(() => load(1));
 }
 
 .tpl-json-block {
-  max-height: 52vh;
+  max-height: 58vh;
   overflow: auto;
-  padding: 12px 14px;
+  padding: 14px 16px;
   margin: 0;
   font-family: var(--el-font-family-monospace, monospace);
-  font-size: 12px;
-  line-height: 1.6;
+  font-size: 13px;
+  line-height: 1.7;
   color: var(--el-text-color-regular);
   background: var(--el-fill-color-light);
   border: 1px solid var(--el-border-color-lighter);
@@ -968,7 +1002,7 @@ onMounted(() => load(1));
   word-break: break-word;
 
   &--tall {
-    max-height: 60vh;
+    max-height: 64vh;
   }
 }
 </style>
