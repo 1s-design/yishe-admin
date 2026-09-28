@@ -105,30 +105,28 @@
                 </template>
                 <template #templateSlot="{ row }">
                   <div class="record-template-cell">
-                    <div class="record-template-name">
-                      <el-tag
-                        v-if="isFreeCreationRecord(row)"
-                        type="warning"
-                        size="small"
-                      >{{ t('remotionVideoRecord.freeCreation') }}</el-tag>
-                      <template v-else-if="isAutoMatchRecord(row)">
-                        <el-tag
-                          type="primary"
-                          size="small"
-                          class="mr-1"
-                        >{{ t('remotionVideoRecord.autoMatch') }}</el-tag>
-                        <span v-if="row.templateId && row.templateId !== 'auto'" class="record-template-main">{{
-                          row.templateName || row.templateId
-                        }}</span>
-                        <span v-if="row.templateId && row.templateId !== 'auto'" class="record-template-id">{{ row.templateId }}</span>
-                      </template>
-                      <template v-else>
-                        <span class="record-template-main">{{
-                          row.templateName || row.templateId
-                        }}</span>
-                        <span class="record-template-id">{{ row.templateId }}</span>
-                      </template>
-                    </div>
+                    <el-tag
+                      v-if="isFreeCreationRecord(row)"
+                      type="warning"
+                      size="small"
+                      class="record-template-tag"
+                    >{{ t('remotionVideoRecord.freeCreation') }}</el-tag>
+                    <el-tag
+                      v-else-if="isAutoMatchRecord(row)"
+                      type="primary"
+                      size="small"
+                      class="record-template-tag"
+                    >{{ t('remotionVideoRecord.autoMatch') }}</el-tag>
+                    <template v-if="!isFreeCreationRecord(row)">
+                      <span
+                        v-if="row.templateName || row.templateId"
+                        class="record-template-main"
+                      >{{ row.templateName || row.templateId }}</span>
+                      <span
+                        v-if="row.templateId && row.templateId !== 'auto' && (row.templateName || '') !== row.templateId"
+                        class="record-template-id"
+                      >{{ row.templateId }}</span>
+                    </template>
                   </div>
                 </template>
                 <template #statusSlot="{ row }">
@@ -648,17 +646,29 @@
             </div>
             <div class="detail-info-item">
               <span class="detail-info-label">模板</span>
-              <span class="detail-info-value">
+              <span class="detail-info-value detail-template-stack">
                 <el-tag
                   v-if="isFreeCreationRecord(currentRow)"
                   type="warning"
                   size="small"
+                  class="record-template-tag"
                 >{{ t('remotionVideoRecord.freeCreation') }}</el-tag>
-                <div v-else-if="isAutoMatchRecord(currentRow)" style="display: inline-flex; align-items: center; gap: 6px;">
-                  <el-tag type="primary" size="small">{{ t('remotionVideoRecord.autoMatch') }}</el-tag>
-                  <span v-if="currentRow.templateId && currentRow.templateId !== 'auto'">{{ currentRow.templateName || currentRow.templateId }} ({{ currentRow.templateId }})</span>
-                </div>
-                <span v-else>{{ currentRow.templateName || currentRow.templateId }}</span>
+                <template v-else>
+                  <el-tag
+                    v-if="isAutoMatchRecord(currentRow)"
+                    type="primary"
+                    size="small"
+                    class="record-template-tag"
+                  >{{ t('remotionVideoRecord.autoMatch') }}</el-tag>
+                  <span
+                    v-if="currentRow.templateName || currentRow.templateId"
+                    class="record-template-main"
+                  >{{ currentRow.templateName || currentRow.templateId }}</span>
+                  <span
+                    v-if="currentRow.templateId && currentRow.templateId !== 'auto' && (currentRow.templateName || '') !== currentRow.templateId"
+                    class="record-template-id"
+                  >{{ currentRow.templateId }}</span>
+                </template>
               </span>
             </div>
             <div class="detail-info-item">
@@ -3938,6 +3948,59 @@ watch(
   min-width: 0;
 }
 
+.record-template-cell {
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.record-template-tag {
+  flex: none;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.detail-template-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+  width: 100%;
+}
+
+.record-template-main,
+.record-template-id {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.record-title-text,
+.record-template-name,
+.template-summary-name {
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+  word-break: break-word;
+}
+
+.record-template-main {
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+  word-break: normal;
+}
+
+.record-title-sub,
+.record-template-id,
+.template-summary-desc,
+.template-summary-meta {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
 .record-progress-placeholder,
 .record-progress-message {
   font-size: 10px;
@@ -3975,22 +4038,6 @@ watch(
   min-width: 28px;
   font-size: 10px !important;
   font-weight: 500;
-  color: var(--el-text-color-secondary);
-}
-
-.record-title-text,
-.record-template-name,
-.template-summary-name {
-  font-weight: 500;
-  color: var(--el-text-color-primary);
-  word-break: break-word;
-}
-
-.record-title-sub,
-.record-template-id,
-.template-summary-desc,
-.template-summary-meta {
-  font-size: 12px;
   color: var(--el-text-color-secondary);
 }
 
