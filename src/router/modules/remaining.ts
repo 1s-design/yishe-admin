@@ -587,6 +587,14 @@ const remainingRouter: AppRouteRecordRaw[] = [
         },
       },
       {
+        path: "ai-scheduled-task",
+        component: () => import("@/views/ai/scheduledTask/index.vue"),
+        name: "AiScheduledTask",
+        meta: {
+          title: "router.aiScheduledTask",
+        },
+      },
+      {
         path: "mcp",
         component: () => import("@/views/ai/mcp/index.vue"),
         name: "McpConsole",
