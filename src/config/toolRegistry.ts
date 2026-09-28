@@ -20,6 +20,15 @@ export const resolveDesignToolUrl = () => {
     return 'http://localhost:1522'
   }
 
+  if (typeof window !== 'undefined') {
+    const { protocol, hostname } = window.location
+    if (hostname === 'admin.1s.design' || hostname === '1s.design') {
+      return 'https://tool.1s.design'
+    }
+    // 私有部署：自动派生到同域名的 1522 端口
+    return `${protocol}//${hostname}:1522`
+  }
+
   return 'https://tool.1s.design'
 }
 

@@ -251,6 +251,7 @@ export default {
     aiAssistant: '智能助手',
     agentRunTasks: '任务管理',
     aiSkills: 'Skills',
+    aiRoles: 'AI 角色',
     mcpManagement: 'MCP 管理',
     aiTextToImage: 'AI文字生成图片',
     aiTextToSpeech: 'AI文字转语音',

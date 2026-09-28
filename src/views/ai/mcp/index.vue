@@ -391,7 +391,8 @@ defineOptions({
 
 const mcpSseUrl = computed(() => {
   const token = getAccessToken() || "YOUR_TOKEN";
-  return `http://localhost:1520/api/sse?token=${token}`;
+  const apiBase = (import.meta.env.VITE_BASE_URL || window.location.origin).replace(/\/+$/, "").replace(/\/api$/, "");
+  return `${apiBase}/api/sse?token=${token}`;
 });
 
 const activeTab = ref("tools");

@@ -249,6 +249,7 @@ export default {
     aiAssistant: 'AI Assistant',
     agentRunTasks: 'Run Tasks',
     aiSkills: 'Skills',
+    aiRoles: 'AI Roles',
     mcpManagement: 'MCP Management',
     aiTextToImage: 'AI Text to Image',
     aiTextToSpeech: 'AI Text to Speech',

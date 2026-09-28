@@ -579,6 +579,14 @@ const remainingRouter: AppRouteRecordRaw[] = [
         },
       },
       {
+        path: "roles",
+        component: () => import("@/views/ai/roles/index.vue"),
+        name: "AiRoles",
+        meta: {
+          title: "router.aiRoles",
+        },
+      },
+      {
         path: "mcp",
         component: () => import("@/views/ai/mcp/index.vue"),
         name: "McpConsole",

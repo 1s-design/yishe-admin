@@ -14,7 +14,10 @@ import COS from 'cos-js-sdk-v5'
 import CryptoJS from 'crypto-js'
 import { saveAs } from 'file-saver'
 
+const COS_CONFIG_SECRET = import.meta.env.VITE_COS_CONFIG_SECRET || '1s'
+const COS_TTL_MS = 30 * 60 * 1000 // 30分钟缓存有效期，支持定时轮换
 let _cos = null
+let _cosInitTime = 0
 
 type BackendCOSConfig = {
   SecretId: string
@@ -23,7 +26,51 @@ type BackendCOSConfig = {
   Region: string
 }
 
-const COS_CONFIG_SECRET = '1s'
+// ─── STS 临时凭据（优先），失败回退永久密钥 ───────────────────
+type StsCredential = {
+  TmpSecretId: string
+  TmpSecretKey: string
+  SecurityToken: string
+  ExpiredTime: number
+  Bucket: string
+  Region: string
+}
+
+let _sts: StsCredential | null = null
+const STS_REFRESH_AHEAD_MS = 5 * 60 * 1000
+
+export const invalidateSTS = () => {
+  _sts = null
+}
+
+const fetchStsCredential = async (): Promise<StsCredential | null> => {
+  try {
+    const now = Date.now()
+    if (_sts && (_sts.ExpiredTime || 0) * 1000 - now > STS_REFRESH_AHEAD_MS) {
+      return _sts
+    }
+    const data = await request.get<any>({
+      url: '/cos/sts',
+      params: { expireSeconds: 7200 },
+    })
+    const d = data?.data ?? data
+    if (d?.TmpSecretId && d?.TmpSecretKey && d?.SecurityToken && d?.ExpiredTime) {
+      _sts = {
+        TmpSecretId: d.TmpSecretId,
+        TmpSecretKey: d.TmpSecretKey,
+        SecurityToken: d.SecurityToken,
+        ExpiredTime: Number(d.ExpiredTime),
+        Bucket: d.Bucket || d.bucket || '',
+        Region: d.Region || d.region || '',
+      }
+      return _sts
+    }
+    return null
+  } catch (e: any) {
+    console.warn('[COS] STS 凭据获取失败（回退永久密钥）:', e?.message || e)
+    return null
+  }
+}
 
 const decryptBackendCOSConfig = (encryptedConfig: unknown): BackendCOSConfig => {
   const encryptedText = String(encryptedConfig || '').trim()
@@ -57,14 +104,47 @@ const fetchBackendCOSConfig = async () => {
   return decryptBackendCOSConfig(encryptedConfig)
 }
 
-// 初始化COS配置，只在项目启动时调用一次
-export const initCOS = async () => {
-  if (_cos) {
+/** 手动重置/失效 COS 缓存 */
+export const invalidateCOS = () => {
+  _cos = null
+  _cosInitTime = 0
+  invalidateSTS()
+}
+
+// 初始化COS配置：优先 STS 临时凭据，失败回退 getBasicConfig 永久密钥
+export const initCOS = async (force = false) => {
+  const now = Date.now()
+  if (_cos && !force && now - _cosInitTime < COS_TTL_MS) {
+    return _cos
+  }
+
+  const sts = await fetchStsCredential()
+  if (sts) {
+    _cos = new COS({
+      getAuthorization: (_options: any, callback: (auth: any) => void) => {
+        void fetchStsCredential().then((fresh) => {
+          if (!fresh) {
+            callback({})
+            return
+          }
+          callback({
+            TmpSecretId: fresh.TmpSecretId,
+            TmpSecretKey: fresh.TmpSecretKey,
+            SecurityToken: fresh.SecurityToken,
+            ExpiredTime: fresh.ExpiredTime,
+          })
+        })
+      },
+      Bucket: sts.Bucket,
+      Region: sts.Region,
+      Timeout: 300000,
+    } as any)
+    _cosInitTime = now
+    console.log('[COS] 已使用 STS 临时凭据模式')
     return _cos
   }
 
   const cosConfig = await fetchBackendCOSConfig()
-
   _cos = new COS({
     SecretId: cosConfig.SecretId,
     SecretKey: cosConfig.SecretKey,
@@ -72,6 +152,7 @@ export const initCOS = async () => {
     Region: cosConfig.Region,
     Timeout: 300000
   } as any)
+  _cosInitTime = now
 
   return _cos
 }
@@ -217,6 +298,15 @@ export async function uploadToCOS({
   } catch (e: any) {
     const errorMessage = e?.message || e?.toString() || '未知错误'
     console.error(`[COS上传] 上传失败: ${errorMessage}`, e);
+    if (
+      e?.statusCode === 403 ||
+      e?.code === 'SignatureDoesNotMatch' ||
+      e?.code === 'AccessDenied' ||
+      e?.code === 'RequestTimeTooSkewed'
+    ) {
+      console.warn('[COS上传] 凭据已失效或过期，清除本地 COS 实例准备重新拉取')
+      invalidateCOS()
+    }
     console.error(`[COS上传] 错误详情:`, JSON.stringify({
       statusCode: e?.statusCode,
       headers: e?.headers,

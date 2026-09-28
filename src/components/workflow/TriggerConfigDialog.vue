@@ -288,10 +288,12 @@ const saveWebhookTrigger = async () => {
 const updateWebhookUrls = () => {
   if (!webhookPath.value) return
   const basePath = `/api/workflow/webhook/${webhookPath.value}`
-  // 开发环境：localhost
-  const devOrigin = 'http://localhost:1520'
-  // 线上环境：api.1s.design
-  const prodOrigin = 'https://api.1s.design'
+  const configuredBase = String(import.meta.env.VITE_BASE_URL || '').trim().replace(/\/+$/, '').replace(/\/api$/, '')
+  // 开发环境：优先配置，回退 localhost:1520
+  const devOrigin = configuredBase || 'http://localhost:1520'
+  // 线上/当前环境：优先配置，其次当前页面 origin
+  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : ''
+  const prodOrigin = configuredBase || currentOrigin
   webhookDevUrl.value = `${devOrigin}${basePath}`
   webhookProdUrl.value = `${prodOrigin}${basePath}`
 }
