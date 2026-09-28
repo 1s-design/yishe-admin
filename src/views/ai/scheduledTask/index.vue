@@ -173,11 +173,10 @@
 
           <div v-if="showTimeField" class="task-field">
             <label>执行时间 <em>*</em></label>
-            <el-time-select
+            <el-time-picker
               v-model="form.time"
-              start="00:00"
-              step="00:15"
-              end="23:45"
+              format="HH:mm"
+              value-format="HH:mm"
               placeholder="选择时间"
               style="width: 100%"
             />
