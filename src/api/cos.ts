@@ -59,7 +59,8 @@ const fetchStsCredential = async (): Promise<StsCredential | null> => {
         TmpSecretId: d.TmpSecretId,
         TmpSecretKey: d.TmpSecretKey,
         SecurityToken: d.SecurityToken,
-        ExpiredTime: Number(d.ExpiredTime),
+        // COS SDK 要求 10 位秒级时间戳
+        ExpiredTime: Math.floor(Number(d.ExpiredTime) || 0),
         Bucket: d.Bucket || d.bucket || '',
         Region: d.Region || d.region || '',
       }
