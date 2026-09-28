@@ -63,7 +63,6 @@
                     placeholder="全部形态"
                     @change="load(1)"
                   >
-                    <el-option label="内置引擎" value="builtin" />
                     <el-option label="声明式结构" value="structure" />
                     <el-option label="代码组件" value="component" />
                   </el-select>
@@ -183,7 +182,6 @@
               <el-select v-model="createForm.implementationKind" style="width: 100%">
                 <el-option label="声明式结构 (structure)" value="structure" />
                 <el-option label="代码组件 (component)" value="component" />
-                <el-option label="内置引擎 (builtin)" value="builtin" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -219,13 +217,8 @@
         <el-form-item v-if="createForm.implementationKind === 'structure'" label="SceneGraph 结构">
           <el-input v-model="createForm.structureJson" type="textarea" :rows="8" placeholder='{"meta": {}, "scenes": [{"duration": 3, "layers": [{"type": "headline", "text": "{{title}}"}]}]}' />
         </el-form-item>
-        <el-form-item v-else-if="createForm.implementationKind === 'builtin'" label="内置组件 Key">
-          <el-select v-model="createForm.builtinKey" style="width: 100%" placeholder="选择内置引擎组件">
-            <el-option v-for="t in builtinOptions" :key="t" :label="t" :value="t" />
-          </el-select>
-        </el-form-item>
         <el-form-item v-else label="组件代码 (TSX)">
-          <el-input v-model="createForm.codeAssetsJson" type="textarea" :rows="6" placeholder='[{"name": "MyComp", "kind": "component", "code": "..."}]' />
+          <el-input v-model="createForm.codeAssetsJson" type="textarea" :rows="8" placeholder='[{"name": "MyComp", "kind": "component", "code": "const { frame, props } = scope; return <div>...</div>;"}]' />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -335,7 +328,7 @@ const gridOptions = computed(() => ({
 }));
 
 function kindLabel(k?: string) {
-  return k === 'builtin' ? '内置引擎' : k === 'component' ? '代码组件' : '声明式结构';
+  return k === 'builtin' ? '内置组件（兼容）' : k === 'component' ? '代码组件' : '声明式结构';
 }
 function kindTagType(k?: string) {
   return k === 'builtin' ? 'info' : k === 'component' ? 'danger' : 'success';
@@ -407,20 +400,6 @@ async function remove(row: RemotionTemplateItem) {
 }
 
 // ─── 新增模板 ────────────────────────────────────────────────
-const builtinOptions = [
-  'gradient-image-transition',
-  'simple-fade-text',
-  'slide-up-cards',
-  'progress-steps',
-  'image-showcase',
-  'quote-reveal',
-  'knowledge-cards',
-  'data-insight',
-  'cinematic-story',
-  'mood-kinetic',
-  'editorial-montage',
-];
-
 const createVisible = ref(false);
 const createLoading = ref(false);
 const createForm = reactive({
@@ -484,8 +463,11 @@ async function submitCreate() {
     if (createForm.implementationKind === 'structure' && !structure?.scenes?.length) {
       throw new Error('声明式结构需要包含至少一个 scene');
     }
-    if (createForm.implementationKind === 'builtin' && !createForm.builtinKey) {
-      throw new Error('请选择内置组件 Key');
+    if (createForm.implementationKind === 'component') {
+      const list = Array.isArray(codeAssets) ? codeAssets : [];
+      if (!list.some((c: any) => c?.code)) {
+        throw new Error('代码组件需要包含可执行 code');
+      }
     }
 
     // 由结构自动推导 durationInFrames
@@ -510,7 +492,6 @@ async function submitCreate() {
       implementationKind: createForm.implementationKind,
       structure,
       codeAssets,
-      builtinKey: createForm.implementationKind === 'builtin' ? createForm.builtinKey : undefined,
       scope: 'private',
     } as any);
     ElMessage.success('模板已创建');
