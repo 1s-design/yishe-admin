@@ -196,101 +196,91 @@
       </template>
 
       <div class="tpl-editor">
-        <section class="tpl-card">
-          <div class="tpl-card__title">基础信息</div>
-          <div class="tpl-grid">
-            <div class="tpl-field">
-              <label>模板名称 <em>*</em></label>
-              <el-input v-model="createForm.name" placeholder="产品三卡上滑" maxlength="60" />
-            </div>
-            <div class="tpl-field">
-              <label>标识码 <em>*</em></label>
-              <el-input v-model="createForm.code" placeholder="product-three-cards" maxlength="80" />
-            </div>
-            <div class="tpl-field">
-              <label>分类</label>
-              <el-input v-model="createForm.category" placeholder="我的模板" />
-            </div>
-            <div class="tpl-field">
-              <label>实现形态</label>
-              <el-radio-group v-model="createForm.implementationKind">
-                <el-radio-button label="structure">声明式结构</el-radio-button>
-                <el-radio-button label="component">代码组件</el-radio-button>
-              </el-radio-group>
-            </div>
-            <div class="tpl-field tpl-field--wide">
-              <label>说明</label>
-              <el-input v-model="createForm.description" type="textarea" :rows="2" placeholder="模板用途简介" />
-            </div>
+        <div class="tpl-section-label">基础信息</div>
+        <div class="tpl-grid">
+          <div class="tpl-field">
+            <label>模板名称 <em>*</em></label>
+            <el-input v-model="createForm.name" placeholder="产品三卡上滑" maxlength="60" />
           </div>
-        </section>
+          <div class="tpl-field">
+            <label>标识码 <em>*</em></label>
+            <el-input v-model="createForm.code" placeholder="product-three-cards" maxlength="80" />
+          </div>
+          <div class="tpl-field">
+            <label>分类</label>
+            <el-input v-model="createForm.category" placeholder="我的模板" />
+          </div>
+          <div class="tpl-field">
+            <label>实现形态</label>
+            <el-radio-group v-model="createForm.implementationKind">
+              <el-radio-button label="structure">声明式结构</el-radio-button>
+              <el-radio-button label="component">代码组件</el-radio-button>
+            </el-radio-group>
+          </div>
+          <div class="tpl-field tpl-field--wide">
+            <label>说明</label>
+            <el-input v-model="createForm.description" type="textarea" :rows="2" placeholder="模板用途简介" />
+          </div>
+        </div>
 
-        <section class="tpl-card">
-          <div class="tpl-card__title">Composition</div>
-          <div class="tpl-grid tpl-grid--compact">
-            <div class="tpl-field">
-              <label>画幅宽</label>
-              <el-input-number v-model="createForm.width" :min="240" :max="4096" controls-position="right" />
-            </div>
-            <div class="tpl-field">
-              <label>画幅高</label>
-              <el-input-number v-model="createForm.height" :min="240" :max="4096" controls-position="right" />
-            </div>
-            <div class="tpl-field">
-              <label>帧率</label>
-              <el-input-number v-model="createForm.fps" :min="12" :max="60" controls-position="right" />
-            </div>
-            <div class="tpl-field">
-              <label>画幅预设</label>
-              <div class="tpl-preset-row">
-                <el-button size="small" @click="setOrientation('portrait')">竖屏</el-button>
-                <el-button size="small" @click="setOrientation('landscape')">横屏</el-button>
-                <el-button size="small" @click="setOrientation('square')">方形</el-button>
-              </div>
+        <div class="tpl-section-label">Composition</div>
+        <div class="tpl-grid tpl-grid--compact">
+          <div class="tpl-field">
+            <label>画幅宽</label>
+            <el-input-number v-model="createForm.width" :min="240" :max="4096" controls-position="right" />
+          </div>
+          <div class="tpl-field">
+            <label>画幅高</label>
+            <el-input-number v-model="createForm.height" :min="240" :max="4096" controls-position="right" />
+          </div>
+          <div class="tpl-field">
+            <label>帧率</label>
+            <el-input-number v-model="createForm.fps" :min="12" :max="60" controls-position="right" />
+          </div>
+          <div class="tpl-field">
+            <label>画幅预设</label>
+            <div class="tpl-preset-row">
+              <el-button size="small" @click="setOrientation('portrait')">竖屏</el-button>
+              <el-button size="small" @click="setOrientation('landscape')">横屏</el-button>
+              <el-button size="small" @click="setOrientation('square')">方形</el-button>
             </div>
           </div>
-        </section>
+        </div>
 
-        <section class="tpl-card">
-          <div class="tpl-card__title">
-            {{ createForm.implementationKind === 'structure' ? 'SceneGraph 结构' : '组件代码 (TSX)' }}
-            <span class="tpl-card__hint">
-              {{ createForm.implementationKind === 'structure'
-                ? STRUCT_HINT
-                : '函数体形式，最后 return React 元素；作用域含 frame/props/palette/spring 等' }}
-            </span>
-          </div>
-          <el-input
-            v-if="createForm.implementationKind === 'structure'"
-            v-model="createForm.structureJson"
-            type="textarea"
-            :rows="14"
-            class="tpl-code-input"
-            placeholder='{"meta": {"title": "{{title}}"}, "scenes": [{"duration": 3, "layers": [{"type": "headline", "text": "{{title}}"}]}]}'
-          />
-          <el-input
-            v-else
-            v-model="createForm.codeAssetsJson"
-            type="textarea"
-            :rows="14"
-            class="tpl-code-input"
-            placeholder='[{"name": "MyComp", "kind": "component", "code": "const { frame, props } = scope; return <div style={{opacity: frame/30}}>{props.title}</div>;"}]'
-          />
-        </section>
+        <div class="tpl-section-label">
+          {{ createForm.implementationKind === 'structure' ? 'SceneGraph 结构' : '组件代码 (TSX)' }}
+          <span class="tpl-section-hint">
+            {{ createForm.implementationKind === 'structure' ? STRUCT_HINT : '函数体形式，最后 return React 元素；作用域含 frame/props/palette/spring 等' }}
+          </span>
+        </div>
+        <el-input
+          v-if="createForm.implementationKind === 'structure'"
+          v-model="createForm.structureJson"
+          type="textarea"
+          :rows="14"
+          class="tpl-code-input"
+          placeholder='{"meta": {"title": "{{title}}"}, "scenes": [{"duration": 3, "layers": [{"type": "headline", "text": "{{title}}"}]}]}'
+        />
+        <el-input
+          v-else
+          v-model="createForm.codeAssetsJson"
+          type="textarea"
+          :rows="14"
+          class="tpl-code-input"
+          placeholder='[{"name": "MyComp", "kind": "component", "code": "const { frame, props } = scope; return <div>{props.title}</div>;"}]'
+        />
 
-        <section class="tpl-card">
-          <div class="tpl-card__title">
-            默认 defaultProps
-            <span class="tpl-card__hint">Remotion Composition 的默认 inputProps</span>
-          </div>
-          <el-input
-            v-model="createForm.defaultPropsJson"
-            type="textarea"
-            :rows="6"
-            class="tpl-code-input"
-            placeholder='{"title": "示例标题"}'
-          />
-        </section>
+        <div class="tpl-section-label">
+          默认 defaultProps
+          <span class="tpl-section-hint">Remotion Composition 的默认 inputProps</span>
+        </div>
+        <el-input
+          v-model="createForm.defaultPropsJson"
+          type="textarea"
+          :rows="5"
+          class="tpl-code-input"
+          placeholder='{"title": "示例标题"}'
+        />
       </div>
     </el-dialog>
 
@@ -334,59 +324,54 @@
       </template>
 
       <div v-if="detail" class="tpl-editor">
-        <div class="tpl-detail">
-          <section class="tpl-card">
-            <div class="tpl-card__title">概览</div>
-            <div class="tpl-stats">
-              <div class="tpl-stat">
-                <span class="tpl-stat__label">画幅</span>
-                <span class="tpl-stat__value">{{ detail.width }}×{{ detail.height }}</span>
-              </div>
-              <div class="tpl-stat">
-                <span class="tpl-stat__label">帧率</span>
-                <span class="tpl-stat__value">{{ detail.fps }}fps</span>
-              </div>
-              <div class="tpl-stat">
-                <span class="tpl-stat__label">帧数</span>
-                <span class="tpl-stat__value">{{ detail.durationInFrames }}f</span>
-              </div>
-              <div class="tpl-stat">
-                <span class="tpl-stat__label">版本</span>
-                <span class="tpl-stat__value">{{ detail.version }}</span>
-              </div>
-              <div class="tpl-stat">
-                <span class="tpl-stat__label">范围</span>
-                <span class="tpl-stat__value">{{ scopeLabel(detail.scope) }}</span>
-              </div>
-              <div class="tpl-stat">
-                <span class="tpl-stat__label">Composition</span>
-                <span class="tpl-stat__value">{{ detail.compositionId }}</span>
-              </div>
-            </div>
-            <div v-if="detail.description" class="tpl-desc">{{ detail.description }}</div>
-            <div class="tpl-meta-row">
-              <span v-if="detail.sourceRecordId">来源记录：{{ detail.sourceRecordId }}</span>
-              <span>contentHash：<code class="tpl-hash">{{ (detail.contentHash || '-').slice(0, 16) }}</code></span>
-            </div>
-          </section>
-
-          <section class="tpl-card">
-            <el-tabs v-model="detailTab">
-              <el-tab-pane label="defaultProps" name="defaultProps">
-                <pre class="tpl-json-block">{{ pretty(detail.defaultProps) }}</pre>
-              </el-tab-pane>
-              <el-tab-pane label="参数 Schema" name="schema">
-                <pre class="tpl-json-block">{{ pretty({ propsSchema: detail.propsSchema, paramHints: detail.paramHints }) }}</pre>
-              </el-tab-pane>
-              <el-tab-pane :label="detail.implementationKind === 'structure' ? '结构' : '代码'" name="impl">
-                <pre class="tpl-json-block tpl-json-block--tall">{{ pretty(detail.implementationKind === 'structure' ? detail.structure : detail.codeAssets) }}</pre>
-              </el-tab-pane>
-              <el-tab-pane label="meta" name="meta">
-                <pre class="tpl-json-block">{{ pretty({ meta: detail.meta, editability: detail.editability }) }}</pre>
-              </el-tab-pane>
-            </el-tabs>
-          </section>
+        <div class="tpl-section-label">概览</div>
+        <div class="tpl-stats">
+          <div class="tpl-stat">
+            <span class="tpl-stat__label">画幅</span>
+            <span class="tpl-stat__value">{{ detail.width }}×{{ detail.height }}</span>
+          </div>
+          <div class="tpl-stat">
+            <span class="tpl-stat__label">帧率</span>
+            <span class="tpl-stat__value">{{ detail.fps }}fps</span>
+          </div>
+          <div class="tpl-stat">
+            <span class="tpl-stat__label">帧数</span>
+            <span class="tpl-stat__value">{{ detail.durationInFrames }}f</span>
+          </div>
+          <div class="tpl-stat">
+            <span class="tpl-stat__label">版本</span>
+            <span class="tpl-stat__value">{{ detail.version }}</span>
+          </div>
+          <div class="tpl-stat">
+            <span class="tpl-stat__label">范围</span>
+            <span class="tpl-stat__value">{{ scopeLabel(detail.scope) }}</span>
+          </div>
+          <div class="tpl-stat">
+            <span class="tpl-stat__label">Composition</span>
+            <span class="tpl-stat__value">{{ detail.compositionId }}</span>
+          </div>
         </div>
+        <div v-if="detail.description" class="tpl-desc">{{ detail.description }}</div>
+        <div class="tpl-meta-row">
+          <span v-if="detail.sourceRecordId">来源记录：{{ detail.sourceRecordId }}</span>
+          <span>contentHash：<code class="tpl-hash">{{ (detail.contentHash || '-').slice(0, 16) }}</code></span>
+        </div>
+
+        <div class="tpl-section-label" style="margin-top: 18px;">数据</div>
+        <el-tabs v-model="detailTab">
+          <el-tab-pane label="defaultProps" name="defaultProps">
+            <pre class="tpl-json-block">{{ pretty(detail.defaultProps) }}</pre>
+          </el-tab-pane>
+          <el-tab-pane label="参数 Schema" name="schema">
+            <pre class="tpl-json-block">{{ pretty({ propsSchema: detail.propsSchema, paramHints: detail.paramHints }) }}</pre>
+          </el-tab-pane>
+          <el-tab-pane :label="detail.implementationKind === 'structure' ? '结构' : '代码'" name="impl">
+            <pre class="tpl-json-block tpl-json-block--tall">{{ pretty(detail.implementationKind === 'structure' ? detail.structure : detail.codeAssets) }}</pre>
+          </el-tab-pane>
+          <el-tab-pane label="meta" name="meta">
+            <pre class="tpl-json-block">{{ pretty({ meta: detail.meta, editability: detail.editability }) }}</pre>
+          </el-tab-pane>
+        </el-tabs>
       </div>
     </el-dialog>
   </ContentWrap>
@@ -848,31 +833,29 @@ onMounted(() => load(1));
 .tpl-editor {
   height: 100%;
   overflow-y: auto;
-  padding: 16px 24px 24px;
+  padding: 8px 24px 24px;
 }
 
-.tpl-card {
-  margin-bottom: 14px;
-  padding: 14px 16px;
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 8px;
-  background: var(--el-fill-color-blank);
+.tpl-section-label {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 18px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
 
-  &__title {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    margin-bottom: 12px;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--el-text-color-primary);
+  &:first-child {
+    margin-top: 4px;
   }
+}
 
-  &__hint {
-    font-size: 12px;
-    font-weight: 400;
-    color: var(--el-text-color-secondary);
-  }
+.tpl-section-hint {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--el-text-color-secondary);
 }
 
 .tpl-grid {
@@ -920,29 +903,22 @@ onMounted(() => load(1));
   }
 }
 
-.tpl-detail {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
 .tpl-stats {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
 }
 
 .tpl-stat {
   display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 8px 10px;
-  border-radius: 6px;
-  background: var(--el-fill-color-light);
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
 
   &__label {
-    font-size: 11px;
+    font-size: 12px;
     color: var(--el-text-color-secondary);
+    flex-shrink: 0;
   }
 
   &__value {
@@ -987,7 +963,7 @@ onMounted(() => load(1));
   color: var(--el-text-color-regular);
   background: var(--el-fill-color-light);
   border: 1px solid var(--el-border-color-lighter);
-  border-radius: 8px;
+  border-radius: 6px;
   white-space: pre-wrap;
   word-break: break-word;
 
