@@ -595,6 +595,14 @@ const remainingRouter: AppRouteRecordRaw[] = [
         },
       },
       {
+        path: "ai-prompt-template",
+        component: () => import("@/views/ai/promptTemplate/index.vue"),
+        name: "AiPromptTemplate",
+        meta: {
+          title: "router.aiPromptTemplate",
+        },
+      },
+      {
         path: "mcp",
         component: () => import("@/views/ai/mcp/index.vue"),
         name: "McpConsole",

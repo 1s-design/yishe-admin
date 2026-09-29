@@ -251,6 +251,7 @@ export default {
     aiAssistant: '智能助手',
     agentRunTasks: '任务管理',
     aiSkills: 'Skills',
+    aiPromptTemplate: '提示词模板',
     aiScheduledTask: 'AI 定时任务',
     aiRoles: 'AI 角色',
     mcpManagement: 'MCP 管理',

@@ -249,6 +249,7 @@ export default {
     aiAssistant: 'AI Assistant',
     agentRunTasks: 'Run Tasks',
     aiSkills: 'Skills',
+    aiPromptTemplate: 'Prompt Templates',
     aiScheduledTask: 'AI Scheduled Tasks',
     aiRoles: 'AI Roles',
     mcpManagement: 'MCP Management',
