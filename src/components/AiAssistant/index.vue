@@ -335,6 +335,37 @@
               @keydown="handleKeyDown"
               @input="autoResize"></textarea>
             <div class="composer__actions">
+              <el-popover v-model:visible="showScopePicker" placement="top-end" :width="320" trigger="click">
+                <template #reference>
+                  <button type="button" class="composer__scope" :class="{ active: hasToolScope }" title="选择工具范围">
+                    <el-icon :size="15"><Operation /></el-icon>
+                    <span v-if="hasToolScope" class="composer__scope-count">{{ scopeLabel }}</span>
+                  </button>
+                </template>
+                <div class="scope-pop">
+                  <div class="scope-pop__title">
+                    工具范围
+                    <em>选定后本轮只用这些工具，留空则模型自选</em>
+                  </div>
+                  <button type="button" class="scope-pop__all" :class="{ active: !hasToolScope }" @click="clearToolScope">
+                    全部工具（模型自选）
+                  </button>
+                  <div class="scope-pop__list">
+                    <button
+                      v-for="palette in toolPalettes"
+                      :key="palette.key"
+                      type="button"
+                      class="scope-pop__item"
+                      :class="{ active: selectedPaletteKeys.includes(palette.key) }"
+                      @click="togglePalette(palette.key)"
+                    >
+                      <span class="scope-pop__icon">{{ palette.icon }}</span>
+                      <span class="scope-pop__label">{{ palette.label }}</span>
+                      <span class="scope-pop__desc">{{ palette.description }}</span>
+                    </button>
+                  </div>
+                </div>
+              </el-popover>
               <button class="composer__send" :disabled="!canSend || store.loading" @click="handleSend">
                 <el-icon :size="16"><ArrowUp v-if="!store.loading" /><Loading v-else class="is-loading" /></el-icon>
               </button>
@@ -453,7 +484,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { ElMessage } from "element-plus";
-import { ArrowDown, ArrowUp, Check, CopyDocument, Delete, InfoFilled, Loading, Plus, Promotion, Refresh, Search, Tools } from "@element-plus/icons-vue";
+import { Operation, ArrowDown, ArrowUp, Check, CopyDocument, Delete, InfoFilled, Loading, Plus, Promotion, Refresh, Search, Tools } from "@element-plus/icons-vue";
 import { AiAssistantApi } from "@/api/aiAssistant";
 import { useAiAssistantStore } from "@/store/modules/aiAssistant";
 import { websocketClient } from "@/services/websocketClient";
@@ -739,6 +770,49 @@ function buildPageContext() {
     query: route.query,
     params: route.params,
   };
+}
+
+// ── 工具范围选择器 ──────────────────────────────────────────
+const showScopePicker = ref(false);
+const toolPalettes = ref<Array<{ key: string; label: string; icon: string; description: string }>>([]);
+const selectedPaletteKeys = ref<string[]>([]);
+
+const hasToolScope = computed(() => selectedPaletteKeys.value.length > 0);
+const scopeLabel = computed(() => {
+  const n = selectedPaletteKeys.value.length;
+  return n === 1
+    ? (toolPalettes.value.find((p) => p.key === selectedPaletteKeys.value[0])?.label || '')
+    : `${n} 组`;
+});
+
+async function loadToolPalettes() {
+  try {
+    const res = await AiAssistantApi.getToolPalettes();
+    toolPalettes.value = (res as any)?.palettes || [];
+  } catch (e) {
+    console.warn('加载工具面板失败', e);
+  }
+}
+
+function syncToolScope() {
+  if (!selectedPaletteKeys.value.length) {
+    store.setToolScope(null);
+  } else {
+    store.setToolScope({ palettes: [...selectedPaletteKeys.value] });
+  }
+}
+
+function togglePalette(key: string) {
+  const idx = selectedPaletteKeys.value.indexOf(key);
+  if (idx >= 0) selectedPaletteKeys.value.splice(idx, 1);
+  else selectedPaletteKeys.value.push(key);
+  syncToolScope();
+}
+
+function clearToolScope() {
+  selectedPaletteKeys.value = [];
+  syncToolScope();
+  showScopePicker.value = false;
 }
 
 function handleSend() {
@@ -1027,6 +1101,7 @@ watch(
 
 onMounted(() => {
   store.initialize();
+  void loadToolPalettes();
   websocketClient.events.on("mcp-async-result", handleMcpAsyncResult);
   handleResizeOpen();
   streamBrand();
@@ -1640,6 +1715,124 @@ html.dark .ai-desktop .conversation-detail-popup {
 }
 
 /* ── Composer 容器 ── */
+.composer__scope {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--el-border-color);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--el-text-color-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    color: var(--el-color-primary);
+    border-color: var(--el-color-primary);
+  }
+
+  &.active {
+    color: var(--el-color-primary);
+    border-color: var(--el-color-primary);
+    background: color-mix(in srgb, var(--el-color-primary) 10%, transparent);
+  }
+}
+
+.composer__scope-count {
+  font-size: 11px;
+  max-width: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scope-pop {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.scope-pop__title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+
+  em {
+    display: block;
+    margin-top: 2px;
+    font-size: 11px;
+    font-weight: 400;
+    font-style: normal;
+    color: var(--el-text-color-secondary);
+  }
+}
+
+.scope-pop__all {
+  padding: 8px 10px;
+  border: 1px solid var(--el-border-color);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--el-text-color-regular);
+  cursor: pointer;
+  text-align: left;
+
+  &.active,
+  &:hover {
+    border-color: var(--el-color-primary);
+    color: var(--el-color-primary);
+  }
+}
+
+.scope-pop__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.scope-pop__item {
+  display: grid;
+  grid-template-columns: 22px 80px 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+
+  &:hover {
+    background: var(--el-fill-color-light);
+  }
+
+  &.active {
+    border-color: var(--el-color-primary);
+    background: color-mix(in srgb, var(--el-color-primary) 8%, transparent);
+  }
+}
+
+.scope-pop__icon {
+  font-size: 15px;
+}
+
+.scope-pop__label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+}
+
+.scope-pop__desc {
+  font-size: 11px;
+  color: var(--el-text-color-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .composer {
   position: absolute;
   right: 0;

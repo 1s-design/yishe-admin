@@ -218,6 +218,25 @@
           </div>
 
           <div class="task-field task-field--wide">
+            <label>工具范围（可选）</label>
+            <el-select
+              v-model="form.toolPalettes"
+              multiple
+              clearable
+              placeholder="留空=执行时模型自选工具"
+              style="width: 100%"
+            >
+              <el-option
+                v-for="p in TOOL_PALETTE_OPTIONS"
+                :key="p.key"
+                :label="`${p.icon} ${p.label}`"
+                :value="p.key"
+              />
+            </el-select>
+            <span class="task-field-hint">限定执行时可用的工具能力组，防止跑偏</span>
+          </div>
+
+          <div class="task-field task-field--wide">
             <label>生效时间预览</label>
             <div class="task-preview">{{ schedulePreview }}</div>
           </div>
@@ -380,6 +399,17 @@ const saving = ref(false);
 const editingId = ref('');
 const weekdayLabels = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 
+const TOOL_PALETTE_OPTIONS = [
+  { key: 'video', label: '视频制作', icon: '🎬' },
+  { key: 'task', label: '定时任务', icon: '⏰' },
+  { key: 'prompt', label: '提示词模板', icon: '📝' },
+  { key: 'hotsearch', label: '热点资讯', icon: '🔥' },
+  { key: 'material', label: '素材资源', icon: '🖼' },
+  { key: 'workflow', label: '工作流', icon: '⚙' },
+  { key: 'media', label: '媒体采集', icon: '📷' },
+  { key: 'client', label: '客户端能力', icon: '🖥' },
+];
+
 const form = reactive({
   title: '',
   instructions: '',
@@ -392,6 +422,7 @@ const form = reactive({
   cronExpr: '0 8 * * *',
   timezone: 'Asia/Shanghai',
   isEnabled: true,
+  toolPalettes: [] as string[],
 });
 
 const showTimeField = computed(() =>
@@ -466,6 +497,7 @@ function openCreate() {
   form.cronExpr = '0 8 * * *';
   form.timezone = 'Asia/Shanghai';
   form.isEnabled = true;
+  form.toolPalettes = [];
   editVisible.value = true;
 }
 
@@ -477,6 +509,7 @@ async function openEdit(row: AiScheduledTaskItem) {
     form.instructions = t.instructions || '';
     form.timezone = t.timezone || 'Asia/Shanghai';
     form.isEnabled = t.isEnabled !== false;
+    form.toolPalettes = ((t as any).payloadConfig?.toolScope?.palettes as string[]) || [];
     const hs: any = (t as any).humanSchedule;
     if (hs?.preset) {
       form.preset = hs.preset;
@@ -517,6 +550,9 @@ async function submit() {
       schedule,
       timezone: form.timezone || 'Asia/Shanghai',
       isEnabled: form.isEnabled,
+      payloadConfig: form.toolPalettes.length
+        ? { toolScope: { palettes: [...form.toolPalettes] } }
+        : null,
     };
     if (schedule.preset === 'interval') {
       payload.triggerType = 'interval';

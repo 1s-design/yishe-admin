@@ -623,6 +623,13 @@ export const useAiAssistantStore = defineStore("ai-assistant", () => {
 
   // ========== Public Actions ==========
 
+  // 工具作用域（输入框选择器）：空 = 全部工具由模型自选
+  const toolScope = ref<{ palettes?: string[]; tools?: string[] } | null>(null);
+
+  function setToolScope(scope: { palettes?: string[]; tools?: string[] } | null) {
+    toolScope.value = scope;
+  }
+
   async function sendMessage(message: string, pageContext?: AiAssistantPageContext) {
     if (!message || loading.value || pendingInteraction.value) return;
 
@@ -647,6 +654,7 @@ export const useAiAssistantStore = defineStore("ai-assistant", () => {
           message,
           conversationId: currentConversationId.value || undefined,
           pageContext: finalPageContext,
+          toolScope: toolScope.value || undefined,
         },
         handlers,
       ),
@@ -913,6 +921,8 @@ export const useAiAssistantStore = defineStore("ai-assistant", () => {
     conversations,
     messages,
     currentConversationId,
+    toolScope,
+    setToolScope,
     loading,
     historyLoading,
     runtimeStatus,

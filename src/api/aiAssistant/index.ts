@@ -481,6 +481,12 @@ export const AiAssistantApi = {
     });
   },
 
+  getToolPalettes: async () => {
+    return request.get({
+      url: "/ai-assistant/tool-palettes",
+    }) as unknown as Promise<{ palettes: Array<{ key: string; label: string; icon: string; description: string }> }>;
+  },
+
   chatStream: async (...args: any[]) => {
     const first = args[0];
     const isObjectCall = first && typeof first === "object" && !Array.isArray(first);
@@ -491,6 +497,7 @@ export const AiAssistantApi = {
           attachments: args[1],
           pageContext: args[2],
           conversationId: args[3] || undefined,
+          toolScope: args[4]?.toolScope,
           enableThinking: args[4]?.enableThinking,
           thinkingBudget: args[4]?.thinkingBudget,
           includeUsage: args[4]?.includeUsage !== false,

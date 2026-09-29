@@ -36,6 +36,12 @@ import {
   resolveDesignToolRuntimeTooltip,
 } from "@/services/designToolRuntimeState";
 import {
+  browserPluginRuntimeState,
+  ensureBrowserPluginRuntimeInitialized,
+  resolveBrowserPluginRuntimeTone,
+  resolveBrowserPluginRuntimeTooltip,
+} from "@/services/browserPluginRuntimeState";
+import {
   getClientServiceRuntime,
   type ClientPluginKey,
   useClientNodeStore,
@@ -632,6 +638,33 @@ export default defineComponent({
       );
     };
 
+    const renderBrowserPluginRuntimeBadge = (routePath: string) => {
+      if (routePath !== "/external/browser-plugin") {
+        return undefined;
+      }
+
+      ensureBrowserPluginRuntimeInitialized();
+      const tone = resolveBrowserPluginRuntimeTone();
+      const title = resolveBrowserPluginRuntimeTooltip();
+
+      if (tone === "checking") {
+        return renderMenuStatusHint(<span class={`${prefixCls}__status-loader`} />, title);
+      }
+
+      return renderMenuStatusHint(
+        <span
+          class={[
+            `${prefixCls}__design-tool-badge`,
+            `${prefixCls}__design-tool-badge--${tone}`,
+          ]}
+        >
+          <span class={`${prefixCls}__design-tool-badge-dot`} />
+          <span>{browserPluginRuntimeState.onlineCount}</span>
+        </span>,
+        title,
+      );
+    };
+
     const isMenuLinkRunning = (routePath: string) => {
       if (isPsdSetRoute(routePath)) {
         return isAnyPsdSetProcessing.value;
@@ -918,6 +951,7 @@ export default defineComponent({
                             {renderResourceLibraryNewTag(childPath) ||
                               renderWorkflowRuntimeBadge(childPath) ||
                               renderDesignToolRuntimeBadge(childPath) ||
+                              renderBrowserPluginRuntimeBadge(childPath) ||
                               renderAiAssistantRuntimeBadge(childPath) ||
                               renderAiConfigBadge(childPath) ||
                               renderMessagePushBadge(childPath) ||
