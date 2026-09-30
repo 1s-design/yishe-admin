@@ -2543,9 +2543,7 @@ html.dark .agent-scroll-bottom {
   color: var(--el-color-primary);
 }
 
-.app-card.is-on .app-iconbox {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--el-color-primary) 55%, transparent);
-}
+
 
 .app-card__left {
   display: flex;
@@ -2560,12 +2558,13 @@ html.dark .agent-scroll-bottom {
 .app-iconbox {
   width: 28px;
   height: 28px;
-  border-radius: 9px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   flex: none;
   color: #fff;
+  overflow: hidden;
 }
 
 .app-iconbox svg {
