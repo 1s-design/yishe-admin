@@ -351,7 +351,7 @@
                 <el-popover
                   v-model:visible="showScopePicker"
                   placement="top-start"
-                  :width="560"
+                  :width="720"
                   trigger="click"
                   :show-arrow="false"
                   popper-class="scope-popper"
@@ -363,28 +363,45 @@
                     </button>
                   </template>
                   <div class="scope-pop">
-                    <div class="scope-pop__head">
-                      <button type="button" class="scope-pop__all" :class="{ active: !hasToolScope }" @click="clearToolScope">
-                        <span class="scope-pop__check">{{ !hasToolScope ? '✓' : '' }}</span>
-                        <span>全部工具</span>
-                        <em>模型自选</em>
-                      </button>
-                    </div>
                     <div class="scope-pop__body">
-                      <div v-for="grp in paletteGroups" :key="grp.group" class="scope-pop__group">
-                        <div class="scope-pop__group-title">{{ grp.group }}</div>
+                      <div class="scope-pop__section">
+                        <div class="scope-pop__section-title">全部</div>
                         <div class="scope-pop__grid">
-                          <button
+                          <div class="app-card" :class="{ active: !hasToolScope }" @click="clearToolScope">
+                            <div class="app-card__left">
+                              <div class="app-card__icon app-card__icon--all">
+                                <span>✦</span>
+                              </div>
+                              <div class="app-card__text">
+                                <h3>全部工具</h3>
+                                <p>模型自选</p>
+                              </div>
+                            </div>
+                            <svg v-if="!hasToolScope" class="app-card__check" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>
+                          </div>
+                        </div>
+                      </div>
+                      <div v-for="grp in paletteGroups" :key="grp.group" class="scope-pop__section">
+                        <div class="scope-pop__section-title">{{ grp.group }}</div>
+                        <div class="scope-pop__grid">
+                          <div
                             v-for="palette in grp.items"
                             :key="palette.key"
-                            type="button"
-                            class="scope-pop__card"
+                            class="app-card"
                             :class="{ active: selectedPaletteKeys.includes(palette.key) }"
                             @click="togglePalette(palette.key)"
                           >
-                            <span class="scope-pop__card-name">{{ palette.label }}</span>
-                            <span v-if="selectedPaletteKeys.includes(palette.key)" class="scope-pop__card-check">✓</span>
-                          </button>
+                            <div class="app-card__left">
+                              <div class="app-card__icon" :class="`app-card__icon--${grp.group}`">
+                                <span>{{ paletteGlyph(palette.key) }}</span>
+                              </div>
+                              <div class="app-card__text">
+                                <h3>{{ palette.label }}</h3>
+                                <p>{{ palette.description || '工具组' }}</p>
+                              </div>
+                            </div>
+                            <svg v-if="selectedPaletteKeys.includes(palette.key)" class="app-card__check" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -838,6 +855,27 @@ const paletteGroups = computed(() => {
 
 function paletteLabel(key: string) {
   return toolPalettes.value.find((p) => p.key === key)?.label || key;
+}
+
+function paletteGlyph(key: string) {
+  const map: Record<string, string> = {
+    video: '🎬', 'video.template': '🎞', 'video.record': '📼', task: '⏰',
+    prompt_template: '📝', workflow: '⚙', hotsearch: '🔥', message_push: '🔔',
+    'material.sticker': '🏷', 'material.sticker_psd_set': '🧩',
+    'material.file_resource': '📁', 'material.image_group': '🖼',
+    'material.font_template': '🔤', 'material.psd_template': '📦',
+    'material.sentence': '💬', 'material.crawler_material': '🕸',
+    'material.text_document': '📄', 'material.design_knowledge': '📚',
+    'material.story_script': '📜', product: '🛒', 'product.generation_template': '📋',
+    shop: '🏪', vendor: '🤝', publish: '🚀',
+    'system.browser_automation': '🌐', 'system.ps_automation': '🎨',
+    'system.design_tool': '✏', 'system.common_url': '🔗',
+    system: '⚙', client_runtime: '💻', mcp_bridge: '🔌',
+    'ai.tts': '🎙', 'ai.tti': '🖼', 'ai.api_key': '🔐', 'ai.prompt': '💬',
+    design_request: '📋', image_processing: '🛠', 'image_processing_record': '🗂',
+    user_behavior_log: '📈', statistics: '📊',
+  };
+  return map[key] || '•';
 }
 
 
