@@ -375,7 +375,9 @@
                             @click="clearToolScope"
                           >
                             <div class="app-card__left">
-                              <svg class="app-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1" /></svg>
+                              <div class="app-iconbox app-iconbox--all">
+                                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1" /></svg>
+                              </div>
                               <div class="app-card__text">
                                 <h3>全部工具</h3>
                                 <p>模型自选</p>
@@ -393,7 +395,9 @@
                             @click="togglePalette(palette.key)"
                           >
                             <div class="app-card__left">
-                              <svg class="app-icon" viewBox="0 0 24 24" v-html="paletteIconPath(palette.key)" />
+                              <div class="app-iconbox" :class="iconBoxClass(palette.key)">
+                                <svg viewBox="0 0 24 24" v-html="paletteIconPath(palette.key)" />
+                              </div>
                               <div class="app-card__text">
                                 <h3>{{ palette.label }}</h3>
                                 <p>{{ palette.description || '工具组' }}</p>
@@ -858,6 +862,34 @@ function paletteLabel(key: string) {
   return toolPalettes.value.find((p) => p.key === key)?.label || key;
 }
 
+
+function iconBoxClass(key: string) {
+  const map: Record<string, string> = {
+    video: 'ib-blue', 'video.template': 'ib-blue', 'video.record': 'ib-orange',
+    task: 'ib-purple', prompt_template: 'ib-pink', workflow: 'ib-teal',
+    hotsearch: 'ib-red', message_push: 'ib-amber',
+    'material.sticker': 'ib-pink', 'material.sticker_psd_set': 'ib-purple',
+    'material.file_resource': 'ib-slate', 'material.image_group': 'ib-teal',
+    'material.font_template': 'ib-indigo', 'material.psd_template': 'ib-blue',
+    'material.sentence': 'ib-teal', 'material.crawler_material': 'ib-amber',
+    'material.text_document': 'ib-slate', 'material.design_knowledge': 'ib-indigo',
+    'material.story_script': 'ib-orange',
+    product: 'ib-orange', 'product.generation_template': 'ib-amber',
+    'product.category': 'ib-teal', 'product.model': 'ib-indigo',
+    publish: 'ib-green', 'publish.config': 'ib-slate', 'publish.task': 'ib-green',
+    shop: 'ib-amber', vendor: 'ib-teal',
+    'system.browser_automation': 'ib-blue', 'system.ps_automation': 'ib-pink',
+    'system.design_tool': 'ib-purple', 'system.common_url': 'ib-teal',
+    'system.task': 'ib-slate', 'system.user': 'ib-indigo',
+    'system.client': 'ib-slate', 'system.service': 'ib-green',
+    system: 'ib-slate', client_runtime: 'ib-blue', mcp_bridge: 'ib-indigo',
+    'ai.tts': 'ib-purple', 'ai.tti': 'ib-blue', 'ai.api_key': 'ib-amber',
+    'ai.prompt': 'ib-pink', design_request: 'ib-indigo',
+    image_processing: 'ib-teal', 'image_processing_record': 'ib-slate',
+    user_behavior_log: 'ib-green', statistics: 'ib-amber',
+  };
+  return map[key] || 'ib-slate';
+}
 
 function paletteIconPath(key: string) {
   const P: Record<string, string> = {
@@ -2434,20 +2466,18 @@ html.dark .agent-scroll-bottom {
   box-shadow: 0 2px 8px rgb(0 0 0 / 30%);
 }
 
-/* ── 工具选择面板（扁平 · 双主题） ── */
+/* ── 工具选择面板（扁平圆润 · 双主题） ── */
 .scope-popper {
-  padding: 10px 12px 12px !important;
+  padding: 12px 14px 14px !important;
   background: var(--el-bg-color-overlay) !important;
   border: 0 !important;
-  border-radius: 2px !important;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.28) !important;
   max-height: 74vh;
   overflow: hidden;
 }
 
-.scope-pop {
-  color: var(--el-text-color-primary);
-}
+.scope-pop { color: var(--el-text-color-primary); }
 
 .sp-scroll {
   max-height: 68vh;
@@ -2465,21 +2495,19 @@ html.dark .agent-scroll-bottom {
   color: var(--el-text-color-secondary);
 }
 
-.sp-title:not(:first-child) {
-  margin-top: 14px;
-}
+.sp-title:not(:first-child) { margin-top: 16px; }
 
 .sp-hr {
   border: 0;
   border-top: 1px solid var(--el-border-color-lighter);
-  margin: 0 0 8px;
+  margin: 0 0 10px;
 }
 
 .sp-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: 8px;
-  row-gap: 2px;
+  column-gap: 10px;
+  row-gap: 4px;
 }
 
 @media (min-width: 720px) {
@@ -2495,12 +2523,12 @@ html.dark .agent-scroll-bottom {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 5px 6px;
+  padding: 7px 8px;
   border: 0;
-  border-radius: 2px;
+  border-radius: 10px;
   cursor: pointer;
   background: transparent;
-  transition: background-color 0.12s ease, color 0.12s ease;
+  transition: background-color 0.12s ease;
 }
 
 .app-card:hover {
@@ -2508,37 +2536,62 @@ html.dark .agent-scroll-bottom {
 }
 
 .app-card.is-on {
-  background-color: var(--el-color-primary-light-9);
-}
-
-.app-card.is-on .app-icon {
-  color: var(--el-color-primary);
+  background-color: color-mix(in srgb, var(--el-color-primary) 14%, transparent);
 }
 
 .app-card.is-on .app-card__text h3 {
   color: var(--el-color-primary);
 }
 
+.app-card.is-on .app-iconbox {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--el-color-primary) 55%, transparent);
+}
+
 .app-card__left {
   display: flex;
-  gap: 8px;
+  gap: 9px;
   overflow: hidden;
   min-width: 0;
   align-items: center;
   flex: 1;
 }
 
-.app-icon {
+/* 彩色圆润图标底 */
+.app-iconbox {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  color: #fff;
+}
+
+.app-iconbox svg {
   width: 15px;
   height: 15px;
-  flex: none;
   stroke: currentColor;
-  stroke-width: 1.8;
+  stroke-width: 1.9;
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
-  color: var(--el-text-color-secondary);
 }
+
+.app-iconbox--all {
+  background: linear-gradient(140deg, #6b7280, #374151);
+}
+
+.ib-blue    { background: linear-gradient(140deg, #3b82f6, #2563eb); }
+.ib-purple  { background: linear-gradient(140deg, #8b5cf6, #6d28d9); }
+.ib-pink    { background: linear-gradient(140deg, #ec4899, #db2777); }
+.ib-orange  { background: linear-gradient(140deg, #fb923c, #ea580c); }
+.ib-red     { background: linear-gradient(140deg, #f87171, #dc2626); }
+.ib-amber   { background: linear-gradient(140deg, #fbbf24, #d97706); }
+.ib-teal    { background: linear-gradient(140deg, #14b8a6, #0d9488); }
+.ib-green   { background: linear-gradient(140deg, #22c55e, #16a34a); }
+.ib-indigo  { background: linear-gradient(140deg, #6366f1, #4338ca); }
+.ib-slate   { background: linear-gradient(140deg, #94a3b8, #64748b); }
 
 .app-card__text {
   display: flex;
@@ -2580,7 +2633,7 @@ html.dark .agent-scroll-bottom {
   width: 11px;
   height: 11px;
   stroke: var(--el-color-primary);
-  stroke-width: 2.8;
+  stroke-width: 3;
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
