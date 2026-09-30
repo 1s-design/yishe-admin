@@ -226,12 +226,14 @@
               placeholder="留空=执行时模型自选工具"
               style="width: 100%"
             >
-              <el-option
-                v-for="p in TOOL_PALETTE_OPTIONS"
-                :key="p.key"
-                :label="`${p.icon} ${p.label}`"
-                :value="p.key"
-              />
+              <el-option-group v-for="g in TOOL_PALETTE_GROUPS" :key="g" :label="g">
+                <el-option
+                  v-for="p in TOOL_PALETTE_OPTIONS.filter((x) => x.group === g)"
+                  :key="p.key"
+                  :label="p.label"
+                  :value="p.key"
+                />
+              </el-option-group>
             </el-select>
             <span class="task-field-hint">限定执行时可用的工具能力组，防止跑偏</span>
           </div>
@@ -400,15 +402,35 @@ const editingId = ref('');
 const weekdayLabels = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 
 const TOOL_PALETTE_OPTIONS = [
-  { key: 'video', label: '视频制作', icon: '🎬' },
-  { key: 'task', label: '定时任务', icon: '⏰' },
-  { key: 'prompt', label: '提示词模板', icon: '📝' },
-  { key: 'hotsearch', label: '热点资讯', icon: '🔥' },
-  { key: 'material', label: '素材资源', icon: '🖼' },
-  { key: 'workflow', label: '工作流', icon: '⚙' },
-  { key: 'media', label: '媒体采集', icon: '📷' },
-  { key: 'client', label: '客户端能力', icon: '🖥' },
+  { key: 'video', label: '视频生成', group: '创作' },
+  { key: 'video-template', label: '视频模板', group: '创作' },
+  { key: 'video-record', label: '视频记录', group: '创作' },
+  { key: 'task', label: '定时任务', group: '创作' },
+  { key: 'prompt-template', label: '提示词模板', group: '创作' },
+  { key: 'workflow', label: '工作流编排', group: '创作' },
+  { key: 'hotsearch', label: '热点资讯', group: '创作' },
+  { key: 'sticker', label: '贴纸图库', group: '素材' },
+  { key: 'psd-template', label: 'PSD 模板', group: '素材' },
+  { key: 'font-template', label: '字体模板', group: '素材' },
+  { key: 'file-resource', label: '文件与图组', group: '素材' },
+  { key: 'crawler-material', label: '爬取素材', group: '素材' },
+  { key: 'text-knowledge', label: '文本与知识', group: '素材' },
+  { key: 'media-collect', label: '媒体采集', group: '素材' },
+  { key: 'product', label: '商品管理', group: '电商' },
+  { key: 'publish', label: '发布任务', group: '电商' },
+  { key: 'shop-partner', label: '店铺与伙伴', group: '电商' },
+  { key: 'browser-automation', label: '浏览器自动化', group: '自动化' },
+  { key: 'photoshop', label: 'Photoshop 自动化', group: '自动化' },
+  { key: 'design-tool', label: '设计工具', group: '自动化' },
+  { key: 'client-mcp', label: '客户端 / MCP', group: '自动化' },
+  { key: 'ai-media', label: 'AI 语音图像', group: '智能' },
+  { key: 'ai-config', label: 'AI 模型配置', group: '智能' },
+  { key: 'insight', label: '数据洞察', group: '智能' },
+  { key: 'system', label: '系统工具', group: '系统' },
+  { key: 'message-push', label: '消息推送', group: '系统' },
 ];
+
+const TOOL_PALETTE_GROUPS = ['创作', '素材', '电商', '自动化', '智能', '系统'];
 
 const form = reactive({
   title: '',

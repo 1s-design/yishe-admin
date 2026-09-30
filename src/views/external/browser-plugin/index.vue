@@ -134,99 +134,126 @@
         :show-close="true"
         class="plugin-detail-dialog"
       >
-        <div v-if="detailRow" class="detail-body">
-          <div class="detail-section">
-            <div class="section-title">连接</div>
-            <dl class="detail-list">
-              <dt>状态</dt>
-              <dd>
-                <el-tag :type="detailRow.isOnline === false ? 'info' : 'success'" size="small" effect="plain">
-                  {{ detailRow.isOnline === false ? "离线" : "在线" }}
-                </el-tag>
-              </dd>
-              <dt>连接时间</dt>
-              <dd>{{ formatDateTime(detailRow.connectedAt) }}<span v-if="detailRow.connectedAt" class="muted"> ({{ formatPast(detailRow.connectedAt) }})</span></dd>
-              <dt>连接 ID</dt>
-              <dd class="mono">{{ detailRow.id }}</dd>
-            </dl>
-          </div>
+        <div v-if="detailRow" class="detail-layout">
+          <!-- 左侧导航 -->
+          <nav class="detail-nav">
+            <button
+              v-for="tab in detailTabs"
+              :key="tab.key"
+              class="nav-item"
+              :class="{ active: detailTab === tab.key }"
+              @click="detailTab = tab.key"
+            >
+              {{ tab.label }}
+            </button>
+          </nav>
 
-          <div class="detail-section">
-            <div class="section-title">插件</div>
-            <dl class="detail-list">
-              <dt>名称</dt>
-              <dd>{{ getExtensionName(detailRow) }}</dd>
-              <dt>版本</dt>
-              <dd>{{ detailRow.clientInfo?.extension?.version || "—" }}</dd>
-              <dt>Manifest</dt>
-              <dd>V{{ detailRow.clientInfo?.extension?.manifestVersion || "—" }}</dd>
-            </dl>
-          </div>
+          <!-- 右侧内容 -->
+          <div class="detail-content">
+            <!-- 信息 -->
+            <div v-show="detailTab === 'info'" class="detail-body">
+              <div class="detail-section">
+                <div class="section-title">连接</div>
+                <dl class="detail-list">
+                  <dt>状态</dt>
+                  <dd>
+                    <el-tag :type="detailRow.isOnline === false ? 'info' : 'success'" size="small" effect="plain">
+                      {{ detailRow.isOnline === false ? "离线" : "在线" }}
+                    </el-tag>
+                  </dd>
+                  <dt>连接时间</dt>
+                  <dd>{{ formatDateTime(detailRow.connectedAt) }}<span v-if="detailRow.connectedAt" class="muted"> ({{ formatPast(detailRow.connectedAt) }})</span></dd>
+                  <dt>连接 ID</dt>
+                  <dd class="mono">{{ detailRow.id }}</dd>
+                </dl>
+              </div>
 
-          <div class="detail-section">
-            <div class="section-title">环境</div>
-            <dl class="detail-list">
-              <dt>浏览器</dt>
-              <dd>{{ formatBrowser(detailRow) }}</dd>
-              <dt>操作系统</dt>
-              <dd>{{ formatOs(detailRow) }}</dd>
-              <dt>架构</dt>
-              <dd>{{ detailRow.clientInfo?.platform?.arch || "—" }}</dd>
-              <dt>语言</dt>
-              <dd>{{ detailRow.clientInfo?.language || "—" }} / {{ detailRow.clientInfo?.uiLanguage || "—" }}</dd>
-              <dt>时区</dt>
-              <dd>{{ detailRow.clientInfo?.timeZone || "—" }}</dd>
-            </dl>
-          </div>
+              <div class="detail-section">
+                <div class="section-title">插件</div>
+                <dl class="detail-list">
+                  <dt>名称</dt>
+                  <dd>{{ getExtensionName(detailRow) }}</dd>
+                  <dt>版本</dt>
+                  <dd>{{ detailRow.clientInfo?.extension?.version || "—" }}</dd>
+                  <dt>Manifest</dt>
+                  <dd>V{{ detailRow.clientInfo?.extension?.manifestVersion || "—" }}</dd>
+                </dl>
+              </div>
 
-          <div class="detail-section">
-            <div class="section-title">设备</div>
-            <dl class="detail-list">
-              <dt>内存</dt>
-              <dd>{{ detailRow.clientInfo?.device?.memory ? detailRow.clientInfo.device.memory + ' GB' : "—" }}</dd>
-              <dt>CPU</dt>
-              <dd>{{ detailRow.clientInfo?.device?.hardwareConcurrency ? detailRow.clientInfo.device.hardwareConcurrency + ' 核' : "—" }}</dd>
-              <dt>屏幕</dt>
-              <dd>{{ formatScreen(detailRow) }}</dd>
-              <dt>触摸点</dt>
-              <dd>{{ detailRow.clientInfo?.device?.touchPoints ?? "—" }}</dd>
-            </dl>
-          </div>
+              <div class="detail-section">
+                <div class="section-title">环境</div>
+                <dl class="detail-list">
+                  <dt>浏览器</dt>
+                  <dd>{{ formatBrowser(detailRow) }}</dd>
+                  <dt>操作系统</dt>
+                  <dd>{{ formatOs(detailRow) }}</dd>
+                  <dt>架构</dt>
+                  <dd>{{ detailRow.clientInfo?.platform?.arch || "—" }}</dd>
+                  <dt>语言</dt>
+                  <dd>{{ detailRow.clientInfo?.language || "—" }} / {{ detailRow.clientInfo?.uiLanguage || "—" }}</dd>
+                  <dt>时区</dt>
+                  <dd>{{ detailRow.clientInfo?.timeZone || "—" }}</dd>
+                </dl>
+              </div>
 
-          <div class="detail-section" v-if="detailRow.clientInfo?.location?.ip">
-            <div class="section-title">网络</div>
-            <dl class="detail-list">
-              <dt>IP</dt>
-              <dd>{{ detailRow.clientInfo?.location?.ip || "—" }}</dd>
-              <dt>地区</dt>
-              <dd>{{ formatLocationRegion(detailRow) }}</dd>
-              <dt>经纬度</dt>
-              <dd>
-                <template v-if="detailRow.clientInfo?.location?.latitude">
-                  {{ detailRow.clientInfo.location.latitude }}, {{ detailRow.clientInfo.location.longitude }}
-                </template>
-                <template v-else>—</template>
-              </dd>
-              <dt>ISP</dt>
-              <dd>{{ detailRow.clientInfo?.location?.org || "—" }}</dd>
-            </dl>
-          </div>
+              <div class="detail-section">
+                <div class="section-title">设备</div>
+                <dl class="detail-list">
+                  <dt>内存</dt>
+                  <dd>{{ detailRow.clientInfo?.device?.memory ? detailRow.clientInfo.device.memory + ' GB' : "—" }}</dd>
+                  <dt>CPU</dt>
+                  <dd>{{ detailRow.clientInfo?.device?.hardwareConcurrency ? detailRow.clientInfo.device.hardwareConcurrency + ' 核' : "—" }}</dd>
+                  <dt>屏幕</dt>
+                  <dd>{{ formatScreen(detailRow) }}</dd>
+                  <dt>触摸点</dt>
+                  <dd>{{ detailRow.clientInfo?.device?.touchPoints ?? "—" }}</dd>
+                </dl>
+              </div>
 
-          <div class="detail-section" v-if="detailRow.clientInfo?.page?.href">
-            <div class="section-title">当前页面</div>
-            <dl class="detail-list">
-              <dt>标题</dt>
-              <dd>{{ detailRow.clientInfo?.page?.title || "—" }}</dd>
-              <dt>来源</dt>
-              <dd>{{ detailRow.clientInfo?.page?.origin || "—" }}</dd>
-              <dt>路径</dt>
-              <dd class="mono">{{ detailRow.clientInfo?.page?.path || "—" }}</dd>
-            </dl>
-          </div>
+              <div class="detail-section" v-if="detailRow.clientInfo?.location?.ip">
+                <div class="section-title">网络</div>
+                <dl class="detail-list">
+                  <dt>IP</dt>
+                  <dd>{{ detailRow.clientInfo?.location?.ip || "—" }}</dd>
+                  <dt>地区</dt>
+                  <dd>{{ formatLocationRegion(detailRow) }}</dd>
+                  <dt>经纬度</dt>
+                  <dd>
+                    <template v-if="detailRow.clientInfo?.location?.latitude">
+                      {{ detailRow.clientInfo.location.latitude }}, {{ detailRow.clientInfo.location.longitude }}
+                    </template>
+                    <template v-else>—</template>
+                  </dd>
+                  <dt>ISP</dt>
+                  <dd>{{ detailRow.clientInfo?.location?.org || "—" }}</dd>
+                </dl>
+              </div>
 
-          <div class="detail-section">
-            <div class="section-title">UserAgent</div>
-            <p class="ua-text mono">{{ detailRow.clientInfo?.userAgent || "—" }}</p>
+              <div class="detail-section" v-if="detailRow.clientInfo?.page?.href">
+                <div class="section-title">当前页面</div>
+                <dl class="detail-list">
+                  <dt>标题</dt>
+                  <dd>{{ detailRow.clientInfo?.page?.title || "—" }}</dd>
+                  <dt>来源</dt>
+                  <dd>{{ detailRow.clientInfo?.page?.origin || "—" }}</dd>
+                  <dt>路径</dt>
+                  <dd class="mono">{{ detailRow.clientInfo?.page?.path || "—" }}</dd>
+                </dl>
+              </div>
+
+              <div class="detail-section">
+                <div class="section-title">UserAgent</div>
+                <p class="ua-text mono">{{ detailRow.clientInfo?.userAgent || "—" }}</p>
+              </div>
+            </div>
+
+            <!-- 控制（预留） -->
+            <div v-show="detailTab === 'control'" class="detail-body">
+              <div class="detail-section">
+                <div class="section-title">远程操作</div>
+                <p class="empty-tip">即将支持远程指令下发，敬请期待</p>
+              </div>
+            </div>
           </div>
         </div>
       </el-dialog>
@@ -256,9 +283,16 @@ const refreshTimer = ref<number | null>(null);
 const lastRefreshAt = ref<string | null>(null);
 const detailVisible = ref(false);
 const detailRow = ref<WebsocketConnectionVO | null>(null);
+const detailTab = ref("info");
+
+const detailTabs = [
+  { key: "info", label: "信息" },
+  { key: "control", label: "控制" },
+];
 
 const openDetail = (row: WebsocketConnectionVO) => {
   detailRow.value = row;
+  detailTab.value = "info";
   detailVisible.value = true;
 };
 
@@ -667,43 +701,86 @@ onBeforeUnmount(() => {
   }
 }
 
-/* 详情弹窗 — 极简 */
+/* 详情弹窗 — 左侧导航 + 右侧内容 */
 .plugin-detail-dialog :deep(.el-dialog__body) {
-  padding: 0 32px 32px;
+  padding: 0;
+  height: calc(100% - 56px);
+}
+
+.detail-layout {
+  display: flex;
+  height: 100%;
+}
+
+/* 左侧导航 */
+.detail-nav {
+  width: 140px;
+  flex-shrink: 0;
+  padding: 24px 0;
+  border-right: 1px solid var(--el-border-color-lighter);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nav-item {
+  border: none;
+  background: none;
+  text-align: left;
+  padding: 8px 20px;
+  font-size: 13px;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.nav-item:hover {
+  opacity: 0.85;
+}
+
+.nav-item.active {
+  opacity: 1;
+  font-weight: 600;
+}
+
+/* 右侧内容 */
+.detail-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 32px;
 }
 
 .detail-body {
   display: flex;
   flex-direction: column;
-  gap: 28px;
-  max-width: 720px;
-  margin: 0 auto;
+  gap: 24px;
+  max-width: 640px;
 }
 
 .detail-section {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .section-title {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  opacity: 0.5;
+  opacity: 0.4;
 }
 
 .detail-list {
   display: grid;
-  grid-template-columns: 120px 1fr;
-  gap: 8px 16px;
+  grid-template-columns: 100px 1fr;
+  gap: 6px 16px;
   margin: 0;
 }
 
 .detail-list dt {
   font-size: 13px;
-  opacity: 0.6;
+  opacity: 0.55;
   align-self: center;
 }
 
@@ -720,23 +797,38 @@ onBeforeUnmount(() => {
 }
 
 .muted {
-  opacity: 0.5;
+  opacity: 0.45;
 }
 
 .ua-text {
   font-size: 12px;
   line-height: 1.6;
   word-break: break-all;
-  opacity: 0.7;
+  opacity: 0.65;
+}
+
+.empty-tip {
+  font-size: 13px;
+  opacity: 0.45;
 }
 
 @media (max-width: 640px) {
+  .detail-layout {
+    flex-direction: column;
+  }
+  .detail-nav {
+    width: 100%;
+    flex-direction: row;
+    padding: 12px 16px;
+    border-right: none;
+    border-bottom: 1px solid var(--el-border-color-lighter);
+  }
   .detail-list {
     grid-template-columns: 1fr;
     gap: 2px 0;
   }
   .detail-list dt {
-    margin-top: 8px;
+    margin-top: 6px;
   }
 }
 </style>
