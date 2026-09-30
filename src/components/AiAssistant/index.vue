@@ -358,9 +358,8 @@
                 >
                   <template #reference>
                     <button type="button" class="composer__btn" :class="{ active: hasToolScope }">
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-                      <span>工具</span>
-                      <svg class="composer__btn-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+                      工具
+                      <svg class="composer__btn-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
                     </button>
                   </template>
                   <div class="scope-pop">
@@ -383,7 +382,6 @@
                             :class="{ active: selectedPaletteKeys.includes(palette.key) }"
                             @click="togglePalette(palette.key)"
                           >
-                            <span class="scope-pop__card-icon">{{ paletteIcon(palette.key) }}</span>
                             <span class="scope-pop__card-name">{{ palette.label }}</span>
                             <span v-if="selectedPaletteKeys.includes(palette.key)" class="scope-pop__card-check">✓</span>
                           </button>
@@ -842,37 +840,6 @@ function paletteLabel(key: string) {
   return toolPalettes.value.find((p) => p.key === key)?.label || key;
 }
 
-function paletteIcon(key: string) {
-  const map: Record<string, string> = {
-    video: '🎬',
-    'video-template': '🎞',
-    'video-record': '📼',
-    task: '⏰',
-    'prompt-template': '📝',
-    workflow: '⚙',
-    hotsearch: '🔥',
-    sticker: '🏷',
-    'psd-template': '🧩',
-    'font-template': '🔤',
-    'file-resource': '📁',
-    'crawler-material': '🕸',
-    'text-knowledge': '📚',
-    'media-collect': '📷',
-    product: '🛒',
-    publish: '🚀',
-    'shop-partner': '🏪',
-    'browser-automation': '🌐',
-    photoshop: '🎨',
-    'design-tool': '✏',
-    'client-mcp': '🔌',
-    'ai-media': '🎙',
-    'ai-config': '🤖',
-    insight: '📊',
-    system: '⚙',
-    'message-push': '🔔',
-  };
-  return map[key] || '🧩';
-}
 
 function removePalette(key: string) {
   selectedPaletteKeys.value = selectedPaletteKeys.value.filter((k) => k !== key);
@@ -1799,14 +1766,13 @@ html.dark .ai-desktop .conversation-detail-popup {
 .composer__card {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--el-border-color);
-  border-radius: 24px;
-  background: var(--el-bg-color);
-  transition: border-color 0.15s, box-shadow 0.15s;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 16px;
+  background: var(--el-fill-color-blank);
+  transition: border-color 0.15s;
 
   &:focus-within {
     border-color: var(--el-color-primary);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--el-color-primary) 12%, transparent);
   }
 }
 
@@ -1900,14 +1866,14 @@ html.dark .ai-desktop .conversation-detail-popup {
 .composer__chip {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  height: 24px;
-  padding: 0 8px;
-  border: 1px solid color-mix(in srgb, var(--el-color-primary) 35%, transparent);
-  border-radius: 999px;
-  font-size: 11px;
-  color: var(--el-color-primary);
-  background: color-mix(in srgb, var(--el-color-primary) 8%, transparent);
+  gap: 4px;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--el-text-color-regular);
+  background: var(--el-fill-color);
   white-space: nowrap;
 }
 
@@ -1949,11 +1915,7 @@ html.dark .ai-desktop .conversation-detail-popup {
 
 .composer {
   position: relative;
-  right: 0;
-  bottom: 0;
-  left: 0;
   padding: 0 16px 14px;
-  background: linear-gradient(180deg, transparent 0%, var(--bg) 35%, var(--bg) 100%);
 }
 
 /* ── Popover (global) ── */
