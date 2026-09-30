@@ -328,6 +328,12 @@
         </Transition>
         <div class="composer">
           <div class="composer__card">
+            <div v-if="hasToolScope" class="composer__chips">
+              <span v-for="key in selectedPaletteKeys" :key="key" class="composer__chip">
+                {{ paletteLabel(key) }}
+                <button type="button" class="composer__chip-x" @click="removePalette(key)">✕</button>
+              </span>
+            </div>
             <textarea
               ref="textareaRef"
               v-model="inputMessage"
@@ -373,12 +379,13 @@
                             v-for="palette in grp.items"
                             :key="palette.key"
                             type="button"
-                            class="scope-pop__item"
+                            class="scope-pop__card"
                             :class="{ active: selectedPaletteKeys.includes(palette.key) }"
                             @click="togglePalette(palette.key)"
                           >
-                            <span class="scope-pop__check">{{ selectedPaletteKeys.includes(palette.key) ? '✓' : '' }}</span>
-                            <span class="scope-pop__name">{{ palette.label }}</span>
+                            <span class="scope-pop__card-icon">{{ paletteIcon(palette.key) }}</span>
+                            <span class="scope-pop__card-name">{{ palette.label }}</span>
+                            <span v-if="selectedPaletteKeys.includes(palette.key)" class="scope-pop__card-check">✓</span>
                           </button>
                         </div>
                       </div>
@@ -386,17 +393,13 @@
                   </div>
                 </el-popover>
 
-                <div v-if="hasToolScope" class="composer__chips">
-                  <span v-for="key in selectedPaletteKeys" :key="key" class="composer__chip">
-                    {{ paletteLabel(key) }}
-                    <button type="button" class="composer__chip-x" @click="removePalette(key)">×</button>
-                  </span>
-                </div>
               </div>
 
               <div class="composer__right">
                 <button class="composer__send" :disabled="!canSend || store.loading" @click="handleSend">
-                  {{ store.loading ? '发送中' : '发送' }}
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 19V5M5 12l7-7 7 7" />
+                  </svg>
                 </button>
               </div>
             </div>
@@ -837,6 +840,38 @@ const paletteGroups = computed(() => {
 
 function paletteLabel(key: string) {
   return toolPalettes.value.find((p) => p.key === key)?.label || key;
+}
+
+function paletteIcon(key: string) {
+  const map: Record<string, string> = {
+    video: '🎬',
+    'video-template': '🎞',
+    'video-record': '📼',
+    task: '⏰',
+    'prompt-template': '📝',
+    workflow: '⚙',
+    hotsearch: '🔥',
+    sticker: '🏷',
+    'psd-template': '🧩',
+    'font-template': '🔤',
+    'file-resource': '📁',
+    'crawler-material': '🕸',
+    'text-knowledge': '📚',
+    'media-collect': '📷',
+    product: '🛒',
+    publish: '🚀',
+    'shop-partner': '🏪',
+    'browser-automation': '🌐',
+    photoshop: '🎨',
+    'design-tool': '✏',
+    'client-mcp': '🔌',
+    'ai-media': '🎙',
+    'ai-config': '🤖',
+    insight: '📊',
+    system: '⚙',
+    'message-push': '🔔',
+  };
+  return map[key] || '🧩';
 }
 
 function removePalette(key: string) {
@@ -1857,9 +1892,9 @@ html.dark .ai-desktop .conversation-detail-popup {
 .composer__chips {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
-  min-width: 0;
-  overflow: hidden;
+  padding: 10px 16px 0;
 }
 
 .composer__chip {
