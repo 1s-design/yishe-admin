@@ -375,9 +375,7 @@
                             @click="clearToolScope"
                           >
                             <div class="app-card__left">
-                              <div class="app-card__icon app-icon--all">
-                                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1" /></svg>
-                              </div>
+                              <svg class="app-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1" /></svg>
                               <div class="app-card__text">
                                 <h3>全部工具</h3>
                                 <p>模型自选</p>
@@ -395,9 +393,7 @@
                             @click="togglePalette(palette.key)"
                           >
                             <div class="app-card__left">
-                              <div class="app-card__icon" :class="iconBgClass(palette.key)">
-                                <svg viewBox="0 0 24 24" v-html="paletteIconPath(palette.key)" />
-                              </div>
+                              <svg class="app-icon" viewBox="0 0 24 24" v-html="paletteIconPath(palette.key)" />
                               <div class="app-card__text">
                                 <h3>{{ palette.label }}</h3>
                                 <p>{{ palette.description || '工具组' }}</p>
@@ -862,27 +858,6 @@ function paletteLabel(key: string) {
   return toolPalettes.value.find((p) => p.key === key)?.label || key;
 }
 
-function iconBgClass(key: string) {
-  const map: Record<string, string> = {
-    video: 'app-icon--grad-gray',
-    'video.template': 'app-icon--grad-blue',
-    'video.record': 'app-icon--grad-orange',
-    task: 'app-icon--purple',
-    prompt_template: 'app-icon--grad-pink',
-    workflow: 'app-icon--gray',
-    hotsearch: 'app-icon--grad-red',
-    message_push: 'app-icon--purple',
-    'material.sticker': 'app-icon--purple',
-    'material.font_template': 'app-icon--grad-pink',
-    'material.psd_template': 'app-icon--grad-blue',
-    product: 'app-icon--grad-orange',
-    'system.browser_automation': 'app-icon--grad-gray',
-    'system.ps_automation': 'app-icon--grad-pink',
-    'ai.tts': 'app-icon--purple',
-    'ai.tti': 'app-icon--grad-blue',
-  };
-  return map[key] || 'app-icon--gray';
-}
 
 function paletteIconPath(key: string) {
   const P: Record<string, string> = {
@@ -2459,33 +2434,35 @@ html.dark .agent-scroll-bottom {
   box-shadow: 0 2px 8px rgb(0 0 0 / 30%);
 }
 
-/* ── 工具选择面板（扁平紧凑 AppCard） ── */
+/* ── 工具选择面板（扁平 · 双主题） ── */
 .scope-popper {
   padding: 10px 12px 12px !important;
-  background: #0f0f0f !important;
-  border: 1px solid #222 !important;
-  border-radius: 12px !important;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55) !important;
+  background: var(--el-bg-color-overlay) !important;
+  border: 0 !important;
+  border-radius: 2px !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22) !important;
   max-height: 74vh;
   overflow: hidden;
 }
 
-.scope-pop { color: #fff; }
+.scope-pop {
+  color: var(--el-text-color-primary);
+}
 
 .sp-scroll {
   max-height: 68vh;
   overflow-y: auto;
-  margin: 0 -3px;
-  padding: 0 3px;
+  margin: 0 -6px;
+  padding: 0 6px;
 }
 
 .sp-title {
-  margin: 0 0 4px;
+  margin: 0 0 6px;
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #6b7280;
+  color: var(--el-text-color-secondary);
 }
 
 .sp-title:not(:first-child) {
@@ -2494,7 +2471,7 @@ html.dark .agent-scroll-bottom {
 
 .sp-hr {
   border: 0;
-  border-top: 1px solid #1c1c1f;
+  border-top: 1px solid var(--el-border-color-lighter);
   margin: 0 0 8px;
 }
 
@@ -2519,20 +2496,27 @@ html.dark .agent-scroll-bottom {
   justify-content: space-between;
   width: 100%;
   padding: 5px 6px;
-  border: 1px solid transparent;
-  border-radius: 8px;
+  border: 0;
+  border-radius: 2px;
   cursor: pointer;
-  transition: background-color 0.12s ease, border-color 0.12s ease;
+  background: transparent;
+  transition: background-color 0.12s ease, color 0.12s ease;
 }
 
 .app-card:hover {
-  background-color: #1a1a1d;
-  border-color: #2a2a2e;
+  background-color: var(--el-fill-color);
 }
 
 .app-card.is-on {
-  background-color: #1c2330;
-  border-color: #2f6fed;
+  background-color: var(--el-color-primary-light-9);
+}
+
+.app-card.is-on .app-icon {
+  color: var(--el-color-primary);
+}
+
+.app-card.is-on .app-card__text h3 {
+  color: var(--el-color-primary);
 }
 
 .app-card__left {
@@ -2544,67 +2528,16 @@ html.dark .agent-scroll-bottom {
   flex: 1;
 }
 
-.app-card__icon {
-  width: 26px;
-  height: 26px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  overflow: hidden;
-}
-
-.app-card__icon svg {
+.app-icon {
   width: 15px;
   height: 15px;
+  flex: none;
   stroke: currentColor;
   stroke-width: 1.8;
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
-}
-
-.app-icon--gray {
-  background: #1f1f22;
-  border: 1px solid #2c2c30;
-  color: #9ca3af;
-}
-
-.app-icon--grad-gray {
-  background: linear-gradient(145deg, #4b5563, #1f2937);
-  color: #e5e7eb;
-}
-
-.app-icon--grad-blue {
-  background: linear-gradient(145deg, #3b82f6, #0ea5e9);
-  color: #fff;
-}
-
-.app-icon--grad-orange {
-  background: linear-gradient(145deg, #fb923c, #f43f5e);
-  color: #fff;
-}
-
-.app-icon--grad-pink {
-  background: linear-gradient(145deg, #ec4899, #a855f7);
-  color: #fff;
-}
-
-.app-icon--grad-red {
-  background: linear-gradient(145deg, #ef4444, #f59e0b);
-  color: #fff;
-}
-
-.app-icon--purple {
-  background: rgba(168, 85, 247, 0.18);
-  border: 1px solid rgba(168, 85, 247, 0.35);
-  color: #c084fc;
-}
-
-.app-icon--all {
-  background: linear-gradient(145deg, #6b7280, #374151);
-  color: #fff;
+  color: var(--el-text-color-secondary);
 }
 
 .app-card__text {
@@ -2619,7 +2552,7 @@ html.dark .agent-scroll-bottom {
   margin: 0;
   font-size: 11.5px;
   font-weight: 550;
-  color: #e5e7eb;
+  color: var(--el-text-color-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2629,7 +2562,7 @@ html.dark .agent-scroll-bottom {
 .app-card__text p {
   margin: 1px 0 0;
   font-size: 10px;
-  color: #6b7280;
+  color: var(--el-text-color-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2646,7 +2579,7 @@ html.dark .agent-scroll-bottom {
 .app-card__check svg {
   width: 11px;
   height: 11px;
-  stroke: #2f6fed;
+  stroke: var(--el-color-primary);
   stroke-width: 2.8;
   fill: none;
   stroke-linecap: round;
