@@ -375,7 +375,9 @@
                             @click="clearToolScope"
                           >
                             <div class="app-card__left">
-                              <div class="app-card__icon app-icon--all"><span>✦</span></div>
+                              <div class="app-card__icon app-icon--all">
+                                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1" /></svg>
+                              </div>
                               <div class="app-card__text">
                                 <h3>全部工具</h3>
                                 <p>模型自选</p>
@@ -394,7 +396,7 @@
                           >
                             <div class="app-card__left">
                               <div class="app-card__icon" :class="iconBgClass(palette.key)">
-                                <span>{{ paletteGlyph(palette.key) }}</span>
+                                <svg viewBox="0 0 24 24" v-html="paletteIconPath(palette.key)" />
                               </div>
                               <div class="app-card__text">
                                 <h3>{{ palette.label }}</h3>
@@ -882,25 +884,63 @@ function iconBgClass(key: string) {
   return map[key] || 'app-icon--gray';
 }
 
-function paletteGlyph(key: string) {
-  const map: Record<string, string> = {
-    video: '🎬', 'video.template': '🎞', 'video.record': '📼', task: '⏰',
-    prompt_template: '📝', workflow: '⚙', hotsearch: '🔥', message_push: '🔔',
-    'material.sticker': '🏷', 'material.sticker_psd_set': '🧩',
-    'material.file_resource': '📁', 'material.image_group': '🖼',
-    'material.font_template': '🔤', 'material.psd_template': '📦',
-    'material.sentence': '💬', 'material.crawler_material': '🕸',
-    'material.text_document': '📄', 'material.design_knowledge': '📚',
-    'material.story_script': '📜', product: '🛒', 'product.generation_template': '📋',
-    shop: '🏪', vendor: '🤝', publish: '🚀',
-    'system.browser_automation': '🌐', 'system.ps_automation': '🎨',
-    'system.design_tool': '✏', 'system.common_url': '🔗',
-    system: '⚙', client_runtime: '💻', mcp_bridge: '🔌',
-    'ai.tts': '🎙', 'ai.tti': '🖼', 'ai.api_key': '🔐', 'ai.prompt': '💬',
-    design_request: '📋', image_processing: '🛠', 'image_processing_record': '🗂',
-    user_behavior_log: '📈', statistics: '📊',
+function paletteIconPath(key: string) {
+  const P: Record<string, string> = {
+    // 创作
+    video: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9l5 3-5 3z"/>',
+    'video.template': '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 4v16"/>',
+    'video.record': '<rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3z"/>',
+    task: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    prompt_template: '<path d="M4 4h16v12H8l-4 4z"/><path d="M8 9h8M8 12h5"/>',
+    workflow: '<circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><path d="M6 8v4a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V8"/><path d="M12 14v2"/>',
+    hotsearch: '<path d="M12 21c4-3 6-6 6-10a6 6 0 1 0-12 0c0 4 2 7 6 10z"/><path d="M12 13a2.5 2.5 0 0 0 2.5-2.5c0-2-2.5-4-2.5-4s-2.5 2-2.5 4A2.5 2.5 0 0 0 12 13z"/>',
+    message_push: '<path d="M18 16V11a6 6 0 1 0-12 0v5l-2 3h16z"/><path d="M10 21h4"/>',
+    // 素材
+    'material.sticker': '<path d="M21 12l-9 9H4a2 2 0 0 1-2-2v-7l9-9h8a2 2 0 0 1 2 2z"/><circle cx="8" cy="8" r="1.5"/>',
+    'material.sticker_psd_set': '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+    'material.file_resource': '<path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>',
+    'material.image_group': '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/>',
+    'material.font_template': '<path d="M4 7V5h16v2M9 19h6M12 5v14"/>',
+    'material.psd_template': '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>',
+    'material.sentence': '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+    'material.crawler_material': '<circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M19.1 4.9l-2.8 2.8M7.7 16.3l-2.8 2.8"/>',
+    'material.text_document': '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/>',
+    'material.design_knowledge': '<path d="M4 5a2 2 0 0 1 2-2h5v18H6a2 2 0 0 1-2-2z"/><path d="M11 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5"/>',
+    'material.story_script': '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+    // 电商
+    product: '<path d="M6 2l-2 5v13a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V7l-2-5z"/><path d="M4 7h16M9 11a3 3 0 0 0 6 0"/>',
+    'product.generation_template': '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12h8M12 8v8"/>',
+    'product.category': '<path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/>',
+    'product.model': '<path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M12 12l9-5M12 12v10M12 12L3 7"/>',
+    publish: '<path d="M12 19V5M5 12l7-7 7 7"/>',
+    'publish.config': '<circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.3 1a7 7 0 0 0-1.7-1L14.5 3h-5l-.4 2.6a7 7 0 0 0-1.7 1l-2.3-1-2 3.4 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 1.7 1l.4 2.6h5l.4-2.6a7 7 0 0 0 1.7-1l2.3 1 2-3.4-2-1.5c.06-.33.1-.66.1-1z"/>',
+    'publish.task': '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/>',
+    shop: '<path d="M4 8h16l-1.5 12h-13z"/><path d="M8 8V6a4 4 0 0 1 8 0v2"/>',
+    vendor: '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5M15 20c0-2 1.5-3.5 3.5-4"/>',
+    // 自动化
+    'system.browser_automation': '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18"/>',
+    'system.ps_automation': '<circle cx="12" cy="12" r="9"/><path d="M12 7a5 5 0 1 0 0 10c-1 0-1.5-.5-1.5-1.5 0-1 .8-1.5 1.8-1.5h1.2c1.8 0 3.5-1 3.5-3 0-2.2-2.2-4-5-4z"/>',
+    'system.design_tool': '<path d="M12 2l2 6h6l-5 4 2 6-5-3.5L7 18l2-6-5-4h6z"/>',
+    'system.common_url': '<path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1.5-1.5"/>',
+    'system.task': '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/>',
+    'system.user': '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>',
+    'system.client': '<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/>',
+    'system.service': '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
+    system: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2 2M17.1 17.1l2 2M19.1 4.9l-2 2M6.9 17.1l-2 2"/>',
+    client_runtime: '<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8"/>',
+    mcp_bridge: '<path d="M9 2v6M15 2v6"/><rect x="5" y="8" width="14" height="8" rx="2"/><path d="M9 22v-6M15 22v-6"/>',
+    // 智能
+    'ai.tts': '<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4"/>',
+    'ai.tti': '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/>',
+    'ai.api_key': '<path d="M15 3h6v6M10 14L21 3M9 21H3v-6"/><circle cx="7" cy="7" r="3"/>',
+    'ai.prompt': '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+    design_request: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>',
+    image_processing: '<circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>',
+    'image_processing_record': '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/>',
+    user_behavior_log: '<path d="M3 20h18"/><path d="M6 20V10M11 20V4M16 20v-7M21 20v-12"/>',
+    statistics: '<path d="M3 20h18"/><path d="M6 20V12M11 20V6M16 20v-9M21 20v-15"/>',
   };
-  return map[key] || '•';
+  return P[key] || '<circle cx="12" cy="12" r="8"/>';
 }
 
 
@@ -2419,50 +2459,50 @@ html.dark .agent-scroll-bottom {
   box-shadow: 0 2px 8px rgb(0 0 0 / 30%);
 }
 
-/* ── 工具选择面板（Ultra Compact AppCard） ── */
+/* ── 工具选择面板（扁平紧凑 AppCard） ── */
 .scope-popper {
-  padding: 12px 14px 14px !important;
+  padding: 10px 12px 12px !important;
   background: #0f0f0f !important;
-  border: 1px solid #1f1f1f !important;
+  border: 1px solid #222 !important;
   border-radius: 12px !important;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5) !important;
-  max-height: 72vh;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55) !important;
+  max-height: 74vh;
   overflow: hidden;
 }
 
-.scope-pop {
-  color: #fff;
-}
+.scope-pop { color: #fff; }
 
 .sp-scroll {
-  max-height: 66vh;
+  max-height: 68vh;
   overflow-y: auto;
-  margin: 0 -4px;
-  padding: 0 4px;
+  margin: 0 -3px;
+  padding: 0 3px;
 }
 
 .sp-title {
-  margin: 0 0 6px;
-  font-size: 13px;
-  font-weight: 500;
-  color: #d1d5db;
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #6b7280;
 }
 
 .sp-title:not(:first-child) {
-  margin-top: 18px;
+  margin-top: 14px;
 }
 
 .sp-hr {
   border: 0;
-  border-top: 1px solid #1f1f22;
-  margin: 0 0 12px;
+  border-top: 1px solid #1c1c1f;
+  margin: 0 0 8px;
 }
 
 .sp-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: 12px;
-  row-gap: 14px;
+  column-gap: 8px;
+  row-gap: 2px;
 }
 
 @media (min-width: 720px) {
@@ -2475,35 +2515,38 @@ html.dark .agent-scroll-bottom {
 
 .app-card {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   width: 100%;
-  margin: 0 -4px;
-  padding: 2px 4px;
-  border-radius: 6px;
+  padding: 5px 6px;
+  border: 1px solid transparent;
+  border-radius: 8px;
   cursor: pointer;
-  transition: background-color 0.15s;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
 }
 
 .app-card:hover {
-  background-color: rgba(255, 255, 255, 0.05);
+  background-color: #1a1a1d;
+  border-color: #2a2a2e;
 }
 
 .app-card.is-on {
-  background-color: rgba(255, 255, 255, 0.08);
+  background-color: #1c2330;
+  border-color: #2f6fed;
 }
 
 .app-card__left {
   display: flex;
   gap: 8px;
   overflow: hidden;
-  width: 100%;
+  min-width: 0;
   align-items: center;
+  flex: 1;
 }
 
 .app-card__icon {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border-radius: 6px;
   display: flex;
   align-items: center;
@@ -2512,34 +2555,56 @@ html.dark .agent-scroll-bottom {
   overflow: hidden;
 }
 
-.app-card__icon span {
-  font-size: 12px;
-  line-height: 1;
+.app-card__icon svg {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .app-icon--gray {
   background: #1f1f22;
-  border: 1px solid #2a2a2e;
+  border: 1px solid #2c2c30;
+  color: #9ca3af;
 }
 
 .app-icon--grad-gray {
-  background: linear-gradient(to bottom right, #374151, #111827);
-  border: 1px solid rgba(55, 65, 81, 0.5);
+  background: linear-gradient(145deg, #4b5563, #1f2937);
+  color: #e5e7eb;
 }
 
-.app-icon--grad-blue { background: linear-gradient(to bottom right, #60a5fa, #fde68a); }
-.app-icon--grad-orange { background: linear-gradient(to bottom right, #fed7aa, #fbcfe8); }
-.app-icon--grad-pink { background: linear-gradient(to bottom right, #f9a8d4, #c4b5fd); }
-.app-icon--grad-red { background: linear-gradient(to bottom right, #f87171, #fbbf24); }
+.app-icon--grad-blue {
+  background: linear-gradient(145deg, #3b82f6, #0ea5e9);
+  color: #fff;
+}
+
+.app-icon--grad-orange {
+  background: linear-gradient(145deg, #fb923c, #f43f5e);
+  color: #fff;
+}
+
+.app-icon--grad-pink {
+  background: linear-gradient(145deg, #ec4899, #a855f7);
+  color: #fff;
+}
+
+.app-icon--grad-red {
+  background: linear-gradient(145deg, #ef4444, #f59e0b);
+  color: #fff;
+}
 
 .app-icon--purple {
-  background: rgba(168, 85, 247, 0.2);
+  background: rgba(168, 85, 247, 0.18);
   border: 1px solid rgba(168, 85, 247, 0.35);
+  color: #c084fc;
 }
 
 .app-icon--all {
-  background: linear-gradient(to bottom right, #4b5563, #111827);
-  border: 1px solid rgba(75, 85, 99, 0.5);
+  background: linear-gradient(145deg, #6b7280, #374151);
+  color: #fff;
 }
 
 .app-card__text {
@@ -2552,34 +2617,39 @@ html.dark .agent-scroll-bottom {
 
 .app-card__text h3 {
   margin: 0;
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 11.5px;
+  font-weight: 550;
   color: #e5e7eb;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  line-height: 1.3;
+  line-height: 1.25;
 }
 
 .app-card__text p {
   margin: 1px 0 0;
-  font-size: 11px;
+  font-size: 10px;
   color: #6b7280;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  line-height: 1.3;
+  line-height: 1.25;
 }
 
 .app-card__check {
-  margin-top: 4px;
   flex: none;
   margin-left: 6px;
+  display: flex;
+  align-items: center;
 }
 
 .app-card__check svg {
-  width: 12px;
-  height: 12px;
-  color: #4b5563;
+  width: 11px;
+  height: 11px;
+  stroke: #2f6fed;
+  stroke-width: 2.8;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 </style>
