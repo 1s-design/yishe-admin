@@ -1901,6 +1901,9 @@ html.dark .ai-desktop .conversation-detail-popup {
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
+  white-space: nowrap;
+  flex: none;
+  line-height: 1;
   transition: opacity 0.15s;
 
   &:disabled {
