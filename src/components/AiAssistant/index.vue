@@ -387,26 +387,33 @@
                               <svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg>
                             </div>
                           </div>
-                          <div
+                          <el-tooltip
                             v-for="palette in grp.items"
                             :key="palette.key"
-                            class="app-card"
-                            :class="{ 'is-on': selectedPaletteKeys.includes(palette.key) }"
-                            @click="togglePalette(palette.key)"
+                            :content="palette.description || palette.label"
+                            placement="top"
+                            :show-after="150"
+                            popper-class="sp-tip"
                           >
-                            <div class="app-card__left">
-                              <div class="app-iconbox" :class="iconBoxClass(palette.key)">
-                                <svg viewBox="0 0 24 24" v-html="paletteIconPath(palette.key)" />
+                            <div
+                              class="app-card"
+                              :class="{ 'is-on': selectedPaletteKeys.includes(palette.key) }"
+                              @click="togglePalette(palette.key)"
+                            >
+                              <div class="app-card__left">
+                                <div class="app-iconbox" :class="iconBoxClass(palette.key)">
+                                  <svg viewBox="0 0 24 24" v-html="paletteIconPath(palette.key)" />
+                                </div>
+                                <div class="app-card__text">
+                                  <h3>{{ palette.label }}</h3>
+                                  <p>{{ palette.description || '工具组' }}</p>
+                                </div>
                               </div>
-                              <div class="app-card__text">
-                                <h3>{{ palette.label }}</h3>
-                                <p>{{ palette.description || '工具组' }}</p>
+                              <div v-if="selectedPaletteKeys.includes(palette.key)" class="app-card__check">
+                                <svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg>
                               </div>
                             </div>
-                            <div v-if="selectedPaletteKeys.includes(palette.key)" class="app-card__check">
-                              <svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg>
-                            </div>
-                          </div>
+                          </el-tooltip>
                         </div>
                       </template>
                     </div>
@@ -2636,5 +2643,14 @@ html.dark .agent-scroll-bottom {
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+/* hover 完整功能介绍 */
+.sp-tip {
+  max-width: 280px;
+  padding: 8px 12px !important;
+  border-radius: 8px !important;
+  line-height: 1.55;
+  font-size: 12px;
 }
 </style>
