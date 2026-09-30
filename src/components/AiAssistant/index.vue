@@ -1892,18 +1892,18 @@ html.dark .ai-desktop .conversation-detail-popup {
 }
 
 .composer__send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
   height: 34px;
-  padding: 0 18px;
+  padding: 0;
   border: 0;
-  border-radius: 999px;
+  border-radius: 50%;
   background: var(--el-color-primary);
   color: #fff;
-  font-size: 13px;
-  font-weight: 500;
   cursor: pointer;
-  white-space: nowrap;
   flex: none;
-  line-height: 1;
   transition: opacity 0.15s;
 
   &:disabled {
