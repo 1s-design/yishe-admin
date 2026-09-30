@@ -327,68 +327,81 @@
           </button>
         </Transition>
         <div class="composer">
-          <div class="composer__wrap">
-            <textarea ref="textareaRef" v-model="inputMessage" class="composer__input"
-              :placeholder="store.senderPlaceholder" rows="1"
+          <div class="composer__card">
+            <textarea
+              ref="textareaRef"
+              v-model="inputMessage"
+              class="composer__input"
+              :placeholder="store.senderPlaceholder"
+              rows="1"
               @compositionstart="isComposing = true"
               @compositionend="isComposing = false"
               @keydown="handleKeyDown"
-              @input="autoResize"></textarea>
+              @input="autoResize"
+            />
 
             <div class="composer__bar">
-              <el-popover v-model:visible="showScopePicker" placement="top-start" :width="560" trigger="click"
-                :show-arrow="false" popper-class="scope-popper">
-                <template #reference>
-                  <button type="button" class="composer__scope" :class="{ active: hasToolScope }">
-                    <span class="composer__scope-text">工具</span>
-                    <el-icon :size="11"><ArrowDown /></el-icon>
-                  </button>
-                </template>
-                <div class="scope-pop">
-                  <div class="scope-pop__head">
-                    <button type="button" class="scope-pop__all" :class="{ active: !hasToolScope }" @click="clearToolScope">
-                      <span class="scope-pop__check">{{ !hasToolScope ? '✓' : '' }}</span>
-                      <span>全部工具</span>
-                      <em>模型自选</em>
+              <div class="composer__left">
+                <el-popover
+                  v-model:visible="showScopePicker"
+                  placement="top-start"
+                  :width="560"
+                  trigger="click"
+                  :show-arrow="false"
+                  popper-class="scope-popper"
+                >
+                  <template #reference>
+                    <button type="button" class="composer__btn" :class="{ active: hasToolScope }">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                      <span>工具</span>
+                      <svg class="composer__btn-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
                     </button>
-                  </div>
-                  <div class="scope-pop__body">
-                    <div v-for="grp in paletteGroups" :key="grp.group" class="scope-pop__group">
-                      <div class="scope-pop__group-title">{{ grp.group }}</div>
-                      <div class="scope-pop__grid">
-                        <button
-                          v-for="palette in grp.items"
-                          :key="palette.key"
-                          type="button"
-                          class="scope-pop__item"
-                          :class="{ active: selectedPaletteKeys.includes(palette.key) }"
-                          @click="togglePalette(palette.key)"
-                        >
-                          <span class="scope-pop__check">{{ selectedPaletteKeys.includes(palette.key) ? '✓' : '' }}</span>
-                          <span class="scope-pop__name">{{ palette.label }}</span>
-                        </button>
+                  </template>
+                  <div class="scope-pop">
+                    <div class="scope-pop__head">
+                      <button type="button" class="scope-pop__all" :class="{ active: !hasToolScope }" @click="clearToolScope">
+                        <span class="scope-pop__check">{{ !hasToolScope ? '✓' : '' }}</span>
+                        <span>全部工具</span>
+                        <em>模型自选</em>
+                      </button>
+                    </div>
+                    <div class="scope-pop__body">
+                      <div v-for="grp in paletteGroups" :key="grp.group" class="scope-pop__group">
+                        <div class="scope-pop__group-title">{{ grp.group }}</div>
+                        <div class="scope-pop__grid">
+                          <button
+                            v-for="palette in grp.items"
+                            :key="palette.key"
+                            type="button"
+                            class="scope-pop__item"
+                            :class="{ active: selectedPaletteKeys.includes(palette.key) }"
+                            @click="togglePalette(palette.key)"
+                          >
+                            <span class="scope-pop__check">{{ selectedPaletteKeys.includes(palette.key) ? '✓' : '' }}</span>
+                            <span class="scope-pop__name">{{ palette.label }}</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </el-popover>
+                </el-popover>
 
-              <div v-if="hasToolScope" class="composer__chips">
-                <span v-for="key in selectedPaletteKeys" :key="key" class="composer__chip">
-                  {{ paletteLabel(key) }}
-                  <button type="button" class="composer__chip-x" @click="removePalette(key)">×</button>
-                </span>
+                <div v-if="hasToolScope" class="composer__chips">
+                  <span v-for="key in selectedPaletteKeys" :key="key" class="composer__chip">
+                    {{ paletteLabel(key) }}
+                    <button type="button" class="composer__chip-x" @click="removePalette(key)">×</button>
+                  </span>
+                </div>
               </div>
 
-              <div class="composer__spacer" />
-
-              <button class="composer__send" :disabled="!canSend || store.loading" @click="handleSend">
-                {{ store.loading ? '发送中' : '发送' }}
-              </button>
+              <div class="composer__right">
+                <button class="composer__send" :disabled="!canSend || store.loading" @click="handleSend">
+                  {{ store.loading ? '发送中' : '发送' }}
+                </button>
+              </div>
             </div>
-                  </div>
-      </div>
-    </div>
+          </div>
+        </div>
 
     <el-dialog v-model="showToolDialog" title="Agent 工具目录" fullscreen :close-on-click-modal="true" class="tools-dialog">
       <div class="tools-dialog__body">
@@ -492,6 +505,8 @@
         </el-scrollbar>
       </div>
     </el-dialog>
+    </div>
+  </div>
   </div>
 </template>
 
@@ -1742,64 +1757,86 @@ html.dark .ai-desktop .conversation-detail-popup {
 }
 
 /* ── Composer 容器 ── */
-.composer__bar {
+.composer {
+  padding: 0 16px 14px;
+}
+
+.composer__card {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 2px 2px;
-}
-
-.composer__spacer {
-  flex: 1;
-}
-
-.composer__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  min-width: 0;
-}
-
-.composer__chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 22px;
-  padding: 0 8px;
+  flex-direction: column;
   border: 1px solid var(--el-border-color);
-  border-radius: 6px;
-  font-size: 11px;
-  color: var(--el-text-color-regular);
-  background: var(--el-fill-color-light);
-  white-space: nowrap;
-}
+  border-radius: 24px;
+  background: var(--el-bg-color);
+  transition: border-color 0.15s, box-shadow 0.15s;
 
-.composer__chip-x {
-  border: 0;
-  background: none;
-  color: var(--el-text-color-secondary);
-  cursor: pointer;
-  font-size: 13px;
-  line-height: 1;
-  padding: 0 0 0 2px;
-
-  &:hover {
-    color: var(--el-text-color-primary);
+  &:focus-within {
+    border-color: var(--el-color-primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--el-color-primary) 12%, transparent);
   }
 }
 
-.composer__scope {
+.composer__input {
+  width: 100%;
+  min-height: 44px;
+  max-height: 180px;
+  padding: 14px 18px 4px;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: var(--el-text-color-primary);
+  font-size: 15px;
+  line-height: 1.55;
+  font-family: inherit;
+  overflow-y: auto;
+
+  &::placeholder {
+    color: var(--el-text-color-secondary);
+  }
+}
+
+.composer__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 10px 10px;
+}
+
+.composer__left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-width: 0;
+  flex: 1;
+}
+
+.composer__right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.composer__btn {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  height: 28px;
-  padding: 0 10px;
+  gap: 5px;
+  height: 32px;
+  padding: 0 12px;
   border: 1px solid var(--el-border-color);
-  border-radius: 8px;
+  border-radius: 999px;
   background: transparent;
-  color: var(--el-text-color-secondary);
+  color: var(--el-text-color-regular);
+  font-size: 13px;
   cursor: pointer;
-  flex: none;
+  white-space: nowrap;
+  transition: all 0.15s;
+
+  svg {
+    flex: none;
+  }
 
   &:hover {
     color: var(--el-text-color-primary);
@@ -1813,135 +1850,71 @@ html.dark .ai-desktop .conversation-detail-popup {
   }
 }
 
-.composer__scope-text {
-  font-size: 12px;
+.composer__btn-caret {
+  opacity: 0.6;
+}
+
+.composer__chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.composer__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid color-mix(in srgb, var(--el-color-primary) 35%, transparent);
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--el-color-primary);
+  background: color-mix(in srgb, var(--el-color-primary) 8%, transparent);
+  white-space: nowrap;
+}
+
+.composer__chip-x {
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  padding: 0 0 0 2px;
+  opacity: 0.7;
+
+  &:hover {
+    opacity: 1;
+  }
 }
 
 .composer__send {
-  height: 30px;
-  padding: 0 16px;
+  height: 34px;
+  padding: 0 18px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 999px;
   background: var(--el-color-primary);
   color: #fff;
   font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
-  flex: none;
+  transition: opacity 0.15s;
 
   &:disabled {
-    opacity: 0.45;
+    opacity: 0.35;
     cursor: not-allowed;
   }
 }
 
-.scope-popper {
-  padding: 10px 12px !important;
-  max-height: 70vh;
-  overflow: hidden;
-}
-
-.scope-pop {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.scope-pop__head {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.scope-pop__all {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 10px;
-  border: 1px solid var(--el-border-color);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--el-text-color-regular);
-  cursor: pointer;
-  font-size: 12px;
-
-  em {
-    font-style: normal;
-    font-size: 11px;
-    color: var(--el-text-color-secondary);
-  }
-
-  &.active {
-    border-color: var(--el-color-primary);
-    color: var(--el-color-primary);
-  }
-}
-
-.scope-pop__body {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  max-height: 56vh;
-  overflow-y: auto;
-}
-
-.scope-pop__group-title {
-  margin-bottom: 6px;
-  font-size: 11px;
-  color: var(--el-text-color-secondary);
-}
-
-.scope-pop__grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4px;
-}
-
-.scope-pop__item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  padding: 6px 8px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: transparent;
-  cursor: pointer;
-  text-align: left;
-
-  &:hover {
-    background: var(--el-fill-color);
-  }
-
-  &.active {
-    border-color: var(--el-color-primary);
-    background: color-mix(in srgb, var(--el-color-primary) 8%, transparent);
-    color: var(--el-color-primary);
-  }
-}
-
-.scope-pop__check {
-  width: 12px;
-  font-size: 11px;
-  color: var(--el-color-primary);
-  text-align: center;
-  flex: none;
-}
-
-.scope-pop__name {
-  flex: 1;
-  min-width: 0;
-  font-size: 12px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .composer {
-  position: absolute;
+  position: relative;
   right: 0;
   bottom: 0;
   left: 0;
-  padding: 0 40px 16px;
-  pointer-events: none;
+  padding: 0 16px 14px;
   background: linear-gradient(180deg, transparent 0%, var(--bg) 35%, var(--bg) 100%);
 }
 
