@@ -363,36 +363,37 @@
                     </button>
                   </template>
                   <div class="scope-pop">
-                    <div class="scope-pop__body">
-                      <div class="scope-pop__section">
-                        <div class="scope-pop__section-title">全部</div>
-                        <div class="scope-pop__grid">
-                          <div class="app-card" :class="{ active: !hasToolScope }" @click="clearToolScope">
+                    <div class="sp-scroll">
+                      <template v-for="grp in paletteGroups" :key="grp.group">
+                        <h2 class="sp-title">{{ grp.group }}</h2>
+                        <hr class="sp-hr" />
+                        <div class="sp-grid">
+                          <div
+                            v-if="grp === paletteGroups[0]"
+                            class="app-card"
+                            :class="{ 'is-on': !hasToolScope }"
+                            @click="clearToolScope"
+                          >
                             <div class="app-card__left">
-                              <div class="app-card__icon app-card__icon--all">
-                                <span>✦</span>
-                              </div>
+                              <div class="app-card__icon app-icon--all"><span>✦</span></div>
                               <div class="app-card__text">
                                 <h3>全部工具</h3>
                                 <p>模型自选</p>
                               </div>
                             </div>
-                            <svg v-if="!hasToolScope" class="app-card__check" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>
+                            <div v-if="!hasToolScope" class="app-card__check">
+                              <svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg>
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                      <div v-for="grp in paletteGroups" :key="grp.group" class="scope-pop__section">
-                        <div class="scope-pop__section-title">{{ grp.group }}</div>
-                        <div class="scope-pop__grid">
                           <div
                             v-for="palette in grp.items"
                             :key="palette.key"
                             class="app-card"
-                            :class="{ active: selectedPaletteKeys.includes(palette.key) }"
+                            :class="{ 'is-on': selectedPaletteKeys.includes(palette.key) }"
                             @click="togglePalette(palette.key)"
                           >
                             <div class="app-card__left">
-                              <div class="app-card__icon" :class="`app-card__icon--${grp.group}`">
+                              <div class="app-card__icon" :class="iconBgClass(palette.key)">
                                 <span>{{ paletteGlyph(palette.key) }}</span>
                               </div>
                               <div class="app-card__text">
@@ -400,10 +401,12 @@
                                 <p>{{ palette.description || '工具组' }}</p>
                               </div>
                             </div>
-                            <svg v-if="selectedPaletteKeys.includes(palette.key)" class="app-card__check" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>
+                            <div v-if="selectedPaletteKeys.includes(palette.key)" class="app-card__check">
+                              <svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg>
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      </template>
                     </div>
                   </div>
                 </el-popover>
@@ -855,6 +858,28 @@ const paletteGroups = computed(() => {
 
 function paletteLabel(key: string) {
   return toolPalettes.value.find((p) => p.key === key)?.label || key;
+}
+
+function iconBgClass(key: string) {
+  const map: Record<string, string> = {
+    video: 'app-icon--grad-gray',
+    'video.template': 'app-icon--grad-blue',
+    'video.record': 'app-icon--grad-orange',
+    task: 'app-icon--purple',
+    prompt_template: 'app-icon--grad-pink',
+    workflow: 'app-icon--gray',
+    hotsearch: 'app-icon--grad-red',
+    message_push: 'app-icon--purple',
+    'material.sticker': 'app-icon--purple',
+    'material.font_template': 'app-icon--grad-pink',
+    'material.psd_template': 'app-icon--grad-blue',
+    product: 'app-icon--grad-orange',
+    'system.browser_automation': 'app-icon--grad-gray',
+    'system.ps_automation': 'app-icon--grad-pink',
+    'ai.tts': 'app-icon--purple',
+    'ai.tti': 'app-icon--grad-blue',
+  };
+  return map[key] || 'app-icon--gray';
 }
 
 function paletteGlyph(key: string) {
@@ -2392,5 +2417,169 @@ html.dark .ai-desktop {
 
 html.dark .agent-scroll-bottom {
   box-shadow: 0 2px 8px rgb(0 0 0 / 30%);
+}
+
+/* ── 工具选择面板（Ultra Compact AppCard） ── */
+.scope-popper {
+  padding: 12px 14px 14px !important;
+  background: #0f0f0f !important;
+  border: 1px solid #1f1f1f !important;
+  border-radius: 12px !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5) !important;
+  max-height: 72vh;
+  overflow: hidden;
+}
+
+.scope-pop {
+  color: #fff;
+}
+
+.sp-scroll {
+  max-height: 66vh;
+  overflow-y: auto;
+  margin: 0 -4px;
+  padding: 0 4px;
+}
+
+.sp-title {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #d1d5db;
+}
+
+.sp-title:not(:first-child) {
+  margin-top: 18px;
+}
+
+.sp-hr {
+  border: 0;
+  border-top: 1px solid #1f1f22;
+  margin: 0 0 12px;
+}
+
+.sp-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 12px;
+  row-gap: 14px;
+}
+
+@media (min-width: 720px) {
+  .sp-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (min-width: 960px) {
+  .sp-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+.app-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  width: 100%;
+  margin: 0 -4px;
+  padding: 2px 4px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.app-card:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.app-card.is-on {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.app-card__left {
+  display: flex;
+  gap: 8px;
+  overflow: hidden;
+  width: 100%;
+  align-items: center;
+}
+
+.app-card__icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  overflow: hidden;
+}
+
+.app-card__icon span {
+  font-size: 12px;
+  line-height: 1;
+}
+
+.app-icon--gray {
+  background: #1f1f22;
+  border: 1px solid #2a2a2e;
+}
+
+.app-icon--grad-gray {
+  background: linear-gradient(to bottom right, #374151, #111827);
+  border: 1px solid rgba(55, 65, 81, 0.5);
+}
+
+.app-icon--grad-blue { background: linear-gradient(to bottom right, #60a5fa, #fde68a); }
+.app-icon--grad-orange { background: linear-gradient(to bottom right, #fed7aa, #fbcfe8); }
+.app-icon--grad-pink { background: linear-gradient(to bottom right, #f9a8d4, #c4b5fd); }
+.app-icon--grad-red { background: linear-gradient(to bottom right, #f87171, #fbbf24); }
+
+.app-icon--purple {
+  background: rgba(168, 85, 247, 0.2);
+  border: 1px solid rgba(168, 85, 247, 0.35);
+}
+
+.app-icon--all {
+  background: linear-gradient(to bottom right, #4b5563, #111827);
+  border: 1px solid rgba(75, 85, 99, 0.5);
+}
+
+.app-card__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+  justify-content: center;
+}
+
+.app-card__text h3 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: #e5e7eb;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+
+.app-card__text p {
+  margin: 1px 0 0;
+  font-size: 11px;
+  color: #6b7280;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+
+.app-card__check {
+  margin-top: 4px;
+  flex: none;
+  margin-left: 6px;
+}
+
+.app-card__check svg {
+  width: 12px;
+  height: 12px;
+  color: #4b5563;
 }
 </style>
