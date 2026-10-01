@@ -385,6 +385,13 @@ service.interceptors.response.use(
 
 const handleAuthorized = (reason?: string) => {
   const { t } = useI18n();
+
+  // 如果当前已有有效 token，说明是并发请求携带旧 token 导致的过期 401，
+  // 此时用户已登录，不应该弹出「请登录」——静默忽略即可。
+  if (getAccessToken()) {
+    return Promise.reject(reason || "token_expired_but_recovered");
+  }
+
   const dialogMessage = String(reason || "").trim() || t("sys.api.timeoutMessage");
   const isAccessDeniedMessage =
     dialogMessage.includes("账号已被禁用") || dialogMessage.includes("账号已过期");
@@ -398,11 +405,9 @@ const handleAuthorized = (reason?: string) => {
       confirmButtonText: isAccessDeniedMessage ? t("common.ok") : t("login.relogin"),
       type: "warning",
     }).then(() => {
-      // resetRouter() // 重置静态路由表
-      deleteUserCache(); // 删除用户缓存
+      deleteUserCache();
       removeToken();
       isRelogin.show = false;
-      // 直接跳转到登录页，而不是刷新当前页面
       window.location.href = "/#/login";
     });
   }

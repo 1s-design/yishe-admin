@@ -99,6 +99,27 @@ export function saveTemplateFromRecord(data: {
   }) as unknown as Promise<RemotionTemplateItem>;
 }
 
+/** 从代码创建模板（自动识别变量） */
+export function saveTemplateFromCode(data: {
+  name: string;
+  description?: string;
+  code: string;
+  componentName?: string;
+  width?: number;
+  height?: number;
+  fps?: number;
+  durationInFrames?: number;
+  category?: string;
+  tags?: string[];
+  coverUrl?: string;
+  defaultProps?: Record<string, any>;
+}) {
+  return request.post({
+    url: '/remotion-template/save-from-code',
+    data,
+  }) as unknown as Promise<RemotionTemplateItem>;
+}
+
 /** 套用模板：合并 inputProps 产出渲染载荷 */
 export function applyRemotionTemplate(data: {
   template: string;

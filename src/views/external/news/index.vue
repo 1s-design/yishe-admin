@@ -30,20 +30,20 @@ defineOptions({ name: 'ExternalNewsCollect' })
 const route = useRoute()
 const router = useRouter()
 
-const activeKey = ref<string>('hackernews')
+const activeKey = ref<string>('thepaper')
 
 const activeSource = computed(() =>
   NEWS_SOURCES.find((s) => s.key === activeKey.value),
 )
 
-const menuGroups = [
-  {
-    label: '国外新闻',
-    items: NEWS_SOURCES.filter((s) => s.category === '国外新闻'),
-  },
+const menuGroups = computed(() => [
   {
     label: '国内新闻',
     items: NEWS_SOURCES.filter((s) => s.category === '国内新闻'),
+  },
+  {
+    label: '国外新闻',
+    items: NEWS_SOURCES.filter((s) => s.category === '国外新闻'),
   },
   {
     label: '娱乐影视',
@@ -54,14 +54,10 @@ const menuGroups = [
     items: NEWS_SOURCES.filter((s) => s.category === '体育'),
   },
   {
-    label: '招聘',
-    items: NEWS_SOURCES.filter((s) => s.category === '招聘'),
-  },
-  {
     label: '政府数据',
     items: NEWS_SOURCES.filter((s) => s.category === '政府数据'),
   },
-]
+].filter((g) => g.items.length > 0))
 
 const switchTab = (key: string) => {
   if (activeKey.value === key) return

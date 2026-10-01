@@ -169,6 +169,15 @@ export const getTtsRecordById = (id: string) => {
 }
 
 /**
+ * 查询 TTS 音频内容信息（文案、音频地址、时长、字幕等）
+ */
+export const getTtsAudioContentInfo = (id: string) => {
+  return request.get({
+    url: `/ai/tts-record/${id}/audio-content`
+  })
+}
+
+/**
  * 创建自定义音色 — 按 Provider 路由到独立接口
  * @param specCode Provider 规范代码：qwen.tts 或 mimo.tts
  * @param data 音色数据

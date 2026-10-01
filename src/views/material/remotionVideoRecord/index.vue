@@ -110,22 +110,31 @@
                       type="warning"
                       size="small"
                       class="record-template-tag"
-                    >{{ t('remotionVideoRecord.freeCreation') }}</el-tag>
+                    >AI 自由创作</el-tag>
                     <el-tag
                       v-else-if="isAutoMatchRecord(row)"
                       type="primary"
                       size="small"
                       class="record-template-tag"
-                    >{{ t('remotionVideoRecord.autoMatch') }}</el-tag>
-                    <template v-if="!isFreeCreationRecord(row)">
-                      <span
-                        v-if="row.templateName || row.templateId"
-                        class="record-template-main"
-                      >{{ row.templateName || row.templateId }}</span>
-                      <span
-                        v-if="row.templateId && row.templateId !== 'auto' && (row.templateName || '') !== row.templateId"
-                        class="record-template-id"
-                      >{{ row.templateId }}</span>
+                    >AI 匹配模板</el-tag>
+                    <el-tag
+                      v-else-if="isTemplateRecord(row)"
+                      type="success"
+                      size="small"
+                      class="record-template-tag"
+                    >模板创建</el-tag>
+                    <!-- 模板创建：显示模板名 -->
+                    <template v-if="isTemplateRecord(row)">
+                      <span class="record-template-main">{{ row.templateName || row.templateId }}</span>
+                    </template>
+                    <!-- AI 自由创作：显示提示词 -->
+                    <template v-else-if="isFreeCreationRecord(row)">
+                      <span class="record-prompt-text">{{ row.prompt || row.inputProps?.prompt || row.title }}</span>
+                    </template>
+                    <!-- AI 模板匹配：显示提示词 + 模板 -->
+                    <template v-else>
+                      <span class="record-prompt-text">{{ row.prompt || row.inputProps?.prompt || '' }}</span>
+                      <span v-if="row.templateName && row.templateName !== '智能匹配'" class="record-template-main">{{ row.templateName }}</span>
                     </template>
                   </div>
                 </template>
@@ -446,77 +455,12 @@
           </div>
 
           <div class="params-editor-layout">
-            <div class="params-card params-card--form">
-              <div class="params-card-header">
-                <div class="params-card-header-left">
-                  <span class="params-card-title">表单参数配置</span>
-                  <span class="params-card-subtitle">按字段可视化修改</span>
-                </div>
-              </div>
-              <div class="params-form">
-                <el-form
-                  v-if="selectedTemplate.inputSchema && selectedTemplate.inputSchema.length"
-                  label-position="top"
-                  label-width="auto"
-                  class="params-el-form"
-                >
-                  <el-form-item
-                    v-for="field in selectedTemplate.inputSchema"
-                    :key="field.key"
-                    :label="field.label || field.key"
-                    :required="field.required"
-                    class="param-form-item"
-                  >
-                    <template #label>
-                      <span class="param-label-text">{{ field.label || field.key }}</span>
-                      <el-tooltip v-if="field.description" :content="field.description" placement="top">
-                        <el-icon class="param-help-icon"><QuestionFilled /></el-icon>
-                      </el-tooltip>
-                    </template>
-                    <el-input
-                      v-if="isTextInput(field)"
-                      :model-value="getParamFieldString(field.key)"
-                      :placeholder="getFieldPlaceholder(field)"
-                      clearable
-                      @update:model-value="(value) => updateParamField(field, value)"
-                    />
-                    <el-input-number
-                      v-else-if="isNumberInput(field)"
-                      :model-value="getParamFieldNumber(field.key)"
-                      :placeholder="field.example !== undefined ? String(field.example) : t('remotionVideoRecord.inputNumber')"
-                      class="w-full"
-                      @update:model-value="(value) => updateParamField(field, value)"
-                    />
-                    <el-switch
-                      v-else-if="isBoolInput(field)"
-                      :model-value="!!formParams[field.key]"
-                      @update:model-value="(value) => updateParamField(field, value)"
-                    />
-                    <el-input
-                      v-else
-                      :model-value="getParamFieldJson(field.key)"
-                      type="textarea"
-                      :rows="getComplexFieldRows(field)"
-                      :placeholder="getFieldPlaceholder(field)"
-                      class="param-textarea"
-                      @update:model-value="(value) => updateParamField(field, value)"
-                    />
-                    <div v-if="isComplexInput(field)" class="param-json-tip">
-                      <el-icon class="param-tip-icon"><QuestionFilled /></el-icon>
-                      <span>{{ getComplexFieldTip(field) }}</span>
-                    </div>
-                  </el-form-item>
-                </el-form>
-                <el-empty v-else :description="t('remotionVideoRecord.noParamFields')" :image-size="80" />
-              </div>
-            </div>
-
             <div class="params-card params-card--json">
               <div class="params-card-header">
                 <div class="params-card-header-left">
-                  <span class="params-card-title">{{ t('remotionVideoRecord.jsonParams') }}</span>
+                  <span class="params-card-title">JSON 参数配置</span>
                   <span class="json-hint" :class="{ 'json-hint--error': !!jsonEditError }">
-                    {{ jsonEditError || t('remotionVideoRecord.jsonSyncTip') }}
+                    {{ jsonEditError || '填入模板所需的 JSON 参数' }}
                   </span>
                 </div>
               </div>
@@ -526,7 +470,7 @@
                   v-model="form.inputPropsJson"
                   resize="none"
                   class="json-editor"
-                  :placeholder="t('remotionVideoRecord.inputJsonPlaceholder')"
+                  :placeholder="defaultParamsPlaceholder"
                   @input="handleJsonInput"
                 />
               </div>
@@ -652,14 +596,14 @@
                   type="warning"
                   size="small"
                   class="record-template-tag"
-                >{{ t('remotionVideoRecord.freeCreation') }}</el-tag>
+                >AI 自由创作</el-tag>
                 <template v-else>
                   <el-tag
                     v-if="isAutoMatchRecord(currentRow)"
                     type="primary"
                     size="small"
                     class="record-template-tag"
-                  >{{ t('remotionVideoRecord.autoMatch') }}</el-tag>
+                  >AI 匹配模板</el-tag>
                   <span
                     v-if="currentRow.templateName || currentRow.templateId"
                     class="record-template-main"
@@ -797,48 +741,32 @@
   <el-dialog
     v-model="saveTplVisible"
     title="存为模板"
-    width="720px"
+    width="640px"
     destroy-on-close
     class="remotion-save-tpl-dialog"
   >
-    <el-form label-width="88px">
+    <el-form label-width="80px">
       <el-form-item label="模板名称" required>
-        <el-input v-model="saveTplForm.name" placeholder="例如：三句宣言极简黑底" maxlength="60" />
+        <el-input v-model="saveTplForm.name" placeholder="例如：科技感3D球体" maxlength="60" />
       </el-form-item>
       <el-form-item label="说明">
         <el-input v-model="saveTplForm.description" type="textarea" :rows="2" placeholder="模板用途简介" />
       </el-form-item>
-      <el-form-item label="分类">
-        <el-input v-model="saveTplForm.category" placeholder="我的模板" />
+      <el-form-item label="代码">
+        <el-input v-model="saveTplForm.code" type="textarea" :rows="8" placeholder="TSX 代码" />
       </el-form-item>
-      <el-form-item label="可见范围">
-        <el-radio-group v-model="saveTplForm.scope">
-          <el-radio-button label="private">私有</el-radio-button>
-          <el-radio-button label="unlisted">未列出</el-radio-button>
-          <el-radio-button label="shared">共享</el-radio-button>
-        </el-radio-group>
-      </el-form-item>
-      <el-form-item label="变量提炼">
-        <div class="save-tpl-vars">
-          <div class="save-tpl-vars__hint">
-            勾选需要在复用时替换的字段，将沉淀为 <code>{{ KEY_PLACEHOLDER }}</code> 占位符参数（Remotion inputProps）
-          </div>
-          <div
-            v-for="f in saveTplFields"
-            :key="f.path"
-            class="save-tpl-vars__item"
+      <el-form-item label="识别变量">
+        <div class="save-tpl-vars__simple">
+          <el-tag
+            v-for="v in detectedVariables"
+            :key="v.name"
+            size="small"
+            :type="v.type === 'color' ? 'danger' : v.type === 'number' ? 'warning' : v.type === 'image' ? 'success' : 'info'"
+            class="var-tag"
           >
-            <el-checkbox v-model="f.asVar">设为变量</el-checkbox>
-            <div class="save-tpl-vars__meta">
-              <div class="save-tpl-vars__path">{{ f.path }}</div>
-              <div class="save-tpl-vars__value">{{ truncate(f.value, 60) }}</div>
-            </div>
-            <template v-if="f.asVar">
-              <el-input v-model="f.key" placeholder="变量名" style="width: 110px" size="small" />
-              <el-input v-model="f.label" placeholder="显示名" style="width: 110px" size="small" />
-            </template>
-          </div>
-          <el-empty v-if="!saveTplFields.length" description="未检测到可提炼的文本字段" :image-size="60" />
+            {{ v.label }} ({{ v.type }})
+          </el-tag>
+          <span v-if="!detectedVariables.length" class="var-empty">从代码 props 自动识别</span>
         </div>
       </el-form-item>
     </el-form>
@@ -1489,7 +1417,6 @@ import {
   deleteRemotionVideoRecord,
   batchDeleteRemotionVideoRecord,
   generateRemotionVideoRecord,
-  getRemotionTemplateList,
   getRemotionVideoRecordDetail,
   getRemotionVideoRecordPage,
   aiGenerateRemotionVideoRecord,
@@ -1504,7 +1431,7 @@ import {
   importRemotionSkillMarkdown,
   type RemotionSkillItem,
 } from "@/api/remotion-skill";
-import { saveTemplateFromRecord } from "@/api/remotion-template";
+import { saveTemplateFromCode, getRemotionTemplatePage } from "@/api/remotion-template";
 import ContentWrap from "@/components/ContentWrap/src/ContentWrap.vue";
 import ListPageLayout from "@/components/ListPageLayout/index.vue";
 import Pagination from "@/components/Pagination/index.vue";
@@ -1953,7 +1880,7 @@ function getSkillCategoryLabel(category: string) {
     cinematic: '电影美学',
     custom: '自定义',
   };
-  return map[category] || category || '通用';
+  return map[category] || category || '我的模板';
 }
 
 function getSkillCategoryTagType(category: string) {
@@ -2216,6 +2143,15 @@ const ACTIVE_RECORD_STATUSES = new Set([
 const currentStep = ref(0);
 const paramsMode = ref<"form" | "json">("form");
 const formParams = reactive<Record<string, any>>({});
+const defaultParamsPlaceholder = computed(() => {
+  const tpl = selectedTemplate.value;
+  if (!tpl) return '{\n  "title": "示例标题",\n  "images": ["url1", "url2"]\n}';
+  // 兼容多种字段名：defaultProps / default_props / defaultInputProps
+  const raw = tpl.defaultProps || tpl.default_props || tpl.defaultInputProps;
+  const defaults = typeof raw === 'string' ? JSON.parse(raw || '{}') : (raw || {});
+  if (Object.keys(defaults).length) return JSON.stringify(defaults, null, 2);
+  return '{\n  "title": "示例标题",\n  "images": ["url1", "url2"]\n}';
+});
 const jsonEditError = ref("");
 let syncingJsonFromForm = false;
 
@@ -2244,6 +2180,85 @@ const form = reactive({
 const selectedTemplate = computed(
   () => templateOptions.value.find((item) => item.id === form.templateId) || null,
 );
+
+// 模板变量（自动检测：variables 字段 → {{key}} 占位符 → 代码 props → defaultProps）
+const templateVariables = computed(() => {
+  const tpl = selectedTemplate.value;
+  if (!tpl) return [];
+
+  // 1. 优先用 variables 字段
+  if (tpl.variables?.length) return tpl.variables;
+
+  const vars: Array<{ name: string; label: string; type: string; default?: any }> = [];
+  const names = new Set<string>();
+
+  // 2. 从 structure 的 {{key}} 占位符检测
+  const structStr = JSON.stringify(tpl.structure || tpl.codeAssets || '');
+  const placeholderRegex = /\{\{(\w+)\}\}/g;
+  let m;
+  while ((m = placeholderRegex.exec(structStr))) {
+    names.add(m[1]);
+  }
+
+  // 3. 从代码 props 检测
+  const codeStr = typeof tpl.codeAssets === 'string' ? tpl.codeAssets : JSON.stringify(tpl.codeAssets || '');
+  const decompMatch = codeStr.match(/\(\s*\{\s*([^}]+)\s*\}\s*\)/);
+  if (decompMatch) {
+    decompMatch[1].split(',').forEach(s => {
+      const n = s.trim().split(':')[0].trim();
+      if (n && !n.startsWith('_') && !['frame','fps','width','height','durationInFrames','palette','props','children','className','style'].includes(n)) {
+        names.add(n);
+      }
+    });
+  }
+  const propsRegex = /props\.([a-zA-Z_]\w*)/g;
+  while ((m = propsRegex.exec(codeStr))) {
+    const n = m[1];
+    if (!n.startsWith('_') && !['frame','fps','width','height','durationInFrames','palette'].includes(n)) {
+      names.add(n);
+    }
+  }
+
+  // 4. 从 defaultProps 检测
+  const defaults = typeof tpl.defaultProps === 'string' ? JSON.parse(tpl.defaultProps || '{}') : (tpl.defaultProps || {});
+  Object.keys(defaults).forEach(k => names.add(k));
+
+  // 5. 从 inputSchema 检测（兼容旧格式）
+  if (tpl.inputSchema?.length) {
+    tpl.inputSchema.forEach((f: any) => {
+      names.add(f.key || f.name);
+    });
+  }
+
+  // 生成变量定义
+  const labelMap: Record<string,string> = {
+    title:'标题', subtitle:'副标题', text:'文本', content:'内容', description:'描述',
+    color:'颜色', background:'背景色', image:'图片', images:'图片列表', img:'图片',
+    src:'图片地址', url:'链接', avatar:'头像', logo:'Logo', cover:'封面',
+    count:'数量', size:'尺寸', width:'宽度', height:'高度', speed:'速度', duration:'时长',
+    opacity:'透明度', fontSize:'字号', buttonText:'按钮文字', author:'作者', price:'价格',
+    label:'标签', name:'名称', tag:'标签', value:'数值',
+  };
+  const inferType = (n: string) => {
+    const l = n.toLowerCase();
+    if (l.includes('color')||l.includes('bg')||l.includes('accent')||l.endsWith('color')) return 'color';
+    if (l.includes('image')||l.includes('img')||l.includes('src')||l.includes('url')||l.includes('avatar')||l.includes('logo')||l.includes('cover')||l.includes('media')) return l === 'images' ? 'image-list' : 'image';
+    if (l.includes('count')||l.includes('size')||l.includes('width')||l.includes('height')||l.includes('speed')||l.includes('duration')||l.includes('value')||l.includes('opacity')||l.includes('fontSize')||l.includes('radius')||l.includes('gap')) return 'number';
+    if (l.startsWith('is')||l.startsWith('has')||l.startsWith('show')) return 'boolean';
+    return 'string';
+  };
+
+  names.forEach(n => {
+    vars.push({
+      name: n,
+      label: labelMap[n] || n,
+      type: inferType(n),
+      default: defaults[n],
+    });
+  });
+
+  return vars;
+});
 const templateCategoryOptions = computed(() =>
   templateMeta.filters.categories.length
     ? templateMeta.filters.categories
@@ -2333,24 +2348,16 @@ function getTemplateLocalDesc(template: any): string {
 }
 
 const categorizedTemplates = computed(() => {
-  const categoryOrder: string[] = [
-    '过渡效果', '滑动', '缩放', '旋转', '翻转', '基础效果', '合成', '其他',
-  ];
   const groupMap = new Map<string, any[]>();
 
   for (const t of filteredTemplateOptions.value) {
-    const cat = String(t.category || '其他').trim() || '其他';
+    const cat = String(t.category || '我的模板').trim() || '我的模板';
     if (!groupMap.has(cat)) groupMap.set(cat, []);
     groupMap.get(cat)!.push(t);
   }
 
-  // 按预定义顺序排列，未列出的分类排在后面
-  const known = new Set(categoryOrder);
-  const sortedCats = [...groupMap.keys()].sort((a, b) => {
-    const ia = categoryOrder.indexOf(a);
-    const ib = categoryOrder.indexOf(b);
-    return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
-  });
+  // 按分类名字排序
+  const sortedCats = [...groupMap.keys()].sort();
 
   return sortedCats.map(category => ({
     category,
@@ -2512,6 +2519,10 @@ function normalizeProgressValue(progress: unknown) {
 
 function isFreeCreationRecord(row: any) {
   if (!row) return false;
+  // 优先用 creationMode 字段
+  if (row.creationMode === 'ai-free') return true;
+  if (row.creationMode) return false; // 有 creationMode 但不是 ai-free → 不是自由创作
+  // 兼容旧数据（无 creationMode 时才走 fallback）
   return (
     row.templateName === "自由创作" ||
     row.templateId === "ai-universal" ||
@@ -2521,8 +2532,19 @@ function isFreeCreationRecord(row: any) {
   );
 }
 
+function isTemplateRecord(row: any) {
+  if (!row) return false;
+  if (row.creationMode === 'template') return true;
+  if (row.creationMode) return false;
+  // 兼容旧数据
+  return !isFreeCreationRecord(row) && !isAutoMatchRecord(row) && row.templateId && row.templateId !== 'ai-universal' && row.templateId !== 'auto';
+}
+
 function isAutoMatchRecord(row: any) {
   if (!row) return false;
+  if (row.creationMode === 'ai-match') return true;
+  if (row.creationMode) return false;
+  // 兼容旧数据
   if (isFreeCreationRecord(row)) return false;
   return (
     row.templateName === "智能匹配" ||
@@ -2819,10 +2841,13 @@ function selectTemplate(template: any) {
   // 初始化表单参数
   Object.keys(formParams).forEach(key => delete formParams[key]);
 
-  if (template.defaultInputProps) {
-    Object.assign(formParams, template.defaultInputProps);
-    ensureParamDefaults(template);
-    syncFormToJson();
+  // 兼容多种字段名：defaultProps / default_props / defaultInputProps
+  const rawDefaults = template.defaultProps || template.default_props || template.defaultInputProps;
+  const defaults = typeof rawDefaults === 'string' ? JSON.parse(rawDefaults || '{}') : (rawDefaults || {});
+
+  if (Object.keys(defaults).length) {
+    Object.assign(formParams, defaults);
+    form.inputPropsJson = JSON.stringify(defaults, null, 2);
   } else {
     ensureParamDefaults(template);
     syncFormToJson();
@@ -2883,39 +2908,39 @@ watch(paramsMode, (newMode) => {
 
 async function loadTemplates() {
   try {
-    const result: any = await getRemotionTemplateList({
-      keyword: templateSearchKeyword.value || undefined,
-      category: templateFilters.category || undefined,
-      durationLabel: templateFilters.durationLabel || undefined,
-      style: templateFilters.style || undefined,
-      useCase: templateFilters.useCase || undefined,
-      tag: templateFilters.tag || undefined,
-      orientation: templateFilters.orientation || undefined,
+    // 查用户模板库（remotion_template 表），不再用硬编码模板
+    const result: any = await getRemotionTemplatePage({
+      page: 1,
       pageSize: 200,
+      keyword: templateSearchKeyword.value || undefined,
     });
     const list = Array.isArray(result) ? result : result?.list || result?.records || [];
-    templateOptions.value = Array.isArray(list) ? list : [];
+    templateOptions.value = list.map((t: any) => ({
+      id: t.code || t.id,
+      name: t.name,
+      description: t.description,
+      category: t.category || '我的模板',
+      width: t.width,
+      height: t.height,
+      fps: t.fps,
+      durationInFrames: t.durationInFrames,
+      coverUrl: t.coverUrl,
+      variables: typeof t.variables === 'string' ? JSON.parse(t.variables || 'null') : (t.variables || null),
+      defaultProps: (() => {
+        const raw = t.defaultProps || t.default_props || t.defaultInputProps;
+        return typeof raw === 'string' ? JSON.parse(raw || 'null') : (raw || null);
+      })(),
+      implementationKind: t.implementationKind,
+      codeAssets: typeof t.codeAssets === 'string' ? JSON.parse(t.codeAssets || 'null') : (t.codeAssets || null),
+    }));
     templateMeta.total = Number(result?.total ?? templateOptions.value.length) || 0;
-    templateMeta.allTotal = Number(result?.allTotal ?? templateMeta.total) || 0;
-    templateMeta.filters.categories = Array.isArray(result?.filters?.categories)
-      ? result.filters.categories
-      : [];
-    templateMeta.filters.durationLabels = Array.isArray(result?.filters?.durationLabels)
-      ? result.filters.durationLabels
-      : [];
-    templateMeta.filters.styles = Array.isArray(result?.filters?.styles) ? result.filters.styles : [];
-    templateMeta.filters.useCases = Array.isArray(result?.filters?.useCases)
-      ? result.filters.useCases
-      : [];
-    templateMeta.filters.tags = Array.isArray(result?.filters?.tags) ? result.filters.tags : [];
-    templateMeta.filters.orientations = Array.isArray(result?.filters?.orientations)
-      ? result.filters.orientations
-      : [];
+    templateMeta.allTotal = templateMeta.total;
+    templateMeta.filters.categories = [...new Set(templateOptions.value.map((t: any) => t.category).filter(Boolean))];
   } catch (error: any) {
     templateOptions.value = [];
     templateMeta.total = 0;
     templateMeta.allTotal = 0;
-    ElMessage.error(getRemotionErrorMessage(error, "获取 Video Template 模板失败"));
+    ElMessage.error(error?.message || "获取模板失败");
   }
 }
 
@@ -3270,68 +3295,79 @@ function recreateFromDetail(row: any) {
   });
 }
 
-// ─── 存为模板 ───────────────────────────────────────────────
-const KEY_PLACEHOLDER = "{{key}}";
+// ─── 存为模板（简洁版：代码 + 自动变量） ─────────────────
 const saveTplVisible = ref(false);
 const saveTplLoading = ref(false);
-const saveTplRecordId = ref('');
 const saveTplForm = reactive({
   name: '',
   description: '',
-  category: '我的模板',
-  scope: 'private' as 'private' | 'unlisted' | 'shared',
+  code: '',
 });
-const saveTplFields = ref<
-  Array<{ path: string; value: string; asVar: boolean; key: string; label: string }>
->([]);
 
-function truncate(s: string, n = 60) {
-  const str = String(s ?? '');
-  return str.length > n ? str.slice(0, n) + '…' : str;
-}
+// 从代码自动识别变量
+const detectedVariables = computed(() => {
+  const code = saveTplForm.code;
+  if (!code) return [];
+  const vars: Array<{ name: string; label: string; type: string }> = [];
+  const names = new Set<string>();
 
-/** 从 SceneGraph 扫描可提炼的文本字段（text/headline/subtext/title/code 等） */
-function collectTemplateFields(videoConfig: any) {
-  const out: Array<{ path: string; value: string; asVar: boolean; key: string; label: string }> = [];
-  const TEXT_KEYS = new Set(['text', 'headline', 'subtext', 'title', 'subtitle', 'label', 'quote', 'cta', 'code']);
-  const walk = (node: any, path: string) => {
-    if (!node || typeof node !== 'object') return;
-    if (Array.isArray(node)) {
-      node.forEach((item, i) => walk(item, `${path}[${i}]`));
-      return;
-    }
-    for (const [k, v] of Object.entries(node)) {
-      const p = path ? `${path}.${k}` : k;
-      if (typeof v === 'string' && TEXT_KEYS.has(k) && v.trim().length > 0) {
-        out.push({
-          path: p,
-          value: v,
-          asVar: false,
-          key: `var${out.length + 1}`,
-          label: k,
-        });
-      } else if (v && typeof v === 'object') {
-        walk(v, p);
+  // 解构 props
+  const m = code.match(/\(\s*\{\s*([^}]+)\s*\}\s*\)/);
+  if (m) {
+    m[1].split(',').forEach(s => {
+      const name = s.trim().split(':')[0].trim();
+      if (name && !name.startsWith('_') && !['frame','fps','width','height','durationInFrames','palette','props','children','className','style'].includes(name)) {
+        names.add(name);
       }
+    });
+  }
+  // props.xxx
+  const re = /props\.([a-zA-Z_]\w*)/g;
+  let match;
+  while ((match = re.exec(code))) {
+    const name = match[1];
+    if (!name.startsWith('_') && !['frame','fps','width','height','durationInFrames','palette'].includes(name)) {
+      names.add(name);
     }
+  }
+
+  const labelMap: Record<string,string> = { title:'标题', subtitle:'副标题', text:'文本', color:'颜色', image:'图片', count:'数量', size:'尺寸', speed:'速度', description:'描述', buttonText:'按钮', author:'作者', price:'价格' };
+  const typeMap = (n: string) => {
+    const l = n.toLowerCase();
+    if (l.includes('color')||l.includes('bg')||l.includes('accent')) return 'color';
+    if (l.includes('image')||l.includes('img')||l.includes('src')||l.includes('url')||l.includes('avatar')||l.includes('logo')) return 'image';
+    if (l.includes('count')||l.includes('size')||l.includes('width')||l.includes('height')||l.includes('speed')||l.includes('duration')||l.includes('value')||l.includes('opacity')) return 'number';
+    if (l.startsWith('is')||l.startsWith('has')||l.startsWith('show')) return 'boolean';
+    return 'string';
   };
-  walk(videoConfig?.scenes, 'scenes');
-  return out.slice(0, 30);
-}
+
+  names.forEach(n => {
+    vars.push({ name: n, label: labelMap[n] || n, type: typeMap(n) });
+  });
+  return vars;
+});
 
 function openSaveAsTemplate(row: any) {
   if (!row) return;
+  // 从 video record 中提取 custom-code 的代码
+  let code = '';
   const vc = row.inputProps?.videoConfig;
-  if (!vc?.scenes?.length) {
-    ElMessage.warning('该记录没有可沉淀的 SceneGraph 结构');
-    return;
+  if (vc?.scenes) {
+    for (const scene of vc.scenes) {
+      for (const layer of (scene.layers || [])) {
+        if (layer?.type === 'custom-code' && layer?.code) {
+          code += layer.code + '\n\n';
+        }
+      }
+    }
   }
-  saveTplRecordId.value = row.id;
+  if (!code) {
+    // 无 custom-code，用整个 videoConfig 的 JSON
+    code = JSON.stringify(vc || {}, null, 2);
+  }
   saveTplForm.name = (row.title || '我的模板').slice(0, 40);
   saveTplForm.description = `沉淀自「${row.title || row.id}」`;
-  saveTplForm.category = '我的模板';
-  saveTplForm.scope = 'private';
-  saveTplFields.value = collectTemplateFields(vc);
+  saveTplForm.code = code;
   saveTplVisible.value = true;
 }
 
@@ -3340,31 +3376,21 @@ async function submitSaveAsTemplate() {
     ElMessage.warning('请填写模板名称');
     return;
   }
-  const params = saveTplFields.value
-    .filter((f) => f.asVar && f.key.trim())
-    .map((f) => ({
-      key: f.key.trim(),
-      label: f.label || f.key.trim(),
-      type: 'text' as const,
-      required: true,
-      bindings: [f.path],
-    }));
-  if (!params.length) {
-    ElMessage.warning('请至少勾选一个变量字段');
+  if (!saveTplForm.code.trim()) {
+    ElMessage.warning('代码为空');
     return;
   }
   saveTplLoading.value = true;
   try {
-    const saved = await saveTemplateFromRecord({
-      recordId: saveTplRecordId.value,
+    await saveTemplateFromCode({
       name: saveTplForm.name.trim(),
       description: saveTplForm.description,
-      category: saveTplForm.category || '我的模板',
-      params,
-      scope: saveTplForm.scope,
+      code: saveTplForm.code,
     });
-    ElMessage.success(`模板「${saved?.name || saveTplForm.name}」已保存`);
+    ElMessage.success(`模板「${saveTplForm.name}」已保存`);
     saveTplVisible.value = false;
+    // 刷新模板列表
+    void loadTemplates();
   } catch (e: any) {
     ElMessage.error(e?.message || '保存模板失败');
   } finally {
@@ -4159,6 +4185,17 @@ watch(
   word-break: normal;
 }
 
+.record-prompt-text {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-all;
+  max-width: 300px;
+}
+
 .record-title-sub,
 .record-template-id,
 .template-summary-desc,
@@ -4620,8 +4657,8 @@ watch(
 }
 
 .params-editor-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(360px, 0.9fr);
+  display: flex;
+  flex-direction: column;
   gap: 12px;
   flex: 1;
   min-height: 0;
@@ -4734,6 +4771,7 @@ watch(
 
 .json-editor :deep(.el-textarea__inner) {
   height: 100% !important;
+  min-height: 400px !important;
   font-family: "JetBrains Mono", "Fira Code", Menlo, Monaco, Consolas, "Courier New", monospace !important;
   font-size: 12px !important;
   line-height: 1.6 !important;

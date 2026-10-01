@@ -75,9 +75,11 @@
                   <el-button type="primary" link size="small" class="operation-trigger-button">{{ t('common.operation') }}</el-button>
                   <template #dropdown>
                     <el-dropdown-menu class="operation-menu-compact">
+                      <el-dropdown-item command="copyData">复制数据</el-dropdown-item>
+                      <el-dropdown-item command="copyText">复制文案</el-dropdown-item>
+                      <el-dropdown-item command="copyUrl">{{ t('aiTts.copyFileUrl') }}</el-dropdown-item>
                       <el-dropdown-item command="preview">{{ t('aiTts.previewSubtitle') }}</el-dropdown-item>
                       <el-dropdown-item command="metadata">{{ t('aiTts.viewSubtitleMetadata') }}</el-dropdown-item>
-                      <el-dropdown-item command="copyUrl">{{ t('aiTts.copyFileUrl') }}</el-dropdown-item>
                       <el-dropdown-item command="copyParams">{{ t('aiTts.copyParams') }}</el-dropdown-item>
                       <el-dropdown-item command="delete" class="operation-menu-item--danger">{{ t('common.delete') }}</el-dropdown-item>
                     </el-dropdown-menu>
@@ -95,6 +97,14 @@
               <el-dialog v-model="metadataDialogVisible" :title="t('aiTts.subtitleMetadata')" width="800px" :destroy-on-close="true">
                 <div v-loading="metadataLoading" class="metadata-container">
                   <el-tabs v-if="metadataContent">
+                    <el-tab-pane label="音频内容(AI/工作流)">
+                      <pre class="metadata-pre">{{ JSON.stringify({
+                        text: metadataContent.text || '',
+                        url: metadataContent.resultUrl || metadataContent.url || '',
+                        duration: metadataContent.duration ? Number(metadataContent.duration) : null,
+                        subtitle: metadataContent.subtitle || null
+                      }, null, 2) }}</pre>
+                    </el-tab-pane>
                     <el-tab-pane label="字幕数据">
                       <pre class="metadata-pre">{{ JSON.stringify(metadataContent.subtitle || '无字幕数据', null, 2) }}</pre>
                     </el-tab-pane>
@@ -118,6 +128,7 @@
                   <div v-else class="metadata-empty">加载中...</div>
                 </div>
                 <template #footer>
+                  <el-button type="success" @click="copyAudioContent(metadataContent)">复制音频数据(文案/链接/时长/字幕)</el-button>
                   <el-button type="primary" @click="copyMetadata">{{ t('aiTts.copyJson') }}</el-button>
                   <el-button @click="metadataDialogVisible = false">{{ t('common.close') }}</el-button>
                 </template>
@@ -319,6 +330,7 @@ import {
   deleteTtsRecord,
   getTtsRecordPage,
   getTtsRecordById,
+  getTtsAudioContentInfo,
   listCustomVoices,
   deleteCustomVoice,
   renameCustomVoice,
@@ -403,6 +415,14 @@ const handleOperation = (row: any, cmd: string) => {
     handleCopyFileUrl(row)
     return
   }
+  if (cmd === 'copyData' || cmd === 'copyContent') {
+    copyAudioContent(row)
+    return
+  }
+  if (cmd === 'copyText') {
+    copyRowText(row)
+    return
+  }
   if (cmd === 'copyParams') {
     copyRecordParams(row)
     return
@@ -440,6 +460,41 @@ const copyMetadata = async () => {
     ElMessage.success(t('aiTts.copiedToClipboard'))
   } catch (err) {
     ElMessage.error(t('aiTts.copyFailed'))
+  }
+}
+
+// 复制音频内容参数（文案、音频地址、音频时长、字幕信息）供 AI Tool / MCP / 工作流调用
+const copyAudioContent = async (row?: any) => {
+  const targetId = row?.id || metadataContent.value?.id
+  if (!targetId) return
+  try {
+    const res = await getTtsAudioContentInfo(targetId)
+    const content = res?.data ?? res
+    const payload = {
+      text: content.text || '',
+      url: content.url || content.audioUrl || '',
+      duration: content.duration ?? null,
+      subtitle: content.subtitle || null,
+    }
+    await navigator.clipboard.writeText(JSON.stringify(payload, null, 2))
+    ElMessage.success('已复制音频数据（文案/链接/时长/字幕）到剪贴板')
+  } catch (err: any) {
+    ElMessage.error(err?.message || '复制失败')
+  }
+}
+
+// 复制纯文案
+const copyRowText = async (row: any) => {
+  const text = row?.text || ''
+  if (!text) {
+    ElMessage.warning('暂无文案')
+    return
+  }
+  try {
+    await navigator.clipboard.writeText(text)
+    ElMessage.success('文案已复制到剪贴板')
+  } catch (err: any) {
+    ElMessage.error(err?.message || '复制失败')
   }
 }
 

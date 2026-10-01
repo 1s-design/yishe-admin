@@ -24,50 +24,6 @@
                   />
                 </el-form-item>
               </el-col>
-              <el-col
-                class="list-page-search-form__col--narrow"
-                :xs="24"
-                :sm="12"
-                :md="8"
-                :lg="5"
-                :xl="4"
-              >
-                <el-form-item label="可见范围">
-                  <el-select
-                    v-model="queryParams.scope"
-                    size="small"
-                    clearable
-                    placeholder="全部范围"
-                    @change="load(1)"
-                  >
-                    <el-option label="官方" value="official" />
-                    <el-option label="共享" value="shared" />
-                    <el-option label="未列出" value="unlisted" />
-                    <el-option label="私有" value="private" />
-                  </el-select>
-                </el-form-item>
-              </el-col>
-              <el-col
-                class="list-page-search-form__col--narrow"
-                :xs="24"
-                :sm="12"
-                :md="8"
-                :lg="5"
-                :xl="4"
-              >
-                <el-form-item label="实现形态">
-                  <el-select
-                    v-model="queryParams.implementationKind"
-                    size="small"
-                    clearable
-                    placeholder="全部形态"
-                    @change="load(1)"
-                  >
-                    <el-option label="声明式结构" value="structure" />
-                    <el-option label="代码组件" value="component" />
-                  </el-select>
-                </el-form-item>
-              </el-col>
             </el-row>
             <div class="list-page-search-form__actions">
               <el-button size="small" type="primary" :icon="Search" :loading="loading" @click="load(1)">
@@ -75,9 +31,6 @@
               </el-button>
               <el-button size="small" type="primary" :icon="Plus" @click="openCreate">
                 新增模板
-              </el-button>
-              <el-button size="small" type="success" plain :icon="Upload" @click="openImport">
-                导入模板包
               </el-button>
               <el-button size="small" @click="load(1)">刷新</el-button>
             </div>
@@ -105,21 +58,11 @@
                   <span class="tpl-code-tag">{{ row.code }}</span>
                 </template>
 
-                <template #kindSlot="{ row }">
-                  <el-tag size="small" :type="kindTagType(row.implementationKind)">
-                    {{ kindLabel(row.implementationKind) }}
-                  </el-tag>
-                </template>
-
                 <template #compSlot="{ row }">
                   <div class="tpl-comp-cell">
                     <span>{{ row.compositionId }}</span>
                     <span class="tpl-comp-meta">{{ row.width }}×{{ row.height }} · {{ row.fps }}fps · {{ row.durationInFrames }}f</span>
                   </div>
-                </template>
-
-                <template #scopeSlot="{ row }">
-                  <el-tag size="small" effect="plain">{{ scopeLabel(row.scope) }}</el-tag>
                 </template>
 
                 <template #operationSlot="{ row }">
@@ -192,17 +135,6 @@
             <label>标识码 <em>*</em></label>
             <el-input v-model="createForm.code" placeholder="product-three-cards" maxlength="80" />
           </div>
-          <div class="tpl-field">
-            <label>分类</label>
-            <el-input v-model="createForm.category" placeholder="我的模板" />
-          </div>
-          <div class="tpl-field">
-            <label>实现形态</label>
-            <el-radio-group v-model="createForm.implementationKind">
-              <el-radio-button label="structure">声明式结构</el-radio-button>
-              <el-radio-button label="component">代码组件</el-radio-button>
-            </el-radio-group>
-          </div>
           <div class="tpl-field tpl-field--wide">
             <label>说明</label>
             <el-input v-model="createForm.description" type="textarea" :rows="3" placeholder="模板用途简介" />
@@ -234,38 +166,27 @@
         </div>
 
         <div class="tpl-section-label">
-          {{ createForm.implementationKind === 'structure' ? 'SceneGraph 结构' : '组件代码 (TSX)' }}
-          <span class="tpl-section-hint">
-            {{ createForm.implementationKind === 'structure' ? STRUCT_HINT : '函数体形式，最后 return React 元素；作用域含 frame/props/palette/spring 等' }}
-          </span>
+          组件代码 (TSX)
+          <span class="tpl-section-hint">函数体形式，最后 return React 元素；变量从 props 自动识别</span>
         </div>
         <el-input
-          v-if="createForm.implementationKind === 'structure'"
-          v-model="createForm.structureJson"
-          type="textarea"
-          :rows="22"
-          class="tpl-code-input"
-          placeholder='{"meta": {"title": "{{title}}"}, "scenes": [{"duration": 3, "layers": [{"type": "headline", "text": "{{title}}"}]}]}'
-        />
-        <el-input
-          v-else
           v-model="createForm.codeAssetsJson"
           type="textarea"
-          :rows="22"
+          :rows="16"
           class="tpl-code-input"
-          placeholder='[{"name": "MyComp", "kind": "component", "code": "const { frame, props } = scope; return <div>{props.title}</div>;"}]'
+          placeholder="const CustomComponent = ({ title, color }) => { return <div style={{ color }}>{title}</div>; };"
         />
 
         <div class="tpl-section-label">
-          默认 defaultProps
-          <span class="tpl-section-hint">Remotion Composition 的默认 inputProps</span>
+          参数案例 (JSON) <span class="tpl-required">*</span>
+          <span class="tpl-section-hint">使用模板时的 JSON 参数示例，如 {"title": "示例", "color": "#00f2fe"}</span>
         </div>
         <el-input
-          v-model="createForm.defaultPropsJson"
+          v-model="createForm.paramsExample"
           type="textarea"
-          :rows="12"
+          :rows="6"
           class="tpl-code-input"
-          placeholder='{"title": "示例标题"}'
+          placeholder='{"title": "示例标题", "color": "#00f2fe", "images": ["url1"]}'
         />
       </div>
 
@@ -276,20 +197,6 @@
             {{ editingId ? '保存修改' : '创建模板' }}
           </el-button>
         </div>
-      </template>
-    </el-dialog>
-
-    <!-- 导入模板包 -->
-    <el-dialog v-model="importVisible" title="导入模板包" width="680px" destroy-on-close>
-      <el-input
-        v-model="importJson"
-        type="textarea"
-        :rows="20"
-        placeholder="粘贴 .ytpkg.json 内容"
-      />
-      <template #footer>
-        <el-button @click="importVisible = false">取消</el-button>
-        <el-button type="primary" :loading="importLoading" @click="submitImport">导入</el-button>
       </template>
     </el-dialog>
 
@@ -305,9 +212,7 @@
           <div class="tpl-dialog-header__title">
             <span>{{ detail?.name || '模板包详情' }}</span>
             <span v-if="detail?.code" class="tpl-dialog-header__code">{{ detail.code }}</span>
-            <el-tag size="small" :type="kindTagType(detail?.implementationKind)">
-              {{ kindLabel(detail?.implementationKind) }}
-            </el-tag>
+            <el-tag size="small" type="info">模板</el-tag>
           </div>
           <div class="tpl-dialog-header__actions">
             <el-button v-if="detail" @click="exportPkg(detail)">导出</el-button>
@@ -333,14 +238,6 @@
             <span class="tpl-stat__value">{{ detail.durationInFrames }}f</span>
           </div>
           <div class="tpl-stat">
-            <span class="tpl-stat__label">版本</span>
-            <span class="tpl-stat__value">{{ detail.version }}</span>
-          </div>
-          <div class="tpl-stat">
-            <span class="tpl-stat__label">范围</span>
-            <span class="tpl-stat__value">{{ scopeLabel(detail.scope) }}</span>
-          </div>
-          <div class="tpl-stat">
             <span class="tpl-stat__label">Composition</span>
             <span class="tpl-stat__value">{{ detail.compositionId }}</span>
           </div>
@@ -359,8 +256,8 @@
           <el-tab-pane label="参数 Schema" name="schema">
             <pre class="tpl-json-block">{{ pretty({ propsSchema: detail.propsSchema, paramHints: detail.paramHints }) }}</pre>
           </el-tab-pane>
-          <el-tab-pane :label="detail.implementationKind === 'structure' ? '结构' : '代码'" name="impl">
-            <pre class="tpl-json-block tpl-json-block--tall">{{ pretty(detail.implementationKind === 'structure' ? detail.structure : detail.codeAssets) }}</pre>
+          <el-tab-pane label="代码" name="impl">
+            <pre class="tpl-json-block tpl-json-block--tall">{{ pretty(detail.codeAssets) }}</pre>
           </el-tab-pane>
           <el-tab-pane label="meta" name="meta">
             <pre class="tpl-json-block">{{ pretty({ meta: detail.meta, editability: detail.editability }) }}</pre>
@@ -384,13 +281,11 @@ import {
   useTableMaxHeight,
 } from '@/common/table';
 import {
-  createRemotionTemplate,
   deleteRemotionTemplate,
   exportRemotionTemplate,
   getRemotionTemplate,
   getRemotionTemplatePage,
-  importRemotionTemplate,
-  updateRemotionTemplate,
+  saveTemplateFromCode,
   type RemotionTemplateItem,
 } from '@/api/remotion-template';
 
@@ -401,14 +296,11 @@ const page = ref(1);
 const pageSize = ref(20);
 const detailVisible = ref(false);
 const detail = ref<RemotionTemplateItem | null>(null);
-const detailTab = ref('defaultProps');
-const STRUCT_HINT = '支持 {{key}} 占位符，复用时由 inputProps 替换';
+const detailTab = ref('impl');
 const tableMaxHeight = useTableMaxHeight(240, 360);
 
 const queryParams = reactive({
   keyword: '',
-  scope: '',
-  implementationKind: '',
 });
 
 const gridOptions = computed(() => ({
@@ -417,25 +309,12 @@ const gridOptions = computed(() => ({
   columns: [
     { title: '模板名称', field: 'name', minWidth: 180, slots: { default: 'nameSlot' } },
     { title: '标识码 (Code)', field: 'code', minWidth: 170, slots: { default: 'codeSlot' } },
-    { title: '分类', field: 'category', width: 100 },
-    { title: '实现形态', field: 'implementationKind', width: 100, slots: { default: 'kindSlot' } },
     { title: 'Composition', field: 'compositionId', minWidth: 190, slots: { default: 'compSlot' } },
-    { title: '版本', field: 'version', width: 80, align: 'center' },
-    { title: '范围', field: 'scope', width: 90, align: 'center', slots: { default: 'scopeSlot' } },
     buildTimeColumn('创建时间', 'createTime', 150),
     buildOperationColumn('operationSlot', 90),
   ],
 }));
 
-function kindLabel(k?: string) {
-  return k === 'builtin' ? '内置组件（兼容）' : k === 'component' ? '代码组件' : '声明式结构';
-}
-function kindTagType(k?: string) {
-  return k === 'builtin' ? 'info' : k === 'component' ? 'danger' : 'success';
-}
-function scopeLabel(s?: string) {
-  return s === 'official' ? '官方' : s === 'shared' ? '共享' : s === 'unlisted' ? '未列出' : '私有';
-}
 function pretty(obj: any) {
   try {
     return JSON.stringify(obj ?? null, null, 2);
@@ -452,8 +331,6 @@ async function load(p = 1) {
       currentPage: p,
       pageSize: pageSize.value,
       keyword: queryParams.keyword || undefined,
-      scope: queryParams.scope || undefined,
-      implementationKind: queryParams.implementationKind || undefined,
     });
     const result: any = data;
     list.value = Array.isArray(result) ? result : result?.list || [];
@@ -525,15 +402,12 @@ const createLoading = ref(false);
 const createForm = reactive({
   name: '',
   code: '',
-  category: '我的模板',
   description: '',
-  implementationKind: 'structure' as 'structure' | 'component',
   width: 1080,
   height: 1920,
   fps: 30,
-  defaultPropsJson: '{}',
-  structureJson: '',
-  codeAssetsJson: '[]',
+  codeAssetsJson: '',
+  paramsExample: '',
 });
 
 function parseJsonField(raw: string, fallback: any, label: string) {
@@ -549,15 +423,12 @@ function parseJsonField(raw: string, fallback: any, label: string) {
 function resetCreateForm() {
   createForm.name = '';
   createForm.code = '';
-  createForm.category = '我的模板';
   createForm.description = '';
-  createForm.implementationKind = 'structure';
   createForm.width = 1080;
   createForm.height = 1920;
   createForm.fps = 30;
-  createForm.defaultPropsJson = '{}';
-  createForm.structureJson = '';
-  createForm.codeAssetsJson = '[]';
+  createForm.codeAssetsJson = '';
+  createForm.paramsExample = '';
 }
 
 function setOrientation(o: 'portrait' | 'landscape' | 'square') {
@@ -585,15 +456,19 @@ async function openEdit(row: RemotionTemplateItem) {
     editingId.value = tpl.id || row.id || '';
     createForm.name = tpl.name || '';
     createForm.code = tpl.code || '';
-    createForm.category = tpl.category || '我的模板';
     createForm.description = tpl.description || '';
-    createForm.implementationKind = (tpl.implementationKind === 'component' ? 'component' : 'structure') as any;
     createForm.width = tpl.width || 1080;
     createForm.height = tpl.height || 1920;
     createForm.fps = tpl.fps || 30;
-    createForm.defaultPropsJson = JSON.stringify(tpl.defaultProps ?? {}, null, 2);
-    createForm.structureJson = tpl.structure ? JSON.stringify(tpl.structure, null, 2) : '';
-    createForm.codeAssetsJson = tpl.codeAssets ? JSON.stringify(tpl.codeAssets, null, 2) : '[]';
+    createForm.codeAssetsJson = tpl.codeAssets ? JSON.stringify(tpl.codeAssets, null, 2) : '';
+    // 回填参数案例
+    const rawDefaults = tpl.defaultProps || tpl.default_props || tpl.defaultInputProps;
+    if (rawDefaults) {
+      const defaults = typeof rawDefaults === 'string' ? JSON.parse(rawDefaults || '{}') : rawDefaults;
+      createForm.paramsExample = JSON.stringify(defaults, null, 2);
+    } else {
+      createForm.paramsExample = '';
+    }
     createVisible.value = true;
   } catch (e: any) {
     ElMessage.error(e?.message || '加载模板失败');
@@ -605,102 +480,46 @@ async function submitCreate() {
     ElMessage.warning('请填写模板名称与标识码');
     return;
   }
+  if (!createForm.paramsExample.trim()) {
+    ElMessage.warning('请填写参数案例 (JSON)');
+    return;
+  }
   createLoading.value = true;
   try {
-    const defaultProps = parseJsonField(createForm.defaultPropsJson, {}, 'defaultProps');
-    const structure =
-      createForm.implementationKind === 'structure'
-        ? parseJsonField(createForm.structureJson, null, 'SceneGraph')
-        : null;
-    const codeAssets =
-      createForm.implementationKind === 'component'
-        ? parseJsonField(createForm.codeAssetsJson, [], 'codeAssets')
-        : null;
-
-    if (createForm.implementationKind === 'structure' && !structure?.scenes?.length) {
-      throw new Error('声明式结构需要包含至少一个 scene');
+    // 简洁模式：代码 + 参数案例
+    const code = createForm.codeAssetsJson.trim();
+    if (!code) {
+      throw new Error('请填写组件代码');
     }
-    if (createForm.implementationKind === 'component') {
-      const list = Array.isArray(codeAssets) ? codeAssets : [];
-      if (!list.some((c: any) => c?.code)) {
-        throw new Error('代码组件需要包含可执行 code');
+
+    // 解析参数案例为 defaultProps
+    let defaultProps: Record<string, any> = {};
+    if (createForm.paramsExample.trim()) {
+      try {
+        defaultProps = JSON.parse(createForm.paramsExample.trim());
+      } catch {
+        throw new Error('参数案例 JSON 格式错误');
       }
     }
 
-    // 由结构自动推导 durationInFrames（component 沿用现有帧数）
-    const fps = createForm.fps || 30;
-    const totalSeconds = (structure?.scenes || []).reduce(
-      (acc: number, s: any) => acc + (Number(s?.duration) || 0),
-      0,
-    );
-    const durationInFrames = totalSeconds > 0 ? Math.round(totalSeconds * fps) : 300;
-
-    const payload: any = {
-      code: createForm.code.trim(),
+    const payload = {
       name: createForm.name.trim(),
       description: createForm.description,
-      category: createForm.category || '我的模板',
-      compositionId: `Tpl_${createForm.code.trim()}`,
-      width: createForm.width,
-      height: createForm.height,
-      fps,
-      durationInFrames,
+      code,
+      width: createForm.width || 1080,
+      height: createForm.height || 1920,
+      fps: createForm.fps || 30,
       defaultProps,
-      implementationKind: createForm.implementationKind,
-      structure,
-      codeAssets,
-      scope: 'private',
     };
 
-    if (editingId.value) {
-      await updateRemotionTemplate(editingId.value, payload);
-      ElMessage.success('模板已更新');
-    } else {
-      await createRemotionTemplate(payload);
-      ElMessage.success('模板已创建');
-    }
+    await saveTemplateFromCode(payload);
+    ElMessage.success('模板已创建');
     createVisible.value = false;
-    load(1);
+    load();
   } catch (e: any) {
-    ElMessage.error(e?.message || (editingId.value ? '保存失败' : '创建失败'));
+    ElMessage.error(e?.message || '创建失败');
   } finally {
     createLoading.value = false;
-  }
-}
-
-// ─── 导入模板包 ──────────────────────────────────────────────
-const importVisible = ref(false);
-const importLoading = ref(false);
-const importJson = ref('');
-
-function openImport() {
-  importJson.value = '';
-  importVisible.value = true;
-}
-
-async function submitImport() {
-  const text = importJson.value.trim();
-  if (!text) {
-    ElMessage.warning('请粘贴模板包 JSON');
-    return;
-  }
-  let pkg: any;
-  try {
-    pkg = JSON.parse(text);
-  } catch (e: any) {
-    ElMessage.error(`JSON 解析失败: ${e?.message || e}`);
-    return;
-  }
-  importLoading.value = true;
-  try {
-    await importRemotionTemplate(pkg);
-    ElMessage.success('模板包已导入');
-    importVisible.value = false;
-    load(1);
-  } catch (e: any) {
-    ElMessage.error(e?.message || '导入失败');
-  } finally {
-    importLoading.value = false;
   }
 }
 
@@ -853,6 +672,12 @@ onMounted(() => load(1));
   font-size: 13px;
   font-weight: 600;
   color: var(--el-text-color-primary);
+
+  .tpl-required {
+    color: var(--el-color-danger);
+    font-size: 14px;
+    margin-left: 2px;
+  }
 
   &:first-child {
     margin-top: 4px;

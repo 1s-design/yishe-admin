@@ -358,8 +358,9 @@
                 >
                   <template #reference>
                     <button type="button" class="composer__btn" :class="{ active: hasToolScope }">
-                      工具
-                      <svg class="composer__btn-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                      </svg>
                     </button>
                   </template>
                   <div class="scope-pop">
@@ -423,6 +424,18 @@
               </div>
 
               <div class="composer__right">
+                <!-- 模式下拉选择 -->
+                <el-select
+                  v-model="chatMode"
+                  size="small"
+                  class="composer__mode-select"
+                  :teleported="true"
+                >
+                  <el-option value="normal" label="对话" />
+                  <el-option value="plan" label="计划" />
+                  <el-option value="goal" label="目标" />
+                </el-select>
+
                 <button class="composer__send" :disabled="!canSend || store.loading" @click="handleSend">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M12 19V5M5 12l7-7 7 7" />
@@ -560,6 +573,8 @@ const chatScrollRef = ref<HTMLElement>();
 const textareaRef = ref<HTMLTextAreaElement>();
 const inputMessage = ref("");
 const isComposing = ref(false);
+// 对话模式：normal | plan | goal
+const chatMode = ref<'normal' | 'plan' | 'goal'>('normal');
 
 const showToolDialog = ref(false);
 const toolSearchQuery = ref("");
@@ -982,6 +997,7 @@ function handleSend() {
   if (!text) return;
   inputMessage.value = "";
   if (textareaRef.value) textareaRef.value.style.height = "auto";
+  store.setChatMode(chatMode.value);
   store.sendMessage(text, buildPageContext());
   scrollToBottom();
 }
@@ -1930,6 +1946,30 @@ html.dark .ai-desktop .conversation-detail-popup {
   flex: 1;
 }
 
+/* 模式下拉选择器 — 与工具按钮同风格，无边框圆角 */
+.composer__mode-select {
+  width: 80px;
+
+  :deep(.el-select__wrapper) {
+    min-height: 32px;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    box-shadow: none !important;
+    padding: 0 8px 0 12px;
+  }
+
+  :deep(.el-select__placeholder) {
+    color: var(--el-text-color-regular);
+    font-size: 13px;
+  }
+
+  :deep(.el-select__caret) {
+    color: var(--el-text-color-secondary);
+    opacity: 0.5;
+  }
+}
+
 .composer__right {
   display: flex;
   align-items: center;
@@ -1940,10 +1980,9 @@ html.dark .ai-desktop .conversation-detail-popup {
 .composer__btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
   height: 32px;
   padding: 0 12px;
-  border: 1px solid var(--el-border-color);
+  border: none;
   border-radius: 999px;
   background: transparent;
   color: var(--el-text-color-regular);
@@ -1952,24 +1991,15 @@ html.dark .ai-desktop .conversation-detail-popup {
   white-space: nowrap;
   transition: all 0.15s;
 
-  svg {
-    flex: none;
-  }
-
   &:hover {
     color: var(--el-text-color-primary);
-    border-color: var(--el-text-color-secondary);
+    background: var(--el-fill-color-light);
   }
 
   &.active {
     color: var(--el-color-primary);
-    border-color: var(--el-color-primary);
     background: color-mix(in srgb, var(--el-color-primary) 8%, transparent);
   }
-}
-
-.composer__btn-caret {
-  opacity: 0.6;
 }
 
 .composer__chips {

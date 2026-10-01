@@ -33,12 +33,33 @@
         </div>
       </div>
     </div>
+    <template #footer>
+      <div class="sp-dialog-footer">
+        <div class="sp-footer-actions">
+          <el-button size="small" type="primary" plain @click="copyAudioData">
+            复制音频数据
+          </el-button>
+          <el-button size="small" plain @click="copyText">
+            复制文案
+          </el-button>
+          <el-button size="small" plain @click="copySubtitles">
+            复制字幕
+          </el-button>
+          <el-button size="small" plain @click="copyAudioUrl">
+            复制链接
+          </el-button>
+        </div>
+        <el-button size="small" @click="handleClose">关闭</el-button>
+      </div>
+    </template>
   </el-dialog>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
 import { VideoPlay, VideoPause } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import { getTtsAudioContentInfo } from '@/api/ai/tts'
 
 const props = defineProps<{ modelValue: boolean; row: any }>()
 const emit = defineEmits(['update:modelValue'])
@@ -163,6 +184,74 @@ watch(() => currentSentenceIndex.value, (idx) => {
   }
 })
 
+const copyAudioData = async () => {
+  try {
+    let payload: any = null
+    if (props.row?.id) {
+      try {
+        const res = await getTtsAudioContentInfo(props.row.id)
+        const content = res?.data ?? res
+        payload = {
+          text: content.text || '',
+          url: content.url || content.audioUrl || '',
+          duration: content.duration ?? null,
+          subtitle: content.subtitle || null,
+        }
+      } catch {
+        // fallback
+      }
+    }
+    if (!payload) {
+      payload = {
+        text: props.row?.text || '',
+        url: props.row?.resultUrl || props.row?.url || '',
+        duration: props.row?.duration ? Number(props.row.duration) : null,
+        subtitle: getSentences().length ? { sentences: getSentences() } : props.row?.subtitle || null,
+      }
+    }
+    await navigator.clipboard.writeText(JSON.stringify(payload, null, 2))
+    ElMessage.success('已复制音频数据（文案/链接/时长/字幕）到剪贴板')
+  } catch (err: any) {
+    ElMessage.error(err?.message || '复制失败')
+  }
+}
+
+const copyText = async () => {
+  const text = props.row?.text || ''
+  if (!text) {
+    ElMessage.warning('暂无文案')
+    return
+  }
+  await navigator.clipboard.writeText(text)
+  ElMessage.success('文案已复制到剪贴板')
+}
+
+const copySubtitles = async () => {
+  const sentences = getSentences()
+  if (!sentences.length) {
+    ElMessage.warning('暂无字幕数据')
+    return
+  }
+  const formatted = sentences
+    .map(
+      (s: any, i: number) =>
+        `${i + 1}. [${formatTime(s.start)}s ~ ${formatTime(s.end)}s] ${s.text}`,
+    )
+    .join('\n')
+  await navigator.clipboard.writeText(formatted)
+  ElMessage.success('字幕已复制到剪贴板')
+}
+
+const copyAudioUrl = async () => {
+  const url = props.row?.resultUrl || props.row?.url || ''
+  if (!url) {
+    ElMessage.warning('暂无音频地址')
+    return
+  }
+  await navigator.clipboard.writeText(url)
+  ElMessage.success('音频地址已复制到剪贴板')
+}
+
 onBeforeUnmount(() => stopLoop())
 </script>
 
@@ -252,4 +341,16 @@ onBeforeUnmount(() => stopLoop())
 
 .sp-text { flex: 1; font-size: 14px; line-height: 1.4; }
 .sp-dur { font-size: 11px; color: var(--el-text-color-secondary); font-variant-numeric: tabular-nums; }
+
+.sp-dialog-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+.sp-footer-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 </style>

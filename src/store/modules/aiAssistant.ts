@@ -626,8 +626,15 @@ export const useAiAssistantStore = defineStore("ai-assistant", () => {
   // 工具作用域（输入框选择器）：空 = 全部工具由模型自选
   const toolScope = ref<{ palettes?: string[]; tools?: string[] } | null>(null);
 
+  // 对话模式：normal=普通对话 | plan=计划模式 | goal=目标模式
+  const chatMode = ref<'normal' | 'plan' | 'goal'>('normal');
+
   function setToolScope(scope: { palettes?: string[]; tools?: string[] } | null) {
     toolScope.value = scope;
+  }
+
+  function setChatMode(mode: 'normal' | 'plan' | 'goal') {
+    chatMode.value = mode;
   }
 
   async function sendMessage(message: string, pageContext?: AiAssistantPageContext) {
@@ -655,6 +662,7 @@ export const useAiAssistantStore = defineStore("ai-assistant", () => {
           conversationId: currentConversationId.value || undefined,
           pageContext: finalPageContext,
           toolScope: toolScope.value || undefined,
+          mode: chatMode.value !== 'normal' ? chatMode.value : undefined,
         },
         handlers,
       ),
@@ -923,6 +931,8 @@ export const useAiAssistantStore = defineStore("ai-assistant", () => {
     currentConversationId,
     toolScope,
     setToolScope,
+    chatMode,
+    setChatMode,
     loading,
     historyLoading,
     runtimeStatus,
