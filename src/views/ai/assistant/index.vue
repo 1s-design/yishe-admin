@@ -17,6 +17,9 @@ defineOptions({
   --ai-assistant-page-height: calc(
     100vh - var(--top-tool-height) - var(--tags-view-height)
   );
+  --ai-assistant-page-height: calc(
+    100dvh - var(--top-tool-height) - var(--tags-view-height)
+  );
 
   display: flex;
   width: 100%;
@@ -31,10 +34,13 @@ defineOptions({
   min-height: 0;
 }
 
-@media (width <= 768px) {
+@media (max-width: 768px) {
   .ai-assistant-page {
     --ai-assistant-page-height: calc(
       100vh - var(--top-tool-height)
+    );
+    --ai-assistant-page-height: calc(
+      100dvh - var(--top-tool-height)
     );
   }
 }

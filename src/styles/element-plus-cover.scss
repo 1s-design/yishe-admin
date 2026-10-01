@@ -522,6 +522,7 @@ html.dark .el-alert {
   }
 }
 
+.el-select,
 .el-input__wrapper,
 .el-textarea__inner,
 .el-select__wrapper,
@@ -633,11 +634,8 @@ html.dark .el-alert {
 .el-dialog,
 .el-drawer,
 .el-message-box,
-.el-dropdown-menu,
 .el-popper.is-light,
-.el-popover.el-popper,
-.el-select-dropdown,
-.el-picker-panel {
+.el-popover.el-popper {
   border: 1px solid var(--ep-cover-border-color);
   border-radius: var(--ep-cover-radius-md);
   transition:
@@ -1037,6 +1035,68 @@ html.dark {
     min-width: 0;
     flex: 0 1 auto;
   }
+}
+
+/* ========================================================
+   下拉菜单 / Popper 浮层圆角与双层结构统一规范
+   彻底解决“外层 popper 与内层 dropdown 双层 div 边框及圆角大小不一致”的视觉瑕疵
+   ======================================================== */
+/* 1. 外层 Popper 浮层容器统一规范：作为唯一主卡片容器，统一圆角、外边框与投影 */
+:is(
+  .el-select__popper,
+  .el-dropdown__popper,
+  .el-cascader__dropdown,
+  .el-autocomplete__popper,
+  .el-picker__popper,
+  .el-mention__popper
+).el-popper {
+  border: 1px solid var(--ep-cover-border-color) !important;
+  border-radius: var(--ep-cover-radius-md) !important;
+  background: var(--app-content-surface-color, var(--el-bg-color-overlay)) !important;
+  box-shadow: var(--ep-cover-shadow-md), var(--el-box-shadow-light) !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* 2. 内层菜单容器（dropdown / menu / panel）：去除多余边框与独立背景，继承圆角并平滑裁切 */
+:is(
+  .el-select-dropdown,
+  .el-dropdown-menu,
+  .el-cascader-panel,
+  .el-autocomplete-suggestion,
+  .el-picker-panel,
+  .el-mention-dropdown,
+  .time-select
+) {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: inherit !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
+/* 3. 滚动容器内部继承圆角，消除滚动遮罩和条目边缘的棱角外露 */
+:is(
+  .el-select-dropdown,
+  .el-dropdown-menu,
+  .el-cascader-menu,
+  .el-autocomplete-suggestion__wrap
+) .el-scrollbar,
+:is(
+  .el-select-dropdown,
+  .el-dropdown-menu,
+  .el-cascader-menu,
+  .el-autocomplete-suggestion__wrap
+) .el-scrollbar__wrap {
+  border-radius: inherit !important;
+  overflow: hidden !important;
+}
+
+/* 4. 浮层小三角（arrow）边框与背景同步 */
+.el-popper__arrow::before {
+  border-color: var(--ep-cover-border-color) !important;
+  background: var(--app-content-surface-color, var(--el-bg-color-overlay)) !important;
 }
 
 .el-dropdown-menu,

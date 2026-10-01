@@ -88,10 +88,8 @@ body,
   color: var(--el-text-color-primary);
 }
 
-/* 非 tooltip 类 popper（dropdown, select, card 等）需要背景色 */
-.el-dropdown-menu,
-.el-select-dropdown,
-.el-cascader__dropdown,
+/* 非 tooltip 类 popper（dropdown, select, card 等）由外层 popper 统一提供背景色 */
+.el-popper.is-light,
 .el-popper.is-light:not([data-popper-placement]) {
   background: var(--app-content-surface-color);
 }
@@ -482,6 +480,8 @@ html {
   --el-border-radius-small: var(--ep-cover-radius-sm) !important;
   --el-border-radius-round: 24px !important;
   --el-border-radius-circle: 100% !important;
+  --el-popper-border-radius: var(--ep-cover-radius-md) !important;
+  --el-popover-border-radius: var(--ep-cover-radius-md) !important;
 }
 
 /* 全局启用 squircle 圆角，所有带 border-radius 的组件受益 */
@@ -500,9 +500,16 @@ html {
 .el-tag,
 .el-dropdown-menu,
 .el-dropdown-menu__item,
+.el-select-dropdown,
+.el-select__popper,
+.el-dropdown__popper,
 .el-popper,
 .el-popover,
 .el-tooltip__popper,
+.el-cascader-panel,
+.el-autocomplete-suggestion,
+.el-mention-dropdown,
+.time-select,
 .el-table,
 .el-table th.el-table__cell,
 .el-table td.el-table__cell,

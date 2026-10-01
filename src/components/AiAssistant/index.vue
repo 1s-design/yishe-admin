@@ -1,12 +1,8 @@
 <template>
   <div class="ai-desktop agent-chat-theme" :class="{ 'ai-desktop--sidebar-open': sidebarOpen }">
+    <!-- 移动端/平板侧边栏点击遮罩 -->
+    <div v-if="sidebarOpen" class="sidebar-backdrop" @click="sidebarOpen = false" />
     <aside class="sidebar">
-      <div class="sidebar__header">
-        <div class="sidebar__brand">
-          <span class="sidebar__brand-text">{{ brandText }}</span>
-          <span class="sidebar__brand-cursor" aria-hidden="true" />
-        </div>
-      </div>
       <div class="sidebar__nav">
         <div class="sidebar__section">
           <button class="sidebar__new-btn" @click="handleCreateConversation">
@@ -594,35 +590,8 @@ const copiedMessageId = ref<string | number | null>(null);
 
 
 
-// Brand text typewriter effect
-const BRAND_PHRASES = ["衣设助手", "让设计快 1 秒", "设计灵感即刻呈现", "你的贴身设计搭档"];
-const brandText = ref("");
-let brandIndex = 0;
-let phraseIndex = 0;
-let brandTimer: ReturnType<typeof setTimeout> | null = null;
-
-function streamBrand() {
-  brandText.value = "";
-  brandIndex = 0;
-  const phrase = BRAND_PHRASES[phraseIndex % BRAND_PHRASES.length];
-  const tick = () => {
-    if (brandIndex >= phrase.length) {
-      brandTimer = setTimeout(() => {
-        phraseIndex = (phraseIndex + 1) % BRAND_PHRASES.length;
-        streamBrand();
-      }, 2000);
-      return;
-    }
-    const size = Math.floor(Math.random() * 2) + 1;
-    brandText.value += phrase.slice(brandIndex, brandIndex + size);
-    brandIndex += size;
-    brandTimer = setTimeout(tick, Math.random() * 120 + 120);
-  };
-  tick();
-}
-
 function handleResizeOpen() {
-  if (window.innerWidth > 768) sidebarOpen.value = true
+  sidebarOpen.value = false;
 }
 
 const canSend = computed(() => inputMessage.value.trim().length > 0 && store.canSend);
@@ -1033,14 +1002,24 @@ async function handleRefresh() {
 
 async function handleCreateConversation() {
   await store.createConversation();
+  if (typeof window !== "undefined" && window.innerWidth <= 768) {
+    sidebarOpen.value = false;
+  }
   nextTick(() => textareaRef.value?.focus());
 }
 async function handleSelectConversation(id: number) {
   await store.selectConversation(id);
+  if (typeof window !== "undefined" && window.innerWidth <= 768) {
+    sidebarOpen.value = false;
+  }
   nextTick(() => textareaRef.value?.focus());
 }
 
 function showConversationDetail(conv: any, event: MouseEvent) {
+  // 触屏或平板/移动端不显示 hover 浮窗，防止误触卡在屏幕上
+  if (typeof window !== "undefined" && (window.innerWidth <= 1024 || window.matchMedia("(hover: none)").matches)) {
+    return;
+  }
   hoveredConversation.value = conv;
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
   const popupHeight = 200;
@@ -1281,7 +1260,6 @@ onMounted(() => {
   void loadToolPalettes();
   websocketClient.events.on("mcp-async-result", handleMcpAsyncResult);
   handleResizeOpen();
-  streamBrand();
   window.addEventListener("resize", handleResizeOpen);
   // 初始化智能滚动（等 DOM 渲染后）
   nextTick(() => initSmartScroll());
@@ -1291,7 +1269,6 @@ onUnmounted(() => {
   websocketClient.events.off("mcp-async-result", handleMcpAsyncResult);
   window.removeEventListener("resize", handleResizeOpen);
   destroySmartScroll();
-  if (brandTimer) clearTimeout(brandTimer);
 });
 </script>
 
@@ -1315,102 +1292,9 @@ onUnmounted(() => {
 
 
 
-/* ── Mobile ── */
-@media (width <=768px) {
-  .sidebar {
-    position: fixed;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    z-index: 100;
-    width: 260px;
-    transform: translateX(-100%);
-    box-shadow: 4px 0 20px rgb(0 0 0 / 15%);
-    transition: transform 0.2s ease;
-  }
-
-  .ai-desktop--sidebar-open .sidebar {
-    transform: translateX(0);
-  }
-
-  .ai-desktop--sidebar-open::after {
-    position: fixed;
-    z-index: 99;
-    background: var(--el-overlay-color);
-    content: "";
-    inset: 0;
-  }
-
-  .topbar__menu {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .topbar {
-    padding: 0 12px;
-    gap: 8px;
-  }
-
-  .topbar__title {
-    overflow: hidden;
-    font-size: 13px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .topbar__btn {
-    height: 28px;
-    padding: 0 8px;
-    font-size: 12px;
-  }
-
-  .chat__list {
-    padding: 0 12px;
-  }
-
-  .chat__scroll {
-    padding-bottom: 70px;
-  }
-
-  .msg {
-    gap: 8px;
-  }
-
-  .msg--user .msg__body {
-    max-width: 90%;
-  }
-
-  .msg__content {
-    font-size: 13px;
-  }
-}
-
-@media (width <=480px) {
-  .sidebar {
-    width: 240px;
-  }
-
-  .chat__list {
-    padding: 0 8px;
-  }
-
-  .msg--user .msg__text {
-    padding: 8px 12px;
-    font-size: 13px;
-  }
-
-  .msg--user .msg__body {
-    max-width: 92%;
-  }
-
-  .tools-dialog__body {
-    height: calc(100vh - 48px);
-  }
-
-  .tools-dialog__search {
-    padding: 10px 12px;
-  }
+/* ── 遮罩层默认绝不显示 ── */
+.sidebar-backdrop {
+  display: none !important;
 }
 
 .ai-desktop {
@@ -1448,42 +1332,7 @@ onUnmounted(() => {
   position: relative;
 }
 
-/* ── Sidebar Header ── */
-.sidebar__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 60px;
-  padding: 20px 14px 10px;
-  flex-shrink: 0;
-}
 
-.sidebar__brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.sidebar__brand-text {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text);
-  letter-spacing: 0.01em;
-  white-space: nowrap;
-}
-
-.sidebar__brand-cursor {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--el-color-primary);
-  animation: brandBreathe 1.8s ease-in-out infinite;
-}
-
-@keyframes brandBreathe {
-  0%, 100% { opacity: 0.55; }
-  50% { opacity: 1; }
-}
 
 .is-loading {
   animation: spin 1s linear infinite;
@@ -1535,7 +1384,7 @@ onUnmounted(() => {
 
 .sidebar__nav {
   min-height: 0;
-  padding: 6px 10px;
+  padding: 12px 10px 8px;
   overflow: hidden auto;
   flex: 1;
 }
@@ -1900,7 +1749,8 @@ html.dark .ai-desktop .conversation-detail-popup {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--el-border-color-lighter);
-  border-radius: 16px;
+  border-radius: 24px;
+  corner-shape:squircle;
   background: var(--el-fill-color-blank);
   transition: border-color 0.15s;
 
@@ -1946,28 +1796,46 @@ html.dark .ai-desktop .conversation-detail-popup {
   flex: 1;
 }
 
-/* 模式下拉选择器 — 与工具按钮同风格，无边框圆角 */
+/* 模式下拉选择器 — 无边框极简风格 */
 .composer__mode-select {
-  width: 80px;
+  width: 64px;
+  border-radius: 999px !important;
+}
 
-  :deep(.el-select__wrapper) {
-    min-height: 32px;
-    border: none;
-    border-radius: 999px;
-    background: transparent;
-    box-shadow: none !important;
-    padding: 0 8px 0 12px;
-  }
+.composer__mode-select :deep(.el-select__wrapper),
+.composer__mode-select :deep(.el-input__wrapper) {
+  min-height: 28px !important;
+  height: 28px !important;
+  border: none !important;
+  border-radius: 999px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 4px 0 6px !important;
+  transition: all 0.15s ease;
+}
 
-  :deep(.el-select__placeholder) {
-    color: var(--el-text-color-regular);
-    font-size: 13px;
-  }
+.composer__mode-select :deep(.el-select__wrapper:hover),
+.composer__mode-select :deep(.el-select__wrapper.is-focused),
+.composer__mode-select :deep(.el-select__wrapper.is-hovering),
+.composer__mode-select :deep(.el-input__wrapper:hover),
+.composer__mode-select :deep(.el-input__wrapper.is-focus) {
+  box-shadow: none !important;
+  background: var(--el-fill-color-light) !important;
+}
 
-  :deep(.el-select__caret) {
-    color: var(--el-text-color-secondary);
-    opacity: 0.5;
-  }
+.composer__mode-select :deep(.el-select__placeholder),
+.composer__mode-select :deep(.el-select__selected-item),
+.composer__mode-select :deep(.el-input__inner) {
+  color: var(--el-text-color-regular) !important;
+  font-size: 13px !important;
+  font-weight: 500;
+}
+
+.composer__mode-select :deep(.el-select__caret),
+.composer__mode-select :deep(.el-input__suffix .el-icon) {
+  color: var(--el-text-color-secondary) !important;
+  font-size: 11px !important;
+  opacity: 0.6;
 }
 
 .composer__right {
@@ -2511,16 +2379,47 @@ html.dark .agent-scroll-bottom {
   border-radius: 14px !important;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.28) !important;
   max-height: 74vh;
+  max-height: 74dvh;
   overflow: hidden;
+  box-sizing: border-box !important;
+}
+
+@media (max-width: 768px) {
+  .scope-popper {
+    width: calc(100vw - 20px) !important;
+    max-width: calc(100vw - 20px) !important;
+    left: 10px !important;
+    right: 10px !important;
+  }
+
+  .sp-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .scope-popper {
+    width: calc(100vw - 12px) !important;
+    max-width: calc(100vw - 12px) !important;
+    left: 6px !important;
+    right: 6px !important;
+    padding: 10px 10px 12px !important;
+  }
+
+  .sp-grid {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 .scope-pop { color: var(--el-text-color-primary); }
 
 .sp-scroll {
   max-height: 68vh;
+  max-height: 68dvh;
   overflow-y: auto;
   margin: 0 -6px;
   padding: 0 6px;
+  -webkit-overflow-scrolling: touch;
 }
 
 .sp-title {
@@ -2682,5 +2581,202 @@ html.dark .agent-scroll-bottom {
   border-radius: 8px !important;
   line-height: 1.55;
   font-size: 12px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   响应式媒体查询（放置于样式最末尾，确保彻底覆盖基准默认样式）
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Tablet 适配 (769px ~ 1024px)：保持双栏内联，不弹抽屉、绝无蒙层 ── */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .ai-desktop .sidebar {
+    width: 220px !important;
+    flex-shrink: 0 !important;
+    position: relative !important;
+    transform: none !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    box-shadow: none !important;
+  }
+
+  .chat__list {
+    padding: 0 20px;
+  }
+
+  .composer {
+    padding: 0 14px 12px;
+  }
+
+  .conversation-detail-popup {
+    display: none !important;
+  }
+
+  .topbar__menu {
+    display: none !important;
+  }
+}
+
+/* ── Mobile 手机端 (<= 768px)：抽屉式侧边栏 ── */
+@media (max-width: 768px) {
+  .sidebar-backdrop {
+    display: none !important;
+  }
+
+  .ai-desktop.ai-desktop--sidebar-open .sidebar-backdrop,
+  .ai-desktop--sidebar-open .sidebar-backdrop {
+    display: block !important;
+    position: fixed;
+    inset: 0;
+    z-index: 99;
+    background: var(--el-overlay-color, rgba(0, 0, 0, 0.45));
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    animation: fadeIn 0.15s ease;
+  }
+
+  /* 侧边栏脱离普通流(fixed)，彻底不占任何左侧空间，未打开时隐藏 */
+  .ai-desktop .sidebar {
+    position: fixed !important;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 100;
+    width: 260px !important;
+    max-width: 82vw !important;
+    margin: 0 !important;
+    transform: translateX(-100%) !important;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.18);
+    transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.22s;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  /* 仅当显式打开抽屉时滑入并允许交互 */
+  .ai-desktop.ai-desktop--sidebar-open .sidebar,
+  .ai-desktop--sidebar-open .sidebar {
+    transform: translateX(0) !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+  }
+
+  .ai-desktop .workspace {
+    width: 100% !important;
+    min-width: 0 !important;
+    flex: 1 1 100% !important;
+  }
+
+  .ai-desktop .topbar__menu {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
+    border-radius: 8px;
+  }
+
+  .topbar {
+    padding: 0 12px;
+    gap: 8px;
+    min-height: 48px;
+  }
+
+  .topbar__title {
+    overflow: hidden;
+    font-size: 14px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .topbar__btn {
+    height: 32px;
+    padding: 0 8px;
+    font-size: 13px;
+  }
+
+  .topbar__btn--icon {
+    width: 34px;
+    height: 34px;
+  }
+
+  .chat__list {
+    padding: 0 16px;
+  }
+
+  .chat__scroll {
+    padding: 16px 4px 90px;
+  }
+
+  .composer {
+    padding: 0 12px 10px;
+  }
+
+  .composer__card {
+    border-radius: 14px;
+  }
+
+  .msg {
+    gap: 8px;
+  }
+
+  .msg--user .msg__body {
+    max-width: 88%;
+  }
+
+  .msg__content {
+    font-size: 13.5px;
+  }
+
+  .conversation-detail-popup {
+    display: none !important;
+  }
+}
+
+/* ── Mobile 极小屏 (<= 480px) ── */
+@media (max-width: 480px) {
+  .ai-desktop .sidebar {
+    width: 260px !important;
+  }
+
+  .chat__list {
+    padding: 0 8px;
+  }
+
+  .composer {
+    padding: 0 6px 8px;
+  }
+
+  .composer__input {
+    font-size: 15px; /* 防止 iOS 聚焦时自动放大页面 */
+    padding: 10px 12px 4px;
+  }
+
+  .composer__bar {
+    padding: 4px 6px 8px;
+    gap: 6px;
+  }
+
+  .composer__btn {
+    padding: 0 8px;
+    height: 30px;
+  }
+
+  .msg--user .msg__text {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .msg--user .msg__body {
+    max-width: 94%;
+  }
+
+  .tools-dialog__body {
+    height: calc(100vh - 48px);
+    height: calc(100dvh - 48px);
+  }
+
+  .tools-dialog__search {
+    padding: 10px 12px;
+  }
 }
 </style>

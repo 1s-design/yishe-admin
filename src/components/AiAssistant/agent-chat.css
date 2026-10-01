@@ -209,6 +209,18 @@
   opacity: 1;
 }
 
+@media (hover: none), (max-width: 1024px) {
+  .msg__toolbar {
+    opacity: 0.85;
+  }
+
+  .msg__action-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+  }
+}
+
 .msg--user .msg__toolbar {
   justify-content: flex-end;
 }
@@ -655,6 +667,7 @@
   border-radius: 8px;
   padding: 12px;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .md-body :deep(pre code) { background: none; border: none; padding: 0; }
 .md-body :deep(ul), .md-body :deep(ol) { padding-left: 24px; margin: 8px 0; }
@@ -667,7 +680,15 @@
 }
 .md-body :deep(a) { color: var(--primary, var(--el-color-primary)); text-decoration: none; }
 .md-body :deep(a:hover) { text-decoration: underline; }
-.md-body :deep(table) { border-collapse: collapse; width: 100%; margin: 8px 0; }
+.md-body :deep(table) {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 8px 0;
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
 .md-body :deep(th), .md-body :deep(td) { border: 1px solid var(--border); padding: 8px 12px; text-align: left; }
 .md-body :deep(th) { background: var(--surface); font-weight: 600; }
 .md-body :deep(h1), .md-body :deep(h2), .md-body :deep(h3), .md-body :deep(h4) {
