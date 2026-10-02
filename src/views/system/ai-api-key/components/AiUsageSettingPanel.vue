@@ -24,7 +24,7 @@
         当前还没有可用 Key。请先新增自己的 Key，或联系管理员开放公开 Key 和共享 AI 使用权限。
       </div>
 
-      <div v-loading="loading" class="ai-usage__body" style="overflow-y: auto; padding-right: 8px; margin-right: -8px;">
+      <div v-loading="loading" class="ai-usage__body">
         <div v-for="group in featureGroups" :key="group.group" class="ai-usage__group">
           <div class="ai-usage__group-head">
             <span class="ai-usage__group-name">{{ group.group }}</span>
@@ -414,6 +414,12 @@ defineExpose({ open, reload: loadConfig });
   flex-direction: column;
   gap: 16px;
   min-height: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  padding-right: 16px;
+  padding-bottom: 8px;
 }
 
 /* ── Header ── */
@@ -422,9 +428,13 @@ defineExpose({ open, reload: loadConfig });
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+  flex-wrap: wrap;
 }
 
-.ai-usage__header-left { flex: 1; }
+.ai-usage__header-left {
+  flex: 1;
+  min-width: 0;
+}
 
 .ai-usage__title {
   margin: 0;
@@ -463,6 +473,9 @@ defineExpose({ open, reload: loadConfig });
   display: flex;
   flex-direction: column;
   gap: 16px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 /* ── Group ── */
@@ -470,6 +483,8 @@ defineExpose({ open, reload: loadConfig });
   display: flex;
   flex-direction: column;
   gap: 4px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .ai-usage__group-head {
@@ -496,6 +511,8 @@ defineExpose({ open, reload: loadConfig });
 .ai-usage__rows {
   display: flex;
   flex-direction: column;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .ai-usage__rows--collapsed {
@@ -508,9 +525,10 @@ defineExpose({ open, reload: loadConfig });
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 6px 8px 6px 0;
-  margin-right: 4px;
+  padding: 6px 8px;
   border-radius: 4px;
+  width: 100%;
+  box-sizing: border-box;
   transition: background .1s;
 }
 
@@ -536,6 +554,7 @@ defineExpose({ open, reload: loadConfig });
   font-weight: 500;
   color: var(--el-text-color-primary);
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .ai-usage__row-code {
@@ -544,6 +563,7 @@ defineExpose({ open, reload: loadConfig });
   font-family: var(--el-font-family-monospace, 'SFMono-Regular', 'Consolas', monospace);
   color: var(--el-text-color-secondary);
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .ai-usage__row-desc {
@@ -552,6 +572,8 @@ defineExpose({ open, reload: loadConfig });
   color: var(--el-text-color-secondary);
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex: 1;
+  min-width: 0;
 }
 
 .ai-usage__row-select {
@@ -614,5 +636,13 @@ defineExpose({ open, reload: loadConfig });
 .ai-usage__footer-hint {
   font-size: 12px;
   color: var(--el-color-success);
+}
+
+:global(.ai-usage-dialog .el-scrollbar__wrap) {
+  overflow-x: hidden !important;
+}
+
+:global(.ai-usage-dialog .el-scrollbar__bar.is-horizontal) {
+  display: none !important;
 }
 </style>

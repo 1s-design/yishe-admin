@@ -144,16 +144,34 @@
                 <template #configParamsSlot="{ row }">
                   <div v-if="row.configParams" class="flex flex-wrap gap-1 text-[11px]">
                     <span
-                      v-if="row.configParams.size"
-                      class="inline-flex items-center rounded px-2 py-1"
+                      v-if="row.configParams.specCode"
+                      class="tti-spec-badge"
                     >
-                      <i class="mdi mdi-aspect-ratio mr-1"></i>{{ row.configParams.size }}
+                      {{ getSpecLabel(row.configParams.specCode) }}
                     </span>
                     <span
-                      v-if="row.configParams.style"
-                      class="inline-flex items-center rounded px-2 py-1"
+                      v-if="row.configParams.model"
+                      class="tti-model-badge"
                     >
-                      {{ currentStyleLabelMap[row.configParams.style] || row.configParams.style }}
+                      {{ row.configParams.model }}
+                    </span>
+                    <span
+                      v-if="getConfigParamValue(row, 'size')"
+                      class="tti-param-badge"
+                    >
+                      <i class="mdi mdi-aspect-ratio mr-0.5"></i>{{ getConfigParamValue(row, 'size') }}
+                    </span>
+                    <span
+                      v-if="getConfigParamValue(row, 'style')"
+                      class="tti-param-badge"
+                    >
+                      {{ currentStyleLabelMap[getConfigParamValue(row, 'style')] || getConfigParamValue(row, 'style') }}
+                    </span>
+                    <span
+                      v-if="getConfigParamValue(row, 'quality')"
+                      class="tti-param-badge"
+                    >
+                      {{ getConfigParamValue(row, 'quality') }}
                     </span>
                   </div>
                   <span v-else>-</span>
@@ -212,120 +230,47 @@
       align-center
     >
       <template #header>
-        <div class="py-2">
+        <div class="flex flex-wrap items-center justify-between gap-4 py-1 pr-6 border-b pb-3 tti-dialog-header">
           <div>
-            <div class="text-lg font-semibold">AI 文字生图</div>
-            <div class="mt-1 text-sm">选择提示词模板或手动输入，完成参数配置后直接提交生成</div>
+            <div class="text-lg font-bold tti-dialog-title">AI 文字生图</div>
+            <div class="mt-0.5 text-xs tti-dialog-subtitle">选择生图规范，进入对应模型专属交互界面完成创作</div>
+          </div>
+          <!-- 规范选择器 -->
+          <div class="flex items-center gap-2">
+            <span class="text-sm tti-dialog-label whitespace-nowrap">生图规范:</span>
+            <el-select v-model="activeSpecCode" class="tti-spec-select" style="width: 260px;" size="default">
+              <el-option
+                v-for="item in specOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
           </div>
         </div>
       </template>
 
-      <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
-        <div class="flex h-[calc(100vh-180px)] gap-4 overflow-y-auto py-4">
-          <div class="flex min-w-0 flex-1 flex-col gap-4">
-            <div class="rounded-lg border p-4">
-              <div class="mb-4 text-base font-medium">提示词来源</div>
-              <el-radio-group v-model="promptMode">
-                <el-radio label="manual">手动输入</el-radio>
-                <el-radio label="template">AI 提示词模块</el-radio>
-              </el-radio-group>
-              <div v-if="promptMode === 'template'" class="mt-4">
-                <div class="flex flex-wrap items-end gap-3">
-                  <el-select
-                    v-model="selectedPromptId"
-                    clearable
-                    filterable
-                    placeholder="请选择提示词模板"
-                    :loading="promptLoading"
-                    class="min-w-[360px]"
-                    @visible-change="handlePromptDropdownVisible"
-                    @change="handlePromptChange"
-                  >
-                    <el-option
-                      v-for="item in promptOptions"
-                      :key="item.id"
-                      :label="item.title"
-                      :value="item.id"
-                    />
-                  </el-select>
-                </div>
-                <div v-if="selectedPromptContent" class="mt-4 rounded-lg border p-4">
-                  <div class="mb-2 text-sm font-medium">模板内容预览</div>
-                  <div class="max-h-40 overflow-auto whitespace-pre-wrap text-sm leading-6">
-                    {{ selectedPromptContent }}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="rounded-lg border p-4">
-              <el-form-item label="画面提示词" prop="prompt" class="mb-4">
-                <el-input
-                  v-model="form.prompt"
-                  type="textarea"
-                  resize="none"
-                  :rows="18"
-                  placeholder="请输入图片描述，支持在模板基础上继续微调"
-                />
-              </el-form-item>
-              <el-form-item label="负向提示词" prop="negativePrompt" class="mb-0">
-                <el-input
-                  v-model="form.negativePrompt"
-                  type="textarea"
-                  :rows="8"
-                  resize="none"
-                  placeholder="可选，不需要可留空"
-                />
-              </el-form-item>
-            </div>
-          </div>
-
-          <div class="flex w-[360px] flex-shrink-0 flex-col gap-4">
-            <div class="rounded-lg border p-4">
-              <div class="mb-4 text-base font-medium">生成参数</div>
-              <el-form-item label="图片尺寸" prop="size">
-                <el-select v-model="form.size" class="w-full">
-                  <el-option
-                    v-for="item in sizeOptions"
-                    :key="item.value"
-                    :label="item.label"
-                    :value="item.value"
-                  />
-                </el-select>
-              </el-form-item>
-              <el-form-item label="风格" prop="style">
-                <el-select v-model="form.style" class="w-full" clearable placeholder="默认">
-                  <el-option label="通用" value="" />
-                  <el-option label="写实" value="photography" />
-                  <el-option label="插画" value="illustration" />
-                  <el-option label="二次元" value="anime" />
-                </el-select>
-              </el-form-item>
-              <el-form-item label="生成数量" prop="n" class="mb-0">
-                <el-input-number v-model="form.n" :min="1" :max="4" class="w-full" />
-              </el-form-item>
-            </div>
-
-            <div class="rounded-lg border p-4">
-              <div class="mb-3 text-base font-medium">使用建议</div>
-              <div class="space-y-2 text-sm leading-6">
-                <div>主体、材质、光线、构图和风格描述越明确，结果越稳定。</div>
-                <div>选择模板后可以继续在左侧输入框里修改，适合快速微调。</div>
-                <div>如果生成结果杂乱，优先补充负向提示词。</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </el-form>
-
-      <template #footer>
-        <div class="flex items-center justify-end gap-2">
-          <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" :icon="MagicStick" :loading="submitLoading" @click="submitForm">
-            立即生成
-          </el-button>
-        </div>
-      </template>
+      <!-- 根据选中的规范展示对应专属 UI 交互视图 -->
+      <div class="pt-2">
+        <OpenAiTtiForm
+          v-if="activeSpecCode === 'openai.image'"
+          :loading="submitLoading"
+          @submit="handleSpecFormSubmit"
+          @cancel="dialogVisible = false"
+        />
+        <DashScopeTtiForm
+          v-else-if="activeSpecCode === 'dashscope.image'"
+          :loading="submitLoading"
+          @submit="handleSpecFormSubmit"
+          @cancel="dialogVisible = false"
+        />
+        <VolcengineSeedreamTtiForm
+          v-else-if="activeSpecCode === 'volcengine.seedream'"
+          :loading="submitLoading"
+          @submit="handleSpecFormSubmit"
+          @cancel="dialogVisible = false"
+        />
+      </div>
     </el-dialog>
   </ContentWrap>
 </template>
@@ -333,14 +278,16 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, watchEffect, computed, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { Plus, Search, Refresh, Delete, Loading, MagicStick } from "@element-plus/icons-vue";
+import { Plus, Search, Refresh, Delete, Loading } from "@element-plus/icons-vue";
 import {
   getTtiRecordPage,
   createTtiRecord,
   deleteTtiRecord,
   batchDeleteTtiRecord,
 } from "@/api/ai/tti";
-import { getPromptList } from "@/api/prompt";
+import OpenAiTtiForm from "./components/tti/OpenAiTtiForm.vue";
+import DashScopeTtiForm from "./components/tti/DashScopeTtiForm.vue";
+import VolcengineSeedreamTtiForm from "./components/tti/VolcengineSeedreamTtiForm.vue";
 import { buildOperationColumn, commonGridOptions } from "@/common/table";
 import { useWindowSize } from "@vueuse/core";
 import Pagination from "@/components/Pagination/index.vue";
@@ -348,19 +295,28 @@ import ContentWrap from "@/components/ContentWrap/src/ContentWrap.vue";
 import ListPageLayout from "@/components/ListPageLayout/index.vue";
 import { formatTimestamp } from "@/common/date";
 
-const sizeOptions = [
-  { label: "正方形 1024 x 1024", value: "1024*1024" },
-  { label: "竖图 768 x 1024", value: "768*1024" },
-  { label: "横图 1024 x 768", value: "1024*768" },
-  { label: "横屏 1664 x 928", value: "1664*928" },
-  { label: "竖屏 928 x 1664", value: "928*1664" },
-];
-
 const currentStyleLabelMap: Record<string, string> = {
   "": "通用",
   photography: "写实",
   illustration: "插画",
   anime: "二次元",
+  vivid: "生动",
+  natural: "自然",
+};
+
+const specLabelMap: Record<string, string> = {
+  "dashscope.image": "DashScope",
+  "openai.image": "OpenAI",
+  "volcengine.seedream": "火山豆包",
+};
+
+const getSpecLabel = (code?: string) => {
+  if (!code) return "";
+  return specLabelMap[code] || code;
+};
+
+const getConfigParamValue = (row: any, key: string) => {
+  return row.configParams?.[key] || row.configParams?.providerParams?.[key];
 };
 
 const loading = ref(false);
@@ -369,12 +325,30 @@ const deleteLoading = ref(false);
 const dialogVisible = ref(false);
 const total = ref(0);
 const dataSource = ref<any[]>([]);
-const formRef = ref();
 const selectedIds = ref<string[]>([]);
-const promptMode = ref<"manual" | "template">("manual");
-const selectedPromptId = ref<number | null>(null);
-const promptLoading = ref(false);
-const promptOptions = ref<any[]>([]);
+
+const specOptions = [
+  { label: "OpenAI 兼容 (DALL-E)", value: "openai.image" },
+  { label: "通义万相 (Qwen)", value: "dashscope.image" },
+  { label: "火山引擎豆包 (Seedream)", value: "volcengine.seedream" },
+];
+
+// 记忆用户最后选择的生图规范（默认优先推荐 OpenAI 兼容模式）
+const activeSpecCode = ref<string>(localStorage.getItem("preferred_tti_spec") || "openai.image");
+
+watch(activeSpecCode, (val) => {
+  if (val) localStorage.setItem("preferred_tti_spec", val);
+});
+
+const sizeOptions = [
+  { label: "1024x1024 (正方形 1:1)", value: "1024x1024" },
+  { label: "1024x1792 (竖屏 9:16)", value: "1024x1792" },
+  { label: "1792x1024 (横屏 16:9)", value: "1792x1024" },
+  { label: "768*1024 (3:4)", value: "768*1024" },
+  { label: "1024*768 (4:3)", value: "1024*768" },
+  { label: "1664*928 (16:9)", value: "1664*928" },
+  { label: "928*1664 (9:16)", value: "928*1664" },
+];
 
 const queryParams = reactive({
   page: 1,
@@ -416,52 +390,11 @@ watchEffect(() => {
   gridOptions.maxHeight = Math.max(height.value - 280, 360);
 });
 
-const form = reactive({
-  prompt: "",
-  negativePrompt: "",
-  size: "1024*1024",
-  n: 1,
-  style: "",
-});
-
-const rules = {
-  prompt: [{ required: true, message: "提示词不能为空", trigger: "blur" }],
-};
-
-const selectedPrompt = computed(() => {
-  return (
-    promptOptions.value.find((item: any) => Number(item.id) === Number(selectedPromptId.value)) ||
-    null
-  );
-});
-
-const selectedPromptContent = computed(() => {
-  return selectedPrompt.value?.content ? String(selectedPrompt.value.content).trim() : "";
-});
-
-const resolvedPrompt = computed(() => form.prompt.trim());
-
 const extractSubmitErrorMessage = (error: any) => {
   return String(
     error?.message || error?.response?.data?.message || error?.data?.message || error || "提交失败",
   ).trim();
 };
-
-watch(promptMode, (mode) => {
-  if (mode === "template") {
-    loadPromptOptions();
-    form.prompt = selectedPromptContent.value;
-    return;
-  }
-  selectedPromptId.value = null;
-  form.prompt = "";
-});
-
-watch(selectedPromptContent, (value) => {
-  if (promptMode.value === "template") {
-    form.prompt = value;
-  }
-});
 
 const getList = async () => {
   loading.value = true;
@@ -494,35 +427,19 @@ const checkboxAllChange = (event: any) => {
 };
 
 const handleAdd = () => {
-  Object.assign(form, {
-    prompt: "",
-    negativePrompt: "",
-    size: "1024*1024",
-    n: 1,
-    style: "",
-  });
-  promptMode.value = "manual";
-  selectedPromptId.value = null;
   dialogVisible.value = true;
 };
 
-const submitForm = async () => {
-  await formRef.value.validate();
+const handleSpecFormSubmit = async (payload: any) => {
   submitLoading.value = true;
   try {
-    const record: any = await createTtiRecord({
-      prompt: resolvedPrompt.value,
-      negativePrompt: form.negativePrompt || undefined,
-      size: form.size,
-      n: form.n,
-      style: form.style || undefined,
-    });
+    const record: any = await createTtiRecord(payload);
     await getList();
     if (record?.status === "failed") {
       ElMessage.error({ message: getErrorMessage(record), duration: 4000 });
       return;
     }
-    ElMessage.success({ message: "提交成功", duration: 3000 });
+    ElMessage.success({ message: "任务提交成功", duration: 3000 });
     dialogVisible.value = false;
   } catch (error) {
     ElMessage.error({ message: extractSubmitErrorMessage(error), duration: 4000 });
@@ -545,35 +462,6 @@ const handleDelete = async (row: any) => {
   } catch {
   } finally {
     deleteLoading.value = false;
-  }
-};
-
-const loadPromptOptions = async () => {
-  if (promptLoading.value) return;
-  promptLoading.value = true;
-  try {
-    const res = await getPromptList({
-      currentPage: 1,
-      pageSize: 100,
-    });
-    promptOptions.value = Array.isArray((res as any)?.list) ? res.list : [];
-  } catch (error) {
-    console.error("加载提示词模板失败:", error);
-    ElMessage.error({ message: "加载提示词模板失败", duration: 4000 });
-  } finally {
-    promptLoading.value = false;
-  }
-};
-
-const handlePromptDropdownVisible = (visible: boolean) => {
-  if (visible) {
-    loadPromptOptions();
-  }
-};
-
-const handlePromptChange = () => {
-  if (promptMode.value === "template") {
-    form.prompt = selectedPromptContent.value;
   }
 };
 
@@ -675,5 +563,64 @@ onMounted(() => {
 :global(.tti-error-dialog .el-message-box__message) {
   word-break: break-word;
   white-space: pre-wrap;
+}
+
+.tti-dialog-header {
+  border-color: var(--el-border-color-light, #e4e7ed);
+}
+
+:global(html.dark) .tti-dialog-header {
+  border-color: var(--el-border-color-lighter, #363637);
+}
+
+.tti-dialog-title {
+  color: var(--el-text-color-primary, #303133);
+}
+
+.tti-dialog-subtitle {
+  color: var(--el-text-color-secondary, #909399);
+}
+
+.tti-dialog-label {
+  color: var(--el-text-color-regular, #606266);
+}
+
+.tti-spec-select {
+  width: 260px;
+}
+
+.tti-spec-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 4px;
+  padding: 2px 6px;
+  background-color: var(--el-color-primary-light-9);
+  color: var(--el-color-primary);
+  font-weight: 500;
+}
+
+.tti-model-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 4px;
+  padding: 2px 6px;
+  background-color: var(--el-fill-color, #f0f2f5);
+  color: var(--el-text-color-regular, #606266);
+}
+
+.tti-param-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 4px;
+  padding: 2px 6px;
+  border: 1px solid var(--el-border-color-lighter, #ebeef5);
+  background-color: var(--el-fill-color-light, #fafafa);
+  color: var(--el-text-color-secondary, #909399);
+}
+
+:global(html.dark) .tti-param-badge {
+  background-color: var(--el-fill-color, #262727);
+  border-color: var(--el-border-color-lighter, #363637);
+  color: var(--el-text-color-secondary, #a8abb2);
 }
 </style>

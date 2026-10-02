@@ -1082,7 +1082,11 @@ html.dark {
   .el-dropdown-menu,
   .el-cascader-menu,
   .el-autocomplete-suggestion__wrap
-) .el-scrollbar,
+) .el-scrollbar {
+  border-radius: inherit !important;
+  overflow: hidden !important;
+}
+
 :is(
   .el-select-dropdown,
   .el-dropdown-menu,
@@ -1090,7 +1094,8 @@ html.dark {
   .el-autocomplete-suggestion__wrap
 ) .el-scrollbar__wrap {
   border-radius: inherit !important;
-  overflow: hidden !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
 }
 
 /* 4. 浮层小三角（arrow）边框与背景同步 */
