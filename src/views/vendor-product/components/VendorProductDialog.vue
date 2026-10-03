@@ -112,73 +112,7 @@
                   />
                 </el-form-item>
               </el-col>
-              <el-col :span="8">
-                <el-form-item label="打样周期(天)" prop="sampleLeadTime">
-                  <el-input-number
-                    v-model="formData.sampleLeadTime"
-                    :min="0"
-                    style="width: 100%"
-                  />
-                </el-form-item>
-              </el-col>
-              <el-col :span="8">
-                <el-form-item label="大货交期(天)" prop="productionLeadTime">
-                  <el-input-number
-                    v-model="formData.productionLeadTime"
-                    :min="0"
-                    style="width: 100%"
-                  />
-                </el-form-item>
-              </el-col>
-              <el-col :span="8">
-                <el-form-item label="商业条款">
-                  <div class="flex items-center gap-4 h-full pt-1">
-                    <el-checkbox v-model="formData.taxIncluded">报价含税</el-checkbox>
-                    <el-checkbox v-model="formData.shippingIncluded">报价包邮</el-checkbox>
-                  </div>
-                </el-form-item>
-              </el-col>
             </el-row>
-          </div>
-
-          <!-- 阶梯价格区间 -->
-          <div class="dialog-section dialog-section-tier">
-            <div class="flex justify-between items-center mb-2">
-              <div class="dialog-section-title mb-0">阶梯报价 (Tier Pricing)</div>
-              <el-button size="small" type="primary" :icon="Plus" @click="addTierPricing">
-                添加阶梯价
-              </el-button>
-            </div>
-            <div v-if="formData.tierPricing?.length" class="space-y-2">
-              <div
-                v-for="(tier, idx) in formData.tierPricing"
-                :key="idx"
-                class="flex items-center gap-3 bg-[var(--el-fill-color-light)] p-2 rounded"
-              >
-                <span class="text-xs text-[var(--el-text-color-secondary)]">起订量:</span>
-                <el-input-number v-model="tier.minQty" :min="1" size="small" style="width: 120px" />
-                <span class="text-xs text-[var(--el-text-color-secondary)]">至</span>
-                <el-input-number
-                  v-model="tier.maxQty"
-                  :min="tier.minQty"
-                  size="small"
-                  placeholder="无上限"
-                  style="width: 120px"
-                />
-                <span class="text-xs text-[var(--el-text-color-secondary)]">件，单价 ¥:</span>
-                <el-input-number
-                  v-model="tier.price"
-                  :min="0"
-                  :precision="2"
-                  size="small"
-                  style="width: 130px"
-                />
-                <el-button link type="danger" :icon="Delete" @click="removeTierPricing(idx)" />
-              </div>
-            </div>
-            <div v-else class="text-xs text-[var(--el-text-color-secondary)]">
-              如按采购量区分单价，可添加阶梯价格（如 1~99件 20元，100件以上 16元）。
-            </div>
           </div>
 
           <!-- 通用自定义属性 -->
@@ -273,11 +207,10 @@ import {
 import { Delete, Plus } from '@element-plus/icons-vue'
 import {
   createVendorProduct,
-  getVendorList,
+  getVendorSelectOptions,
   updateVendorProduct,
-  type PageResult,
-  type Vendor,
   type VendorProductItem,
+  type VendorSelectOption,
 } from '@/api/vendor'
 import { createImageViewer } from '@/components/ImageViewer'
 import { uploadToCOS } from '@/api/cos'
@@ -290,7 +223,7 @@ const formLoading = ref(false)
 const dialogVisible = ref(false)
 const formRef = ref<FormInstance>()
 const lockVendor = ref(false)
-const vendors = ref<Vendor[]>([])
+const vendors = ref<VendorSelectOption[]>([])
 const imageFileList = ref<UploadUserFile[]>([])
 const existingImages = ref<string[]>([])
 
@@ -305,11 +238,6 @@ const createEmptyForm = (): VendorProductItem => ({
   price: null,
   status: 'normal',
   moq: null,
-  sampleLeadTime: null,
-  productionLeadTime: null,
-  taxIncluded: false,
-  shippingIncluded: false,
-  tierPricing: [],
   customAttributes: [],
   images: [],
   unit: '',
@@ -321,15 +249,6 @@ const formData = reactive<VendorProductItem>(createEmptyForm())
 const formRules: FormRules = {
   vendorId: [{ required: true, message: '请选择供应商', trigger: 'change' }],
   name: [{ required: true, message: '请输入商品名称', trigger: 'blur' }],
-}
-
-const addTierPricing = () => {
-  if (!formData.tierPricing) formData.tierPricing = []
-  formData.tierPricing.push({ minQty: 1, maxQty: null, price: 0 })
-}
-
-const removeTierPricing = (idx: number) => {
-  formData.tierPricing?.splice(idx, 1)
 }
 
 const addCustomAttr = () => {
@@ -367,12 +286,7 @@ const buildExistingFileList = (images: string[]) =>
 const loadVendors = async (force = false) => {
   if (vendors.value.length > 0 && !force) return
   try {
-    const res = await getVendorList({ page: 1, pageSize: 500 })
-    if (res && typeof res === 'object' && 'list' in res) {
-      vendors.value = (res as PageResult<Vendor>).list || []
-    } else if (Array.isArray(res)) {
-      vendors.value = res
-    }
+    vendors.value = await getVendorSelectOptions()
   } catch {}
 }
 
@@ -385,16 +299,12 @@ const open = (row?: VendorProductItem, defaultVendorId?: number) => {
 
   if (row?.id) {
     const images = Array.isArray(row.images) ? row.images : []
-    const tierPricing = Array.isArray(row.tierPricing) ? row.tierPricing : []
     const customAttributes = Array.isArray(row.customAttributes) ? row.customAttributes : []
 
     Object.assign(formData, {
       ...row,
       price: row.price === undefined ? null : row.price,
       status: row.status || 'normal',
-      taxIncluded: Boolean(row.taxIncluded),
-      shippingIncluded: Boolean(row.shippingIncluded),
-      tierPricing: tierPricing.map((t) => ({ ...t })),
       customAttributes: customAttributes.map((a) => ({ ...a })),
       images,
     })
@@ -503,17 +413,6 @@ const submitForm = async () => {
         vendorId: Number(formData.vendorId),
         price: formData.price === undefined ? null : formData.price,
         moq: formData.moq !== undefined && formData.moq !== null ? Number(formData.moq) : null,
-        sampleLeadTime:
-          formData.sampleLeadTime !== undefined && formData.sampleLeadTime !== null
-            ? Number(formData.sampleLeadTime)
-            : null,
-        productionLeadTime:
-          formData.productionLeadTime !== undefined && formData.productionLeadTime !== null
-            ? Number(formData.productionLeadTime)
-            : null,
-        tierPricing: (formData.tierPricing || []).filter(
-          (t) => t.price !== null && t.price !== undefined,
-        ),
         customAttributes: (formData.customAttributes || []).filter(
           (a) => a.name && String(a.name).trim(),
         ),

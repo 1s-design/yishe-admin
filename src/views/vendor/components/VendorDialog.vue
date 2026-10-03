@@ -20,15 +20,6 @@
         <div class="vendor-form__section-title">基础与合作信息</div>
         <el-row :gutter="20">
           <el-col :xs="24" :md="8">
-            <el-form-item label="厂家编码">
-              <el-input
-                :model-value="formData.code || ''"
-                :placeholder="formData.id ? '暂无厂家编码' : '创建后由后台自动生成'"
-                disabled
-              />
-            </el-form-item>
-          </el-col>
-          <el-col :xs="24" :md="8">
             <el-form-item label="厂家名称" prop="name">
               <el-input v-model="formData.name" placeholder="请输入厂家名称" />
             </el-form-item>
@@ -40,25 +31,6 @@
                 <el-option label="考察备选 (evaluating)" value="evaluating" />
                 <el-option label="暂停合作 (suspended)" value="suspended" />
                 <el-option label="淘汰拉黑 (blacklisted)" value="blacklisted" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-
-          <el-col :xs="24" :md="8">
-            <el-form-item label="结算方式" prop="settlementType">
-              <el-select
-                v-model="formData.settlementType"
-                filterable
-                allow-create
-                default-first-option
-                placeholder="例如: 现结 / 月结30天 / 预付30%"
-                style="width: 100%"
-              >
-                <el-option label="现结" value="现结" />
-                <el-option label="月结30天" value="月结30天" />
-                <el-option label="月结60天" value="月结60天" />
-                <el-option label="预付30%尾款70%" value="预付30%尾款70%" />
-                <el-option label="季结" value="季结" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -209,7 +181,7 @@
                 <el-icon><Plus /></el-icon>
               </el-upload>
               <div class="vendor-form__hint">
-                选择图片后本地暂存预览，点击“确定”时上传到 COS (路径: vendor/日期/账号/...)。
+                选择图片后本地暂存预览 (路径: vendor/日期/账号/...)。
               </div>
             </el-form-item>
           </el-col>
@@ -254,7 +226,6 @@ const formData = reactive<{
   shopUrl: string
   shopUrls: Array<{ name: string; url: string }>
   status: string
-  settlementType: string
   categoryTags: string[]
   customAttributes: CustomAttribute[]
   address: string
@@ -270,7 +241,6 @@ const formData = reactive<{
   shopUrl: '',
   shopUrls: [],
   status: 'active',
-  settlementType: '',
   categoryTags: [],
   customAttributes: [],
   address: '',
@@ -312,7 +282,6 @@ const resetForm = () => {
   formData.shopUrl = ''
   formData.shopUrls = [{ name: '', url: '' }]
   formData.status = 'active'
-  formData.settlementType = ''
   formData.categoryTags = []
   formData.customAttributes = []
   formData.address = ''
@@ -380,7 +349,6 @@ const open = async (id?: number) => {
     Object.assign(formData, {
       ...data,
       status: data.status || 'active',
-      settlementType: data.settlementType || '',
       wechat: data.wechat || '',
       shopUrl: data.shopUrl || '',
       shopUrls,
@@ -517,7 +485,6 @@ const submitForm = async () => {
         shopUrl: primaryShopUrl,
         shopUrls: cleanedShopUrls,
         status: formData.status || 'active',
-        settlementType: formData.settlementType ? String(formData.settlementType).trim() : undefined,
         categoryTags: cleanedCategoryTags,
         customAttributes: cleanedCustomAttributes,
         address: formData.address ? String(formData.address).trim() : undefined,

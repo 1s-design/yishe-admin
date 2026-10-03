@@ -86,7 +86,7 @@
                 @checkbox-all="handleCheckboxAll"
               >
                 <template #codeSlot="{ row }">
-                  <span class="font-mono text-xs font-semibold text-[var(--el-color-primary)]">
+                  <span class="font-mono text-xs text-[var(--el-text-color-secondary)]">
                     {{ row.code || '-' }}
                   </span>
                 </template>
@@ -401,15 +401,14 @@ const gridOptions = ref({
   },
   columns: [
     { type: "checkbox", width: 48 },
-    { title: "ID", field: "id", width: 70 },
+    { title: "厂家名称", field: "name", minWidth: 260, slots: { default: "nameSlot" } },
+    { title: "描述", field: "description", minWidth: 280, showOverflow: "tooltip" },
     { title: "厂家编码", field: "code", width: 120, slots: { default: "codeSlot" } },
     { title: "图片", field: "images", width: 140, slots: { default: "imagesSlot" } },
-    { title: "厂家名称", field: "name", minWidth: 150, slots: { default: "nameSlot" } },
     { title: "主页/网店", field: "shopUrls", minWidth: 140, slots: { default: "shopUrlsSlot" } },
     { title: "状态", field: "status", width: 130, slots: { default: "statusSlot" } },
     { title: "主营标签", field: "categoryTags", minWidth: 140, slots: { default: "categoryTagsSlot" } },
     { title: "联系方式", field: "contactName", width: 140, slots: { default: "contactSlot" } },
-    { title: "账期结算", field: "settlementType", width: 110, showOverflow: "tooltip" },
     { title: "旗下商品", field: "products", minWidth: 220, slots: { default: "productsSlot" } },
     { title: "地址", field: "address", minWidth: 180, showOverflow: "tooltip" },
     { title: "创建者", field: "uploader", width: 110, slots: { default: "uploaderSlot" } },

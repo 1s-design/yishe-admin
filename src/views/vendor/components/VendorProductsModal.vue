@@ -25,7 +25,6 @@
         <div class="modal-header-sub flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-[var(--el-text-color-secondary)]">
           <span v-if="currentVendor?.contactName">联系人：{{ currentVendor.contactName }}</span>
           <span v-if="currentVendor?.contactPhone">电话：{{ currentVendor.contactPhone }}</span>
-          <span v-if="currentVendor?.settlementType">账期：{{ currentVendor.settlementType }}</span>
           <div v-if="(currentVendor?.shopUrls && currentVendor.shopUrls.length) || currentVendor?.shopUrl" class="inline-flex items-center gap-1.5 ml-1">
             <span class="text-[var(--el-text-color-secondary)]">主页:</span>
             <template v-if="currentVendor?.shopUrls && currentVendor.shopUrls.length">
@@ -130,15 +129,9 @@
           </template>
 
           <template #priceSlot="{ row }">
-            <div class="text-xs">
-              <span class="font-semibold text-amber-500">
-                {{ row.price !== null && row.price !== undefined && row.price !== '' ? `¥${Number(row.price).toFixed(2)}` : '-' }}
-              </span>
-              <div v-if="row.taxIncluded || row.shippingIncluded" class="text-[10px] text-[var(--el-text-color-secondary)] flex gap-1 mt-0.5">
-                <span v-if="row.taxIncluded">含税</span>
-                <span v-if="row.shippingIncluded">包邮</span>
-              </div>
-            </div>
+            <span class="font-semibold text-amber-500 text-xs">
+              {{ row.price !== null && row.price !== undefined && row.price !== '' ? `¥${Number(row.price).toFixed(2)}` : '-' }}
+            </span>
           </template>
 
           <template #customAttributesSlot="{ row }">
@@ -157,17 +150,6 @@
             <span v-else class="text-xs text-[var(--el-text-color-secondary)]">-</span>
           </template>
 
-          <template #tierPricingSlot="{ row }">
-            <div v-if="row.tierPricing?.length" class="text-xs space-y-0.5">
-              <div v-for="(t, i) in row.tierPricing.slice(0, 2)" :key="i" class="text-[11px] text-[var(--el-text-color-secondary)]">
-                {{ t.minQty }}{{ t.maxQty ? `~${t.maxQty}` : '+' }}件: ¥{{ Number(t.price).toFixed(2) }}
-              </div>
-              <span v-if="row.tierPricing.length > 2" class="text-[10px] text-blue-500">
-                共{{ row.tierPricing.length }}档
-              </span>
-            </div>
-            <span v-else class="text-xs text-[var(--el-text-color-secondary)]">-</span>
-          </template>
 
           <template #operationSlot="{ row }">
             <div class="flex items-center gap-2">
@@ -255,7 +237,6 @@ const gridOptions = ref({
     { title: '规格/尺寸', field: 'size', width: 130, showOverflow: 'tooltip' },
     { title: '供货状态', field: 'status', width: 100, slots: { default: 'statusSlot' } },
     { title: '参考单价', field: 'price', width: 110, slots: { default: 'priceSlot' } },
-    { title: '阶梯报价', field: 'tierPricing', minWidth: 140, slots: { default: 'tierPricingSlot' } },
     { title: '通用扩展属性', field: 'customAttributes', minWidth: 160, slots: { default: 'customAttributesSlot' } },
     { title: '单位', field: 'unit', width: 70 },
     { title: '备注', field: 'remark', minWidth: 140, showOverflow: 'tooltip' },

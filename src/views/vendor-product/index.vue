@@ -145,31 +145,13 @@
                 </template>
 
                 <template #priceSlot="{ row }">
-                  <div class="text-xs">
-                    <span class="font-semibold text-amber-500">
-                      {{
-                        row.price === null || row.price === undefined || row.price === ""
-                          ? "-"
-                          : `¥${Number(row.price).toFixed(2)}`
-                      }}
-                    </span>
-                    <div class="text-[10px] text-[var(--el-text-color-secondary)] flex gap-1">
-                      <span v-if="row.taxIncluded">含税</span>
-                      <span v-if="row.shippingIncluded">包邮</span>
-                    </div>
-                  </div>
-                </template>
-
-                <template #leadTimeSlot="{ row }">
-                  <div class="text-xs text-[var(--el-text-color-secondary)]">
-                    <div v-if="row.sampleLeadTime !== null && row.sampleLeadTime !== undefined">
-                      打样: {{ row.sampleLeadTime }}天
-                    </div>
-                    <div v-if="row.productionLeadTime !== null && row.productionLeadTime !== undefined">
-                      大货: {{ row.productionLeadTime }}天
-                    </div>
-                    <span v-if="row.sampleLeadTime == null && row.productionLeadTime == null">-</span>
-                  </div>
+                  <span class="font-semibold text-amber-500 text-xs">
+                    {{
+                      row.price === null || row.price === undefined || row.price === ""
+                        ? "-"
+                        : `¥${Number(row.price).toFixed(2)}`
+                    }}
+                  </span>
                 </template>
 
                 <template #customAttributesSlot="{ row }">
@@ -264,11 +246,11 @@ import { buildOperationColumn, buildTimeColumn, commonGridOptions } from "@/comm
 import {
   batchDeleteVendorProduct,
   deleteVendorProduct,
-  getVendorList,
+  getVendorDetail,
   getVendorProductList,
-  type PageResult,
-  type Vendor,
+  getVendorSelectOptions,
   type VendorProductItem,
+  type VendorSelectOption,
 } from "@/api/vendor";
 import { formatDate } from "@/utils/formatTime";
 import ListPageLayout from "@/components/ListPageLayout/index.vue";
@@ -281,7 +263,7 @@ const loading = ref(false);
 const productDialogRef = ref();
 const list = ref<VendorProductItem[]>([]);
 const total = ref(0);
-const vendors = ref<Vendor[]>([]);
+const vendors = ref<VendorSelectOption[]>([]);
 const selectedIds = ref<number[]>([]);
 
 const queryParams = reactive({
@@ -334,7 +316,6 @@ const gridOptions = ref({
     { title: "供货状态", field: "status", width: 95, slots: { default: "statusSlot" } },
     { title: "参考单价", field: "price", width: 110, slots: { default: "priceSlot" } },
     { title: "起订量(MOQ)", field: "moq", width: 100 },
-    { title: "交期", width: 110, slots: { default: "leadTimeSlot" } },
     { title: "规格/尺寸", field: "size", width: 120, showOverflow: "tooltip" },
     { title: "扩展属性", minWidth: 160, slots: { default: "customAttributesSlot" } },
     { title: "单位", field: "unit", width: 70 },
@@ -362,13 +343,15 @@ const updateSelectedIds = (records: VendorProductItem[] = []) => {
     .filter((id) => Number.isInteger(id) && id > 0);
 };
 
-const loadVendors = async () => {
+const loadVendors = async (ensureVendorId?: number) => {
   try {
-    const res = await getVendorList();
-    if (res && typeof res === "object" && "list" in res) {
-      vendors.value = (res as PageResult<Vendor>).list || [];
-    } else if (Array.isArray(res)) {
-      vendors.value = res;
+    vendors.value = await getVendorSelectOptions();
+    // 如果路由携带的 vendorId 不在列表中，单独拉取补入，确保下拉和商品行能显示厂家名称
+    if (ensureVendorId && !vendors.value.some((v) => Number(v.id) === Number(ensureVendorId))) {
+      try {
+        const vendor = await getVendorDetail(ensureVendorId);
+        if (vendor) vendors.value.unshift({ id: vendor.id!, name: vendor.name });
+      } catch {}
     }
   } catch {}
 };
@@ -479,9 +462,13 @@ watch(
 
 const initData = async () => {
   if (loading.value) return; // 防止 onMounted + onActivated 首次挂载时并发重复请求
-  await loadVendors();
   await loadData();
 };
+
+// 在 setup 层面预载厂家列表（含路由 vendorId 对应的厂家），
+// 确保后续 watch immediate / initData 触发时 vendors 已有数据
+const initialVendorId = route.query.vendorId ? Number(route.query.vendorId) : undefined;
+loadVendors(initialVendorId);
 
 onMounted(initData);
 

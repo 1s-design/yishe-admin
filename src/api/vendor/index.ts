@@ -35,7 +35,6 @@ export interface Vendor {
   shopUrl?: string
   shopUrls?: VendorShopUrl[]
   status?: 'active' | 'evaluating' | 'suspended' | 'blacklisted' | string
-  settlementType?: string
   categoryTags?: string[]
   contacts?: VendorContact[]
   customAttributes?: CustomAttribute[]
@@ -110,6 +109,14 @@ export interface PageResult<T> {
 
 export const getVendorList = (params?: VendorListParams) =>
   request.get<Vendor[] | PageResult<Vendor>>({ url: '/operations/vendor', params })
+
+export interface VendorSelectOption {
+  id: number
+  name: string
+}
+
+export const getVendorSelectOptions = () =>
+  request.get<VendorSelectOption[]>({ url: '/operations/vendor/select-options' })
 
 export const getVendorDetail = (id: number) => request.get<Vendor>({ url: `/operations/vendor/${id}` })
 
