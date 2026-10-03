@@ -1123,8 +1123,7 @@ $prefix-cls: #{$namespace}-menu;
   .#{$prefix-cls}__link {
     min-height: 34px;
     padding: 6px 10px;
-    border-left-width: 3px;
-    border-radius: 0 8px 8px 0;
+    border-radius: 10px;
   }
 
   .#{$prefix-cls}__link-text {
@@ -1174,7 +1173,7 @@ $prefix-cls: #{$namespace}-menu;
   .#{$prefix-cls}__link {
     min-height: 30px;
     padding: 5px 8px;
-    border-radius: 0 7px 7px 0;
+    border-radius: 7px;
   }
 
   .#{$prefix-cls}__link-text {
@@ -1492,8 +1491,8 @@ $prefix-cls: #{$namespace}-menu;
     cursor: pointer;
     background: transparent;
     border: 0;
-    border-left: 2px solid transparent;
-    border-radius: 0 var(--left-menu-link-radius) var(--left-menu-link-radius) 0;
+    border-radius: var(--left-menu-link-radius);
+    corner-shape: squircle;
     outline: none;
     box-shadow: none;
     transition:
@@ -1509,7 +1508,6 @@ $prefix-cls: #{$namespace}-menu;
   &__link:hover {
     color: var(--left-menu-link-hover-color);
     background: var(--left-menu-link-hover-bg);
-    border-left-color: var(--left-menu-link-active-border-color);
     transform: translateX(1px);
   }
 
@@ -1530,13 +1528,11 @@ $prefix-cls: #{$namespace}-menu;
   &__link--active {
     color: var(--left-menu-link-active-color);
     background: var(--left-menu-link-active-bg);
-    border-left-color: var(--left-menu-link-active-border-color);
   }
 
   &__link--warning:not(.#{$prefix-cls}__link--active) {
     color: rgb(255 236 205 / 92%);
     background: linear-gradient(90deg, rgb(245 158 11 / 10%) 0%, rgb(245 158 11 / 0%) 100%);
-    border-left-color: rgb(245 158 11 / 42%);
   }
 
   &__link--warning:hover:not(.#{$prefix-cls}__link--active) {
@@ -1544,7 +1540,6 @@ $prefix-cls: #{$namespace}-menu;
     background:
       linear-gradient(90deg, rgb(245 158 11 / 15%) 0%, rgb(245 158 11 / 2%) 100%),
       var(--left-menu-link-hover-bg);
-    border-left-color: rgb(245 158 11 / 60%);
   }
 
   &__link-text {
@@ -1971,7 +1966,6 @@ $prefix-cls: #{$namespace}-menu;
 :global(html.light .v-menu__link--warning:not(.v-menu__link--active)) {
   color: rgb(146 64 14 / 98%) !important;
   background: linear-gradient(90deg, rgb(245 158 11 / 16%) 0%, rgb(245 158 11 / 2%) 100%) !important;
-  border-left-color: rgb(217 119 6 / 55%) !important;
 }
 
 :global(html.light .v-menu__link--warning:hover:not(.v-menu__link--active)) {
@@ -1979,7 +1973,6 @@ $prefix-cls: #{$namespace}-menu;
   background:
     linear-gradient(90deg, rgb(245 158 11 / 22%) 0%, rgb(245 158 11 / 4%) 100%),
     var(--left-menu-link-hover-bg) !important;
-  border-left-color: rgb(217 119 6 / 70%) !important;
 }
 
 :global(html.light .v-menu__auto-badge) {

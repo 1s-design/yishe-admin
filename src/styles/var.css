@@ -60,9 +60,9 @@ html.light {
   --left-menu-links-gap-x: 6px;
   --left-menu-links-gap-y: 4px;
   --left-menu-link-min-height: 26px;
-  --left-menu-link-padding-x: 7px;
+  --left-menu-link-padding-x: 10px;
   --left-menu-link-padding-y: 4px;
-  --left-menu-link-radius: 5px;
+  --left-menu-link-radius: 10px;
   --left-menu-link-font-size: 10px;
   --left-menu-status-dot-size: 8px;
   --left-menu-status-dot-margin-left: 6px;

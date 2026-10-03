@@ -528,8 +528,7 @@ html.dark .el-alert {
 .el-select__wrapper,
 .el-date-editor.el-input__wrapper,
 .el-cascader .el-input__wrapper,
-.el-input-number,
-.el-input-number .el-input__wrapper {
+.el-input-number {
   border-radius: var(--ep-cover-radius-sm);
 }
 
@@ -1579,11 +1578,11 @@ html.dark .el-empty__image::before {
 }
 
 .el-input-number .el-input-number__decrease {
-  border-radius: 0;
+  border-radius: var(--ep-cover-radius-sm) 0 0 var(--ep-cover-radius-sm);
 }
 
 .el-input-number .el-input-number__increase {
-  border-radius: 0;
+  border-radius: 0 var(--ep-cover-radius-sm) var(--ep-cover-radius-sm) 0;
 }
 
 .el-input-number .el-input-number__decrease:hover,
@@ -1611,10 +1610,6 @@ html.dark .el-empty__image::before {
   font-size: 10px;
 }
 
-/* wrapper border-radius fix */
-.el-input-number .el-input__wrapper {
-  border-radius: var(--ep-cover-radius-sm) 0 0 var(--ep-cover-radius-sm);
-}
 
 /* dark mode tweaks */
 html.dark .el-input-number .el-input-number__decrease,
