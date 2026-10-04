@@ -6,22 +6,30 @@
       <aside class="collect-menu">
         <div class="menu-header">图片采集</div>
         <nav class="menu-list">
-          <div
-            v-for="item in menuItems"
-            :key="item.key"
-            class="menu-item"
-            :class="{ 'is-active': activeTab === item.key }"
-            @click="switchTab(item.key)"
-          >
-            <span class="menu-item-text">{{ item.name }}</span>
-          </div>
+          <template v-for="group in menuGroups" :key="group.label">
+            <div class="menu-group-title">{{ group.label }}</div>
+            <div
+              v-for="item in group.items"
+              :key="item.key"
+              class="menu-item"
+              :class="{ 'is-active': activeTab === item.key }"
+              @click="switchTab(item.key)"
+            >
+              <span class="menu-item-text">{{ item.name }}</span>
+              <span
+                v-if="item.available === false"
+                class="menu-disabled-tag"
+                :title="item.reason || '当前不可用'"
+              >不可用</span>
+            </div>
+          </template>
         </nav>
       </aside>
 
       <!-- 右侧主体内容 -->
       <main class="collect-body">
         <keep-alive>
-          <component :is="activeComponent" :key="activeTab" />
+          <component :is="activeComponent" :key="activeTab" v-bind="activeProps" />
         </keep-alive>
       </main>
     </div>
@@ -29,37 +37,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, markRaw, nextTick } from 'vue'
+import { ref, computed, watch, markRaw, nextTick, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useTagsView } from '@/hooks/web/useTagsView'
 import GoogleArtView from '../google-art/index.vue'
-import PinterestView from '../pinterest/index.vue'
-import WikimediaView from '../wikimedia/index.vue'
-import PexelsView from '../pexels/index.vue'
-import PixabayView from '../pixabay/index.vue'
-import RawpixelView from '../rawpixel/index.vue'
-import StockSnapView from '../stocksnap/index.vue'
-import OpenverseView from '../openverse/index.vue'
-import KaboompicsView from '../kaboompics/index.vue'
-import OpenclipartView from '../openclipart/index.vue'
-import UndrawView from '../undraw/index.vue'
-import IconifyView from '../iconify/index.vue'
-import NounProjectView from '../nounproject/index.vue'
-import VecteezyView from '../vecteezy/index.vue'
-import OpenMojiView from '../openmoji/index.vue'
-import GoogleIconsView from '../googleicons/index.vue'
-import EmojipediaView from '../emojipedia/index.vue'
-import SvgRepoView from '../svgrepo/index.vue'
-import BaiduView from '../baidu/index.vue'
-import BingView from '../bing/index.vue'
-import DuckDuckGoView from '../duckduckgo/index.vue'
-import SogouView from '../sogou/index.vue'
-import SoView from '../so/index.vue'
-import WallhavenView from '../wallhaven/index.vue'
-import UnsplashView from '../unsplash/index.vue'
-import FlickrView from '../flickr/index.vue'
-import GoogleImagesView from '../googleimages/index.vue'
-import YandexView from '../yandex/index.vue'
+import CollectEnginePanel from '../components/CollectEnginePanel.vue'
+import { listCollectSources, type CollectSourceMeta } from '@/api/external/collect'
 
 defineOptions({
   name: 'ExternalImageCollect',
@@ -69,193 +52,70 @@ const route = useRoute()
 const router = useRouter()
 const { setTitle } = useTagsView()
 
-type TabKey =
-  | 'google-art'
-  | 'pinterest'
-  | 'wikimedia'
-  | 'pexels'
-  | 'pixabay'
-  | 'rawpixel'
-  | 'stocksnap'
-  | 'openverse'
-  | 'kaboompics'
-  | 'openclipart'
-  | 'undraw'
-  | 'iconify'
-  | 'nounproject'
-  | 'vecteezy'
-  | 'openmoji'
-  | 'googleicons'
-  | 'emojipedia'
-  | 'svgrepo'
-  | 'baidu'
-  | 'bing'
-  | 'duckduckgo'
-  | 'sogou'
-  | 'so'
-  | 'wallhaven'
-  | 'unsplash'
-  | 'flickr'
-  | 'googleimages'
-  | 'yandex'
+type TabKey = string
 
-const activeTab = ref<TabKey>('google-art')
+interface MenuItem {
+  key: TabKey
+  name: string
+  component: any
+  props?: Record<string, any>
+  group?: 'special'
+  available?: boolean
+  reason?: string
+}
 
-const menuItems = [
-  {
-    key: 'baidu' as TabKey,
-    name: '百度图片搜索',
-    component: markRaw(BaiduView),
-  },
-  {
-    key: 'bing' as TabKey,
-    name: '必应图片搜索 (Bing)',
-    component: markRaw(BingView),
-  },
-  {
-    key: 'duckduckgo' as TabKey,
-    name: 'DuckDuckGo 图搜',
-    component: markRaw(DuckDuckGoView),
-  },
-  {
-    key: 'sogou' as TabKey,
-    name: '搜狗图片搜索',
-    component: markRaw(SogouView),
-  },
-  {
-    key: 'so' as TabKey,
-    name: '360 图片搜索',
-    component: markRaw(SoView),
-  },
-  {
-    key: 'wallhaven' as TabKey,
-    name: 'Wallhaven 4K壁纸',
-    component: markRaw(WallhavenView),
-  },
-  {
-    key: 'unsplash' as TabKey,
-    name: 'Unsplash 顶级摄影',
-    component: markRaw(UnsplashView),
-  },
-  {
-    key: 'flickr' as TabKey,
-    name: 'Flickr 摄影社区',
-    component: markRaw(FlickrView),
-  },
-  {
-    key: 'googleimages' as TabKey,
-    name: '谷歌图片搜索',
-    component: markRaw(GoogleImagesView),
-  },
-  {
-    key: 'yandex' as TabKey,
-    name: 'Yandex 艺术壁纸',
-    component: markRaw(YandexView),
-  },
-  {
-    key: 'google-art' as TabKey,
-    name: 'Google Arts & Culture',
-    component: markRaw(GoogleArtView),
-  },
-  {
-    key: 'pinterest' as TabKey,
-    name: 'Pinterest',
-    component: markRaw(PinterestView),
-  },
-  {
-    key: 'wikimedia' as TabKey,
-    name: 'Wikimedia Commons',
-    component: markRaw(WikimediaView),
-  },
-  {
-    key: 'pexels' as TabKey,
-    name: 'Pexels 高清摄影',
-    component: markRaw(PexelsView),
-  },
-  {
-    key: 'pixabay' as TabKey,
-    name: 'Pixabay 免费图库',
-    component: markRaw(PixabayView),
-  },
-  {
-    key: 'rawpixel' as TabKey,
-    name: 'Rawpixel 艺术图库',
-    component: markRaw(RawpixelView),
-  },
-  {
-    key: 'stocksnap' as TabKey,
-    name: 'StockSnap 免版权图库',
-    component: markRaw(StockSnapView),
-  },
-  {
-    key: 'openverse' as TabKey,
-    name: 'Openverse 开放图库',
-    component: markRaw(OpenverseView),
-  },
-  {
-    key: 'kaboompics' as TabKey,
-    name: 'Kaboompics 免费高清图库',
-    component: markRaw(KaboompicsView),
-  },
-  {
-    key: 'openclipart' as TabKey,
-    name: 'Openclipart 免费矢量插画',
-    component: markRaw(OpenclipartView),
-  },
-  {
-    key: 'undraw' as TabKey,
-    name: 'undraw 开源插画',
-    component: markRaw(UndrawView),
-  },
-  {
-    key: 'iconify' as TabKey,
-    name: 'Iconify 开源图标',
-    component: markRaw(IconifyView),
-  },
-  {
-    key: 'nounproject' as TabKey,
-    name: 'Noun Project 图标/图片',
-    component: markRaw(NounProjectView),
-  },
-  {
-    key: 'vecteezy' as TabKey,
-    name: 'Vecteezy 免版税素材',
-    component: markRaw(VecteezyView),
-  },
-  {
-    key: 'openmoji' as TabKey,
-    name: 'OpenMoji 开源 Emoji',
-    component: markRaw(OpenMojiView),
-  },
-  {
-    key: 'googleicons' as TabKey,
-    name: 'Google Material Icons',
-    component: markRaw(GoogleIconsView),
-  },
-  {
-    key: 'emojipedia' as TabKey,
-    name: 'Emojipedia Emoji/Sticker',
-    component: markRaw(EmojipediaView),
-  },
-  {
-    key: 'svgrepo' as TabKey,
-    name: 'SVGRepo 50万+开源矢量',
-    component: markRaw(SvgRepoView),
-  },
+// ── 特殊采集（定制实现，保留独立界面）────────────────────
+const specialItems: MenuItem[] = [
+  { key: 'google-art', name: 'Google Arts 文化资产', component: markRaw(GoogleArtView), group: 'special' },
 ]
 
+// ── 通用采集（接口驱动：源清单来自服务端定义，加源零前端改动）──
+const engineItems = ref<MenuItem[]>([])
+
+async function loadEngineSources() {
+  try {
+    const res: any = await listCollectSources('image-collect')
+    const list = res?.data ?? res ?? []
+    const metas: CollectSourceMeta[] = Array.isArray(list) ? list : []
+    engineItems.value = metas.map((m) => ({
+      key: `src-${m.id}`,
+      name: m.name,
+      component: markRaw(CollectEnginePanel),
+      props: { sourceId: m.id },
+      available: m.available !== false,
+      reason: m.unavailableReason || '',
+    }))
+  } catch (e) {
+    console.error('[image-collect] 加载采集源清单失败:', e)
+    engineItems.value = []
+  }
+}
+
+const menuItems = computed<MenuItem[]>(() => [...engineItems.value, ...specialItems])
+
+// 菜单分组：通用采集（引擎）/ 特殊采集（定制）
+const menuGroups = computed(() => [
+  { label: '通用采集', items: engineItems.value },
+  { label: '特殊采集', items: specialItems },
+])
+
+const activeTab = ref<TabKey>('')
+
 const activeComponent = computed(() => {
-  const target = menuItems.find((m) => m.key === activeTab.value)
-  return target ? target.component : GoogleArtView
+  const target = menuItems.value.find((m) => m.key === activeTab.value)
+  return target ? target.component : null
 })
 
-// 根据当前 tab 获取对应的菜单名称
+const activeProps = computed(() => {
+  const target = menuItems.value.find((m) => m.key === activeTab.value)
+  return target?.props || {}
+})
+
 const getTabName = (key: TabKey): string => {
-  const item = menuItems.find((m) => m.key === key)
+  const item = menuItems.value.find((m) => m.key === key)
   return item ? item.name : '图片采集'
 }
 
-// 更新 TagsView 的 Tab 标题（使用 nextTick 确保 visitedViews 已添加）
 const updateTabTitle = (key: TabKey) => {
   nextTick(() => {
     setTitle(getTabName(key), route.path)
@@ -271,23 +131,36 @@ const switchTab = (key: TabKey) => {
       tab: key,
     },
   })
-  // 动态更新 TagsView 的 Tab 标题
   updateTabTitle(key)
 }
 
-watch(
-  () => route.query.tab,
-  (newTab) => {
-    if (newTab && menuItems.some((m) => m.key === newTab)) {
-      if (activeTab.value !== newTab) {
-        activeTab.value = newTab as TabKey
-      }
-      // 动态更新 TagsView 的 Tab 标题
-      updateTabTitle(newTab as TabKey)
+// 菜单就绪后应用路由里的 tab（含旧 key 兼容：裸源 id → src-前缀）
+function applyTabFromRoute() {
+  const raw = String(route.query.tab || '')
+  if (!raw) {
+    if (!activeTab.value && menuItems.value.length) {
+      activeTab.value = menuItems.value[0].key
+      updateTabTitle(activeTab.value)
     }
-  },
-  { immediate: true }
-)
+    return
+  }
+  let key: TabKey = raw
+  if (!menuItems.value.some((m) => m.key === key)) {
+    const alt = menuItems.value.some((m) => m.key === `src-${raw}`) ? `src-${raw}` : ''
+    if (alt) key = alt
+  }
+  if (menuItems.value.some((m) => m.key === key)) {
+    if (activeTab.value !== key) activeTab.value = key
+    updateTabTitle(key)
+  }
+}
+
+watch(() => route.query.tab, applyTabFromRoute)
+
+onMounted(async () => {
+  await loadEngineSources()
+  applyTabFromRoute()
+})
 </script>
 
 <style scoped>
@@ -336,6 +209,20 @@ watch(
   margin-top: 4px;
 }
 
+.menu-group-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--el-text-color-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 10px 8px 4px 8px;
+}
+
+.menu-group-title:not(:first-child) {
+  margin-top: 8px;
+  border-top: 1px solid var(--el-border-color-extra-light);
+}
+
 .menu-item {
   display: flex;
   align-items: center;
@@ -363,6 +250,18 @@ watch(
   background: transparent;
   color: var(--el-color-primary);
   font-weight: 500;
+}
+
+.menu-disabled-tag {
+  flex-shrink: 0;
+  margin-left: 4px;
+  font-size: 10px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 3px;
+  background: var(--el-color-danger-light-9, #fef0f0);
+  color: var(--el-color-danger, #f56c6c);
+  font-weight: 600;
 }
 
 .menu-item-text {
