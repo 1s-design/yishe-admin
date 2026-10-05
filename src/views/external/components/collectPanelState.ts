@@ -24,10 +24,18 @@ export function loadCollectPanelState(sourceId: string): CollectPanelState | nul
   return cache.get(sourceId) || null
 }
 
-/** 源清单全局缓存（meta 首次拉取后复用，切换无空窗；后台静默刷新） */
-let metasCache: any[] | null = null
-export function saveSourceMetas(metas: any[]) { metasCache = metas }
-export function loadSourceMetas(): any[] | null { return metasCache }
+/** 源清单全局缓存（按 id 合并，多模块共用；切换无空窗） */
+const metasById = new Map<string, any>()
+export function saveSourceMetas(metas: any[]) {
+  // 合并而非覆盖：各模块只拉自己那份清单，整体缓存要并集，
+  // 否则后加载的模块会把先加载的挤掉，导致切页时 tab 消失
+  for (const m of metas || []) {
+    if (m && m.id) metasById.set(m.id, m)
+  }
+}
+export function loadSourceMetas(): any[] | null {
+  return metasById.size > 0 ? Array.from(metasById.values()) : null
+}
 
 /** 按模块过滤源清单（module 支持字符串或数组） */
 export function filterModuleMetas(metas: any[], module: string): any[] {

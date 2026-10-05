@@ -43,7 +43,7 @@ import { useTagsView } from '@/hooks/web/useTagsView'
 import GoogleArtView from '../google-art/index.vue'
 import CollectEnginePanel from '../components/CollectEnginePanel.vue'
 import { listCollectSources, type CollectSourceMeta } from '@/api/external/collect'
-import { saveSourceMetas, loadSourceMetas } from '../components/collectPanelState'
+import { saveSourceMetas, loadSourceMetas, filterModuleMetas } from '../components/collectPanelState'
 
 defineOptions({
   name: 'ExternalImageCollect',
@@ -84,10 +84,10 @@ async function loadEngineSources() {
       reason: m.unavailableReason || '',
     }))
   }
-  // 缓存优先：切换回来无空窗
+  // 缓存优先：切换回来无空窗（缓存异常不影响主加载）
   const cached = loadSourceMetas()
   if (cached && cached.length) {
-    applyMetas(filterModuleMetas(cached, 'image-collect') as CollectSourceMeta[])
+    try { applyMetas(filterModuleMetas(cached, 'image-collect') as CollectSourceMeta[]) } catch { /* 缓存渲染失败则等网络 */ }
   }
   try {
     const res: any = await listCollectSources('image-collect')

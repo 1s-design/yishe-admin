@@ -39,7 +39,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useTagsView } from '@/hooks/web/useTagsView'
 import CollectEnginePanel from '../components/CollectEnginePanel.vue'
 import { listCollectSources, type CollectSourceMeta } from '@/api/external/collect'
-import { saveSourceMetas, loadSourceMetas } from '../components/collectPanelState'
+import { saveSourceMetas, loadSourceMetas, filterModuleMetas } from '../components/collectPanelState'
 
 defineOptions({ name: 'ExternalNewsCollect' })
 
@@ -72,10 +72,10 @@ async function loadEngineSources() {
       reason: m.unavailableReason || '',
     }))
   }
-  // 缓存优先：切换回来无空窗
+  // 缓存优先：切换回来无空窗（缓存异常不影响主加载）
   const cached = loadSourceMetas()
   if (cached && cached.length) {
-    applyMetas(filterModuleMetas(cached, 'news') as CollectSourceMeta[])
+    try { applyMetas(filterModuleMetas(cached, 'news') as CollectSourceMeta[]) } catch { /* 缓存渲染失败则等网络 */ }
   }
   try {
     const res: any = await listCollectSources('news')
