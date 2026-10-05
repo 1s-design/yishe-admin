@@ -70,6 +70,7 @@
         搜索
       </el-button>
       <el-button
+        v-if="hasListAction"
         size="small"
         :loading="searchLoading"
         :disabled="!selectedClientId || isUnavailable"
@@ -206,11 +207,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive, onMounted } from 'vue'
+import { ref, computed, reactive, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Picture, Loading } from '@element-plus/icons-vue'
 import { usePluginClientNodes } from '@/services/clientNodeState'
-import ClientSelector from '../components/ClientSelector.vue'
+import ClientSelector from './ClientSelector.vue'
+import { saveCollectPanelState, loadCollectPanelState, saveSourceMetas, loadSourceMetas } from './collectPanelState'
 import {
   createCollectTask,
   listCollectSources,
@@ -222,8 +224,10 @@ const props = withDefaults(
   defineProps<{
     /** 采集源 ID（由服务端源定义提供，一 tab 一源） */
     sourceId?: string
+    /** 预置表单参数（如 data-tools 的工具选择） */
+    presetParams?: Record<string, any>
   }>(),
-  { sourceId: '4kwallpapers' }
+  { sourceId: '4kwallpapers', presetParams: () => ({}) }
 )
 
 defineOptions({ name: 'CollectEnginePanel' })
@@ -236,8 +240,22 @@ const selectedClientId = ref('')
 const sourceMeta = ref<CollectSourceMeta | null>(null)
 const searchParams = computed<CollectSearchParam[]>(() => {
   // meta 就绪后以其定义为准（空数组=榜单型无筛选）；meta 未加载时给关键词兜底
-  if (sourceMeta.value) return sourceMeta.value.searchParams || []
-  return [{ key: 'query', label: '关键词', type: 'text', required: true } as CollectSearchParam]
+  const base = sourceMeta.value
+    ? (sourceMeta.value.searchParams || [])
+    : [{ key: 'query', label: '关键词', type: 'text', required: true } as CollectSearchParam]
+  // 隐藏已由 tab 预置的字段（如 data-tools 的 tool）
+  const presetKeys = new Set(Object.keys(props.presetParams || {}))
+  // 按 tools 标注过滤：仅显示适用于当前工具/子场景的字段
+  const currentTool = String(
+    (props.presetParams as any)?.tool || (formModel as any).tool || '',
+  )
+  return base.filter((f) => {
+    if (presetKeys.has(f.key)) return false
+    if (f.tools && f.tools.length > 0 && currentTool && !f.tools.includes(currentTool)) {
+      return false
+    }
+    return true
+  })
 })
 const formModel = reactive<Record<string, any>>({})
 
@@ -288,6 +306,7 @@ const metaOutput = computed(() => sourceMeta.value?.output || [])
 const metaActions = computed(() => sourceMeta.value?.actions || [])
 const isUnavailable = computed(() => sourceMeta.value?.available === false)
 const hasDownload = computed(() => metaActions.value.includes('download'))
+const hasListAction = computed(() => metaActions.value.includes('list'))
 const hasOpenPage = computed(() => metaActions.value.includes('openPage'))
 
 /** 缩略图字段：output 里第一个 image 类型字段；无声明则不显示缩略图列 */
@@ -452,6 +471,7 @@ async function runSearch(params: Record<string, any>, isList = false) {
     }
   } finally {
     searchLoading.value = false
+    saveState()
   }
 }
 
@@ -527,20 +547,93 @@ function openImagePreview(item: Record<string, any>) {
 }
 
 async function loadSourceMeta() {
+  // 缓存优先：切源时表单即时成形，不闪
+  const cached = loadSourceMetas()
+  if (cached && cached.length) {
+    sourceMeta.value = (cached.find((s: any) => s.id === props.sourceId) as CollectSourceMeta) || null
+    initFormModel()
+  }
   try {
     const res: any = await listCollectSources()
     const list = res?.data ?? res ?? []
     const arr: CollectSourceMeta[] = Array.isArray(list) ? list : []
+    saveSourceMetas(arr)
     sourceMeta.value = arr.find((s) => s.id === props.sourceId) || null
     initFormModel()
   } catch {
-    initFormModel()
+    if (!cached) initFormModel()
   }
 }
 
+// ─── 跨实例状态缓存（切换 tab 无感恢复，不闪不丢）──────────
+function saveState() {
+  saveCollectPanelState(props.sourceId, {
+    formModel: { ...formModel },
+    items: items.value,
+    currentPage: currentPage.value,
+    hasNext: hasNext.value,
+    hasSearched: hasSearched.value,
+    lastParams: { ...lastParams.value },
+    lastMode: lastMode.value,
+  })
+}
+
+function restoreState(): boolean {
+  const cached = loadCollectPanelState(props.sourceId)
+  if (!cached) return false
+  Object.assign(formModel, cached.formModel || {})
+  items.value = cached.items || []
+  currentPage.value = cached.currentPage || 1
+  hasNext.value = !!cached.hasNext
+  hasSearched.value = !!cached.hasSearched
+  lastParams.value = { ...(cached.lastParams || {}) }
+  lastMode.value = cached.lastMode || 'search'
+  return true
+}
+
+async function initForSource() {
+  await loadSourceMeta()
+  // 预置参数（如 data-tools 工具选择）优先覆盖
+  if (props.presetParams && Object.keys(props.presetParams).length) {
+    Object.assign(formModel, props.presetParams)
+  }
+  // 有缓存则无感恢复（覆盖预置的仅表单其余字段）
+  if (restoreState() && props.presetParams && Object.keys(props.presetParams).length) {
+    Object.assign(formModel, props.presetParams)
+  }
+}
+
+watch(
+  () => props.sourceId,
+  async () => {
+    saveState() // 保存旧源
+    items.value = []
+    selectedItems.value = []
+    currentPage.value = 1
+    hasNext.value = false
+    hasSearched.value = false
+    await initForSource()
+  },
+)
+
+// 预置参数变化（如 data-tools 切换工具）：只更新表单，不丢当前源缓存
+watch(
+  () => props.presetParams,
+  (val) => {
+    if (val && Object.keys(val).length) {
+      Object.assign(formModel, val)
+      saveState()
+    }
+  },
+  { deep: true },
+)
+
+// 表单变化同步缓存（无需提交即保留）
+watch(formModel, () => saveState(), { deep: true })
+
 onMounted(() => {
   refreshClientNodes()
-  loadSourceMeta()
+  initForSource()
 })
 </script>
 

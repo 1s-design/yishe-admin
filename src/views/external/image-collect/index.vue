@@ -29,7 +29,7 @@
       <!-- 右侧主体内容 -->
       <main class="collect-body">
         <keep-alive>
-          <component :is="activeComponent" :key="activeTab" v-bind="activeProps" />
+          <component :is="activeComponent" v-bind="activeProps" />
         </keep-alive>
       </main>
     </div>
@@ -43,6 +43,7 @@ import { useTagsView } from '@/hooks/web/useTagsView'
 import GoogleArtView from '../google-art/index.vue'
 import CollectEnginePanel from '../components/CollectEnginePanel.vue'
 import { listCollectSources, type CollectSourceMeta } from '@/api/external/collect'
+import { saveSourceMetas, loadSourceMetas } from '../components/collectPanelState'
 
 defineOptions({
   name: 'ExternalImageCollect',
@@ -73,10 +74,7 @@ const specialItems: MenuItem[] = [
 const engineItems = ref<MenuItem[]>([])
 
 async function loadEngineSources() {
-  try {
-    const res: any = await listCollectSources('image-collect')
-    const list = res?.data ?? res ?? []
-    const metas: CollectSourceMeta[] = Array.isArray(list) ? list : []
+  const applyMetas = (metas: CollectSourceMeta[]) => {
     engineItems.value = metas.map((m) => ({
       key: `src-${m.id}`,
       name: m.name,
@@ -85,9 +83,21 @@ async function loadEngineSources() {
       available: m.available !== false,
       reason: m.unavailableReason || '',
     }))
+  }
+  // 缓存优先：切换回来无空窗
+  const cached = loadSourceMetas()
+  if (cached && cached.length) {
+    applyMetas(filterModuleMetas(cached, 'image-collect') as CollectSourceMeta[])
+  }
+  try {
+    const res: any = await listCollectSources('image-collect')
+    const list = res?.data ?? res ?? []
+    const metas: CollectSourceMeta[] = Array.isArray(list) ? list : []
+    saveSourceMetas(metas)
+    applyMetas(metas)
   } catch (e) {
     console.error('[image-collect] 加载采集源清单失败:', e)
-    engineItems.value = []
+    if (!cached) engineItems.value = []
   }
 }
 
@@ -124,13 +134,9 @@ const updateTabTitle = (key: TabKey) => {
 
 const switchTab = (key: TabKey) => {
   if (activeTab.value === key) return
+  // 只改组件内部状态，不写 URL query：
+  // 路由缓存 key 是 fullPath（含 query），写 query 会造成页面重建闪烁
   activeTab.value = key
-  router.replace({
-    query: {
-      ...route.query,
-      tab: key,
-    },
-  })
   updateTabTitle(key)
 }
 

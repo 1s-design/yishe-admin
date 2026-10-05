@@ -14,6 +14,8 @@ export interface CollectSearchParam {
   placeholder?: string
   default?: string | number
   required?: boolean
+  /** 仅对这些工具/子场景显示；缺省=全部 */
+  tools?: string[]
 }
 
 export interface CollectSourceMeta {
