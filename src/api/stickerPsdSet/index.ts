@@ -20,8 +20,17 @@ export interface ActivePsdSetSummaryResponse {
   fetchedAt?: string | null;
 }
 
+export interface PsdSetStatusStats {
+  pending: number;
+  processing: number;
+  completed: number;
+  failed: number;
+  total: number;
+}
+
 export const stickerPsdSetApi = {
   page: (data: any) => request.post({ url: "/sticker-psd-set/page", data }),
+  stats: (data: any) => request.post<PsdSetStatusStats>({ url: "/sticker-psd-set/stats", data }),
   getPublishUsageRecords: (params: { psdSetId?: string; stickerId?: string; imageUrl?: string; publishConfigId?: string }) =>
     request.get({ url: "/pod-publish-image-binding/records", params }),
   getPublishUsageConfigOptions: () =>

@@ -1106,7 +1106,7 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import { useI18n } from "@/hooks/web/useI18n";
 import { buildOperationColumn, commonGridOptions } from "@/common/table";
 import { formatTimestamp } from "@/common/date";
-import { stickerPsdSetApi } from "@/api/stickerPsdSet";
+import { stickerPsdSetApi, type PsdSetStatusStats } from "@/api/stickerPsdSet";
 import { getProductList } from "@/api/product/index";
 import { productGenerationTemplateApi } from "@/api/product-generation-template";
 import {
@@ -1144,6 +1144,13 @@ const { t } = useI18n();
 const loading = ref(false);
 const dataSource = ref<any[]>([]);
 const total = ref(0);
+const psdSetStatsData = ref<PsdSetStatusStats>({
+  pending: 0,
+  processing: 0,
+  completed: 0,
+  failed: 0,
+  total: 0,
+});
 const selectedIds = ref<string[]>([]);
 const selectedPsdSetRows = ref<any[]>([]);
 const psdSetGridRef = ref<any>(null);
@@ -2141,12 +2148,45 @@ watchEffect(() => {
   gridOptions.value.maxHeight = Math.max(height.value - 280, 360);
 });
 
+let psdSetStatsRequestSeq = 0;
+
+/** 全局状态统计（与列表同筛选条件但不带 status 过滤，跨分页准确计数） */
+async function loadStats() {
+  const requestSeq = ++psdSetStatsRequestSeq;
+  try {
+    const res = await stickerPsdSetApi.stats({
+      stickerId: queryParams.stickerId?.trim() || undefined,
+      psdTemplateId: queryParams.psdTemplateId?.trim() || undefined,
+      keyword: queryParams.keyword?.trim() || undefined,
+      startTime: queryParams.startTime || undefined,
+      endTime: queryParams.endTime || undefined,
+    });
+    if (requestSeq !== psdSetStatsRequestSeq) return;
+    const data = (res as any)?.data ?? res;
+    if (data && typeof data === "object") {
+      psdSetStatsData.value = {
+        pending: Number(data.pending) || 0,
+        processing: Number(data.processing) || 0,
+        completed: Number(data.completed) || 0,
+        failed: Number(data.failed) || 0,
+        total: Number(data.total) || 0,
+      };
+    }
+  } catch (error) {
+    if (requestSeq === psdSetStatsRequestSeq) {
+      console.error("加载 PSD 套图状态统计失败:", error);
+    }
+  }
+}
+
 async function getList(silent = false) {
   const requestSeq = ++psdSetListRequestSeq;
   if (!silent) {
     pendingNonSilentRequests++;
     loading.value = true;
   }
+  // 状态统计走独立全局接口（跨分页），不阻塞列表渲染
+  void loadStats();
   try {
     const res = await stickerPsdSetApi.page({
       ...queryParams,
@@ -2191,7 +2231,6 @@ function handleIdChange(val: string) {
     getList();
   }
 }
-
 function handleKeywordChange(val: string) {
   if (!val) {
     getList();
@@ -2743,9 +2782,13 @@ function getDispatchClientTaskStep(client: any) {
 const schedulerClientStats = computed(() => {
   const online = dispatchCandidateClients.value.filter((client) => client?.isOnline).length;
   const idle = dispatchCandidateClients.value.filter((client) => isDispatchClientExecutable(client)).length;
-  const running = dataSource.value.filter((item) => normalizePsdSetRuntimeStatus(item?.status) === "processing").length;
-  const pending = dataSource.value.filter((item) => normalizePsdSetRuntimeStatus(item?.status) === "pending").length;
-  return { online, idle, running, pending };
+  // pending/running 取全局统计（跨分页），不再按当前页 dataSource 计数
+  return {
+    online,
+    idle,
+    running: psdSetStatsData.value.processing,
+    pending: psdSetStatsData.value.pending,
+  };
 });
 
 function getDispatchClientLabelById(clientId: unknown, fallbackMachineCode?: unknown) {
@@ -2857,24 +2900,14 @@ const productionDispatchSubmitting = computed(() =>
 );
 
 const psdSetStats = computed(() => {
-  let pending = 0;
-  let processing = 0;
-  let completed = 0;
-  let failed = 0;
-  for (const item of dataSource.value) {
-    const s = normalizePsdSetRuntimeStatus(item?.status);
-    if (s === "pending") pending++;
-    else if (s === "processing") processing++;
-    else if (s === "completed") completed++;
-    else if (s === "failed") failed++;
-  }
-  const currentStatus = queryParams.status;
+  // 全局统计接口口径（跨分页，running/assigned 计入 processing）
+  const stats = psdSetStatsData.value;
   return {
-    pending: currentStatus === "pending" ? total.value : (schedulerClientStats.value.pending || pending),
-    processing: currentStatus === "processing" ? total.value : (schedulerClientStats.value.running || processing),
-    completed: currentStatus === "completed" ? total.value : completed,
-    failed: currentStatus === "failed" ? total.value : failed,
-    total: !currentStatus ? total.value : (total.value || dataSource.value.length),
+    pending: stats.pending,
+    processing: stats.processing,
+    completed: stats.completed,
+    failed: stats.failed,
+    total: stats.total,
   };
 });
 
