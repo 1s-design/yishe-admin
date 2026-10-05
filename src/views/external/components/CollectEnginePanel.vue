@@ -226,6 +226,8 @@ const props = withDefaults(
     sourceId?: string
     /** 预置表单参数（如 data-tools 的工具选择） */
     presetParams?: Record<string, any>
+    /** 入库目标：collect_file（媒体采集→采集文件）| 默认走 crawler_material */
+    materialTarget?: string
   }>(),
   { sourceId: '4kwallpapers', presetParams: () => ({}) }
 )
@@ -479,7 +481,10 @@ async function handleSyncOne(item: Record<string, any>, index: number) {
   const key = itemKey(item, index)
   loadingItems.value.add(key)
   try {
-    const task = await runTask('download', { item })
+    const task = await runTask('download', {
+      item,
+      ...(props.materialTarget ? { materialTarget: props.materialTarget } : {}),
+    })
     if (task?.status === 'failed') {
       ElMessage.error(task?.errorMessage || task?.message || '采集失败')
       return
@@ -513,7 +518,10 @@ async function handleBatchSync() {
   try {
     for (const t of targets) {
       try {
-        const task = await runTask('download', { item: t.item })
+        const task = await runTask('download', {
+          item: t.item,
+          ...(props.materialTarget ? { materialTarget: props.materialTarget } : {}),
+        })
         if (task?.status === 'failed') fail++
         else {
           ok++

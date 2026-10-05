@@ -892,6 +892,17 @@
               <h4><code>defaults</code></h4>
               <p>{{ t('psdTemplate.defaultsDesc') }}</p>
             </div>
+            <div class="psd-config-guide__param">
+              <h4><code>overlays</code></h4>
+              <p>{{ t('psdTemplate.overlaysDesc') }}</p>
+              <ul>
+                <li><code>artboard</code> — {{ t('psdTemplate.overlayArtboardDesc') }}</li>
+                <li><code>images</code> — {{ t('psdTemplate.overlayImagesDesc') }}</li>
+                <li><code>position</code> — {{ t('psdTemplate.overlayPositionDesc') }}</li>
+                <li><code>size</code> — {{ t('psdTemplate.overlaySizeDesc') }}</li>
+                <li><code>opacity</code> — {{ t('psdTemplate.overlayOpacityDesc') }}</li>
+              </ul>
+            </div>
           </div>
         </section>
 
@@ -1171,6 +1182,29 @@ const psdTemplateConfigGuideExample = JSON.stringify(
       { smart_object_name: "b", resize_mode: "cover", background_image_path: "", rotation: 0 },
       { smart_object_name: "c", resize_mode: "contain", background_image_path: "", rotation: 0 },
       { smart_object_name: "a", resize_mode: "stretch", background_image_path: "", rotation: 0 },
+    ],
+    overlays: [
+      {
+        artboard: 1,
+        images: [
+          {
+            image_path: "D:\\badges\\sale.png",
+            position: { x: 82, y: 4, unit: "%" },
+            size: { width: 15, unit: "%" },
+            opacity: 100,
+          },
+        ],
+      },
+      {
+        artboard: 3,
+        images: [
+          {
+            image_path: "D:\\badges\\sale.png",
+            position: { x: 82, y: 4, unit: "%" },
+            size: { width: 15, unit: "%" },
+          },
+        ],
+      },
     ],
     verbose: true,
   },
@@ -2452,6 +2486,7 @@ function createDefaultPsdTemplateConfig() {
         tile_size: 512,
       },
     ],
+    overlays: [],
     verbose: true,
   };
 }

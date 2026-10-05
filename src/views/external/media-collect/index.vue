@@ -35,7 +35,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, markRaw, nextTick, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { useTagsView } from '@/hooks/web/useTagsView'
 import CollectEnginePanel from '../components/CollectEnginePanel.vue'
 import { listCollectSources, type CollectSourceMeta } from '@/api/external/collect'
@@ -46,7 +46,6 @@ defineOptions({
 })
 
 const route = useRoute()
-const router = useRouter()
 const { setTitle } = useTagsView()
 
 type TabKey = string
@@ -70,7 +69,8 @@ async function loadEngineSources() {
       key: `src-${m.id}`,
       name: m.name,
       component: markRaw(CollectEnginePanel),
-      props: { sourceId: m.id },
+      // 媒体采集入库落到「采集文件」（collect_file），不走采集素材
+      props: { sourceId: m.id, materialTarget: 'collect_file' },
       available: m.available !== false,
       reason: m.unavailableReason || '',
     }))

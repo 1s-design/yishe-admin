@@ -566,6 +566,96 @@
                       </div>
                     </div>
                   </div>
+                  <div class="subsection-head">
+                    <div class="subsection-title">{{ t('psConsole.overlayConfig') }}</div>
+                    <el-button size="small" @click="addOverlay">{{ t('psConsole.addOverlay') }}</el-button>
+                  </div>
+                  <div class="ops-panel__sub" style="margin-bottom: 8px">
+                    {{ t('psConsole.overlayConfigDesc') }}
+                  </div>
+                  <div v-if="!processForm.overlays.length" class="ops-panel__sub">
+                    {{ t('psConsole.addOverlay') }}
+                  </div>
+                  <div class="smart-object-list">
+                    <div
+                      v-for="(overlay, overlayIndex) in processForm.overlays"
+                      :key="`overlay-${overlayIndex}`"
+                      class="smart-object-card"
+                    >
+                      <div class="smart-object-card__head">
+                        <div class="smart-object-card__title">
+                          {{ t('psConsole.overlayTitle', { index: overlayIndex + 1 }) }}
+                        </div>
+                        <el-button link type="danger" @click="removeOverlay(overlayIndex)">{{
+                          t('common.delete')
+                        }}</el-button>
+                      </div>
+                      <div class="field-block">
+                        <label>{{ t('psConsole.overlayArtboard') }}</label>
+                        <el-input
+                          v-model="overlay.artboard"
+                          :placeholder="t('psConsole.overlayArtboardPlaceholder')"
+                        />
+                      </div>
+                      <div class="subsection-head">
+                        <div class="subsection-title">{{ t('psConsole.overlayImages') }}</div>
+                        <el-button size="small" @click="addOverlayImage(overlayIndex)">{{
+                          t('psConsole.addOverlayImage')
+                        }}</el-button>
+                      </div>
+                      <div
+                        v-for="(img, imageIndex) in overlay.images"
+                        :key="`overlay-${overlayIndex}-img-${imageIndex}`"
+                        class="smart-object-card"
+                        style="margin-top: 8px"
+                      >
+                        <div class="smart-object-card__head">
+                          <div class="smart-object-card__title">
+                            {{ t('psConsole.overlayImageTitle', { index: imageIndex + 1 }) }}
+                          </div>
+                          <el-button
+                            link
+                            type="danger"
+                            :disabled="overlay.images.length <= 1"
+                            @click="removeOverlayImage(overlayIndex, imageIndex)"
+                            >{{ t('common.delete') }}</el-button
+                          >
+                        </div>
+                        <div class="field-block">
+                          <label>{{ t('psConsole.overlayImagePath') }}</label>
+                          <el-input
+                            v-model="img.imagePath"
+                            :placeholder="t('psConsole.overlayImagePathPlaceholder')"
+                          />
+                        </div>
+                        <div class="form-grid">
+                          <div class="field-block">
+                            <label>{{ t('psConsole.overlayPosition') }}</label>
+                            <el-input
+                              v-model="img.positionText"
+                              :placeholder="t('psConsole.overlayPositionPlaceholder')"
+                            />
+                          </div>
+                          <div class="field-block">
+                            <label>{{ t('psConsole.overlaySize') }}</label>
+                            <el-input
+                              v-model="img.sizeText"
+                              :placeholder="t('psConsole.overlaySizePlaceholder')"
+                            />
+                          </div>
+                          <div class="field-block">
+                            <label>{{ t('psConsole.overlayOpacity') }}</label>
+                            <el-input-number
+                              v-model="img.opacity"
+                              :min="0"
+                              :max="100"
+                              controls-position="right"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                   <!-- 颜色图层调试配置已临时停用 -->
                   <div class="button-row wrap">
                     <el-button
@@ -696,6 +786,18 @@ interface SmartObjectForm {
   customOptionsText: string;
 }
 
+interface OverlayImageForm {
+  imagePath: string;
+  positionText: string;
+  sizeText: string;
+  opacity: number;
+}
+
+interface OverlayForm {
+  artboard: string;
+  images: OverlayImageForm[];
+}
+
 interface CommandLogItem {
   id: string;
   time: string;
@@ -803,12 +905,25 @@ const createSmartObject = (): SmartObjectForm => ({
   customOptionsText: "",
 });
 
+const createOverlayImage = (): OverlayImageForm => ({
+  imagePath: "",
+  positionText: "",
+  sizeText: "",
+  opacity: 100,
+});
+
+const createOverlay = (): OverlayForm => ({
+  artboard: "",
+  images: [createOverlayImage()],
+});
+
 const processFormStorage = useLocalStorage("ps_console_panel_process_form", {
   psdPath: "",
   exportDir: "",
   outputFilename: "",
   verbose: true,
   smartObjects: [createSmartObject()],
+  overlays: [] as OverlayForm[],
 });
 const processForm = reactive({
   psdPath: processFormStorage.value?.psdPath ?? "",
@@ -818,10 +933,26 @@ const processForm = reactive({
   smartObjects: Array.isArray(processFormStorage.value?.smartObjects)
     ? processFormStorage.value.smartObjects
     : [createSmartObject()],
+  overlays: Array.isArray(processFormStorage.value?.overlays)
+    ? processFormStorage.value.overlays.map((item: any): OverlayForm => ({
+        artboard: String(item?.artboard ?? ""),
+        images: Array.isArray(item?.images) && item.images.length
+          ? item.images.map((img: any): OverlayImageForm => ({
+              imagePath: String(img?.imagePath ?? ""),
+              positionText: String(img?.positionText ?? ""),
+              sizeText: String(img?.sizeText ?? ""),
+              opacity: Number(img?.opacity ?? 100),
+            }))
+          : [createOverlayImage()],
+      }))
+    : ([] as OverlayForm[]),
 });
 
 if (!Array.isArray(processForm.smartObjects) || !processForm.smartObjects.length) {
   processForm.smartObjects = [createSmartObject()];
+}
+if (!Array.isArray(processForm.overlays)) {
+  processForm.overlays = [];
 }
 
 watch(
@@ -855,6 +986,7 @@ watch(
         outputFilename: String(value.outputFilename || ""),
         verbose: !!value.verbose,
         smartObjects: Array.isArray(value.smartObjects) ? value.smartObjects : [createSmartObject()],
+        overlays: Array.isArray(value.overlays) ? value.overlays : [],
       }),
     );
   },
@@ -1515,6 +1647,30 @@ const removeSmartObject = (index: number) => {
   processForm.smartObjects.splice(index, 1);
 };
 
+const addOverlay = () => {
+  processForm.overlays.push(createOverlay());
+};
+
+const removeOverlay = (index: number) => {
+  processForm.overlays.splice(index, 1);
+};
+
+const addOverlayImage = (overlayIndex: number) => {
+  const target = processForm.overlays[overlayIndex];
+  if (!target) {
+    return;
+  }
+  target.images.push(createOverlayImage());
+};
+
+const removeOverlayImage = (overlayIndex: number, imageIndex: number) => {
+  const target = processForm.overlays[overlayIndex];
+  if (!target || target.images.length <= 1) {
+    return;
+  }
+  target.images.splice(imageIndex, 1);
+};
+
 const applyCustomOptionsTemplate = (index: number, templateKey: string) => {
   const target = processForm.smartObjects[index];
   if (!target) {
@@ -1602,6 +1758,109 @@ const buildProcessRequest = (strict = true) => {
 
   if (smartObjects.length || preserveEmptyStructure) {
     request.smart_objects = smartObjects;
+  }
+
+  const parseOverlayJsonField = (
+    text: string,
+    field: string,
+    overlayIndex: number,
+    imageIndex: number,
+  ): Record<string, any> | null => {
+    const trimmed = text.trim();
+    if (!trimmed) {
+      return null;
+    }
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new Error(t("psConsole.overlayFieldInvalidObject", { index: overlayIndex + 1, imageIndex: imageIndex + 1, field }));
+      }
+      return parsed;
+    } catch (error: any) {
+      if (strict) {
+        throw new Error(
+          t("psConsole.overlayFieldInvalidJson", {
+            index: overlayIndex + 1,
+            imageIndex: imageIndex + 1,
+            field,
+            detail: error?.message || error,
+          }),
+        );
+      }
+      return null;
+    }
+  };
+
+  const overlays = processForm.overlays
+    .map((overlay, overlayIndex) => {
+      const artboardRaw = String(overlay.artboard ?? "").trim();
+      const hasMeaningfulConfig =
+        !!artboardRaw ||
+        overlay.images.some((img) => !!img.imagePath.trim() || !!img.positionText.trim() || !!img.sizeText.trim());
+
+      if (strict && !artboardRaw) {
+        if (!hasMeaningfulConfig) {
+          return null;
+        }
+        throw new Error(t("psConsole.overlayArtboardRequired", { index: overlayIndex + 1 }));
+      }
+
+      if (!artboardRaw && !hasMeaningfulConfig) {
+        return null;
+      }
+
+      // 纯数字 → 画板序号（从 1 起）；其他 → 根图层名
+      const artboard = /^\d+$/.test(artboardRaw) ? Number(artboardRaw) : artboardRaw;
+
+      const images = overlay.images
+        .map((img, imageIndex) => {
+          const imagePath = normalizeWindowsPath(img.imagePath);
+          const position = parseOverlayJsonField(img.positionText, "position", overlayIndex, imageIndex);
+          const size = parseOverlayJsonField(img.sizeText, "size", overlayIndex, imageIndex);
+          const hasImageConfig = !!imagePath || !!position || !!size;
+
+          if (strict && !imagePath) {
+            if (!hasImageConfig) {
+              return null;
+            }
+            throw new Error(
+              t("psConsole.overlayImageRequired", { index: overlayIndex + 1, imageIndex: imageIndex + 1 }),
+            );
+          }
+
+          if (!imagePath && !hasImageConfig) {
+            return null;
+          }
+
+          const payload: Record<string, any> = { image_path: imagePath };
+          if (position) {
+            payload.position = position;
+          }
+          if (size) {
+            payload.size = size;
+          }
+          const opacity = Number(img.opacity);
+          if (Number.isFinite(opacity) && opacity !== 100) {
+            payload.opacity = opacity;
+          }
+          return payload;
+        })
+        .filter(Boolean) as Record<string, any>[];
+
+      if (strict && !images.length) {
+        throw new Error(t("psConsole.overlayNeedOneImage", { index: overlayIndex + 1 }));
+      }
+
+      if (!images.length && !preserveEmptyStructure) {
+        return null;
+      }
+
+      return { artboard, images };
+    })
+    .filter(Boolean) as Record<string, any>[];
+
+  if (overlays.length || preserveEmptyStructure) {
+    request.overlays = overlays;
   }
 
   const exportDir = normalizeWindowsPath(processForm.exportDir);

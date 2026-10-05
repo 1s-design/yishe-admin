@@ -33,6 +33,8 @@ export interface CollectSourceMeta {
   ratelimit?: { qps?: number; concurrent?: number }
   domains: string[]
   timeoutMs?: number
+  available?: boolean
+  unavailableReason?: string
 }
 
 export interface CollectTaskResult {

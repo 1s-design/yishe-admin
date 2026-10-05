@@ -439,6 +439,17 @@ const remainingRouter: AppRouteRecordRaw[] = [
         },
       },
       {
+        path: "collect-file",
+        component: () => import("@/views/material/collect-file/index.vue"),
+        name: "CollectFile",
+        meta: {
+          canTo: true,
+          hidden: false,
+          noTagsView: false,
+          title: "router.collectFile",
+        },
+      },
+      {
         path: "file-asset",
         component: () => import("@/views/system/file-asset/index.vue"),
         name: "FileAsset",
