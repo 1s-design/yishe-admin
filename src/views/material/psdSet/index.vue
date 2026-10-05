@@ -191,19 +191,19 @@
                 <el-button
                   size="small"
                   plain
+                  :loading="resettingPsRuntime"
+                  @click="handleResetAllPsAutomationRuntime"
+                >
+                  {{ t('psdSet.resetStatus') }}
+                </el-button>
+                <el-button
+                  size="small"
+                  plain
                   :type="userAutoSchedulingEnabled ? 'danger' : 'success'"
                   :loading="userAutoSchedulingLoading"
                   @click="handleToggleUserAutoScheduling(!userAutoSchedulingEnabled)"
                 >
                   {{ userAutoSchedulingEnabled ? t('queue.close') : t('queue.open') }}
-                </el-button>
-                <el-button
-                  size="small"
-                  plain
-                  :loading="resettingPsRuntime"
-                  @click="handleResetAllPsAutomationRuntime"
-                >
-                  {{ t('psdSet.resetStatus') }}
                 </el-button>
               </div>
             </div>
@@ -951,6 +951,49 @@
       align-center append-to-body destroy-on-close class="production-dispatch-dialog" @open="handleOpenProductionDispatchDialog"
       @closed="handleCloseProductionDispatchDialog">
       <div class="production-dispatch-dialog__body">
+        <div v-if="productionDispatchMode === 'auto'" class="production-dispatch-dialog__filters">
+          <div class="production-dispatch-dialog__panel-title">{{ t('psdSet.autoClaimConditions') }}</div>
+          <el-form label-position="top" class="production-dispatch-dialog__filter-form">
+            <el-row :gutter="12">
+              <el-col :xs="24" :sm="12">
+                <el-form-item :label="t('psdSet.keyword')">
+                  <el-input
+                    v-model="autoDispatchFilterForm.keyword"
+                    clearable
+                    :placeholder="t('psdSet.nameDescKeywordId')"
+                  />
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="12">
+                <el-form-item :label="t('psdSet.sort')">
+                  <el-select
+                    v-model="autoDispatchFilterForm.sortOrder"
+                    :placeholder="t('psdSet.selectSortType')"
+                    style="width: 100%"
+                  >
+                    <el-option :label="t('psdSet.oldestFirst')" value="oldest" />
+                    <el-option :label="t('psdSet.newestFirst')" value="newest" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :span="24">
+                <el-form-item :label="t('common.createTime')">
+                  <el-date-picker
+                    v-model="autoDispatchFilterForm.createdAtRange"
+                    type="datetimerange"
+                    :range-separator="t('psdSet.to')"
+                    :start-placeholder="t('common.startTimeText')"
+                    :end-placeholder="t('common.endTimeText')"
+                    format="YYYY-MM-DD HH:mm:ss"
+                    value-format="YYYY-MM-DD HH:mm:ss"
+                    clearable
+                    style="width: 100%"
+                  />
+                </el-form-item>
+              </el-col>
+            </el-row>
+          </el-form>
+        </div>
         <div v-loading="productionDispatchLoading" :element-loading-text="DISPATCH_DIALOG_LOADING_TEXT"
           class="production-dispatch-dialog__panel">
           <div class="production-dispatch-dialog__panel-title">{{ t('psdSet.clientNode') }}</div>
@@ -1008,49 +1051,6 @@
             </el-table>
           </div>
           <div v-else class="production-dispatch-dialog__empty">{{ t('psdSet.noClientNodes') }}</div>
-        </div>
-        <div v-if="productionDispatchMode === 'auto'" class="production-dispatch-dialog__filters">
-          <div class="production-dispatch-dialog__panel-title">{{ t('psdSet.autoClaimConditions') }}</div>
-          <el-form label-position="top" class="production-dispatch-dialog__filter-form">
-            <el-row :gutter="12">
-              <el-col :xs="24" :sm="12">
-                <el-form-item :label="t('psdSet.keyword')">
-                  <el-input
-                    v-model="autoDispatchFilterForm.keyword"
-                    clearable
-                    :placeholder="t('psdSet.nameDescKeywordId')"
-                  />
-                </el-form-item>
-              </el-col>
-              <el-col :xs="24" :sm="12">
-                <el-form-item :label="t('psdSet.sort')">
-                  <el-select
-                    v-model="autoDispatchFilterForm.sortOrder"
-                    :placeholder="t('psdSet.selectSortType')"
-                    style="width: 100%"
-                  >
-                    <el-option :label="t('psdSet.oldestFirst')" value="oldest" />
-                    <el-option :label="t('psdSet.newestFirst')" value="newest" />
-                  </el-select>
-                </el-form-item>
-              </el-col>
-              <el-col :span="24">
-                <el-form-item :label="t('common.createTime')">
-                  <el-date-picker
-                    v-model="autoDispatchFilterForm.createdAtRange"
-                    type="datetimerange"
-                    :range-separator="t('psdSet.to')"
-                    :start-placeholder="t('common.startTimeText')"
-                    :end-placeholder="t('common.endTimeText')"
-                    format="YYYY-MM-DD HH:mm:ss"
-                    value-format="YYYY-MM-DD HH:mm:ss"
-                    clearable
-                    style="width: 100%"
-                  />
-                </el-form-item>
-              </el-col>
-            </el-row>
-          </el-form>
         </div>
       </div>
       <template #footer>
