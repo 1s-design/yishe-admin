@@ -329,6 +329,7 @@ export default {
     serviceCache: 'Service Cache',
     operateLog: 'Operation Logs',
     systemLog: 'System Logs',
+    serviceStatus: 'Service Status',
     queueTask: 'Async Queue Tasks',
     queueQueue: 'Task Queues',
   },

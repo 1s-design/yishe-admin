@@ -21,6 +21,7 @@ export const ADMIN_ONLY_MENU_KEYS = new Set([
   "system.service-file-cache",
   "system.operatelog",
   "system.file-log",
+  "system.service-status",
 ]);
 
 export const ROUTE_MENU_KEY_MAP: Record<string, string> = {
@@ -110,6 +111,7 @@ export const ROUTE_MENU_KEY_MAP: Record<string, string> = {
   SystemServiceFileCache: "system.service-file-cache",
   SystemOperateLog: "system.operatelog",
   SystemFileLog: "system.file-log",
+  SystemServiceStatus: "system.service-status",
   PersonalSettings: "personal.settings",
   MyOrganization: "personal.organization",
 };

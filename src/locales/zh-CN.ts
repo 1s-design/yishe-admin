@@ -335,6 +335,7 @@ export default {
     serviceCache: '服务缓存文件',
     operateLog: '操作日志',
     systemLog: '系统日志',
+    serviceStatus: '服务状态',
     queueTask: '异步任务',
     queueQueue: '任务队列',
   },

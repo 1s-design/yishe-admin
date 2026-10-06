@@ -1569,6 +1569,16 @@ const remainingRouter: AppRouteRecordRaw[] = [
           order: 8,
         },
       },
+      {
+        path: "service-status",
+        component: () => import("@/views/system/service-status/index.vue"),
+        name: "SystemServiceStatus",
+        meta: {
+          title: "router.serviceStatus",
+          requiresAdmin: true,
+          order: 9,
+        },
+      },
       // {
       //   path: "public-user-behavior-log",
       //   component: () => import("@/views/system/public-user-behavior-log/index.vue"),
