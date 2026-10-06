@@ -616,23 +616,7 @@
           class="psd-set-dialog" @close="handleCloseMaterialPublishConfigDialog">
           <template #header>
             <div class="psd-set-dialog__header">
-              <div class="psd-set-dialog__header-main">
-                <div class="psd-set-dialog__header-title">{{ t('material.selectPublishConfig') }}</div>
-              </div>
-              <div class="psd-set-dialog__header-chips">
-                <span v-if="isImageGroupPsdSet" class="psd-set-dialog__header-chip">
-                  {{ t('material.groupCount', { count: psdSetImageGroups.length }) }}
-                </span>
-                <span class="psd-set-dialog__header-chip">
-                  {{ t('material.materialCount', { count: selectedMaterialsForPublishConfig.length }) }}
-                </span>
-                <span class="psd-set-dialog__header-chip">
-                  {{ t('material.publishConfigCount', { count: materialPublishConfigSelectedIds.length }) }}
-                </span>
-                <span class="psd-set-dialog__header-chip is-accent">
-                  {{ t('material.expectedTasks', { count: materialPublishConfigTaskCount }) }}
-                </span>
-              </div>
+              <div class="psd-set-dialog__header-title">{{ t('material.selectPublishConfig') }}</div>
             </div>
           </template>
 
@@ -640,35 +624,9 @@
             <!-- 左侧已选素材面板 -->
             <div class="psd-set-materials">
               <div class="psd-set-panel__head">
-                <div>
-                  <div class="psd-set-panel__eyebrow">{{ t('material.step1') }}</div>
-                  <div class="section-title">
-                    {{ isImageGroupPsdSet
-                      ? t('material.selectedGroups')
-                      : t('material.selectedMaterials', { count: selectedMaterialsForPublishConfig.length }) }}
-                    <template v-if="isImageGroupPsdSet">
-                      ({{ psdSetImageGroups.length }})
-                    </template>
-                  </div>
-                  <div class="psd-set-panel__desc">
-                    {{
-                      isImageGroupPsdSet
-                        ? t('material.groupTaskDesc')
-                        : t('material.materialTaskDesc')
-                    }}
-                  </div>
-                </div>
-                <div class="psd-set-panel__tags">
-                  <el-tag :type="hasInvalidFormatMaterials ? 'warning' : 'success'" effect="plain">
-                    {{
-                      hasInvalidFormatMaterials
-                        ? t('material.formatNeedsProcess', { count: invalidFormatMaterialsList.length })
-                        : t('material.formatCheckPassed')
-                    }}
-                  </el-tag>
-                  <el-tag type="info" effect="plain">
-                    {{ t('material.allowedFormats') }}：{{ psdSetAllowedFormats.join("、") }}
-                  </el-tag>
+                <div class="section-title">
+                  {{ isImageGroupPsdSet ? t('material.selectedGroups') : t('material.selectedMaterials', { count: selectedMaterialsForPublishConfig.length }) }}
+                  <span v-if="isImageGroupPsdSet" class="panel-count">{{ psdSetImageGroups.length }}</span>
                 </div>
               </div>
 
@@ -736,29 +694,7 @@
             <!-- 右侧配置选择面板 -->
             <div class="psd-set-templates">
               <div class="psd-set-panel__head">
-                <div>
-                  <div class="psd-set-panel__eyebrow">{{ t('material.step2') }}</div>
-                  <div class="section-title">
-                    {{ t('material.publishConfig') }}
-                    <span v-if="materialPublishConfigTotal > 0" class="template-count-info">
-                      ({{ materialPublishConfigTotal }})
-                    </span>
-                  </div>
-                  <div class="psd-set-panel__desc">
-                    {{ t('material.publishConfigSectionDesc') }}
-                  </div>
-                </div>
-                <div class="psd-set-panel__tags">
-                  <el-tag type="primary" effect="plain">
-                    {{ t('material.selectedCount', { count: materialPublishConfigSelectedIds.length }) }}
-                  </el-tag>
-                  <el-tag type="success" effect="plain">
-                    {{ t('material.usable') }}: {{ materialPublishConfigUsableCount }} / {{ materialPublishConfigTotal }}
-                  </el-tag>
-                  <el-tag type="info" effect="plain">
-                    {{ t('material.expectedTasks', { count: materialPublishConfigTaskCount }) }}
-                  </el-tag>
-                </div>
+                <div class="section-title">{{ t('material.publishConfig') }}</div>
               </div>
 
               <div class="config-panel-main">
@@ -803,9 +739,6 @@
                   <el-button size="default" class="psd-template-toolbar-button" :disabled="!materialPublishConfigSelectedIds.length" @click="handleClearAllPublishConfigSelection">
                     {{ t('material.clearSelection') }}
                   </el-button>
-                  <span v-if="materialPublishConfigSelectedIds.length > 0" class="selected-count">
-                    {{ t('material.selectedCount', { count: materialPublishConfigSelectedIds.length }) }}
-                  </span>
                 </div>
 
                 <div class="config-table-container" v-loading="materialPublishConfigLoading">
@@ -847,7 +780,7 @@
                     </el-table-column>
 
                     <!-- 配置名称 -->
-                    <el-table-column prop="name" :label="t('material.taskConfigName')" min-width="200" show-overflow-tooltip>
+                    <el-table-column prop="name" :label="t('material.taskConfigName')" min-width="360" show-overflow-tooltip>
                       <template #default="{ row }">
                         <div class="config-table-title-cell">
                           <div class="flex items-center gap-1.5">
@@ -952,37 +885,30 @@
           </div>
 
           <div class="psd-set-footer">
-            <div class="psd-set-footer-main">
-              <div class="psd-set-info">
-                <el-icon><InfoFilled /></el-icon>
-                <div class="psd-set-info-content">
-                  <span class="psd-set-info-chip">
-                    {{ isImageGroupPsdSet ? t('material.groupCount', { count: psdSetImageGroups.length }) : t('material.materialWithCount', { count: ids.length }) }}
-                  </span>
-                  <span class="psd-set-info-chip" :class="{ 'is-accent': materialPublishConfigSelectedIds.length }">
-                    {{ t('material.publishConfigCount', { count: materialPublishConfigSelectedIds.length }) }}
-                  </span>
-                  <span class="psd-set-info-chip is-accent">
-                    {{ t('material.expectedPsdTasks', { count: materialPublishConfigTaskCount }) }}
-                  </span>
-                  <span v-if="hasInvalidFormatMaterials" class="psd-set-info-chip psd-set-info-chip--warning">
-                    {{ t('material.incompatibleFormatTip') }}
-                  </span>
-                  <span v-else-if="!materialPublishConfigSelectedIds.length" class="psd-set-info-chip psd-set-info-chip--subtle">
-                    {{ t('material.publishConfigFooterMuted') }}
-                  </span>
-                </div>
-              </div>
-
-              <div class="psd-set-footer-actions">
-                <el-button @click="handleCloseMaterialPublishConfigDialog">{{ t('material.cancel') }}</el-button>
-                <el-button type="primary" :loading="materialPublishConfigSubmitting" :disabled="!(isImageGroupPsdSet ? psdSetImageGroups.length : ids.length) ||
-                  !materialPublishConfigSelectedIds.length ||
-                  hasInvalidFormatMaterials
-                  " @click="handleCreatePsdSetsByPublishConfig">
-                  {{ t('material.createPublishTask') }} ({{ materialPublishConfigTaskCount }})
-                </el-button>
-              </div>
+            <div class="psd-set-footer-summary" :class="{ 'is-warning': hasInvalidFormatMaterials, 'is-muted': !hasInvalidFormatMaterials && !materialPublishConfigSelectedIds.length }">
+              <template v-if="hasInvalidFormatMaterials">
+                {{ t('material.incompatibleFormatTip') }}
+              </template>
+              <template v-else>
+                {{ isImageGroupPsdSet ? t('material.groupCount', { count: psdSetImageGroups.length }) : t('material.materialWithCount', { count: ids.length }) }}
+                <span class="summary-dot">·</span>
+                {{ t('material.publishConfigCount', { count: materialPublishConfigSelectedIds.length }) }}
+                <span class="summary-dot">·</span>
+                {{ t('material.expectedPsdTasks', { count: materialPublishConfigTaskCount }) }}
+                <template v-if="!materialPublishConfigSelectedIds.length">
+                  <span class="summary-dot">·</span>
+                  {{ t('material.publishConfigFooterMuted') }}
+                </template>
+              </template>
+            </div>
+            <div class="psd-set-footer-actions">
+              <el-button @click="handleCloseMaterialPublishConfigDialog">{{ t('material.cancel') }}</el-button>
+              <el-button type="primary" :loading="materialPublishConfigSubmitting" :disabled="!(isImageGroupPsdSet ? psdSetImageGroups.length : ids.length) ||
+                !materialPublishConfigSelectedIds.length ||
+                hasInvalidFormatMaterials
+                " @click="handleCreatePsdSetsByPublishConfig">
+                {{ t('material.createPublishTask') }} ({{ materialPublishConfigTaskCount }})
+              </el-button>
             </div>
           </div>
         </el-dialog>
@@ -992,23 +918,7 @@
           class="psd-set-dialog" @close="handleCloseMaterialProductConfigDialog">
           <template #header>
             <div class="psd-set-dialog__header">
-              <div class="psd-set-dialog__header-main">
-                <div class="psd-set-dialog__header-title">{{ t('material.generateSiteProduct') }}</div>
-              </div>
-              <div class="psd-set-dialog__header-chips">
-                <span v-if="isImageGroupPsdSet" class="psd-set-dialog__header-chip">
-                  {{ t('material.groupCount', { count: psdSetImageGroups.length }) }}
-                </span>
-                <span class="psd-set-dialog__header-chip">
-                  {{ t('material.materialCount', { count: selectedMaterialsForPublishConfig.length }) }}
-                </span>
-                <span class="psd-set-dialog__header-chip">
-                  {{ t('material.productConfigCount', { count: materialProductConfigSelectedIds.length }) }}
-                </span>
-                <span class="psd-set-dialog__header-chip is-accent">
-                  {{ t('material.expectedSiteProducts', { count: materialProductConfigTaskCount }) }}
-                </span>
-              </div>
+              <div class="psd-set-dialog__header-title">{{ t('material.generateSiteProduct') }}</div>
             </div>
           </template>
 
@@ -1016,31 +926,9 @@
             <!-- 左侧已选素材面板 -->
             <div class="psd-set-materials">
               <div class="psd-set-panel__head">
-                <div>
-                  <div class="psd-set-panel__eyebrow">{{ t('material.step1') }}</div>
-                  <div class="section-title">
-                    {{ isImageGroupPsdSet ? t('material.selectedGroups') : t('material.selectedMaterials') }}
-                    ({{ isImageGroupPsdSet ? psdSetImageGroups.length : selectedMaterialsForPublishConfig.length }})
-                  </div>
-                  <div class="psd-set-panel__desc">
-                    {{
-                      isImageGroupPsdSet
-                        ? t('material.groupTaskDesc')
-                        : t('material.materialTaskDesc')
-                    }}
-                  </div>
-                </div>
-                <div class="psd-set-panel__tags">
-                  <el-tag :type="hasInvalidFormatMaterials ? 'warning' : 'success'" effect="plain">
-                    {{
-                      hasInvalidFormatMaterials
-                        ? t('material.formatNeedsProcess', { count: invalidFormatMaterialsList.length })
-                        : t('material.formatCheckPassed')
-                    }}
-                  </el-tag>
-                  <el-tag type="info" effect="plain">
-                    {{ t('material.allowedFormats') }}：{{ psdSetAllowedFormats.join("、") }}
-                  </el-tag>
+                <div class="section-title">
+                  {{ isImageGroupPsdSet ? t('material.selectedGroups') : t('material.selectedMaterials') }}
+                  <span class="panel-count">{{ isImageGroupPsdSet ? psdSetImageGroups.length : selectedMaterialsForPublishConfig.length }}</span>
                 </div>
               </div>
 
@@ -1108,29 +996,7 @@
             <!-- 右侧配置选择面板 -->
             <div class="psd-set-templates">
               <div class="psd-set-panel__head">
-                <div>
-                  <div class="psd-set-panel__eyebrow">{{ t('material.step2') }}</div>
-                  <div class="section-title">
-                    {{ t('material.siteProductConfig') }}
-                    <span v-if="filteredMaterialProductConfigs.length > 0" class="template-count-info">
-                      ({{ t('material.totalCount', { count: filteredMaterialProductConfigs.length }) }})
-                    </span>
-                  </div>
-                  <div class="psd-set-panel__desc">
-                    {{ t('material.siteProductSectionDesc') }}
-                  </div>
-                </div>
-                <div class="psd-set-panel__tags">
-                  <el-tag type="primary" effect="plain">
-                    {{ t('material.selectedCount', { count: materialProductConfigSelectedIds.length }) }}
-                  </el-tag>
-                  <el-tag type="success" effect="plain">
-                    {{ t('material.usable') }}: {{ materialProductConfigUsableCount }} / {{ filteredMaterialProductConfigs.length }}
-                  </el-tag>
-                  <el-tag type="info" effect="plain">
-                    {{ t('material.expectedSiteProducts', { count: materialProductConfigTaskCount }) }}
-                  </el-tag>
-                </div>
+                <div class="section-title">{{ t('material.siteProductConfig') }}</div>
               </div>
 
               <div class="config-panel-main">
@@ -1151,9 +1017,6 @@
                   <el-button size="default" class="psd-template-toolbar-button" :disabled="!materialProductConfigSelectedIds.length" @click="handleClearAllProductConfigSelection">
                     {{ t('material.clearSelection') }}
                   </el-button>
-                  <span v-if="materialProductConfigSelectedIds.length > 0" class="selected-count">
-                    {{ t('material.selectedCount', { count: materialProductConfigSelectedIds.length }) }}
-                  </span>
                 </div>
 
                 <div class="config-table-container" v-loading="materialProductConfigLoading">
@@ -1289,37 +1152,30 @@
           </div>
 
           <div class="psd-set-footer">
-            <div class="psd-set-footer-main">
-              <div class="psd-set-info">
-                <el-icon><InfoFilled /></el-icon>
-                <div class="psd-set-info-content">
-                  <span class="psd-set-info-chip">
-                    {{ isImageGroupPsdSet ? t('material.groupCount', { count: psdSetImageGroups.length }) : t('material.materialCount', { count: ids.length }) }}
-                  </span>
-                  <span class="psd-set-info-chip" :class="{ 'is-accent': materialProductConfigSelectedIds.length }">
-                    {{ t('material.productConfigCount', { count: materialProductConfigSelectedIds.length }) }}
-                  </span>
-                  <span class="psd-set-info-chip is-accent">
-                    {{ t('material.expectedSiteProducts', { count: materialProductConfigTaskCount }) }}
-                  </span>
-                  <span v-if="hasInvalidFormatMaterials" class="psd-set-info-chip psd-set-info-chip--warning">
-                    {{ t('material.incompatibleFormatTipProduct') }}
-                  </span>
-                  <span v-else-if="!materialProductConfigSelectedIds.length" class="psd-set-info-chip psd-set-info-chip--subtle">
-                    {{ t('material.siteProductFooterMuted') }}
-                  </span>
-                </div>
-              </div>
-
-              <div class="psd-set-footer-actions">
-                <el-button @click="handleCloseMaterialProductConfigDialog">{{ t('material.cancel') }}</el-button>
-                <el-button type="primary" :loading="materialProductConfigSubmitting" :disabled="!(isImageGroupPsdSet ? psdSetImageGroups.length : ids.length) ||
-                  !materialProductConfigSelectedIds.length ||
-                  hasInvalidFormatMaterials
-                  " @click="handleCreatePsdSetsByProductConfig">
-                  {{ t('material.generateSiteProduct') }} ({{ materialProductConfigTaskCount }})
-                </el-button>
-              </div>
+            <div class="psd-set-footer-summary" :class="{ 'is-warning': hasInvalidFormatMaterials, 'is-muted': !hasInvalidFormatMaterials && !materialProductConfigSelectedIds.length }">
+              <template v-if="hasInvalidFormatMaterials">
+                {{ t('material.incompatibleFormatTipProduct') }}
+              </template>
+              <template v-else>
+                {{ isImageGroupPsdSet ? t('material.groupCount', { count: psdSetImageGroups.length }) : t('material.materialCount', { count: ids.length }) }}
+                <span class="summary-dot">·</span>
+                {{ t('material.productConfigCount', { count: materialProductConfigSelectedIds.length }) }}
+                <span class="summary-dot">·</span>
+                {{ t('material.expectedSiteProducts', { count: materialProductConfigTaskCount }) }}
+                <template v-if="!materialProductConfigSelectedIds.length">
+                  <span class="summary-dot">·</span>
+                  {{ t('material.siteProductFooterMuted') }}
+                </template>
+              </template>
+            </div>
+            <div class="psd-set-footer-actions">
+              <el-button @click="handleCloseMaterialProductConfigDialog">{{ t('material.cancel') }}</el-button>
+              <el-button type="primary" :loading="materialProductConfigSubmitting" :disabled="!(isImageGroupPsdSet ? psdSetImageGroups.length : ids.length) ||
+                !materialProductConfigSelectedIds.length ||
+                hasInvalidFormatMaterials
+                " @click="handleCreatePsdSetsByProductConfig">
+                {{ t('material.generateSiteProduct') }} ({{ materialProductConfigTaskCount }})
+              </el-button>
             </div>
           </div>
         </el-dialog>
@@ -1497,51 +1353,16 @@
           class="psd-set-dialog" @close="resetPsdSetState">
           <template #header>
             <div class="psd-set-dialog__header">
-              <div class="psd-set-dialog__header-main">
-                <div class="psd-set-dialog__header-title">{{ psdSetDialogTitle }}</div>
-              </div>
-              <div class="psd-set-dialog__header-chips">
-                <span v-if="isImageGroupPsdSet" class="psd-set-dialog__header-chip">
-                  {{ t('material.groupCount', { count: psdSetImageGroups.length }) }}
-                </span>
-                <span class="psd-set-dialog__header-chip">
-                  {{ t('material.materialCount', { count: psdSetSelectedMaterialIds.length }) }}
-                </span>
-                <span class="psd-set-dialog__header-chip">
-                  {{ t('material.templateCount', { count: selectedPsdTemplateIds.length }) }}
-                </span>
-                <span class="psd-set-dialog__header-chip is-accent">
-                  {{ t('material.expectedTasks', { count: psdSetTaskCount }) }}
-                </span>
-              </div>
+              <div class="psd-set-dialog__header-title">{{ psdSetDialogTitle }}</div>
             </div>
           </template>
 
           <div class="psd-set-body">
             <div class="psd-set-materials">
               <div class="psd-set-panel__head">
-                <div>
-                  <div class="psd-set-panel__eyebrow">{{ t('material.step1') }}</div>
-                  <div class="section-title">
-                    {{ isImageGroupPsdSet ? t('material.selectedGroups') : t('material.selectedMaterials') }}
-                    ({{ isImageGroupPsdSet ? psdSetImageGroups.length : psdSetSelectedMaterialIds.length }})
-                  </div>
-                  <div class="psd-set-panel__desc">
-                    {{
-                      isImageGroupPsdSet
-                        ? t('material.groupTaskDesc')
-                        : t('material.materialTaskDesc')
-                    }}
-                  </div>
-                </div>
-                <div class="psd-set-panel__tags">
-                  <el-tag :type="hasInvalidFormatMaterials ? 'warning' : 'success'" effect="plain">
-                    {{
-                      hasInvalidFormatMaterials
-                        ? t('material.formatNeedsProcess', { count: invalidFormatMaterialsList.length })
-                        : t('material.formatCheckPassed')
-                    }}
-                  </el-tag>
+                <div class="section-title">
+                  {{ isImageGroupPsdSet ? t('material.selectedGroups') : t('material.selectedMaterials') }}
+                  <span class="panel-count">{{ isImageGroupPsdSet ? psdSetImageGroups.length : psdSetSelectedMaterialIds.length }}</span>
                 </div>
               </div>
               <el-alert v-if="hasInvalidFormatMaterials" type="warning" :closable="false" show-icon
@@ -1614,24 +1435,7 @@
             </div>
             <div class="psd-set-templates">
               <div class="psd-set-panel__head">
-                <div>
-                  <div class="psd-set-panel__eyebrow">{{ t('material.step2') }}</div>
-                  <div class="section-title">
-                    {{ t('material.selectPsdTemplate') }}
-                    <span v-if="psdSetTemplatePageParams.total > 0" class="template-count-info">
-                      ({{ t('material.totalCount', { count: psdSetTemplatePageParams.total }) }})
-                    </span>
-                  </div>
-                  <div class="psd-set-panel__desc">
-                    {{ t('material.templateListDesc') }}
-                  </div>
-                </div>
-                <div class="psd-set-panel__tags">
-                  <el-tag type="primary" effect="plain">
-                    {{ t('material.selectedCount', { count: selectedPsdTemplateIds.length }) }}
-                  </el-tag>
-                  <el-tag type="info" effect="plain">{{ t('material.expectedTasks', { count: psdSetTaskCount }) }}</el-tag>
-                </div>
+                <div class="section-title">{{ t('material.selectPsdTemplate') }}</div>
               </div>
 
               <div class="psd-set-content-container">
@@ -1771,29 +1575,18 @@
           </div>
           <div class="psd-set-footer">
             <div class="psd-set-footer-main">
-              <div class="psd-set-info">
-                <el-icon>
-                  <InfoFilled />
-                </el-icon>
-                <div class="psd-set-info-content">
-                  <span class="psd-set-info-chip">
-                    {{
-                      isImageGroupPsdSet
-                        ? t('material.groupTaskInfo', { groups: psdSetImageGroups.length, templates: selectedPsdTemplateIds.length, count: psdSetTaskCount })
-                        : psdSetMergeSticker
-                          ? t('material.mergeTaskInfo', { count: psdSetTaskCount })
-                          : t('material.singleTaskInfo', { materials: ids.length, templates: selectedPsdTemplateIds.length, count: psdSetTaskCount })
-                    }}
-                  </span>
-                  <span class="psd-set-info-chip psd-set-info-chip--subtle">
-                    {{ t('material.allowedFormats') }}：{{ allowedFormatsForSelectedTemplates.join("、") }}
-                  </span>
-                  <span class="psd-set-info-chip psd-set-info-chip--subtle">
-                    {{ t('material.automationActions') }}：{{
-                      enabledPsdSetAutomationCount ? enabledPsdSetAutomationKeys.join("、") : t('material.notEnabled')
-                    }}
-                  </span>
-                </div>
+              <div class="psd-set-footer-summary" :class="{ 'is-muted': !selectedPsdTemplateIds.length }">
+                {{
+                  isImageGroupPsdSet
+                    ? t('material.groupTaskInfo', { groups: psdSetImageGroups.length, templates: selectedPsdTemplateIds.length, count: psdSetTaskCount })
+                    : psdSetMergeSticker
+                      ? t('material.mergeTaskInfo', { count: psdSetTaskCount })
+                      : t('material.singleTaskInfo', { materials: ids.length, templates: selectedPsdTemplateIds.length, count: psdSetTaskCount })
+                }}
+                <template v-if="allowedFormatsForSelectedTemplates.length">
+                  <span class="summary-dot">·</span>
+                  {{ t('material.allowedFormats') }}：{{ allowedFormatsForSelectedTemplates.join("、") }}
+                </template>
               </div>
 
               <div class="psd-set-mode-inline">
@@ -3579,7 +3372,6 @@ import {
   Check,
   Close,
   More,
-  InfoFilled,
   ArrowRight,
   ArrowLeft,
   Edit,
@@ -9106,23 +8898,22 @@ async function handleUrlUpload() {
 .section-title {
   display: flex;
   padding-bottom: 0;
-  margin-bottom: 8px;
-  font-size: 14px;
+  margin-bottom: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
   border-bottom: none;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
-.section-title .selected-count {
-  padding: 2px 8px;
-  font-size: 13px;
+.section-title .panel-count {
+  font-size: 12px;
   font-weight: 500;
-  color: var(--el-color-primary);
-  background: color-mix(in srgb, var(--el-color-primary) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--el-color-primary) 30%, transparent);
-  border-radius: 4px;
+  color: var(--el-text-color-secondary);
 }
 
+.section-title .selected-count,
 .section-title .template-count-info {
   margin-left: 4px;
   font-size: 12px;
@@ -9169,79 +8960,27 @@ async function handleUrlUpload() {
 
 .psd-set-dialog__header {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  align-items: center;
   gap: 14px;
   width: 100%;
-  flex-wrap: wrap;
-}
-
-.psd-set-dialog__header-main {
-  min-width: 0;
 }
 
 .psd-set-dialog__header-title {
-  font-size: 20px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 600;
   color: var(--el-text-color-primary);
-}
-
-.psd-set-dialog__header-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.psd-set-dialog__header-chip {
-  display: inline-flex;
-  min-height: 28px;
-  padding: 0 12px;
-  font-size: 12px;
-  color: var(--el-text-color-regular);
-  background: var(--el-fill-color-light);
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 999px;
-  align-items: center;
-}
-
-.psd-set-dialog__header-chip.is-accent {
-  color: #188058;
-  background: rgb(24 160 88 / 10%);
-  border-color: rgb(24 160 88 / 18%);
 }
 
 .psd-set-panel__head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
-  flex-wrap: wrap;
-}
-
-.psd-set-panel__eyebrow {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  color: var(--el-color-primary);
-  text-transform: uppercase;
-}
-
-.psd-set-panel__desc {
-  margin-top: -6px;
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--el-text-color-secondary);
-}
-
-.psd-set-panel__tags {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  margin-bottom: 4px;
 }
 
 .psd-set-panel__alert {
-  margin: 0;
+  margin: 0 0 8px;
 }
 
 .psd-set-mode-inline {
@@ -9269,9 +9008,10 @@ async function handleUrlUpload() {
 
 .psd-set-footer {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  gap: 12px;
   flex-shrink: 0;
+  flex-wrap: wrap;
   padding-top: 10px;
   border-top: 1px solid var(--el-border-color-lighter);
 }
@@ -9292,44 +9032,28 @@ async function handleUrlUpload() {
   margin-left: auto;
 }
 
-.psd-set-info {
-  display: flex;
+.psd-set-footer-summary {
   min-width: 0;
-  font-size: 12px;
-  color: var(--el-color-info);
-  align-items: center;
-  gap: 4px;
-}
-
-.psd-set-info :deep(.el-icon) {
-  margin-top: 0;
-  font-size: 14px;
-  flex-shrink: 0;
-}
-
-.psd-set-info-content {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 4px;
   flex: 1;
-}
-
-.psd-set-info-chip {
-  display: inline-flex;
-  min-height: 22px;
-  padding: 1px 7px;
   font-size: 12px;
-  line-height: 1.35;
-  color: var(--el-color-info-dark-2);
-  background: var(--el-color-info-light-9);
-  border-radius: 999px;
-  align-items: center;
+  line-height: 1.5;
+  color: var(--el-text-color-regular);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.psd-set-info-chip--subtle {
+.psd-set-footer-summary.is-muted {
   color: var(--el-text-color-secondary);
-  background: var(--el-fill-color-lighter);
+}
+
+.psd-set-footer-summary.is-warning {
+  color: var(--el-color-warning);
+}
+
+.summary-dot {
+  margin: 0 6px;
+  color: var(--el-border-color);
 }
 
 .psd-set-automation-dialog-body {
@@ -11422,27 +11146,30 @@ h1 {
 }
 
 .psd-set-materials .thumbs {
-  display: flex;
-  max-height: 100vh;
-  min-height: 0;
-  overflow: hidden auto;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  grid-auto-rows: max-content;
   gap: 8px;
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  align-content: start;
 }
 
 .psd-set-materials .thumb {
   position: relative;
   display: flex;
-  width: calc(50% - 4px);
-  max-width: 132px;
-  max-height: 152px;
-  min-width: 108px;
-  min-height: 136px;
-  padding: 8px;
+  width: auto;
+  max-width: none;
+  max-height: none;
+  min-width: 0;
+  min-height: 0;
+  padding: 6px;
   overflow: hidden;
   background: var(--el-bg-color);
   border: 1px solid var(--el-border-color-light);
-  border-radius: 12px;
+  border-radius: 10px;
   transition:
     transform 0.18s ease,
     box-shadow 0.18s ease,
@@ -11498,7 +11225,8 @@ h1 {
   position: relative;
   display: flex;
   width: 100%;
-  height: 92px;
+  aspect-ratio: 1;
+  min-height: 120px;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
