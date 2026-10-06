@@ -5812,6 +5812,12 @@ export default {
     deleteFailed: '删除失败: {message}',
     unknownError: '未知错误',
     loadFailed: '加载采集文件失败',
+    addToResource: '添加到文件资源',
+    addToResourceCount: '添加到文件资源 ({count})',
+    addToResourceSuccess: '已添加 {count} 个文件到文件资源',
+    addToResourceDuplicate: '{count} 个文件已存在于文件资源，已跳过',
+    addToResourceFailed: '添加到文件资源失败: {message}',
+    addToResourceSelectFirst: '请先选择要添加的文件',
   },
   fileResource: {
     searchByName: '按名称搜索',

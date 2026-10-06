@@ -76,6 +76,9 @@
               <el-button size="small" :icon="Download" :disabled="!ids.length" @click="handleBatchDownload">
                 {{ t('collectFile.downloadCount', { count: ids.length }) }}
               </el-button>
+              <el-button size="small" :icon="FolderAdd" :disabled="!ids.length" @click="handleAddToFileResource()">
+                {{ t('collectFile.addToResourceCount', { count: ids.length }) }}
+              </el-button>
               <el-button size="small" type="danger" :icon="Delete" :disabled="!ids.length" @click="handleDelete()">
                 {{ t('collectFile.batchDeleteCount', { count: ids.length }) }}
               </el-button>
@@ -171,6 +174,10 @@
                             <el-icon><DocumentCopy /></el-icon>
                             <span>{{ t('collectFile.copyLink') }}</span>
                           </el-dropdown-item>
+                          <el-dropdown-item command="add-to-resource">
+                            <el-icon><FolderAdd /></el-icon>
+                            <span>{{ t('collectFile.addToResource') }}</span>
+                          </el-dropdown-item>
                           <el-dropdown-item command="delete" divided class="operation-menu-item--danger">
                             <el-icon><Delete /></el-icon>
                             <span>{{ t('collectFile.delete') }}</span>
@@ -211,6 +218,7 @@
 <script setup lang="ts">
 import { ref, reactive, watchEffect } from "vue";
 import { CollectFileApi, type CollectFileItem } from "@/api/collect-file";
+import { createFileResource, getFileResourceList } from "@/api/file-resource";
 import { buildOperationColumn, commonGridOptions } from "@/common/table";
 import { formatTimestamp } from "@/common/date";
 import { downloadFileByElement } from "@/common/download";
@@ -221,7 +229,16 @@ import Pagination from "@/components/Pagination/index.vue";
 import ListPageLayout from "@/components/ListPageLayout/index.vue";
 import { ElNotification, ElMessage, ElMessageBox } from "element-plus";
 import { useI18n } from "@/hooks/web/useI18n";
-import { Delete, Search, Download, Document, Headset, View, DocumentCopy } from "@element-plus/icons-vue";
+import {
+  Delete,
+  Search,
+  Download,
+  Document,
+  Headset,
+  View,
+  DocumentCopy,
+  FolderAdd,
+} from "@element-plus/icons-vue";
 
 defineOptions({ name: "CollectFile" });
 
@@ -384,9 +401,70 @@ function handleOperationCommand(command: string, row: any) {
         .then(() => ElMessage.success(t("collectFile.linkCopied")))
         .catch(() => ElMessage.error(t("collectFile.copyFailed")));
       break;
+    case "add-to-resource":
+      handleAddToFileResource(row);
+      break;
     case "delete":
       handleDelete(row);
       break;
+  }
+}
+
+/** 采集文件 → 文件资源（url 查重，已存在则跳过） */
+async function handleAddToFileResource(row?: any) {
+  const targets: CollectFileItem[] = row
+    ? [row]
+    : dataSource.value.filter((item) => ids.value.includes(item.id));
+  if (!targets.length) {
+    ElMessage.warning(t("collectFile.addToResourceSelectFirst"));
+    return;
+  }
+
+  let added = 0;
+  let duplicated = 0;
+  const errors: string[] = [];
+
+  for (const item of targets) {
+    if (!item?.url) {
+      errors.push(item?.name || item?.id || "?");
+      continue;
+    }
+    try {
+      const existing = await getFileResourceList({ url: item.url, pageSize: 1 });
+      const list = (existing as any)?.list || (existing as any)?.data?.list || [];
+      if (Array.isArray(list) && list.length > 0) {
+        duplicated += 1;
+        continue;
+      }
+      await createFileResource({
+        url: item.url,
+        name: item.name,
+        description: item.description,
+        keywords: item.keywords,
+        suffix: item.suffix,
+        fileType: item.fileType,
+        uploadType: "system",
+        meta: {
+          source: "collect-file",
+          collectFileId: item.id,
+          collectSource: item.source,
+          originUrl: item.originUrl,
+        },
+      });
+      added += 1;
+    } catch (e: any) {
+      errors.push(item.name || item.id);
+    }
+  }
+
+  if (added > 0) {
+    ElMessage.success(t("collectFile.addToResourceSuccess", { count: added }));
+  }
+  if (duplicated > 0) {
+    ElMessage.info(t("collectFile.addToResourceDuplicate", { count: duplicated }));
+  }
+  if (errors.length > 0) {
+    ElMessage.error(t("collectFile.addToResourceFailed", { message: errors.join(", ") }));
   }
 }
 

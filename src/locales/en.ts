@@ -5815,6 +5815,12 @@ export default {
     deleteFailed: 'Delete failed: {message}',
     unknownError: 'Unknown error',
     loadFailed: 'Failed to load collected files',
+    addToResource: 'Add to File Resources',
+    addToResourceCount: 'Add to File Resources ({count})',
+    addToResourceSuccess: 'Added {count} file(s) to file resources',
+    addToResourceDuplicate: '{count} file(s) already exist in file resources, skipped',
+    addToResourceFailed: 'Failed to add to file resources: {message}',
+    addToResourceSelectFirst: 'Please select files to add first',
   },
   fileResource: {
     searchByName: 'Search by Name',
