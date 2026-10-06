@@ -247,7 +247,7 @@ export default {
     commonUrl: 'URL Management',
     designInspiration: 'Design Inspiration',
     aiCreation: 'AI Creation',
-    aiAssistant: 'AI Assistant',
+    aiAssistant: 'AI Chat',
     agentRunTasks: 'Run Tasks',
     aiSkills: 'Skills',
     aiPromptTemplate: 'Prompt Templates',
@@ -5822,6 +5822,9 @@ export default {
     addToResourceDuplicate: '{count} file(s) already exist in file resources, skipped',
     addToResourceFailed: 'Failed to add to file resources: {message}',
     addToResourceSelectFirst: 'Please select files to add first',
+    copyOriginLink: 'Copy Origin URL',
+    originLinkCopied: 'Origin URL copied',
+    noOriginUrlToCopy: 'No origin URL recorded for this file',
   },
   fileResource: {
     searchByName: 'Search by Name',

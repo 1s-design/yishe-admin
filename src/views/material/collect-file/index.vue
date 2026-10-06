@@ -174,6 +174,10 @@
                             <el-icon><DocumentCopy /></el-icon>
                             <span>{{ t('collectFile.copyLink') }}</span>
                           </el-dropdown-item>
+                          <el-dropdown-item command="copy-origin-link">
+                            <el-icon><Link /></el-icon>
+                            <span>{{ t('collectFile.copyOriginLink') }}</span>
+                          </el-dropdown-item>
                           <el-dropdown-item command="add-to-resource">
                             <el-icon><FolderAdd /></el-icon>
                             <span>{{ t('collectFile.addToResource') }}</span>
@@ -238,6 +242,7 @@ import {
   View,
   DocumentCopy,
   FolderAdd,
+  Link,
 } from "@element-plus/icons-vue";
 
 defineOptions({ name: "CollectFile" });
@@ -399,6 +404,16 @@ function handleOperationCommand(command: string, row: any) {
       navigator.clipboard
         ?.writeText(row.url)
         .then(() => ElMessage.success(t("collectFile.linkCopied")))
+        .catch(() => ElMessage.error(t("collectFile.copyFailed")));
+      break;
+    case "copy-origin-link":
+      if (!row?.originUrl) {
+        ElMessage.warning(t("collectFile.noOriginUrlToCopy"));
+        return;
+      }
+      navigator.clipboard
+        ?.writeText(row.originUrl)
+        .then(() => ElMessage.success(t("collectFile.originLinkCopied")))
         .catch(() => ElMessage.error(t("collectFile.copyFailed")));
       break;
     case "add-to-resource":

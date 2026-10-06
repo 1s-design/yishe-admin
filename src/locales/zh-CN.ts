@@ -249,7 +249,7 @@ export default {
     commonUrl: '网址管理',
     designInspiration: '设计灵感',
     aiCreation: 'AI创作',
-    aiAssistant: '智能助手',
+    aiAssistant: 'ai对话',
     agentRunTasks: '任务管理',
     aiSkills: 'Skills',
     aiPromptTemplate: '提示词模板',
@@ -5819,6 +5819,9 @@ export default {
     addToResourceDuplicate: '{count} 个文件已存在于文件资源，已跳过',
     addToResourceFailed: '添加到文件资源失败: {message}',
     addToResourceSelectFirst: '请先选择要添加的文件',
+    copyOriginLink: '复制原地址',
+    originLinkCopied: '原地址已复制',
+    noOriginUrlToCopy: '该文件无原地址（来源页面）记录',
   },
   fileResource: {
     searchByName: '按名称搜索',

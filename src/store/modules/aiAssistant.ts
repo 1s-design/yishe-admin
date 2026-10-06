@@ -89,7 +89,7 @@ export const useAiAssistantStore = defineStore("ai-assistant", () => {
 
   const senderPlaceholder = computed(() => {
     if (pendingInteraction.value) return "可以先输入下一条消息，完成上方交互后再发送";
-    if (loading.value) return "智能助手正在处理";
+    if (loading.value) return "ai对话正在处理";
     return "输入你的目标或问题";
   });
 
@@ -574,7 +574,7 @@ export const useAiAssistantStore = defineStore("ai-assistant", () => {
         break;
       case "run.error":
       case "error":
-        ElMessage.error(data?.error || "智能助手执行失败");
+        ElMessage.error(data?.error || "ai对话执行失败");
         loading.value = false;
         runtimeStatus.value = "idle";
         thinkingText.value = "";
