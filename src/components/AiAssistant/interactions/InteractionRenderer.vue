@@ -27,7 +27,7 @@ import StepFormInteraction from "./StepFormInteraction.vue";
 import LegacyInteraction from "./LegacyInteraction.vue";
 
 const props = defineProps<{
-  payload: InteractionPayload;
+  payload?: InteractionPayload | null;
   loading?: boolean;
 }>();
 
@@ -37,16 +37,16 @@ defineEmits<{
 }>();
 
 const interactionType = computed<InteractionType>(() => {
-  const t = props.payload.type;
+  const t = props.payload?.type;
   // 自动识别：有 preview 字段的 confirm 升级为 impact_preview
-  if (t === "confirm" && props.payload.preview?.rows?.length) return "impact_preview";
+  if (t === "confirm" && props.payload?.preview?.rows?.length) return "impact_preview";
   // 自动识别：有 plan 字段的升级为 plan_edit
-  if (t === "confirm" && props.payload.plan?.steps?.length) return "plan_edit";
+  if (t === "confirm" && props.payload?.plan?.steps?.length) return "plan_edit";
   // 自动识别：有 compare 字段的升级为 compare
-  if ((t === "choice" || t === "confirm") && props.payload.compare?.options?.length) return "compare";
+  if ((t === "choice" || t === "confirm") && props.payload?.compare?.options?.length) return "compare";
   // 自动识别：有 steps 字段的升级为 step_form
-  if (t === "form" && props.payload.steps?.length) return "step_form";
-  return t;
+  if (t === "form" && props.payload?.steps?.length) return "step_form";
+  return (t || "confirm") as InteractionType;
 });
 
 const componentMap: Record<string, Component> = {

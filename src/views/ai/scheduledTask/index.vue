@@ -139,6 +139,17 @@
             <el-input v-model="form.title" placeholder="每日热搜总结" maxlength="80" />
           </div>
           <div class="task-field">
+            <label>绑定智能体 <em>*</em></label>
+            <el-select v-model="form.agentDefinitionId" placeholder="选择到期后执行的智能体" style="width: 100%" filterable>
+              <el-option
+                v-for="a in agentOptions"
+                :key="a.id"
+                :label="a.name"
+                :value="a.id"
+              />
+            </el-select>
+          </div>
+          <div class="task-field">
             <label>时区</label>
             <el-input v-model="form.timezone" placeholder="Asia/Shanghai" />
           </div>
@@ -320,6 +331,7 @@ import {
   type AiScheduledTaskExecutionItem,
   type AiScheduledTaskItem,
 } from '@/api/aiScheduledTask';
+import { AgentAdminApi, type AgentDefinition } from '@/api/agent';
 
 const loading = ref(false);
 const list = ref<AiScheduledTaskItem[]>([]);
@@ -435,6 +447,7 @@ const TOOL_PALETTE_GROUPS = ['创作', '素材', '电商', '自动化', '智能'
 const form = reactive({
   title: '',
   instructions: '',
+  agentDefinitionId: '' as string,
   preset: 'daily' as 'daily' | 'weekly' | 'monthly' | 'weekdays' | 'hourly' | 'interval' | 'custom',
   time: '08:00',
   weekday: 1,
@@ -446,6 +459,17 @@ const form = reactive({
   isEnabled: true,
   toolPalettes: [] as string[],
 });
+
+const agentOptions = ref<AgentDefinition[]>([]);
+
+async function loadAgentOptions() {
+  try {
+    const res: any = await AgentAdminApi.definitions();
+    agentOptions.value = ((res as any)?.data ?? res) as AgentDefinition[] || [];
+  } catch {
+    agentOptions.value = [];
+  }
+}
 
 const showTimeField = computed(() =>
   ['daily', 'weekly', 'monthly', 'weekdays'].includes(form.preset),
@@ -510,6 +534,7 @@ function openCreate() {
   editingId.value = '';
   form.title = '';
   form.instructions = '';
+  form.agentDefinitionId = '';
   form.preset = 'daily';
   form.time = '08:00';
   form.weekday = 1;
@@ -529,6 +554,7 @@ async function openEdit(row: AiScheduledTaskItem) {
     editingId.value = t.id;
     form.title = t.title || '';
     form.instructions = t.instructions || '';
+    form.agentDefinitionId = (t as any).agentDefinitionId || (t as any).payloadConfig?.agentDefinitionId || '';
     form.timezone = t.timezone || 'Asia/Shanghai';
     form.isEnabled = t.isEnabled !== false;
     form.toolPalettes = ((t as any).payloadConfig?.toolScope?.palettes as string[]) || [];
@@ -559,6 +585,10 @@ async function submit() {
     ElMessage.warning('请填写标题与执行指令');
     return;
   }
+  if (!form.agentDefinitionId) {
+    ElMessage.warning('请选择绑定的智能体（到期后由它执行）');
+    return;
+  }
   if (form.preset === 'custom' && !form.cronExpr.trim()) {
     ElMessage.warning('请填写 Cron 表达式');
     return;
@@ -569,6 +599,7 @@ async function submit() {
     const payload: any = {
       title: form.title.trim(),
       instructions: form.instructions.trim(),
+      agentDefinitionId: form.agentDefinitionId,
       schedule,
       timezone: form.timezone || 'Asia/Shanghai',
       isEnabled: form.isEnabled,
@@ -654,7 +685,10 @@ async function openExecutions(row: AiScheduledTaskItem) {
   }
 }
 
-onMounted(() => load(1));
+onMounted(() => {
+  void loadAgentOptions();
+  void load(1);
+});
 </script>
 
 <style scoped lang="scss">

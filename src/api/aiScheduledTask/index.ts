@@ -3,6 +3,8 @@ import request from '@/config/axios';
 export interface AiScheduledTaskItem {
   id: string;
   userId?: number | null;
+  /** 绑定智能体定义 ID（到期后派发给该智能体） */
+  agentDefinitionId?: string | null;
   title: string;
   instructions: string;
   triggerType: 'cron' | 'interval';
@@ -57,6 +59,7 @@ export function getAiScheduledTask(id: string) {
 export function createAiScheduledTask(data: {
   title: string;
   instructions: string;
+  agentDefinitionId?: string;
   triggerType?: 'cron' | 'interval';
   cronExpr?: string;
   intervalMinutes?: number;
@@ -75,6 +78,7 @@ export function updateAiScheduledTask(
   data: Partial<{
     title: string;
     instructions: string;
+    agentDefinitionId: string | null;
     triggerType: 'cron' | 'interval';
     cronExpr: string;
     intervalMinutes: number;

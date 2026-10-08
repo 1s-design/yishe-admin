@@ -1,0 +1,405 @@
+/* 液体/丝绸/霓虹/玻璃 · 头像渐变 g1–g100（结构差异化） */
+.agent-gradient{position:relative;overflow:hidden;isolation:isolate;background-size:cover!important;background-position:center!important}
+.agent-gradient::before,.agent-gradient::after{content:'';position:absolute;inset:-28%;z-index:1;pointer-events:none;mix-blend-mode:screen;filter:blur(14px);opacity:.82;border-radius:42% 58% 52% 48%/48% 42% 58% 52%}
+.agent-gradient::after{mix-blend-mode:soft-light;filter:blur(20px);opacity:.7;border-radius:58% 42% 38% 62%/52% 58% 42% 48%}
+
+/* Ocean · 01 · style0 */
+.g1{background:linear-gradient(115deg,#00101c 0 18%,#00d4ff 18% 32%,transparent 32% 38%,#0066ff 38% 58%,transparent 58% 66%,#7a2cff 66% 82%,#00101c 82%),linear-gradient(20deg,#00101c,#0066ff 40%,#00d4ff 70%,#00101c);background-size:cover}
+.g1::before{background:linear-gradient(100deg,#00d4ffcc,transparent 45%,#0066ff99);transform:translate(-12%,-8%) rotate(-12deg)}
+.g1::after{background:conic-gradient(from 210deg,transparent 0 30%,#7a2cff88 45%,transparent 60%);transform:translate(10%,12%) rotate(8deg)}
+/* Ocean · 02 · style3 */
+.g2{background:radial-gradient(ellipse 90% 70% at 28% 30%,#00d4ff 0 28%,transparent 62%),radial-gradient(ellipse 80% 75% at 72% 68%,#0066ff 0 30%,transparent 65%),radial-gradient(ellipse 60% 50% at 50% 50%,#7a2cff55 0 20%,transparent 55%),#00101c;background-size:cover}
+.g2::before{background:radial-gradient(ellipse 70% 55% at 35% 35%,#0066ffbb,transparent 60%);transform:translate(-8%,6%) rotate(15deg) scale(1.3)}
+.g2::after{background:radial-gradient(ellipse 65% 60% at 65% 65%,#7a2cff99,transparent 58%);transform:translate(6%,-8%) rotate(-12deg) scale(1.25)}
+/* Ocean · 03 · style6 */
+.g3{background:radial-gradient(circle at 32% 28%,#ffffff33 0 8%,transparent 18%),radial-gradient(circle at 68% 62%,#ffffff22 0 12%,transparent 22%),radial-gradient(circle at 50% 50%,#00d4ff 0 22%,#0066ff 42%,#7a2cff 68%,#00101c 100%);background-size:cover}
+.g3::before{background:radial-gradient(circle at 40% 35%,#ffffff44 0 6%,transparent 16%);transform:scale(1.1)}
+.g3::after{background:radial-gradient(circle at 70% 70%,#7a2cff66,transparent 40%);transform:translate(-4%,6%) scale(1.05)}
+/* Ocean · 04 · style9 */
+.g4{background:linear-gradient(105deg,#00000055 0 8%,transparent 8% 18%,#00d4ff99 18% 22%,transparent 22% 35%,#ffffff33 35% 38%,transparent 38% 55%,#0066ff88 55% 62%,transparent 62% 78%,#7a2cff77 78% 84%,transparent 84%),linear-gradient(155deg,#00101c,#00d4ff 35%,#0066ff 55%,#7a2cff 75%,#00101c);background-size:cover}
+.g4::before{background:linear-gradient(105deg,#fff3 0 12%,transparent 12% 30%,#00d4ff55 30% 36%,transparent);transform:skewX(-15deg) scale(1.2)}
+.g4::after{background:linear-gradient(155deg,transparent 20%,#7a2cff55 50%,transparent 80%);transform:skewX(10deg) scale(1.15)}
+/* Mint · 05 · style1 */
+.g5{background:radial-gradient(circle at 18% 22%,#00ffc8 0 18%,transparent 42%),radial-gradient(circle at 78% 30%,#39ff88 0 16%,transparent 40%),radial-gradient(circle at 55% 82%,#00aaff 0 22%,transparent 48%),radial-gradient(circle at 30% 70%,#00ffc888 0 12%,transparent 35%),#00130f;background-size:cover}
+.g5::before{background:radial-gradient(circle at 30% 40%,#39ff88aa,transparent 50%);transform:scale(1.2) rotate(20deg)}
+.g5::after{background:radial-gradient(circle at 70% 60%,#00aaff88,transparent 55%);transform:scale(1.15) rotate(-18deg)}
+/* Mint · 06 · style4 */
+.g6{background:radial-gradient(circle at 50% 50%,#00130f 0 38%,#00ffc8 39% 46%,#00130f 47% 58%,#39ff88 59% 68%,#00130f 69% 78%,#00aaff 79% 88%,#00130f 89%);background-size:cover}
+.g6::before{background:radial-gradient(circle at 35% 35%,#00ffc855,transparent 45%);transform:scale(1.15)}
+.g6::after{background:radial-gradient(circle at 70% 65%,#00aaff55,transparent 42%);transform:scale(1.1)}
+/* Mint · 07 · style7 */
+.g7{background:linear-gradient(135deg,transparent 42%,#00ffc8 42% 48%,transparent 48%),linear-gradient(135deg,transparent 58%,#39ff88 58% 64%,transparent 64%),linear-gradient(225deg,#00130f,#00aaff 50%,#39ff88 75%,#00130f);background-size:cover}
+.g7::before{background:linear-gradient(135deg,#00ffc888 30%,transparent 45%);transform:scale(1.35)}
+.g7::after{background:linear-gradient(225deg,transparent 40%,#00aaff77 60%,transparent 75%);transform:scale(1.25) translate(6%,0)}
+/* Mint · 08 · style10 */
+.g8{background:radial-gradient(circle at 20% 25%, #00ffc8 0 8%, transparent 10%),radial-gradient(circle at 48% 18%, #39ff88 0 6%, transparent 8%),radial-gradient(circle at 75% 35%, #00aaff 0 9%, transparent 11%),radial-gradient(circle at 30% 60%, #39ff88 0 7%, transparent 9%),radial-gradient(circle at 60% 72%, #00ffc8 0 10%, transparent 12%),radial-gradient(circle at 82% 78%, #00aaff 0 6%, transparent 8%),radial-gradient(circle at 15% 80%, #39ff88 0 5%, transparent 7%),radial-gradient(circle at 45% 45%, #00aaff 0 7%, transparent 9%),#00130f;background-size:cover}
+.g8::before{background:radial-gradient(circle at 40% 30%,#00ffc866 0 12%,transparent 25%);transform:scale(1.2) rotate(8deg)}
+.g8::after{background:radial-gradient(circle at 65% 70%,#00aaff66 0 14%,transparent 28%);transform:scale(1.15) rotate(-12deg)}
+/* Plasma · 09 · style2 */
+.g9{background:conic-gradient(from 210deg at 42% 48%,#120019 0deg,#ff36d1 55deg,#7b2cff 110deg,#00c8ff 175deg,#120019 240deg,#ff36d1 320deg,#120019 360deg);background-size:cover}
+.g9::before{background:conic-gradient(from 40deg at 60% 40%,transparent 0 40%,#7b2cff66 55%,transparent 70%);transform:rotate(25deg) scale(1.25)}
+.g9::after{background:radial-gradient(circle at 30% 70%,#00c8ff77,transparent 55%);transform:translate(5%,10%) rotate(-10deg)}
+/* Plasma · 10 · style5 */
+.g10{background:repeating-linear-gradient(125deg,transparent 0 8px,#ff36d133 8px 16px,transparent 16px 28px),repeating-linear-gradient(35deg,transparent 0 12px,#7b2cff22 12px 22px),linear-gradient(160deg,#120019,#00c8ff 45%,#ff36d1 78%,#120019);background-size:cover}
+.g10::before{background:linear-gradient(125deg,#ff36d166,transparent 50%,#7b2cff44);transform:skewX(-12deg) scale(1.2)}
+.g10::after{background:linear-gradient(200deg,transparent 20%,#00c8ff55 50%,transparent 80%);transform:skewX(18deg) translate(4%,8%)}
+/* Plasma · 11 · style8 */
+.g11{background:linear-gradient(90deg,transparent 0 10%,#ff36d1cc 22%,#7b2cffaa 38%,transparent 48%,#00c8ffcc 62%,#ff36d188 78%,transparent 92%),linear-gradient(180deg,#120019 0 20%,transparent 40%,transparent 60%,#120019 85%),linear-gradient(120deg,#7b2cff,#00c8ff 45%,#ff36d1 80%);background-size:cover}
+.g11::before{background:linear-gradient(90deg,transparent,#ff36d166 35%,#7b2cff44 55%,transparent);transform:translateY(-20%) scaleY(1.4)}
+.g11::after{background:linear-gradient(0deg,transparent 30%,#00c8ff55 55%,transparent 80%);transform:translateY(15%) scaleY(1.3)}
+/* Plasma · 12 · style11 */
+.g12{background:radial-gradient(circle at 32% 28%,#ffffff66 0 4%,#ffffff22 8%,transparent 18%),radial-gradient(circle at 50% 55%,#ff36d1 0 25%,#7b2cff 48%,#00c8ff 72%,#120019 100%);background-size:cover}
+.g12::before{background:radial-gradient(circle at 30% 25%,#fff5 0 5%,transparent 18%);transform:scale(1.05)}
+.g12::after{background:radial-gradient(circle at 70% 75%,#00c8ff88 0 30%,transparent 55%);transform:scale(1.08)}
+/* Sunset · 13 · style3 */
+.g13{background:radial-gradient(ellipse 90% 70% at 28% 30%,#ff3d68 0 28%,transparent 62%),radial-gradient(ellipse 80% 75% at 72% 68%,#ff8a00 0 30%,transparent 65%),radial-gradient(ellipse 60% 50% at 50% 50%,#ffd23f55 0 20%,transparent 55%),#170008;background-size:cover}
+.g13::before{background:radial-gradient(ellipse 70% 55% at 35% 35%,#ff8a00bb,transparent 60%);transform:translate(-8%,6%) rotate(15deg) scale(1.3)}
+.g13::after{background:radial-gradient(ellipse 65% 60% at 65% 65%,#ffd23f99,transparent 58%);transform:translate(6%,-8%) rotate(-12deg) scale(1.25)}
+/* Sunset · 14 · style6 */
+.g14{background:radial-gradient(circle at 32% 28%,#ffffff33 0 8%,transparent 18%),radial-gradient(circle at 68% 62%,#ffffff22 0 12%,transparent 22%),radial-gradient(circle at 50% 50%,#ff3d68 0 22%,#ff8a00 42%,#ffd23f 68%,#170008 100%);background-size:cover}
+.g14::before{background:radial-gradient(circle at 40% 35%,#ffffff44 0 6%,transparent 16%);transform:scale(1.1)}
+.g14::after{background:radial-gradient(circle at 70% 70%,#ffd23f66,transparent 40%);transform:translate(-4%,6%) scale(1.05)}
+/* Sunset · 15 · style9 */
+.g15{background:linear-gradient(105deg,#00000055 0 8%,transparent 8% 18%,#ff3d6899 18% 22%,transparent 22% 35%,#ffffff33 35% 38%,transparent 38% 55%,#ff8a0088 55% 62%,transparent 62% 78%,#ffd23f77 78% 84%,transparent 84%),linear-gradient(155deg,#170008,#ff3d68 35%,#ff8a00 55%,#ffd23f 75%,#170008);background-size:cover}
+.g15::before{background:linear-gradient(105deg,#fff3 0 12%,transparent 12% 30%,#ff3d6855 30% 36%,transparent);transform:skewX(-15deg) scale(1.2)}
+.g15::after{background:linear-gradient(155deg,transparent 20%,#ffd23f55 50%,transparent 80%);transform:skewX(10deg) scale(1.15)}
+/* Sunset · 16 · style0 */
+.g16{background:linear-gradient(115deg,#170008 0 18%,#ff3d68 18% 32%,transparent 32% 38%,#ff8a00 38% 58%,transparent 58% 66%,#ffd23f 66% 82%,#170008 82%),linear-gradient(20deg,#170008,#ff8a00 40%,#ff3d68 70%,#170008);background-size:cover}
+.g16::before{background:linear-gradient(100deg,#ff3d68cc,transparent 45%,#ff8a0099);transform:translate(-12%,-8%) rotate(-12deg)}
+.g16::after{background:conic-gradient(from 210deg,transparent 0 30%,#ffd23f88 45%,transparent 60%);transform:translate(10%,12%) rotate(8deg)}
+/* Lava · 17 · style4 */
+.g17{background:radial-gradient(circle at 50% 50%,#180005 0 38%,#ff1744 39% 46%,#180005 47% 58%,#ff5c00 59% 68%,#180005 69% 78%,#d900ff 79% 88%,#180005 89%);background-size:cover}
+.g17::before{background:radial-gradient(circle at 35% 35%,#ff174455,transparent 45%);transform:scale(1.15)}
+.g17::after{background:radial-gradient(circle at 70% 65%,#d900ff55,transparent 42%);transform:scale(1.1)}
+/* Lava · 18 · style7 */
+.g18{background:linear-gradient(135deg,transparent 42%,#ff1744 42% 48%,transparent 48%),linear-gradient(135deg,transparent 58%,#ff5c00 58% 64%,transparent 64%),linear-gradient(225deg,#180005,#d900ff 50%,#ff5c00 75%,#180005);background-size:cover}
+.g18::before{background:linear-gradient(135deg,#ff174488 30%,transparent 45%);transform:scale(1.35)}
+.g18::after{background:linear-gradient(225deg,transparent 40%,#d900ff77 60%,transparent 75%);transform:scale(1.25) translate(6%,0)}
+/* Lava · 19 · style10 */
+.g19{background:radial-gradient(circle at 20% 25%, #ff1744 0 8%, transparent 10%),radial-gradient(circle at 48% 18%, #ff5c00 0 6%, transparent 8%),radial-gradient(circle at 75% 35%, #d900ff 0 9%, transparent 11%),radial-gradient(circle at 30% 60%, #ff5c00 0 7%, transparent 9%),radial-gradient(circle at 60% 72%, #ff1744 0 10%, transparent 12%),radial-gradient(circle at 82% 78%, #d900ff 0 6%, transparent 8%),radial-gradient(circle at 15% 80%, #ff5c00 0 5%, transparent 7%),radial-gradient(circle at 45% 45%, #d900ff 0 7%, transparent 9%),#180005;background-size:cover}
+.g19::before{background:radial-gradient(circle at 40% 30%,#ff174466 0 12%,transparent 25%);transform:scale(1.2) rotate(8deg)}
+.g19::after{background:radial-gradient(circle at 65% 70%,#d900ff66 0 14%,transparent 28%);transform:scale(1.15) rotate(-12deg)}
+/* Lava · 20 · style1 */
+.g20{background:radial-gradient(circle at 18% 22%,#ff1744 0 18%,transparent 42%),radial-gradient(circle at 78% 30%,#ff5c00 0 16%,transparent 40%),radial-gradient(circle at 55% 82%,#d900ff 0 22%,transparent 48%),radial-gradient(circle at 30% 70%,#ff174488 0 12%,transparent 35%),#180005;background-size:cover}
+.g20::before{background:radial-gradient(circle at 30% 40%,#ff5c00aa,transparent 50%);transform:scale(1.2) rotate(20deg)}
+.g20::after{background:radial-gradient(circle at 70% 60%,#d900ff88,transparent 55%);transform:scale(1.15) rotate(-18deg)}
+/* Arctic · 21 · style5 */
+.g21{background:repeating-linear-gradient(125deg,transparent 0 8px,#d9ffff33 8px 16px,transparent 16px 28px),repeating-linear-gradient(35deg,transparent 0 12px,#54dcff22 12px 22px),linear-gradient(160deg,#071329,#788cff 45%,#d9ffff 78%,#071329);background-size:cover}
+.g21::before{background:linear-gradient(125deg,#d9ffff66,transparent 50%,#54dcff44);transform:skewX(-12deg) scale(1.2)}
+.g21::after{background:linear-gradient(200deg,transparent 20%,#788cff55 50%,transparent 80%);transform:skewX(18deg) translate(4%,8%)}
+/* Arctic · 22 · style8 */
+.g22{background:linear-gradient(90deg,transparent 0 10%,#d9ffffcc 22%,#54dcffaa 38%,transparent 48%,#788cffcc 62%,#d9ffff88 78%,transparent 92%),linear-gradient(180deg,#071329 0 20%,transparent 40%,transparent 60%,#071329 85%),linear-gradient(120deg,#54dcff,#788cff 45%,#d9ffff 80%);background-size:cover}
+.g22::before{background:linear-gradient(90deg,transparent,#d9ffff66 35%,#54dcff44 55%,transparent);transform:translateY(-20%) scaleY(1.4)}
+.g22::after{background:linear-gradient(0deg,transparent 30%,#788cff55 55%,transparent 80%);transform:translateY(15%) scaleY(1.3)}
+/* Arctic · 23 · style11 */
+.g23{background:radial-gradient(circle at 32% 28%,#ffffff66 0 4%,#ffffff22 8%,transparent 18%),radial-gradient(circle at 50% 55%,#d9ffff 0 25%,#54dcff 48%,#788cff 72%,#071329 100%);background-size:cover}
+.g23::before{background:radial-gradient(circle at 30% 25%,#fff5 0 5%,transparent 18%);transform:scale(1.05)}
+.g23::after{background:radial-gradient(circle at 70% 75%,#788cff88 0 30%,transparent 55%);transform:scale(1.08)}
+/* Arctic · 24 · style2 */
+.g24{background:conic-gradient(from 210deg at 42% 48%,#071329 0deg,#d9ffff 55deg,#54dcff 110deg,#788cff 175deg,#071329 240deg,#d9ffff 320deg,#071329 360deg);background-size:cover}
+.g24::before{background:conic-gradient(from 40deg at 60% 40%,transparent 0 40%,#54dcff66 55%,transparent 70%);transform:rotate(25deg) scale(1.25)}
+.g24::after{background:radial-gradient(circle at 30% 70%,#788cff77,transparent 55%);transform:translate(5%,10%) rotate(-10deg)}
+/* Emerald · 25 · style6 */
+.g25{background:radial-gradient(circle at 32% 28%,#ffffff33 0 8%,transparent 18%),radial-gradient(circle at 68% 62%,#ffffff22 0 12%,transparent 22%),radial-gradient(circle at 50% 50%,#b7ff72 0 22%,#00d99b 42%,#00a8ff 68%,#00150f 100%);background-size:cover}
+.g25::before{background:radial-gradient(circle at 40% 35%,#ffffff44 0 6%,transparent 16%);transform:scale(1.1)}
+.g25::after{background:radial-gradient(circle at 70% 70%,#00a8ff66,transparent 40%);transform:translate(-4%,6%) scale(1.05)}
+/* Emerald · 26 · style9 */
+.g26{background:linear-gradient(105deg,#00000055 0 8%,transparent 8% 18%,#b7ff7299 18% 22%,transparent 22% 35%,#ffffff33 35% 38%,transparent 38% 55%,#00d99b88 55% 62%,transparent 62% 78%,#00a8ff77 78% 84%,transparent 84%),linear-gradient(155deg,#00150f,#b7ff72 35%,#00d99b 55%,#00a8ff 75%,#00150f);background-size:cover}
+.g26::before{background:linear-gradient(105deg,#fff3 0 12%,transparent 12% 30%,#b7ff7255 30% 36%,transparent);transform:skewX(-15deg) scale(1.2)}
+.g26::after{background:linear-gradient(155deg,transparent 20%,#00a8ff55 50%,transparent 80%);transform:skewX(10deg) scale(1.15)}
+/* Emerald · 27 · style0 */
+.g27{background:linear-gradient(115deg,#00150f 0 18%,#b7ff72 18% 32%,transparent 32% 38%,#00d99b 38% 58%,transparent 58% 66%,#00a8ff 66% 82%,#00150f 82%),linear-gradient(20deg,#00150f,#00d99b 40%,#b7ff72 70%,#00150f);background-size:cover}
+.g27::before{background:linear-gradient(100deg,#b7ff72cc,transparent 45%,#00d99b99);transform:translate(-12%,-8%) rotate(-12deg)}
+.g27::after{background:conic-gradient(from 210deg,transparent 0 30%,#00a8ff88 45%,transparent 60%);transform:translate(10%,12%) rotate(8deg)}
+/* Emerald · 28 · style3 */
+.g28{background:radial-gradient(ellipse 90% 70% at 28% 30%,#b7ff72 0 28%,transparent 62%),radial-gradient(ellipse 80% 75% at 72% 68%,#00d99b 0 30%,transparent 65%),radial-gradient(ellipse 60% 50% at 50% 50%,#00a8ff55 0 20%,transparent 55%),#00150f;background-size:cover}
+.g28::before{background:radial-gradient(ellipse 70% 55% at 35% 35%,#00d99bbb,transparent 60%);transform:translate(-8%,6%) rotate(15deg) scale(1.3)}
+.g28::after{background:radial-gradient(ellipse 65% 60% at 65% 65%,#00a8ff99,transparent 58%);transform:translate(6%,-8%) rotate(-12deg) scale(1.25)}
+/* Lemon · 29 · style7 */
+.g29{background:linear-gradient(135deg,transparent 42%,#d9ff00 42% 48%,transparent 48%),linear-gradient(135deg,transparent 58%,#71ff00 58% 64%,transparent 64%),linear-gradient(225deg,#071200,#00d9ff 50%,#71ff00 75%,#071200);background-size:cover}
+.g29::before{background:linear-gradient(135deg,#d9ff0088 30%,transparent 45%);transform:scale(1.35)}
+.g29::after{background:linear-gradient(225deg,transparent 40%,#00d9ff77 60%,transparent 75%);transform:scale(1.25) translate(6%,0)}
+/* Lemon · 30 · style10 */
+.g30{background:radial-gradient(circle at 20% 25%, #d9ff00 0 8%, transparent 10%),radial-gradient(circle at 48% 18%, #71ff00 0 6%, transparent 8%),radial-gradient(circle at 75% 35%, #00d9ff 0 9%, transparent 11%),radial-gradient(circle at 30% 60%, #71ff00 0 7%, transparent 9%),radial-gradient(circle at 60% 72%, #d9ff00 0 10%, transparent 12%),radial-gradient(circle at 82% 78%, #00d9ff 0 6%, transparent 8%),radial-gradient(circle at 15% 80%, #71ff00 0 5%, transparent 7%),radial-gradient(circle at 45% 45%, #00d9ff 0 7%, transparent 9%),#071200;background-size:cover}
+.g30::before{background:radial-gradient(circle at 40% 30%,#d9ff0066 0 12%,transparent 25%);transform:scale(1.2) rotate(8deg)}
+.g30::after{background:radial-gradient(circle at 65% 70%,#00d9ff66 0 14%,transparent 28%);transform:scale(1.15) rotate(-12deg)}
+/* Lemon · 31 · style1 */
+.g31{background:radial-gradient(circle at 18% 22%,#d9ff00 0 18%,transparent 42%),radial-gradient(circle at 78% 30%,#71ff00 0 16%,transparent 40%),radial-gradient(circle at 55% 82%,#00d9ff 0 22%,transparent 48%),radial-gradient(circle at 30% 70%,#d9ff0088 0 12%,transparent 35%),#071200;background-size:cover}
+.g31::before{background:radial-gradient(circle at 30% 40%,#71ff00aa,transparent 50%);transform:scale(1.2) rotate(20deg)}
+.g31::after{background:radial-gradient(circle at 70% 60%,#00d9ff88,transparent 55%);transform:scale(1.15) rotate(-18deg)}
+/* Lemon · 32 · style4 */
+.g32{background:radial-gradient(circle at 50% 50%,#071200 0 38%,#d9ff00 39% 46%,#071200 47% 58%,#71ff00 59% 68%,#071200 69% 78%,#00d9ff 79% 88%,#071200 89%);background-size:cover}
+.g32::before{background:radial-gradient(circle at 35% 35%,#d9ff0055,transparent 45%);transform:scale(1.15)}
+.g32::after{background:radial-gradient(circle at 70% 65%,#00d9ff55,transparent 42%);transform:scale(1.1)}
+/* Cobalt · 33 · style8 */
+.g33{background:linear-gradient(90deg,transparent 0 10%,#00a8ffcc 22%,#345cffaa 38%,transparent 48%,#a64dffcc 62%,#00a8ff88 78%,transparent 92%),linear-gradient(180deg,#030617 0 20%,transparent 40%,transparent 60%,#030617 85%),linear-gradient(120deg,#345cff,#a64dff 45%,#00a8ff 80%);background-size:cover}
+.g33::before{background:linear-gradient(90deg,transparent,#00a8ff66 35%,#345cff44 55%,transparent);transform:translateY(-20%) scaleY(1.4)}
+.g33::after{background:linear-gradient(0deg,transparent 30%,#a64dff55 55%,transparent 80%);transform:translateY(15%) scaleY(1.3)}
+/* Cobalt · 34 · style11 */
+.g34{background:radial-gradient(circle at 32% 28%,#ffffff66 0 4%,#ffffff22 8%,transparent 18%),radial-gradient(circle at 50% 55%,#00a8ff 0 25%,#345cff 48%,#a64dff 72%,#030617 100%);background-size:cover}
+.g34::before{background:radial-gradient(circle at 30% 25%,#fff5 0 5%,transparent 18%);transform:scale(1.05)}
+.g34::after{background:radial-gradient(circle at 70% 75%,#a64dff88 0 30%,transparent 55%);transform:scale(1.08)}
+/* Cobalt · 35 · style2 */
+.g35{background:conic-gradient(from 210deg at 42% 48%,#030617 0deg,#00a8ff 55deg,#345cff 110deg,#a64dff 175deg,#030617 240deg,#00a8ff 320deg,#030617 360deg);background-size:cover}
+.g35::before{background:conic-gradient(from 40deg at 60% 40%,transparent 0 40%,#345cff66 55%,transparent 70%);transform:rotate(25deg) scale(1.25)}
+.g35::after{background:radial-gradient(circle at 30% 70%,#a64dff77,transparent 55%);transform:translate(5%,10%) rotate(-10deg)}
+/* Cobalt · 36 · style5 */
+.g36{background:repeating-linear-gradient(125deg,transparent 0 8px,#00a8ff33 8px 16px,transparent 16px 28px),repeating-linear-gradient(35deg,transparent 0 12px,#345cff22 12px 22px),linear-gradient(160deg,#030617,#a64dff 45%,#00a8ff 78%,#030617);background-size:cover}
+.g36::before{background:linear-gradient(125deg,#00a8ff66,transparent 50%,#345cff44);transform:skewX(-12deg) scale(1.2)}
+.g36::after{background:linear-gradient(200deg,transparent 20%,#a64dff55 50%,transparent 80%);transform:skewX(18deg) translate(4%,8%)}
+/* PinkChrome · 37 · style9 */
+.g37{background:linear-gradient(105deg,#00000055 0 8%,transparent 8% 18%,#ff9de899 18% 22%,transparent 22% 35%,#ffffff33 35% 38%,transparent 38% 55%,#ff43c888 55% 62%,transparent 62% 78%,#7d5cff77 78% 84%,transparent 84%),linear-gradient(155deg,#170018,#ff9de8 35%,#ff43c8 55%,#7d5cff 75%,#170018);background-size:cover}
+.g37::before{background:linear-gradient(105deg,#fff3 0 12%,transparent 12% 30%,#ff9de855 30% 36%,transparent);transform:skewX(-15deg) scale(1.2)}
+.g37::after{background:linear-gradient(155deg,transparent 20%,#7d5cff55 50%,transparent 80%);transform:skewX(10deg) scale(1.15)}
+/* PinkChrome · 38 · style0 */
+.g38{background:linear-gradient(115deg,#170018 0 18%,#ff9de8 18% 32%,transparent 32% 38%,#ff43c8 38% 58%,transparent 58% 66%,#7d5cff 66% 82%,#170018 82%),linear-gradient(20deg,#170018,#ff43c8 40%,#ff9de8 70%,#170018);background-size:cover}
+.g38::before{background:linear-gradient(100deg,#ff9de8cc,transparent 45%,#ff43c899);transform:translate(-12%,-8%) rotate(-12deg)}
+.g38::after{background:conic-gradient(from 210deg,transparent 0 30%,#7d5cff88 45%,transparent 60%);transform:translate(10%,12%) rotate(8deg)}
+/* PinkChrome · 39 · style3 */
+.g39{background:radial-gradient(ellipse 90% 70% at 28% 30%,#ff9de8 0 28%,transparent 62%),radial-gradient(ellipse 80% 75% at 72% 68%,#ff43c8 0 30%,transparent 65%),radial-gradient(ellipse 60% 50% at 50% 50%,#7d5cff55 0 20%,transparent 55%),#170018;background-size:cover}
+.g39::before{background:radial-gradient(ellipse 70% 55% at 35% 35%,#ff43c8bb,transparent 60%);transform:translate(-8%,6%) rotate(15deg) scale(1.3)}
+.g39::after{background:radial-gradient(ellipse 65% 60% at 65% 65%,#7d5cff99,transparent 58%);transform:translate(6%,-8%) rotate(-12deg) scale(1.25)}
+/* PinkChrome · 40 · style6 */
+.g40{background:radial-gradient(circle at 32% 28%,#ffffff33 0 8%,transparent 18%),radial-gradient(circle at 68% 62%,#ffffff22 0 12%,transparent 22%),radial-gradient(circle at 50% 50%,#ff9de8 0 22%,#ff43c8 42%,#7d5cff 68%,#170018 100%);background-size:cover}
+.g40::before{background:radial-gradient(circle at 40% 35%,#ffffff44 0 6%,transparent 16%);transform:scale(1.1)}
+.g40::after{background:radial-gradient(circle at 70% 70%,#7d5cff66,transparent 40%);transform:translate(-4%,6%) scale(1.05)}
+/* Amber · 41 · style10 */
+.g41{background:radial-gradient(circle at 20% 25%, #ffe100 0 8%, transparent 10%),radial-gradient(circle at 48% 18%, #ff7b00 0 6%, transparent 8%),radial-gradient(circle at 75% 35%, #ff2458 0 9%, transparent 11%),radial-gradient(circle at 30% 60%, #ff7b00 0 7%, transparent 9%),radial-gradient(circle at 60% 72%, #ffe100 0 10%, transparent 12%),radial-gradient(circle at 82% 78%, #ff2458 0 6%, transparent 8%),radial-gradient(circle at 15% 80%, #ff7b00 0 5%, transparent 7%),radial-gradient(circle at 45% 45%, #ff2458 0 7%, transparent 9%),#130900;background-size:cover}
+.g41::before{background:radial-gradient(circle at 40% 30%,#ffe10066 0 12%,transparent 25%);transform:scale(1.2) rotate(8deg)}
+.g41::after{background:radial-gradient(circle at 65% 70%,#ff245866 0 14%,transparent 28%);transform:scale(1.15) rotate(-12deg)}
+/* Amber · 42 · style1 */
+.g42{background:radial-gradient(circle at 18% 22%,#ffe100 0 18%,transparent 42%),radial-gradient(circle at 78% 30%,#ff7b00 0 16%,transparent 40%),radial-gradient(circle at 55% 82%,#ff2458 0 22%,transparent 48%),radial-gradient(circle at 30% 70%,#ffe10088 0 12%,transparent 35%),#130900;background-size:cover}
+.g42::before{background:radial-gradient(circle at 30% 40%,#ff7b00aa,transparent 50%);transform:scale(1.2) rotate(20deg)}
+.g42::after{background:radial-gradient(circle at 70% 60%,#ff245888,transparent 55%);transform:scale(1.15) rotate(-18deg)}
+/* Amber · 43 · style4 */
+.g43{background:radial-gradient(circle at 50% 50%,#130900 0 38%,#ffe100 39% 46%,#130900 47% 58%,#ff7b00 59% 68%,#130900 69% 78%,#ff2458 79% 88%,#130900 89%);background-size:cover}
+.g43::before{background:radial-gradient(circle at 35% 35%,#ffe10055,transparent 45%);transform:scale(1.15)}
+.g43::after{background:radial-gradient(circle at 70% 65%,#ff245855,transparent 42%);transform:scale(1.1)}
+/* Amber · 44 · style7 */
+.g44{background:linear-gradient(135deg,transparent 42%,#ffe100 42% 48%,transparent 48%),linear-gradient(135deg,transparent 58%,#ff7b00 58% 64%,transparent 64%),linear-gradient(225deg,#130900,#ff2458 50%,#ff7b00 75%,#130900);background-size:cover}
+.g44::before{background:linear-gradient(135deg,#ffe10088 30%,transparent 45%);transform:scale(1.35)}
+.g44::after{background:linear-gradient(225deg,transparent 40%,#ff245877 60%,transparent 75%);transform:scale(1.25) translate(6%,0)}
+/* CyanInk · 45 · style11 */
+.g45{background:radial-gradient(circle at 32% 28%,#ffffff66 0 4%,#ffffff22 8%,transparent 18%),radial-gradient(circle at 50% 55%,#00f0ff 0 25%,#007dff 48%,#00ffc8 72%,#001016 100%);background-size:cover}
+.g45::before{background:radial-gradient(circle at 30% 25%,#fff5 0 5%,transparent 18%);transform:scale(1.05)}
+.g45::after{background:radial-gradient(circle at 70% 75%,#00ffc888 0 30%,transparent 55%);transform:scale(1.08)}
+/* CyanInk · 46 · style2 */
+.g46{background:conic-gradient(from 210deg at 42% 48%,#001016 0deg,#00f0ff 55deg,#007dff 110deg,#00ffc8 175deg,#001016 240deg,#00f0ff 320deg,#001016 360deg);background-size:cover}
+.g46::before{background:conic-gradient(from 40deg at 60% 40%,transparent 0 40%,#007dff66 55%,transparent 70%);transform:rotate(25deg) scale(1.25)}
+.g46::after{background:radial-gradient(circle at 30% 70%,#00ffc877,transparent 55%);transform:translate(5%,10%) rotate(-10deg)}
+/* CyanInk · 47 · style5 */
+.g47{background:repeating-linear-gradient(125deg,transparent 0 8px,#00f0ff33 8px 16px,transparent 16px 28px),repeating-linear-gradient(35deg,transparent 0 12px,#007dff22 12px 22px),linear-gradient(160deg,#001016,#00ffc8 45%,#00f0ff 78%,#001016);background-size:cover}
+.g47::before{background:linear-gradient(125deg,#00f0ff66,transparent 50%,#007dff44);transform:skewX(-12deg) scale(1.2)}
+.g47::after{background:linear-gradient(200deg,transparent 20%,#00ffc855 50%,transparent 80%);transform:skewX(18deg) translate(4%,8%)}
+/* CyanInk · 48 · style8 */
+.g48{background:linear-gradient(90deg,transparent 0 10%,#00f0ffcc 22%,#007dffaa 38%,transparent 48%,#00ffc8cc 62%,#00f0ff88 78%,transparent 92%),linear-gradient(180deg,#001016 0 20%,transparent 40%,transparent 60%,#001016 85%),linear-gradient(120deg,#007dff,#00ffc8 45%,#00f0ff 80%);background-size:cover}
+.g48::before{background:linear-gradient(90deg,transparent,#00f0ff66 35%,#007dff44 55%,transparent);transform:translateY(-20%) scaleY(1.4)}
+.g48::after{background:linear-gradient(0deg,transparent 30%,#00ffc855 55%,transparent 80%);transform:translateY(15%) scaleY(1.3)}
+/* Magenta · 49 · style0 */
+.g49{background:linear-gradient(115deg,#0d0018 0 18%,#ff00a8 18% 32%,transparent 32% 38%,#a000ff 38% 58%,transparent 58% 66%,#3e6bff 66% 82%,#0d0018 82%),linear-gradient(20deg,#0d0018,#a000ff 40%,#ff00a8 70%,#0d0018);background-size:cover}
+.g49::before{background:linear-gradient(100deg,#ff00a8cc,transparent 45%,#a000ff99);transform:translate(-12%,-8%) rotate(-12deg)}
+.g49::after{background:conic-gradient(from 210deg,transparent 0 30%,#3e6bff88 45%,transparent 60%);transform:translate(10%,12%) rotate(8deg)}
+/* Magenta · 50 · style3 */
+.g50{background:radial-gradient(ellipse 90% 70% at 28% 30%,#ff00a8 0 28%,transparent 62%),radial-gradient(ellipse 80% 75% at 72% 68%,#a000ff 0 30%,transparent 65%),radial-gradient(ellipse 60% 50% at 50% 50%,#3e6bff55 0 20%,transparent 55%),#0d0018;background-size:cover}
+.g50::before{background:radial-gradient(ellipse 70% 55% at 35% 35%,#a000ffbb,transparent 60%);transform:translate(-8%,6%) rotate(15deg) scale(1.3)}
+.g50::after{background:radial-gradient(ellipse 65% 60% at 65% 65%,#3e6bff99,transparent 58%);transform:translate(6%,-8%) rotate(-12deg) scale(1.25)}
+/* Magenta · 51 · style6 */
+.g51{background:radial-gradient(circle at 32% 28%,#ffffff33 0 8%,transparent 18%),radial-gradient(circle at 68% 62%,#ffffff22 0 12%,transparent 22%),radial-gradient(circle at 50% 50%,#ff00a8 0 22%,#a000ff 42%,#3e6bff 68%,#0d0018 100%);background-size:cover}
+.g51::before{background:radial-gradient(circle at 40% 35%,#ffffff44 0 6%,transparent 16%);transform:scale(1.1)}
+.g51::after{background:radial-gradient(circle at 70% 70%,#3e6bff66,transparent 40%);transform:translate(-4%,6%) scale(1.05)}
+/* Magenta · 52 · style9 */
+.g52{background:linear-gradient(105deg,#00000055 0 8%,transparent 8% 18%,#ff00a899 18% 22%,transparent 22% 35%,#ffffff33 35% 38%,transparent 38% 55%,#a000ff88 55% 62%,transparent 62% 78%,#3e6bff77 78% 84%,transparent 84%),linear-gradient(155deg,#0d0018,#ff00a8 35%,#a000ff 55%,#3e6bff 75%,#0d0018);background-size:cover}
+.g52::before{background:linear-gradient(105deg,#fff3 0 12%,transparent 12% 30%,#ff00a855 30% 36%,transparent);transform:skewX(-15deg) scale(1.2)}
+.g52::after{background:linear-gradient(155deg,transparent 20%,#3e6bff55 50%,transparent 80%);transform:skewX(10deg) scale(1.15)}
+/* Tropic · 53 · style1 */
+.g53{background:radial-gradient(circle at 18% 22%,#00ff9d 0 18%,transparent 42%),radial-gradient(circle at 78% 30%,#00d9ff 0 16%,transparent 40%),radial-gradient(circle at 55% 82%,#a8ff00 0 22%,transparent 48%),radial-gradient(circle at 30% 70%,#00ff9d88 0 12%,transparent 35%),#00130e;background-size:cover}
+.g53::before{background:radial-gradient(circle at 30% 40%,#00d9ffaa,transparent 50%);transform:scale(1.2) rotate(20deg)}
+.g53::after{background:radial-gradient(circle at 70% 60%,#a8ff0088,transparent 55%);transform:scale(1.15) rotate(-18deg)}
+/* Tropic · 54 · style4 */
+.g54{background:radial-gradient(circle at 50% 50%,#00130e 0 38%,#00ff9d 39% 46%,#00130e 47% 58%,#00d9ff 59% 68%,#00130e 69% 78%,#a8ff00 79% 88%,#00130e 89%);background-size:cover}
+.g54::before{background:radial-gradient(circle at 35% 35%,#00ff9d55,transparent 45%);transform:scale(1.15)}
+.g54::after{background:radial-gradient(circle at 70% 65%,#a8ff0055,transparent 42%);transform:scale(1.1)}
+/* Tropic · 55 · style7 */
+.g55{background:linear-gradient(135deg,transparent 42%,#00ff9d 42% 48%,transparent 48%),linear-gradient(135deg,transparent 58%,#00d9ff 58% 64%,transparent 64%),linear-gradient(225deg,#00130e,#a8ff00 50%,#00d9ff 75%,#00130e);background-size:cover}
+.g55::before{background:linear-gradient(135deg,#00ff9d88 30%,transparent 45%);transform:scale(1.35)}
+.g55::after{background:linear-gradient(225deg,transparent 40%,#a8ff0077 60%,transparent 75%);transform:scale(1.25) translate(6%,0)}
+/* Tropic · 56 · style10 */
+.g56{background:radial-gradient(circle at 20% 25%, #00ff9d 0 8%, transparent 10%),radial-gradient(circle at 48% 18%, #00d9ff 0 6%, transparent 8%),radial-gradient(circle at 75% 35%, #a8ff00 0 9%, transparent 11%),radial-gradient(circle at 30% 60%, #00d9ff 0 7%, transparent 9%),radial-gradient(circle at 60% 72%, #00ff9d 0 10%, transparent 12%),radial-gradient(circle at 82% 78%, #a8ff00 0 6%, transparent 8%),radial-gradient(circle at 15% 80%, #00d9ff 0 5%, transparent 7%),radial-gradient(circle at 45% 45%, #a8ff00 0 7%, transparent 9%),#00130e;background-size:cover}
+.g56::before{background:radial-gradient(circle at 40% 30%,#00ff9d66 0 12%,transparent 25%);transform:scale(1.2) rotate(8deg)}
+.g56::after{background:radial-gradient(circle at 65% 70%,#a8ff0066 0 14%,transparent 28%);transform:scale(1.15) rotate(-12deg)}
+/* Coral · 57 · style2 */
+.g57{background:conic-gradient(from 210deg at 42% 48%,#190506 0deg,#ff6f91 55deg,#ff9f68 110deg,#ffc857 175deg,#190506 240deg,#ff6f91 320deg,#190506 360deg);background-size:cover}
+.g57::before{background:conic-gradient(from 40deg at 60% 40%,transparent 0 40%,#ff9f6866 55%,transparent 70%);transform:rotate(25deg) scale(1.25)}
+.g57::after{background:radial-gradient(circle at 30% 70%,#ffc85777,transparent 55%);transform:translate(5%,10%) rotate(-10deg)}
+/* Coral · 58 · style5 */
+.g58{background:repeating-linear-gradient(125deg,transparent 0 8px,#ff6f9133 8px 16px,transparent 16px 28px),repeating-linear-gradient(35deg,transparent 0 12px,#ff9f6822 12px 22px),linear-gradient(160deg,#190506,#ffc857 45%,#ff6f91 78%,#190506);background-size:cover}
+.g58::before{background:linear-gradient(125deg,#ff6f9166,transparent 50%,#ff9f6844);transform:skewX(-12deg) scale(1.2)}
+.g58::after{background:linear-gradient(200deg,transparent 20%,#ffc85755 50%,transparent 80%);transform:skewX(18deg) translate(4%,8%)}
+/* Coral · 59 · style8 */
+.g59{background:linear-gradient(90deg,transparent 0 10%,#ff6f91cc 22%,#ff9f68aa 38%,transparent 48%,#ffc857cc 62%,#ff6f9188 78%,transparent 92%),linear-gradient(180deg,#190506 0 20%,transparent 40%,transparent 60%,#190506 85%),linear-gradient(120deg,#ff9f68,#ffc857 45%,#ff6f91 80%);background-size:cover}
+.g59::before{background:linear-gradient(90deg,transparent,#ff6f9166 35%,#ff9f6844 55%,transparent);transform:translateY(-20%) scaleY(1.4)}
+.g59::after{background:linear-gradient(0deg,transparent 30%,#ffc85755 55%,transparent 80%);transform:translateY(15%) scaleY(1.3)}
+/* Coral · 60 · style11 */
+.g60{background:radial-gradient(circle at 32% 28%,#ffffff66 0 4%,#ffffff22 8%,transparent 18%),radial-gradient(circle at 50% 55%,#ff6f91 0 25%,#ff9f68 48%,#ffc857 72%,#190506 100%);background-size:cover}
+.g60::before{background:radial-gradient(circle at 30% 25%,#fff5 0 5%,transparent 18%);transform:scale(1.05)}
+.g60::after{background:radial-gradient(circle at 70% 75%,#ffc85788 0 30%,transparent 55%);transform:scale(1.08)}
+/* Berry · 61 · style3 */
+.g61{background:radial-gradient(ellipse 90% 70% at 28% 30%,#5d5cff 0 28%,transparent 62%),radial-gradient(ellipse 80% 75% at 72% 68%,#2d8cff 0 30%,transparent 65%),radial-gradient(ellipse 60% 50% at 50% 50%,#d04cff55 0 20%,transparent 55%),#07051b;background-size:cover}
+.g61::before{background:radial-gradient(ellipse 70% 55% at 35% 35%,#2d8cffbb,transparent 60%);transform:translate(-8%,6%) rotate(15deg) scale(1.3)}
+.g61::after{background:radial-gradient(ellipse 65% 60% at 65% 65%,#d04cff99,transparent 58%);transform:translate(6%,-8%) rotate(-12deg) scale(1.25)}
+/* Berry · 62 · style6 */
+.g62{background:radial-gradient(circle at 32% 28%,#ffffff33 0 8%,transparent 18%),radial-gradient(circle at 68% 62%,#ffffff22 0 12%,transparent 22%),radial-gradient(circle at 50% 50%,#5d5cff 0 22%,#2d8cff 42%,#d04cff 68%,#07051b 100%);background-size:cover}
+.g62::before{background:radial-gradient(circle at 40% 35%,#ffffff44 0 6%,transparent 16%);transform:scale(1.1)}
+.g62::after{background:radial-gradient(circle at 70% 70%,#d04cff66,transparent 40%);transform:translate(-4%,6%) scale(1.05)}
+/* Berry · 63 · style9 */
+.g63{background:linear-gradient(105deg,#00000055 0 8%,transparent 8% 18%,#5d5cff99 18% 22%,transparent 22% 35%,#ffffff33 35% 38%,transparent 38% 55%,#2d8cff88 55% 62%,transparent 62% 78%,#d04cff77 78% 84%,transparent 84%),linear-gradient(155deg,#07051b,#5d5cff 35%,#2d8cff 55%,#d04cff 75%,#07051b);background-size:cover}
+.g63::before{background:linear-gradient(105deg,#fff3 0 12%,transparent 12% 30%,#5d5cff55 30% 36%,transparent);transform:skewX(-15deg) scale(1.2)}
+.g63::after{background:linear-gradient(155deg,transparent 20%,#d04cff55 50%,transparent 80%);transform:skewX(10deg) scale(1.15)}
+/* Berry · 64 · style0 */
+.g64{background:linear-gradient(115deg,#07051b 0 18%,#5d5cff 18% 32%,transparent 32% 38%,#2d8cff 38% 58%,transparent 58% 66%,#d04cff 66% 82%,#07051b 82%),linear-gradient(20deg,#07051b,#2d8cff 40%,#5d5cff 70%,#07051b);background-size:cover}
+.g64::before{background:linear-gradient(100deg,#5d5cffcc,transparent 45%,#2d8cff99);transform:translate(-12%,-8%) rotate(-12deg)}
+.g64::after{background:conic-gradient(from 210deg,transparent 0 30%,#d04cff88 45%,transparent 60%);transform:translate(10%,12%) rotate(8deg)}
+/* Ultra · 65 · style4 */
+.g65{background:radial-gradient(circle at 50% 50%,#0b0018 0 38%,#b500ff 39% 46%,#0b0018 47% 58%,#ff2bb5 59% 68%,#0b0018 69% 78%,#3d00ff 79% 88%,#0b0018 89%);background-size:cover}
+.g65::before{background:radial-gradient(circle at 35% 35%,#b500ff55,transparent 45%);transform:scale(1.15)}
+.g65::after{background:radial-gradient(circle at 70% 65%,#3d00ff55,transparent 42%);transform:scale(1.1)}
+/* Ultra · 66 · style7 */
+.g66{background:linear-gradient(135deg,transparent 42%,#b500ff 42% 48%,transparent 48%),linear-gradient(135deg,transparent 58%,#ff2bb5 58% 64%,transparent 64%),linear-gradient(225deg,#0b0018,#3d00ff 50%,#ff2bb5 75%,#0b0018);background-size:cover}
+.g66::before{background:linear-gradient(135deg,#b500ff88 30%,transparent 45%);transform:scale(1.35)}
+.g66::after{background:linear-gradient(225deg,transparent 40%,#3d00ff77 60%,transparent 75%);transform:scale(1.25) translate(6%,0)}
+/* Ultra · 67 · style10 */
+.g67{background:radial-gradient(circle at 20% 25%, #b500ff 0 8%, transparent 10%),radial-gradient(circle at 48% 18%, #ff2bb5 0 6%, transparent 8%),radial-gradient(circle at 75% 35%, #3d00ff 0 9%, transparent 11%),radial-gradient(circle at 30% 60%, #ff2bb5 0 7%, transparent 9%),radial-gradient(circle at 60% 72%, #b500ff 0 10%, transparent 12%),radial-gradient(circle at 82% 78%, #3d00ff 0 6%, transparent 8%),radial-gradient(circle at 15% 80%, #ff2bb5 0 5%, transparent 7%),radial-gradient(circle at 45% 45%, #3d00ff 0 7%, transparent 9%),#0b0018;background-size:cover}
+.g67::before{background:radial-gradient(circle at 40% 30%,#b500ff66 0 12%,transparent 25%);transform:scale(1.2) rotate(8deg)}
+.g67::after{background:radial-gradient(circle at 65% 70%,#3d00ff66 0 14%,transparent 28%);transform:scale(1.15) rotate(-12deg)}
+/* Ultra · 68 · style1 */
+.g68{background:radial-gradient(circle at 18% 22%,#b500ff 0 18%,transparent 42%),radial-gradient(circle at 78% 30%,#ff2bb5 0 16%,transparent 40%),radial-gradient(circle at 55% 82%,#3d00ff 0 22%,transparent 48%),radial-gradient(circle at 30% 70%,#b500ff88 0 12%,transparent 35%),#0b0018;background-size:cover}
+.g68::before{background:radial-gradient(circle at 30% 40%,#ff2bb5aa,transparent 50%);transform:scale(1.2) rotate(20deg)}
+.g68::after{background:radial-gradient(circle at 70% 60%,#3d00ff88,transparent 55%);transform:scale(1.15) rotate(-18deg)}
+/* Lime · 69 · style5 */
+.g69{background:repeating-linear-gradient(125deg,transparent 0 8px,#baff0033 8px 16px,transparent 16px 28px),repeating-linear-gradient(35deg,transparent 0 12px,#4cff0022 12px 22px),linear-gradient(160deg,#071000,#00c8a0 45%,#baff00 78%,#071000);background-size:cover}
+.g69::before{background:linear-gradient(125deg,#baff0066,transparent 50%,#4cff0044);transform:skewX(-12deg) scale(1.2)}
+.g69::after{background:linear-gradient(200deg,transparent 20%,#00c8a055 50%,transparent 80%);transform:skewX(18deg) translate(4%,8%)}
+/* Lime · 70 · style8 */
+.g70{background:linear-gradient(90deg,transparent 0 10%,#baff00cc 22%,#4cff00aa 38%,transparent 48%,#00c8a0cc 62%,#baff0088 78%,transparent 92%),linear-gradient(180deg,#071000 0 20%,transparent 40%,transparent 60%,#071000 85%),linear-gradient(120deg,#4cff00,#00c8a0 45%,#baff00 80%);background-size:cover}
+.g70::before{background:linear-gradient(90deg,transparent,#baff0066 35%,#4cff0044 55%,transparent);transform:translateY(-20%) scaleY(1.4)}
+.g70::after{background:linear-gradient(0deg,transparent 30%,#00c8a055 55%,transparent 80%);transform:translateY(15%) scaleY(1.3)}
+/* Lime · 71 · style11 */
+.g71{background:radial-gradient(circle at 32% 28%,#ffffff66 0 4%,#ffffff22 8%,transparent 18%),radial-gradient(circle at 50% 55%,#baff00 0 25%,#4cff00 48%,#00c8a0 72%,#071000 100%);background-size:cover}
+.g71::before{background:radial-gradient(circle at 30% 25%,#fff5 0 5%,transparent 18%);transform:scale(1.05)}
+.g71::after{background:radial-gradient(circle at 70% 75%,#00c8a088 0 30%,transparent 55%);transform:scale(1.08)}
+/* Lime · 72 · style2 */
+.g72{background:conic-gradient(from 210deg at 42% 48%,#071000 0deg,#baff00 55deg,#4cff00 110deg,#00c8a0 175deg,#071000 240deg,#baff00 320deg,#071000 360deg);background-size:cover}
+.g72::before{background:conic-gradient(from 40deg at 60% 40%,transparent 0 40%,#4cff0066 55%,transparent 70%);transform:rotate(25deg) scale(1.25)}
+.g72::after{background:radial-gradient(circle at 30% 70%,#00c8a077,transparent 55%);transform:translate(5%,10%) rotate(-10deg)}
+/* Ice · 73 · style6 */
+.g73{background:radial-gradient(circle at 32% 28%,#ffffff33 0 8%,transparent 18%),radial-gradient(circle at 68% 62%,#ffffff22 0 12%,transparent 22%),radial-gradient(circle at 50% 50%,#c7f7ff 0 22%,#6bc8ff 42%,#9c5cff 68%,#080d22 100%);background-size:cover}
+.g73::before{background:radial-gradient(circle at 40% 35%,#ffffff44 0 6%,transparent 16%);transform:scale(1.1)}
+.g73::after{background:radial-gradient(circle at 70% 70%,#9c5cff66,transparent 40%);transform:translate(-4%,6%) scale(1.05)}
+/* Ice · 74 · style9 */
+.g74{background:linear-gradient(105deg,#00000055 0 8%,transparent 8% 18%,#c7f7ff99 18% 22%,transparent 22% 35%,#ffffff33 35% 38%,transparent 38% 55%,#6bc8ff88 55% 62%,transparent 62% 78%,#9c5cff77 78% 84%,transparent 84%),linear-gradient(155deg,#080d22,#c7f7ff 35%,#6bc8ff 55%,#9c5cff 75%,#080d22);background-size:cover}
+.g74::before{background:linear-gradient(105deg,#fff3 0 12%,transparent 12% 30%,#c7f7ff55 30% 36%,transparent);transform:skewX(-15deg) scale(1.2)}
+.g74::after{background:linear-gradient(155deg,transparent 20%,#9c5cff55 50%,transparent 80%);transform:skewX(10deg) scale(1.15)}
+/* Ice · 75 · style0 */
+.g75{background:linear-gradient(115deg,#080d22 0 18%,#c7f7ff 18% 32%,transparent 32% 38%,#6bc8ff 38% 58%,transparent 58% 66%,#9c5cff 66% 82%,#080d22 82%),linear-gradient(20deg,#080d22,#6bc8ff 40%,#c7f7ff 70%,#080d22);background-size:cover}
+.g75::before{background:linear-gradient(100deg,#c7f7ffcc,transparent 45%,#6bc8ff99);transform:translate(-12%,-8%) rotate(-12deg)}
+.g75::after{background:conic-gradient(from 210deg,transparent 0 30%,#9c5cff88 45%,transparent 60%);transform:translate(10%,12%) rotate(8deg)}
+/* Ice · 76 · style3 */
+.g76{background:radial-gradient(ellipse 90% 70% at 28% 30%,#c7f7ff 0 28%,transparent 62%),radial-gradient(ellipse 80% 75% at 72% 68%,#6bc8ff 0 30%,transparent 65%),radial-gradient(ellipse 60% 50% at 50% 50%,#9c5cff55 0 20%,transparent 55%),#080d22;background-size:cover}
+.g76::before{background:radial-gradient(ellipse 70% 55% at 35% 35%,#6bc8ffbb,transparent 60%);transform:translate(-8%,6%) rotate(15deg) scale(1.3)}
+.g76::after{background:radial-gradient(ellipse 65% 60% at 65% 65%,#9c5cff99,transparent 58%);transform:translate(6%,-8%) rotate(-12deg) scale(1.25)}
+/* Copper · 77 · style7 */
+.g77{background:linear-gradient(135deg,transparent 42%,#ffcf66 42% 48%,transparent 48%),linear-gradient(135deg,transparent 58%,#ff7135 58% 64%,transparent 64%),linear-gradient(225deg,#180704,#e82d65 50%,#ff7135 75%,#180704);background-size:cover}
+.g77::before{background:linear-gradient(135deg,#ffcf6688 30%,transparent 45%);transform:scale(1.35)}
+.g77::after{background:linear-gradient(225deg,transparent 40%,#e82d6577 60%,transparent 75%);transform:scale(1.25) translate(6%,0)}
+/* Copper · 78 · style10 */
+.g78{background:radial-gradient(circle at 20% 25%, #ffcf66 0 8%, transparent 10%),radial-gradient(circle at 48% 18%, #ff7135 0 6%, transparent 8%),radial-gradient(circle at 75% 35%, #e82d65 0 9%, transparent 11%),radial-gradient(circle at 30% 60%, #ff7135 0 7%, transparent 9%),radial-gradient(circle at 60% 72%, #ffcf66 0 10%, transparent 12%),radial-gradient(circle at 82% 78%, #e82d65 0 6%, transparent 8%),radial-gradient(circle at 15% 80%, #ff7135 0 5%, transparent 7%),radial-gradient(circle at 45% 45%, #e82d65 0 7%, transparent 9%),#180704;background-size:cover}
+.g78::before{background:radial-gradient(circle at 40% 30%,#ffcf6666 0 12%,transparent 25%);transform:scale(1.2) rotate(8deg)}
+.g78::after{background:radial-gradient(circle at 65% 70%,#e82d6566 0 14%,transparent 28%);transform:scale(1.15) rotate(-12deg)}
+/* Copper · 79 · style1 */
+.g79{background:radial-gradient(circle at 18% 22%,#ffcf66 0 18%,transparent 42%),radial-gradient(circle at 78% 30%,#ff7135 0 16%,transparent 40%),radial-gradient(circle at 55% 82%,#e82d65 0 22%,transparent 48%),radial-gradient(circle at 30% 70%,#ffcf6688 0 12%,transparent 35%),#180704;background-size:cover}
+.g79::before{background:radial-gradient(circle at 30% 40%,#ff7135aa,transparent 50%);transform:scale(1.2) rotate(20deg)}
+.g79::after{background:radial-gradient(circle at 70% 60%,#e82d6588,transparent 55%);transform:scale(1.15) rotate(-18deg)}
+/* Copper · 80 · style4 */
+.g80{background:radial-gradient(circle at 50% 50%,#180704 0 38%,#ffcf66 39% 46%,#180704 47% 58%,#ff7135 59% 68%,#180704 69% 78%,#e82d65 79% 88%,#180704 89%);background-size:cover}
+.g80::before{background:radial-gradient(circle at 35% 35%,#ffcf6655,transparent 45%);transform:scale(1.15)}
+.g80::after{background:radial-gradient(circle at 70% 65%,#e82d6555,transparent 42%);transform:scale(1.1)}
+/* Aqua · 81 · style8 */
+.g81{background:linear-gradient(90deg,transparent 0 10%,#00f5ffcc 22%,#ff4fc8aa 38%,transparent 48%,#725cffcc 62%,#00f5ff88 78%,transparent 92%),linear-gradient(180deg,#090517 0 20%,transparent 40%,transparent 60%,#090517 85%),linear-gradient(120deg,#ff4fc8,#725cff 45%,#00f5ff 80%);background-size:cover}
+.g81::before{background:linear-gradient(90deg,transparent,#00f5ff66 35%,#ff4fc844 55%,transparent);transform:translateY(-20%) scaleY(1.4)}
+.g81::after{background:linear-gradient(0deg,transparent 30%,#725cff55 55%,transparent 80%);transform:translateY(15%) scaleY(1.3)}
+/* Aqua · 82 · style11 */
+.g82{background:radial-gradient(circle at 32% 28%,#ffffff66 0 4%,#ffffff22 8%,transparent 18%),radial-gradient(circle at 50% 55%,#00f5ff 0 25%,#ff4fc8 48%,#725cff 72%,#090517 100%);background-size:cover}
+.g82::before{background:radial-gradient(circle at 30% 25%,#fff5 0 5%,transparent 18%);transform:scale(1.05)}
+.g82::after{background:radial-gradient(circle at 70% 75%,#725cff88 0 30%,transparent 55%);transform:scale(1.08)}
+/* Aqua · 83 · style2 */
+.g83{background:conic-gradient(from 210deg at 42% 48%,#090517 0deg,#00f5ff 55deg,#ff4fc8 110deg,#725cff 175deg,#090517 240deg,#00f5ff 320deg,#090517 360deg);background-size:cover}
+.g83::before{background:conic-gradient(from 40deg at 60% 40%,transparent 0 40%,#ff4fc866 55%,transparent 70%);transform:rotate(25deg) scale(1.25)}
+.g83::after{background:radial-gradient(circle at 30% 70%,#725cff77,transparent 55%);transform:translate(5%,10%) rotate(-10deg)}
+/* Aqua · 84 · style5 */
+.g84{background:repeating-linear-gradient(125deg,transparent 0 8px,#00f5ff33 8px 16px,transparent 16px 28px),repeating-linear-gradient(35deg,transparent 0 12px,#ff4fc822 12px 22px),linear-gradient(160deg,#090517,#725cff 45%,#00f5ff 78%,#090517);background-size:cover}
+.g84::before{background:linear-gradient(125deg,#00f5ff66,transparent 50%,#ff4fc844);transform:skewX(-12deg) scale(1.2)}
+.g84::after{background:linear-gradient(200deg,transparent 20%,#725cff55 50%,transparent 80%);transform:skewX(18deg) translate(4%,8%)}
+/* Forest · 85 · style9 */
+.g85{background:linear-gradient(105deg,#00000055 0 8%,transparent 8% 18%,#8cff0099 18% 22%,transparent 22% 35%,#ffffff33 35% 38%,transparent 38% 55%,#00d67a88 55% 62%,transparent 62% 78%,#00a8ff77 78% 84%,transparent 84%),linear-gradient(155deg,#001008,#8cff00 35%,#00d67a 55%,#00a8ff 75%,#001008);background-size:cover}
+.g85::before{background:linear-gradient(105deg,#fff3 0 12%,transparent 12% 30%,#8cff0055 30% 36%,transparent);transform:skewX(-15deg) scale(1.2)}
+.g85::after{background:linear-gradient(155deg,transparent 20%,#00a8ff55 50%,transparent 80%);transform:skewX(10deg) scale(1.15)}
+/* Forest · 86 · style0 */
+.g86{background:linear-gradient(115deg,#001008 0 18%,#8cff00 18% 32%,transparent 32% 38%,#00d67a 38% 58%,transparent 58% 66%,#00a8ff 66% 82%,#001008 82%),linear-gradient(20deg,#001008,#00d67a 40%,#8cff00 70%,#001008);background-size:cover}
+.g86::before{background:linear-gradient(100deg,#8cff00cc,transparent 45%,#00d67a99);transform:translate(-12%,-8%) rotate(-12deg)}
+.g86::after{background:conic-gradient(from 210deg,transparent 0 30%,#00a8ff88 45%,transparent 60%);transform:translate(10%,12%) rotate(8deg)}
+/* Forest · 87 · style3 */
+.g87{background:radial-gradient(ellipse 90% 70% at 28% 30%,#8cff00 0 28%,transparent 62%),radial-gradient(ellipse 80% 75% at 72% 68%,#00d67a 0 30%,transparent 65%),radial-gradient(ellipse 60% 50% at 50% 50%,#00a8ff55 0 20%,transparent 55%),#001008;background-size:cover}
+.g87::before{background:radial-gradient(ellipse 70% 55% at 35% 35%,#00d67abb,transparent 60%);transform:translate(-8%,6%) rotate(15deg) scale(1.3)}
+.g87::after{background:radial-gradient(ellipse 65% 60% at 65% 65%,#00a8ff99,transparent 58%);transform:translate(6%,-8%) rotate(-12deg) scale(1.25)}
+/* Forest · 88 · style6 */
+.g88{background:radial-gradient(circle at 32% 28%,#ffffff33 0 8%,transparent 18%),radial-gradient(circle at 68% 62%,#ffffff22 0 12%,transparent 22%),radial-gradient(circle at 50% 50%,#8cff00 0 22%,#00d67a 42%,#00a8ff 68%,#001008 100%);background-size:cover}
+.g88::before{background:radial-gradient(circle at 40% 35%,#ffffff44 0 6%,transparent 16%);transform:scale(1.1)}
+.g88::after{background:radial-gradient(circle at 70% 70%,#00a8ff66,transparent 40%);transform:translate(-4%,6%) scale(1.05)}
+/* Galaxy · 89 · style10 */
+.g89{background:radial-gradient(circle at 20% 25%, #ff204e 0 8%, transparent 10%),radial-gradient(circle at 48% 18%, #9b00ff 0 6%, transparent 8%),radial-gradient(circle at 75% 35%, #3d5cff 0 9%, transparent 11%),radial-gradient(circle at 30% 60%, #9b00ff 0 7%, transparent 9%),radial-gradient(circle at 60% 72%, #ff204e 0 10%, transparent 12%),radial-gradient(circle at 82% 78%, #3d5cff 0 6%, transparent 8%),radial-gradient(circle at 15% 80%, #9b00ff 0 5%, transparent 7%),radial-gradient(circle at 45% 45%, #3d5cff 0 7%, transparent 9%),#0c0012;background-size:cover}
+.g89::before{background:radial-gradient(circle at 40% 30%,#ff204e66 0 12%,transparent 25%);transform:scale(1.2) rotate(8deg)}
+.g89::after{background:radial-gradient(circle at 65% 70%,#3d5cff66 0 14%,transparent 28%);transform:scale(1.15) rotate(-12deg)}
+/* Galaxy · 90 · style1 */
+.g90{background:radial-gradient(circle at 18% 22%,#ff204e 0 18%,transparent 42%),radial-gradient(circle at 78% 30%,#9b00ff 0 16%,transparent 40%),radial-gradient(circle at 55% 82%,#3d5cff 0 22%,transparent 48%),radial-gradient(circle at 30% 70%,#ff204e88 0 12%,transparent 35%),#0c0012;background-size:cover}
+.g90::before{background:radial-gradient(circle at 30% 40%,#9b00ffaa,transparent 50%);transform:scale(1.2) rotate(20deg)}
+.g90::after{background:radial-gradient(circle at 70% 60%,#3d5cff88,transparent 55%);transform:scale(1.15) rotate(-18deg)}
+/* Galaxy · 91 · style4 */
+.g91{background:radial-gradient(circle at 50% 50%,#0c0012 0 38%,#ff204e 39% 46%,#0c0012 47% 58%,#9b00ff 59% 68%,#0c0012 69% 78%,#3d5cff 79% 88%,#0c0012 89%);background-size:cover}
+.g91::before{background:radial-gradient(circle at 35% 35%,#ff204e55,transparent 45%);transform:scale(1.15)}
+.g91::after{background:radial-gradient(circle at 70% 65%,#3d5cff55,transparent 42%);transform:scale(1.1)}
+/* Galaxy · 92 · style7 */
+.g92{background:linear-gradient(135deg,transparent 42%,#ff204e 42% 48%,transparent 48%),linear-gradient(135deg,transparent 58%,#9b00ff 58% 64%,transparent 64%),linear-gradient(225deg,#0c0012,#3d5cff 50%,#9b00ff 75%,#0c0012);background-size:cover}
+.g92::before{background:linear-gradient(135deg,#ff204e88 30%,transparent 45%);transform:scale(1.35)}
+.g92::after{background:linear-gradient(225deg,transparent 40%,#3d5cff77 60%,transparent 75%);transform:scale(1.25) translate(6%,0)}
+/* Peach · 93 · style11 */
+.g93{background:radial-gradient(circle at 32% 28%,#ffffff66 0 4%,#ffffff22 8%,transparent 18%),radial-gradient(circle at 50% 55%,#ffad8a 0 25%,#ff6edb 48%,#8f6bff 72%,#130615 100%);background-size:cover}
+.g93::before{background:radial-gradient(circle at 30% 25%,#fff5 0 5%,transparent 18%);transform:scale(1.05)}
+.g93::after{background:radial-gradient(circle at 70% 75%,#8f6bff88 0 30%,transparent 55%);transform:scale(1.08)}
+/* Peach · 94 · style2 */
+.g94{background:conic-gradient(from 210deg at 42% 48%,#130615 0deg,#ffad8a 55deg,#ff6edb 110deg,#8f6bff 175deg,#130615 240deg,#ffad8a 320deg,#130615 360deg);background-size:cover}
+.g94::before{background:conic-gradient(from 40deg at 60% 40%,transparent 0 40%,#ff6edb66 55%,transparent 70%);transform:rotate(25deg) scale(1.25)}
+.g94::after{background:radial-gradient(circle at 30% 70%,#8f6bff77,transparent 55%);transform:translate(5%,10%) rotate(-10deg)}
+/* Peach · 95 · style5 */
+.g95{background:repeating-linear-gradient(125deg,transparent 0 8px,#ffad8a33 8px 16px,transparent 16px 28px),repeating-linear-gradient(35deg,transparent 0 12px,#ff6edb22 12px 22px),linear-gradient(160deg,#130615,#8f6bff 45%,#ffad8a 78%,#130615);background-size:cover}
+.g95::before{background:linear-gradient(125deg,#ffad8a66,transparent 50%,#ff6edb44);transform:skewX(-12deg) scale(1.2)}
+.g95::after{background:linear-gradient(200deg,transparent 20%,#8f6bff55 50%,transparent 80%);transform:skewX(18deg) translate(4%,8%)}
+/* Peach · 96 · style8 */
+.g96{background:linear-gradient(90deg,transparent 0 10%,#ffad8acc 22%,#ff6edbaa 38%,transparent 48%,#8f6bffcc 62%,#ffad8a88 78%,transparent 92%),linear-gradient(180deg,#130615 0 20%,transparent 40%,transparent 60%,#130615 85%),linear-gradient(120deg,#ff6edb,#8f6bff 45%,#ffad8a 80%);background-size:cover}
+.g96::before{background:linear-gradient(90deg,transparent,#ffad8a66 35%,#ff6edb44 55%,transparent);transform:translateY(-20%) scaleY(1.4)}
+.g96::after{background:linear-gradient(0deg,transparent 30%,#8f6bff55 55%,transparent 80%);transform:translateY(15%) scaleY(1.3)}
+/* Turq · 97 · style0 */
+.g97{background:linear-gradient(115deg,#001215 0 18%,#00ffe0 18% 32%,transparent 32% 38%,#00b8ff 38% 58%,transparent 58% 66%,#5b8cff 66% 82%,#001215 82%),linear-gradient(20deg,#001215,#00b8ff 40%,#00ffe0 70%,#001215);background-size:cover}
+.g97::before{background:linear-gradient(100deg,#00ffe0cc,transparent 45%,#00b8ff99);transform:translate(-12%,-8%) rotate(-12deg)}
+.g97::after{background:conic-gradient(from 210deg,transparent 0 30%,#5b8cff88 45%,transparent 60%);transform:translate(10%,12%) rotate(8deg)}
+/* Turq · 98 · style3 */
+.g98{background:radial-gradient(ellipse 90% 70% at 28% 30%,#00ffe0 0 28%,transparent 62%),radial-gradient(ellipse 80% 75% at 72% 68%,#00b8ff 0 30%,transparent 65%),radial-gradient(ellipse 60% 50% at 50% 50%,#5b8cff55 0 20%,transparent 55%),#001215;background-size:cover}
+.g98::before{background:radial-gradient(ellipse 70% 55% at 35% 35%,#00b8ffbb,transparent 60%);transform:translate(-8%,6%) rotate(15deg) scale(1.3)}
+.g98::after{background:radial-gradient(ellipse 65% 60% at 65% 65%,#5b8cff99,transparent 58%);transform:translate(6%,-8%) rotate(-12deg) scale(1.25)}
+/* Turq · 99 · style6 */
+.g99{background:radial-gradient(circle at 32% 28%,#ffffff33 0 8%,transparent 18%),radial-gradient(circle at 68% 62%,#ffffff22 0 12%,transparent 22%),radial-gradient(circle at 50% 50%,#00ffe0 0 22%,#00b8ff 42%,#5b8cff 68%,#001215 100%);background-size:cover}
+.g99::before{background:radial-gradient(circle at 40% 35%,#ffffff44 0 6%,transparent 16%);transform:scale(1.1)}
+.g99::after{background:radial-gradient(circle at 70% 70%,#5b8cff66,transparent 40%);transform:translate(-4%,6%) scale(1.05)}
+/* Turq · 100 · style9 */
+.g100{background:linear-gradient(105deg,#00000055 0 8%,transparent 8% 18%,#00ffe099 18% 22%,transparent 22% 35%,#ffffff33 35% 38%,transparent 38% 55%,#00b8ff88 55% 62%,transparent 62% 78%,#5b8cff77 78% 84%,transparent 84%),linear-gradient(155deg,#001215,#00ffe0 35%,#00b8ff 55%,#5b8cff 75%,#001215);background-size:cover}
+.g100::before{background:linear-gradient(105deg,#fff3 0 12%,transparent 12% 30%,#00ffe055 30% 36%,transparent);transform:skewX(-15deg) scale(1.2)}
+.g100::after{background:linear-gradient(155deg,transparent 20%,#5b8cff55 50%,transparent 80%);transform:skewX(10deg) scale(1.15)}

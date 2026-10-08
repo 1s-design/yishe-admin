@@ -574,6 +574,28 @@ const remainingRouter: AppRouteRecordRaw[] = [
         },
       },
       {
+        path: "agent",
+        component: () => import("@/views/ai/agent/index.vue"),
+        name: "AiAgent",
+        meta: {
+          title: "router.aiAgent",
+          noCache: true,
+          noAppViewPadding: true,
+        },
+      },
+      {
+        path: "agent/chat/:id",
+        component: () => import("@/views/ai/agent/chat.vue"),
+        name: "AiAgentChat",
+        meta: {
+          title: "router.aiAgent",
+          hidden: true,
+          noCache: true,
+          noAppViewPadding: true,
+          activeMenu: "/ai/agent",
+        },
+      },
+      {
         path: "agent-runs",
         component: () => import("@/views/ai/agent-runs/index.vue"),
         name: "AgentRunTasks",

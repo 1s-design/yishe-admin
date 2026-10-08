@@ -1,6 +1,6 @@
 {
   "name": "yishe-admin",
-  "version": "1.2.335",
+  "version": "1.2.336",
   "description": "基于vue3、vite4、element-plus、typesScript",
   "author": "jc",
   "private": false,
@@ -26,6 +26,7 @@
     "lint:lint-staged": "lint-staged -c "
   },
   "dependencies": {
+    "@ai-sdk/vue": "^4.0.128",
     "@ant-design/icons-vue": "^7.0.1",
     "@codemirror/autocomplete": "^6.20.1",
     "@codemirror/basic-setup": "^0.20.0",
@@ -50,6 +51,7 @@
     "@wangeditor/editor-for-vue": "^5.1.10",
     "@zxcvbn-ts/core": "^3.0.4",
     "ag-psd": "^28.1.0",
+    "ai": "^7.0.128",
     "ali-oss": "^6.22.0",
     "animate.css": "^4.1.1",
     "ant-design-vue": "^4.2.6",
@@ -115,7 +117,8 @@
     "vxe-table": "4.11.19",
     "web-storage-cache": "^1.1.1",
     "xlsx": "^0.18.5",
-    "xml-js": "^1.6.11"
+    "xml-js": "^1.6.11",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.0.1",

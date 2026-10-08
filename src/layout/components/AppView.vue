@@ -115,6 +115,7 @@ provide("reload", reload);
     </button>
 
     <router-view v-if="routerAlive" v-slot="{ Component, route }">
+      <!-- 单出口 + key 强制切换；keep-alive 仅缓存 include 命中的路由组件 -->
       <keep-alive :max="keepAliveMax">
         <component
           :is="Component"
@@ -125,7 +126,7 @@ provide("reload", reload);
       <component
         :is="Component"
         v-if="!shouldCacheRoute(route)"
-        :key="getComponentKey(route)"
+        :key="`${getComponentKey(route)}::${String(route.name || '')}`"
       />
     </router-view>
   </section>
