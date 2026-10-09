@@ -178,6 +178,18 @@ export const AgentAdminApi = {
       data: { note }
     }) as Promise<AgentDefinition>
   },
+  /** 自进化提示词：分析运行日志生成优化版 */
+  optimizeInstructions(id: string) {
+    return request.post({ url: `/agent/definitions/${id}/optimize-instructions` }) as Promise<AgentDefinition>
+  },
+  /** 采纳优化版提示词 */
+  acceptOptimized(id: string) {
+    return request.post({ url: `/agent/definitions/${id}/accept-optimized` }) as Promise<AgentDefinition>
+  },
+  /** 拒绝优化版提示词 */
+  rejectOptimized(id: string) {
+    return request.post({ url: `/agent/definitions/${id}/reject-optimized` }) as Promise<AgentDefinition>
+  },
   /** 下发任务（后台异步执行） */
   dispatchTask(data: { agentDefinitionId: string; title?: string; prompt: string }) {
     return request.post({ url: '/agent/tasks', data }) as Promise<AgentTask>

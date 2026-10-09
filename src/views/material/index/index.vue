@@ -367,6 +367,9 @@
               <el-button size="small" @click="handleMultiDownload">
                 {{ t('material.downloadCount', { count: ids.length }) }}
               </el-button>
+              <el-button size="small" @click="handleMultiDownloadByCode">
+                按编码下载 ({{ ids.length }})
+              </el-button>
               <el-button size="small" type="danger" :loading="deleteLoading" @click="handleDelete(null)">
                 <el-icon>
                   <Delete />
@@ -2228,6 +2231,12 @@
                               <div class="op-submenu-item" @click.stop="handleOperationCommand('download', row)">
                                 {{ t('material.download') }}
                               </div>
+                              <div class="op-submenu-item" @click.stop="handleOperationCommand('download-by-code', row)">
+                                按编码下载
+                              </div>
+                              <div class="op-submenu-item" @click.stop="handleOperationCommand('download-custom', row)">
+                                自定义名称下载
+                              </div>
                               <div class="op-submenu-item"
                                 @click.stop="handleOperationCommand('download-rotated-90', row)">
                                 {{ t('material.downloadRotated90') }}
@@ -2506,6 +2515,43 @@
         <div class="dialog-footer">
           <el-button @click="urlUploadModalVisible = false">{{ t('material.cancel') }}</el-button>
           <el-button type="primary" :loading="urlUploadLoading" @click="handleUrlUpload">{{ t('material.upload') }}</el-button>
+        </div>
+      </template>
+    </el-dialog>
+
+    <!-- 自定义名称下载弹窗 -->
+    <el-dialog v-model="customDownloadVisible" title="自定义名称下载" width="420px" align-center
+      :close-on-click-modal="false" class="custom-download-dialog">
+      <div class="custom-download-body">
+        <el-input v-model="customDownloadName" placeholder="输入下载文件名（不含扩展名）" clearable
+          @keyup.enter="confirmCustomDownload" />
+        <div class="custom-download-fill">
+          <el-button size="small" @click="fillCustomName(customDownloadRow?.code || '')">
+            编码
+          </el-button>
+          <el-button size="small" @click="fillCustomName(customDownloadRow?.name || customDownloadRow?.imageName || '')">
+            名称
+          </el-button>
+          <el-button size="small" @click="fillCustomName(`${customDownloadRow?.width || 0}x${customDownloadRow?.height || 0}`)">
+            尺寸
+          </el-button>
+          <el-button size="small" @click="fillCustomName(`${customDownloadRow?.code || ''}_${customDownloadRow?.width || 0}x${customDownloadRow?.height || 0}`)">
+            编码_尺寸
+          </el-button>
+          <el-button size="small" @click="fillCustomName(`${customDownloadRow?.name || ''}_${customDownloadRow?.code || ''}`)">
+            名称_编码
+          </el-button>
+        </div>
+        <div v-if="customDownloadRow" class="custom-download-info">
+          <span>编码：{{ customDownloadRow.code || '无' }}</span>
+          <span>尺寸：{{ customDownloadRow.width || '?' }}×{{ customDownloadRow.height || '?' }}</span>
+          <span>格式：{{ (customDownloadRow.name || customDownloadRow.imageName || '').match(/\.[a-zA-Z0-9]+$/)?.[0] || '.jpg' }}</span>
+        </div>
+      </div>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="customDownloadVisible = false">取消</el-button>
+          <el-button type="primary" @click="confirmCustomDownload">下载</el-button>
         </div>
       </template>
     </el-dialog>
@@ -5613,6 +5659,91 @@ async function handleDownload(row) {
   }
 }
 
+/** 按编码下载：文件名使用素材编码 */
+async function handleDownloadByCode(row) {
+  try {
+    const downloadUrl = row.url || row.ossObjectName;
+    const code = (row.code || "").trim();
+    if (!code) {
+      ElMessage.warning("该素材无编码，无法按编码下载");
+      return;
+    }
+    if (!downloadUrl) {
+      ElMessage.error(`素材 ${code} 下载失败：缺少下载链接`);
+      return;
+    }
+    // 保留原始扩展名
+    const ext = (row.name || row.imageName || "").match(/\.[a-zA-Z0-9]+$/)?.[0] || ".jpg";
+    const fileName = `${code}${ext}`;
+    await downloadImage(downloadUrl, fileName);
+    ElNotification.success(`素材 ${code} 下载成功`);
+  } catch (error) {
+    console.error("按编码下载失败:", error);
+    ElMessage.error(`按编码下载失败：${error.message}`);
+  }
+}
+
+/** 批量按编码下载 */
+function handleMultiDownloadByCode() {
+  if (!ids.value.length) {
+    return ElMessage.warning("请选择要下载的数据");
+  }
+  try {
+    ids.value.forEach(async (id, index) => {
+      const row = dataSource.value.find((item) => item.id == id);
+      if (!row) return;
+      setTimeout(async () => {
+        await handleDownloadByCode(row);
+      }, 500 * index);
+    });
+  } catch (e) {
+    console.error("批量按编码下载失败:", e);
+    ElMessage.error("批量下载失败");
+  }
+}
+
+// ── 自定义名称下载 ──
+const customDownloadVisible = ref(false)
+const customDownloadName = ref('')
+const customDownloadRow = ref<any>(null)
+
+function openCustomDownloadDialog(row: any) {
+  customDownloadRow.value = row
+  customDownloadName.value = ''
+  customDownloadVisible.value = true
+}
+
+function fillCustomName(text: string) {
+  customDownloadName.value = text
+}
+
+function confirmCustomDownload() {
+  const row = customDownloadRow.value
+  const name = customDownloadName.value.trim()
+  if (!row) return
+  if (!name) {
+    ElMessage.warning('请输入下载名称')
+    return
+  }
+  const downloadUrl = row.url || row.ossObjectName
+  if (!downloadUrl) {
+    ElMessage.error('缺少下载链接')
+    return
+  }
+  // 确保有扩展名
+  const hasExt = /\.[a-zA-Z0-9]+$/.test(name)
+  const ext = (row.name || row.imageName || '').match(/\.[a-zA-Z0-9]+$/)?.[0] || '.jpg'
+  const fileName = hasExt ? name : `${name}${ext}`
+  downloadImage(downloadUrl, fileName)
+    .then(() => {
+      ElNotification.success(`下载成功：${fileName}`)
+      customDownloadVisible.value = false
+    })
+    .catch((error: any) => {
+      ElMessage.error(`下载失败：${error.message}`)
+    })
+}
+
 async function handleDownloadRotated90(row) {
   try {
     const originalUrl = row.url || row.ossObjectName;
@@ -7829,6 +7960,12 @@ async function handleOperationCommand(command: string, row: any) {
       case "download":
         await handleDownload(row);
         break;
+      case "download-by-code":
+        await handleDownloadByCode(row);
+        break;
+      case "download-custom":
+        openCustomDownloadDialog(row);
+        break;
       case "download-rotated-90":
         await handleDownloadRotated90(row);
         break;
@@ -9762,6 +9899,33 @@ h1 {
 :global(.url-upload-dialog .preview-image) {
   max-height: 180px;
   box-shadow: none;
+}
+
+/* 自定义名称下载弹窗 */
+.custom-download-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.custom-download-fill {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+
+  .el-button {
+    height: 22px;
+    padding: 0 8px;
+    font-size: 11px;
+  }
+}
+
+.custom-download-info {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--el-text-color-placeholder);
 }
 
 :global(.url-upload-dialog .preview-placeholder p),

@@ -25,7 +25,13 @@ export const useRenderMenuItem = () =>
             return (
               <ElMenuItem class={['v-menu__item', `v-menu__item--level-${level}`]} index={onlyOneChild ? pathResolve(fullPath, onlyOneChild.path) : fullPath}>
                 {{
-                  default: () => renderMenuTitle(onlyOneChild ? onlyOneChild?.meta : meta, level)
+                  default: () =>
+                    renderMenuTitle(
+                      onlyOneChild ? onlyOneChild?.meta : meta,
+                      level,
+                      onlyOneChild?.name?.toString() || v.name?.toString(),
+                      fullPath
+                    )
                 }}
               </ElMenuItem>
             )
@@ -36,7 +42,7 @@ export const useRenderMenuItem = () =>
                 index={fullPath}
               >
                 {{
-                  title: () => renderMenuTitle(meta, level),
+                  title: () => renderMenuTitle(meta, level, v.name?.toString(), fullPath),
                   default: () => renderMenuItem(v.children!, fullPath, level + 1)
                 }}
               </ElSubMenu>

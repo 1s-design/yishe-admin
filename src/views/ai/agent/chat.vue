@@ -154,7 +154,7 @@
                     </span>
                   </button>
 
-                  <div v-show="expandedToolGroups.has(idx)" class="thought-body">
+                  <div v-show="expandedToolGroups.has(idx) || toolAutoOpen" class="thought-body">
                     <div
                       v-for="(tool, tIdx) in item.tools"
                       :key="tIdx"
@@ -163,11 +163,49 @@
                     >
                       <div class="tool-step__header">
                         <span class="tool-step__status-dot" />
+                        <span class="tool-step__seq">#{{ tIdx + 1 }}</span>
                         <span class="tool-step__name">{{ tool.label || tool.tool }}</span>
                         <span class="tool-step__badge">{{ tool.tool }}</span>
+                        <span v-if="tool.durationMs != null" class="tool-step__dur">
+                          {{ formatDuration(tool.durationMs) }}
+                        </span>
                       </div>
                       <div v-if="tool.summary" class="tool-step__summary">
                         {{ tool.summary }}
+                      </div>
+                      <div v-if="tool.error" class="tool-step__error">
+                        {{ tool.error }}
+                      </div>
+                      <div v-if="tool.inputText" class="tool-step__input">
+                        <div class="tool-step__input-label">入参</div>
+                        <pre class="tool-step__pre">{{ tool.inputText }}</pre>
+                      </div>
+                      <div v-if="tool.assets && tool.assets.length" class="tool-assets">
+                        <div class="tool-assets__label">
+                          命中素材 {{ tool.assets.length }}
+                        </div>
+                        <div class="tool-assets__grid">
+                          <div
+                            v-for="(a, aIdx) in tool.assets"
+                            :key="aIdx"
+                            class="tool-assets__card"
+                            :title="a.name || a.id || ''"
+                          >
+                            <img
+                              v-if="a.url"
+                              class="tool-assets__img"
+                              :src="a.url"
+                              :alt="a.name || a.id || '素材'"
+                              loading="lazy"
+                            />
+                            <div v-else class="tool-assets__img tool-assets__img--ph">
+                              {{ (a.name || a.id || '?')[0] }}
+                            </div>
+                            <div class="tool-assets__name">
+                              {{ a.name || a.id || '未命名素材' }}
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -176,7 +214,14 @@
                 <!-- 2. 执行中动画提示 -->
                 <div v-if="item.thinking && !item.content" class="agent-thinking-pill">
                   <span class="thinking-spinner" />
-                  <span>正在自主思考与规划工具调用...</span>
+                  <div class="agent-thinking-pill__info">
+                    <span class="agent-thinking-pill__main">{{ thinkingLabel }}</span>
+                    <span class="agent-thinking-pill__meta">
+                      <template v-if="thinkingElapsed">{{ thinkingElapsed }}</template>
+                      <template v-if="thinkingLastAction"> · {{ thinkingLastAction }}</template>
+                      <template v-if="thinkingStalled"> · ⚠ 可能等待响应中</template>
+                    </span>
+                  </div>
                 </div>
 
                 <!-- 3. Markdown 正文 -->
@@ -321,16 +366,6 @@
               <span class="fs-dialog-subtitle">通用业务能力组合 · 自主协同调度</span>
             </div>
 
-            <div class="fs-dialog-header__actions">
-              <button class="btn btn--secondary" @click="dialogVisible = false">取消</button>
-              <button
-                class="btn btn--primary"
-                :disabled="savingAgent"
-                @click="saveAgentConfiguration"
-              >
-                保存并生效
-              </button>
-            </div>
           </div>
 
           <!-- 下行靠左对齐：主配置 Tabs (位于标题下左侧) -->
@@ -414,18 +449,33 @@
               </div>
             </div>
 
-            <!-- 常用通用预设模板 (纯扁平文本，无emoji) -->
-            <div class="fs-presets-bar">
-              <span class="fs-presets-label">快速预设模板:</span>
-              <div class="fs-presets-list">
-                <button
-                  v-for="p in universalPresets"
-                  :key="p.name"
-                  class="fs-preset-pill"
-                  @click="applyPreset(p)"
-                >
-                  {{ p.name }}
-                </button>
+            <!-- 运行参数 -->
+            <div class="fs-runtime-params">
+              <div class="fs-runtime-params__title">
+                <span>运行参数</span>
+                <span class="fs-subhint">精确控制调度与推理行为</span>
+              </div>
+              <div class="fs-runtime-params__grid">
+                <div class="fs-param">
+                  <label class="fs-label">日执行上限</label>
+                  <el-input-number v-model="agentForm.dailyRunLimit" :min="1" :max="500" size="small" />
+                </div>
+                <div class="fs-param">
+                  <label class="fs-label">轮询间隔（秒）</label>
+                  <el-input-number v-model="agentForm.wakeIntervalSeconds" :min="10" :max="86400" size="small" />
+                </div>
+                <div class="fs-param">
+                  <label class="fs-label">最大工具步数</label>
+                  <el-input-number v-model="agentForm.maxToolSteps" :min="5" :max="200" size="small" />
+                </div>
+                <div class="fs-param">
+                  <label class="fs-label">模型温度</label>
+                  <el-input-number v-model="agentForm.temperature" :min="0" :max="2" :step="0.1" :precision="1" size="small" />
+                </div>
+                <div class="fs-param">
+                  <label class="fs-label">LLM 超时（毫秒）</label>
+                  <el-input-number v-model="agentForm.llmTimeoutMs" :min="5000" :max="600000" :step="5000" size="small" />
+                </div>
               </div>
             </div>
 
@@ -444,6 +494,24 @@
                 class="fs-editor-textarea"
                 placeholder="定义智能体的身份角色、持续执行目标与工具调用规范..."
               />
+              <!-- 优化提示词操作 -->
+              <div class="fs-optimize-bar">
+                <button class="btn btn--secondary btn--sm" :disabled="optimizing" @click="runOptimize">
+                  {{ optimizing ? '优化中...' : '智能优化提示词' }}
+                </button>
+                <span class="fs-subhint">根据运行日志与反馈自动优化</span>
+              </div>
+              <!-- 优化结果审阅区 -->
+              <div v-if="autoOptimized" class="fs-optimize-review">
+                <div class="fs-optimize-review__header">
+                  <span class="fs-optimize-review__title">优化建议（{{ optimizeTime }}）</span>
+                  <div class="fs-optimize-review__actions">
+                    <button class="btn btn--primary btn--sm" @click="acceptOptimized">采纳</button>
+                    <button class="btn btn--secondary btn--sm" @click="rejectOptimized">拒绝</button>
+                  </div>
+                </div>
+                <div class="fs-optimize-review__body">{{ autoOptimized }}</div>
+              </div>
             </div>
           </div>
         </div>
@@ -577,6 +645,16 @@
           </div>
         </div>
       </div>
+      <div class="fs-dialog-footer">
+        <button class="btn btn--secondary" @click="dialogVisible = false">取消</button>
+        <button
+          class="btn btn--primary"
+          :disabled="savingAgent"
+          @click="saveAgentConfiguration"
+        >
+          保存并生效
+        </button>
+      </div>
     </el-dialog>
   </div>
 </template>
@@ -620,12 +698,65 @@ const capabilities = ref<CapabilityItem[]>([])
 
 const draftPrompt = ref('')
 const pageReady = ref(false)
+const cancelling = ref(false)
 const isInputFocused = ref(false)
 const opLoading = ref(false)
 const savingAgent = ref(false)
+const optimizing = ref(false)
+const autoOptimized = ref('')
+const optimizeTime = ref('')
+
+async function runOptimize() {
+  if (!agent.value) return
+  optimizing.value = true
+  try {
+    const res: any = await AgentAdminApi.optimizeInstructions(agent.value.id)
+    const data = (res as any)?.data ?? res
+    autoOptimized.value = data?.autoOptimizedInstructions || ''
+    optimizeTime.value = data?.autoOptimizedAt
+      ? new Date(data.autoOptimizedAt).toLocaleString('zh-CN')
+      : ''
+    if (autoOptimized.value) {
+      ElMessage.success('优化完成，请审阅')
+    } else {
+      ElMessage.warning('未生成优化内容')
+    }
+  } catch (e: any) {
+    ElMessage.error(e?.message || '优化失败')
+  } finally {
+    optimizing.value = false
+  }
+}
+
+async function acceptOptimized() {
+  if (!agent.value) return
+  try {
+    const res: any = await AgentAdminApi.acceptOptimized(agent.value.id)
+    const data = (res as any)?.data ?? res
+    agent.value = data as any
+    agentForm.instructions = data?.instructions || ''
+    autoOptimized.value = ''
+    ElMessage.success('已采纳优化版提示词')
+  } catch (e: any) {
+    ElMessage.error(e?.message || '采纳失败')
+  }
+}
+
+async function rejectOptimized() {
+  if (!agent.value) return
+  try {
+    await AgentAdminApi.rejectOptimized(agent.value.id)
+    autoOptimized.value = ''
+    ElMessage.info('已拒绝优化建议')
+  } catch (e: any) {
+    ElMessage.error(e?.message || '操作失败')
+  }
+}
 const composerTextareaRef = ref<HTMLTextAreaElement | null>(null)
 const chatScrollRef = ref<HTMLElement | null>(null)
 const expandedToolGroups = ref(new Set<number>())
+/** 工具明细默认展开，便于审查是否调用合理 */
+const toolAutoOpen = ref(true)
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let idleWatchTimer: ReturnType<typeof setInterval> | null = null
@@ -645,7 +776,11 @@ const agentForm = reactive({
   enabled: true,
   dutyMode: 'off' as 'off' | 'duty',
   dutyGoal: '',
-  dailyRunLimit: 24
+  dailyRunLimit: 24,
+  wakeIntervalSeconds: 30,
+  maxToolSteps: 50,
+  temperature: 0.2,
+  llmTimeoutMs: 90000
 })
 
 // ── 通用业务智能体预设模板 (全业务通用，纯扁平，无多余Icon) ──
@@ -907,6 +1042,62 @@ const isWaiting = computed(() => {
   return st === 'waiting_approval' || st === 'waiting_input'
 })
 
+// ── thinking 态增强：已运行时长 / 最近动作 / 卡住检测 ──
+const thinkingTick = ref(0)
+let thinkingTimer: ReturnType<typeof setInterval> | null = null
+
+watch(isBusy, (busy) => {
+  if (busy && !thinkingTimer) {
+    thinkingTick.value = 0
+    thinkingTimer = setInterval(() => { thinkingTick.value++ }, 1000)
+  } else if (!busy && thinkingTimer) {
+    clearInterval(thinkingTimer)
+    thinkingTimer = null
+  }
+}, { immediate: true })
+
+onBeforeUnmount(() => {
+  if (thinkingTimer) { clearInterval(thinkingTimer); thinkingTimer = null }
+})
+
+const thinkingElapsed = computed(() => {
+  void thinkingTick.value
+  const startedAt = (currentTask.value as any)?.startedAt
+  if (!startedAt) return ''
+  const sec = Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000)
+  if (sec < 60) return `${sec}s`
+  return `${Math.floor(sec / 60)}m${sec % 60}s`
+})
+
+const thinkingLastAction = computed(() => {
+  void thinkingTick.value
+  const events = (currentTask.value?.worklog || []) as any[]
+  for (let i = events.length - 1; i >= 0; i--) {
+    const ev = events[i]
+    if (ev?.type === 'tool') return ev.label || ev.tool || ''
+    if (ev?.type === 'system') return (ev.content || '').slice(0, 30)
+    if (ev?.type === 'text') return '生成回复中'
+    if (ev?.type === 'user') return '分析指令中'
+  }
+  return ''
+})
+
+const thinkingStalled = computed(() => {
+  void thinkingTick.value
+  const events = (currentTask.value?.worklog || []) as any[]
+  const last = events[events.length - 1]
+  if (!last?.at) return false
+  const idleSec = (Date.now() - new Date(last.at).getTime()) / 1000
+  return idleSec > 30
+})
+
+const thinkingLabel = computed(() => {
+  const last = thinkingLastAction.value
+  if (thinkingStalled.value) return '正在处理中，请稍候'
+  if (last) return `正在执行：${last}`
+  return '正在自主思考与规划工具调用...'
+})
+
 const taskBadgeClass = computed(() => {
   const st = currentTask.value?.status
   if (st === 'running') return 'running'
@@ -972,13 +1163,23 @@ const chatItems = computed(() => {
         at: ev.at
       })
     } else if (ev?.type === 'tool') {
+      let inputText = ''
+      try {
+        inputText = JSON.stringify(ev.input ?? {}, null, 2)
+        if (inputText.length > 800) inputText = inputText.slice(0, 800) + '…'
+      } catch {
+        inputText = String(ev.input || '')
+      }
       toolBuf.push({
         id: `${ev.tool}-${ev.at}`,
         tool: ev.tool,
         label: ev.label,
         input: ev.input,
+        inputText,
         summary: ev.summary,
         error: ev.error,
+        durationMs: ev.durationMs,
+        assets: ev.assets || [],
         status: ev.success ? 'done' : 'error'
       })
     } else if (ev?.type === 'interrupt') {
@@ -1008,6 +1209,12 @@ const composerPlaceholder = computed(() => {
   if (isBusy.value) return '智能体正在执行任务中，请稍候...'
   return '输入业务指令或目标，智能体将自主规划推进 (Enter 发送)...'
 })
+
+function formatDuration(ms?: number) {
+  if (ms == null) return ''
+  if (ms < 1000) return `${ms}ms`
+  return `${(ms / 1000).toFixed(ms < 10000 ? 1 : 0)}s`
+}
 
 function formatLogTime(at?: string) {
   if (!at) return ''
@@ -1286,19 +1493,37 @@ async function onInteractReject() {
 }
 
 async function cancelCurrentTask() {
-  if (!currentTask.value) return
+  if (!currentTask.value || cancelling.value) return
   try {
     await ElMessageBox.confirm('确定中止当前智能体的执行过程吗？', '提示', {
       type: 'warning',
       confirmButtonText: '确定中止',
       cancelButtonText: '取消'
     })
-    const res: any = await AgentAdminApi.cancelTask(currentTask.value.id)
-    currentTask.value = (res?.data ?? res) as AgentTask
+    cancelling.value = true
+    const id = currentTask.value.id
+    // 1) 立即本地置为已中止并停轮询（消除“点了没反应”）
     stopPolling()
+    currentTask.value = {
+      ...currentTask.value,
+      status: 'cancelled',
+      finishedAt: new Date().toISOString()
+    } as AgentTask
     ElMessage.info('任务已中止')
+    // 2) 后台落库/真正 abort 图，不阻塞 UI
+    AgentAdminApi.cancelTask(id)
+      .then((res: any) => {
+        const fresh = (res?.data ?? res) as AgentTask
+        if (currentTask.value?.id === id && fresh) currentTask.value = fresh
+      })
+      .catch((e: any) => {
+        ElMessage.error(e?.message || '中止落库失败')
+      })
+      .finally(() => {
+        cancelling.value = false
+      })
   } catch {
-    /* cancel */
+    cancelling.value = false
   }
 }
 
@@ -1343,10 +1568,20 @@ function openEditDialog() {
   agentForm.dutyMode = agent.value.dutyMode === 'duty' ? 'duty' : 'off'
   agentForm.dutyGoal = agent.value.dutyGoal || ''
   agentForm.dailyRunLimit = agent.value.dailyRunLimit || 24
+  agentForm.wakeIntervalSeconds = (agent.value as any).wakeIntervalSeconds || 30
+  agentForm.maxToolSteps = (agent.value as any).maxToolSteps || 50
+  agentForm.temperature = Number((agent.value as any).temperature) || 0.2
+  agentForm.llmTimeoutMs = (agent.value as any).llmTimeoutMs || 90000
   agentForm.description = agent.value.description || ''
   agentForm.instructions = agent.value.instructions || ''
   agentForm.capabilities = Array.isArray(agent.value.capabilities) ? [...agent.value.capabilities] : []
   agentForm.enabled = agent.value.enabled ?? true
+
+  // 加载优化草稿
+  autoOptimized.value = (agent.value as any).autoOptimizedInstructions || ''
+  optimizeTime.value = (agent.value as any).autoOptimizedAt
+    ? new Date((agent.value as any).autoOptimizedAt).toLocaleString('zh-CN')
+    : ''
 
   dialogVisible.value = true
 }
@@ -1413,7 +1648,11 @@ async function saveAgentConfiguration() {
       enabled: agentForm.enabled,
       dutyMode: agentForm.dutyMode,
       dutyGoal: agentForm.dutyGoal.trim() || null,
-      dailyRunLimit: agentForm.dailyRunLimit
+      dailyRunLimit: agentForm.dailyRunLimit,
+      wakeIntervalSeconds: agentForm.wakeIntervalSeconds,
+      maxToolSteps: agentForm.maxToolSteps,
+      temperature: agentForm.temperature,
+      llmTimeoutMs: agentForm.llmTimeoutMs
     })
     agent.value = ((res as any)?.data ?? res) as AgentDefinition
     dialogVisible.value = false
@@ -2161,12 +2400,111 @@ onBeforeUnmount(() => {
 
 .tool-step {
   font-size: 12px;
-  padding: 4px 0;
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--c-border);
+
+  &:last-child {
+    border-bottom: none;
+  }
 
   &__header {
     display: flex;
     align-items: center;
     gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  &__seq {
+    font-size: 10px;
+    color: var(--c-text-placeholder);
+    font-variant-numeric: tabular-nums;
+    min-width: 18px;
+  }
+
+  &__dur {
+    margin-left: auto;
+    font-size: 10px;
+    color: var(--c-text-placeholder);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__input {
+    margin-top: 6px;
+  }
+
+  &__input-label {
+    font-size: 10px;
+    color: var(--c-text-placeholder);
+    margin-bottom: 2px;
+  }
+
+  &__pre {
+    margin: 0;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: var(--el-fill-color-light, rgba(148, 163, 184, 0.12));
+    font-size: 10.5px;
+    line-height: 1.4;
+    color: var(--c-text-secondary);
+    overflow: auto;
+    max-height: 120px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  &__error {
+    margin-top: 4px;
+    font-size: 11px;
+    color: #ef4444;
+  }
+}
+
+.tool-assets {
+  margin-top: 8px;
+
+  &__label {
+    font-size: 10px;
+    color: var(--c-text-placeholder);
+    margin-bottom: 6px;
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    gap: 8px;
+  }
+
+  &__card {
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--el-fill-color-light, rgba(148, 163, 184, 0.1));
+    border: 1px solid var(--c-border);
+  }
+
+  &__img {
+    display: block;
+    width: 100%;
+    height: 72px;
+    object-fit: cover;
+    background: var(--el-fill-color);
+
+    &--ph {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--c-text-placeholder);
+      font-size: 18px;
+    }
+  }
+
+  &__name {
+    padding: 4px 6px 6px;
+    font-size: 10px;
+    color: var(--c-text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   &__status-dot {
@@ -2206,12 +2544,28 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px;
+  padding: 8px 14px;
   border-radius: 20px;
   corner-shape: squircle;
   background: var(--el-fill-color-light);
   color: var(--c-text-secondary);
   font-size: 12.5px;
+
+  &__info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &__main {
+    color: var(--c-text-primary);
+    font-weight: 500;
+  }
+
+  &__meta {
+    font-size: 11px;
+    color: var(--c-text-placeholder);
+  }
 }
 
 .thinking-spinner {
@@ -2468,6 +2822,7 @@ onBeforeUnmount(() => {
     padding: 0 !important;
     flex: 1 !important;
     display: flex !important;
+    flex-direction: column !important;
     min-height: 0 !important;
     overflow: hidden !important;
     background: var(--c-dialog-bg);
@@ -2576,10 +2931,62 @@ onBeforeUnmount(() => {
   /* 弹窗主体视口 */
   .fs-dialog-body {
     width: 100%;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+  }
+
+  .fs-dialog-footer {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 12px 28px;
+    border-top: 1px solid var(--c-dialog-border);
+    background: var(--c-dialog-bg);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border: 1px solid transparent;
+
+    &--primary {
+      background: var(--c-primary);
+      color: #ffffff;
+
+      &:hover { opacity: 0.9; }
+      &:disabled { opacity: 0.5; cursor: not-allowed; }
+    }
+
+    &--secondary {
+      background: var(--c-dialog-bg);
+      border-color: var(--c-dialog-border);
+      color: var(--c-dialog-text);
+
+      &:hover {
+        background: var(--el-fill-color);
+        border-color: var(--el-border-color);
+      }
+    }
+
+    &--sm {
+      height: 28px;
+      padding: 0 10px;
+      font-size: 12px;
+    }
   }
 
   .fs-tab-view {
@@ -2682,6 +3089,80 @@ onBeforeUnmount(() => {
     &:hover {
       border-color: var(--c-primary);
       color: var(--c-primary);
+    }
+  }
+
+  .fs-runtime-params {
+    margin-bottom: 16px;
+
+    &__title {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--c-dialog-text);
+    }
+
+    &__grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px 20px;
+    }
+  }
+
+  .fs-param {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    .fs-label {
+      font-size: 11.5px;
+      color: var(--c-dialog-subtext);
+    }
+  }
+
+  .fs-optimize-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+  }
+
+  .fs-optimize-review {
+    margin-top: 12px;
+    border: 1px solid var(--c-dialog-border);
+    border-radius: 8px;
+    overflow: hidden;
+
+    &__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: var(--el-fill-color-light);
+    }
+
+    &__title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--c-dialog-text);
+    }
+
+    &__actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    &__body {
+      padding: 12px;
+      font-size: 12px;
+      line-height: 1.7;
+      color: var(--c-dialog-subtext);
+      white-space: pre-wrap;
+      max-height: 300px;
+      overflow-y: auto;
     }
   }
 

@@ -66,6 +66,7 @@
       >
         <div class="agent-row__avatar-wrap" :class="{ 'is-duty': item.dutyMode === 'duty' }">
           <div class="agent-row__avatar agent-gradient" :class="resolveAgentGradient(item)" />
+          <span v-if="item.dutyMode === 'duty'" class="agent-row__duty-tag">工作中</span>
         </div>
 
         <div class="agent-row__body">
@@ -125,10 +126,6 @@
               <span class="fs-dialog-subtitle">通用业务能力组合 · 自主协同调度</span>
             </div>
 
-            <div class="fs-dialog-header__actions">
-              <button class="btn btn--secondary" @click="agentDialogVisible = false">取消</button>
-              <button class="btn btn--primary" :disabled="opLoading" @click="saveAgent">保存并生效</button>
-            </div>
           </div>
 
           <!-- 下行靠左对齐：主配置 Tabs (位于标题下左侧) -->
@@ -213,18 +210,33 @@
               </el-select>
             </div>
 
-            <!-- 常用通用预设模板 (全业务通用，纯扁平文本，无多余Icon) -->
-            <div class="fs-presets-bar">
-              <span class="fs-presets-label">快速预设模板:</span>
-              <div class="fs-presets-list">
-                <button
-                  v-for="p in universalPresets"
-                  :key="p.name"
-                  class="fs-preset-pill"
-                  @click="applyPreset(p)"
-                >
-                  {{ p.name }}
-                </button>
+            <!-- 运行参数 -->
+            <div class="fs-runtime-params">
+              <div class="fs-runtime-params__title">
+                <span>运行参数</span>
+                <span class="fs-subhint">精确控制调度与推理行为</span>
+              </div>
+              <div class="fs-runtime-params__grid">
+                <div class="fs-param">
+                  <label class="fs-label">日执行上限</label>
+                  <el-input-number v-model="agentForm.dailyRunLimit" :min="1" :max="500" size="small" />
+                </div>
+                <div class="fs-param">
+                  <label class="fs-label">轮询间隔（秒）</label>
+                  <el-input-number v-model="agentForm.wakeIntervalSeconds" :min="10" :max="86400" size="small" />
+                </div>
+                <div class="fs-param">
+                  <label class="fs-label">最大工具步数</label>
+                  <el-input-number v-model="agentForm.maxToolSteps" :min="5" :max="200" size="small" />
+                </div>
+                <div class="fs-param">
+                  <label class="fs-label">模型温度</label>
+                  <el-input-number v-model="agentForm.temperature" :min="0" :max="2" :step="0.1" :precision="1" size="small" />
+                </div>
+                <div class="fs-param">
+                  <label class="fs-label">LLM 超时（毫秒）</label>
+                  <el-input-number v-model="agentForm.llmTimeoutMs" :min="5000" :max="600000" :step="5000" size="small" />
+                </div>
               </div>
             </div>
 
@@ -376,6 +388,10 @@
           </div>
         </div>
       </div>
+      <div class="fs-dialog-footer">
+        <button class="btn btn--secondary" @click="agentDialogVisible = false">取消</button>
+        <button class="btn btn--primary" :disabled="opLoading" @click="saveAgent">保存并生效</button>
+      </div>
     </el-dialog>
   </div>
 </template>
@@ -434,7 +450,12 @@ const agentForm = reactive({
   instructions: '',
   capabilities: [] as string[],
   enabled: true,
-  avatarStyle: '' as string
+  avatarStyle: '' as string,
+  dailyRunLimit: 24,
+  wakeIntervalSeconds: 30,
+  maxToolSteps: 50,
+  temperature: 0.2,
+  llmTimeoutMs: 90000
 })
 
 // ── 通用业务智能体预设模板 (全方位覆盖，纯扁平，无多余Icon) ──
@@ -729,6 +750,11 @@ function openCreateAgent() {
   agentForm.capabilities = []
   agentForm.enabled = true
   agentForm.avatarStyle = ''
+  agentForm.dailyRunLimit = 24
+  agentForm.wakeIntervalSeconds = 30
+  agentForm.maxToolSteps = 50
+  agentForm.temperature = 0.2
+  agentForm.llmTimeoutMs = 90000
 
   agentDialogVisible.value = true
 }
@@ -746,6 +772,11 @@ function openEditAgent(agent: AgentDefinition) {
   agentForm.capabilities = Array.isArray(agent.capabilities) ? [...agent.capabilities] : []
   agentForm.enabled = agent.enabled ?? true
   agentForm.avatarStyle = agent.avatarStyle || ''
+  agentForm.dailyRunLimit = (agent as any).dailyRunLimit || 24
+  agentForm.wakeIntervalSeconds = (agent as any).wakeIntervalSeconds || 30
+  agentForm.maxToolSteps = (agent as any).maxToolSteps || 50
+  agentForm.temperature = Number((agent as any).temperature) || 0.2
+  agentForm.llmTimeoutMs = (agent as any).llmTimeoutMs || 90000
 
   agentDialogVisible.value = true
 }
@@ -809,7 +840,12 @@ async function saveAgent() {
         description: agentForm.description.trim(),
         instructions: agentForm.instructions.trim(),
         capabilities: agentForm.capabilities,
-        avatarStyle: agentForm.avatarStyle || undefined
+        avatarStyle: agentForm.avatarStyle || undefined,
+        dailyRunLimit: agentForm.dailyRunLimit,
+        wakeIntervalSeconds: agentForm.wakeIntervalSeconds,
+        maxToolSteps: agentForm.maxToolSteps,
+        temperature: agentForm.temperature,
+        llmTimeoutMs: agentForm.llmTimeoutMs
       })
       ElMessage.success('智能体创建成功')
     } else {
@@ -819,7 +855,12 @@ async function saveAgent() {
         instructions: agentForm.instructions.trim(),
         capabilities: agentForm.capabilities,
         enabled: agentForm.enabled,
-        avatarStyle: agentForm.avatarStyle || null
+        avatarStyle: agentForm.avatarStyle || null,
+        dailyRunLimit: agentForm.dailyRunLimit,
+        wakeIntervalSeconds: agentForm.wakeIntervalSeconds,
+        maxToolSteps: agentForm.maxToolSteps,
+        temperature: agentForm.temperature,
+        llmTimeoutMs: agentForm.llmTimeoutMs
       })
       ElMessage.success('智能体配置已更新')
     }
@@ -1159,6 +1200,22 @@ onMounted(() => {
     }
   }
 
+  &__duty-tag {
+    position: absolute;
+    bottom: -2px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 9px;
+    line-height: 1;
+    padding: 2px 5px;
+    border-radius: 6px;
+    background: rgb(254, 54, 102);
+    color: #fff;
+    white-space: nowrap;
+    z-index: 1;
+    pointer-events: none;
+  }
+
   &__avatar {
     width: 56px;
     height: 56px;
@@ -1395,6 +1452,7 @@ onMounted(() => {
     padding: 0 !important;
     flex: 1 !important;
     display: flex !important;
+    flex-direction: column !important;
     min-height: 0 !important;
     overflow: hidden !important;
     background: var(--c-dialog-bg);
@@ -1501,10 +1559,22 @@ onMounted(() => {
   /* 弹窗主体视口 */
   .fs-dialog-body {
     width: 100%;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+  }
+
+  .fs-dialog-footer {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 12px 28px;
+    border-top: 1px solid var(--c-dialog-border);
+    background: var(--c-dialog-bg);
   }
 
   .fs-tab-view {
@@ -1620,6 +1690,37 @@ onMounted(() => {
     &:hover {
       border-color: var(--c-primary);
       color: var(--c-primary);
+    }
+  }
+
+  .fs-runtime-params {
+    margin-bottom: 16px;
+
+    &__title {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--c-dialog-text);
+    }
+
+    &__grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px 20px;
+    }
+  }
+
+  .fs-param {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    .fs-label {
+      font-size: 11.5px;
+      color: var(--c-dialog-subtext);
     }
   }
 

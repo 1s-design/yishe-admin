@@ -30,6 +30,12 @@ import {
   aiAssistantRuntimeState,
 } from "@/services/aiAssistantRuntimeState";
 import {
+  agentRunState,
+  ensureAgentRunStateInitialized,
+  refreshAgentRunState,
+  resolveAgentRunTooltip,
+} from "@/services/agentRunState";
+import {
   designToolRuntimeState,
   ensureDesignToolRuntimeInitialized,
   resolveDesignToolRuntimeTone,
@@ -611,6 +617,30 @@ export default defineComponent({
       );
     };
 
+    /** 智能体菜单：运行数量角标 + hover 详情 */
+    const renderAgentRunBadge = (routePath: string) => {
+      if (routePath !== "/ai/agent") {
+        return undefined;
+      }
+      ensureAgentRunStateInitialized();
+      // 偶尔主动刷新，hover 时数据不过旧
+      void refreshAgentRunState();
+      const active = agentRunState.running + agentRunState.waiting > 0;
+      const n = agentRunState.running + agentRunState.waiting;
+      const label = n > 99 ? "99+" : String(n);
+      return renderMenuStatusHint(
+        <span
+          class={[
+            `${prefixCls}__agent-run-badge`,
+            active ? `${prefixCls}__agent-run-badge--active` : undefined,
+          ]}
+        >
+          {label}
+        </span>,
+        resolveAgentRunTooltip(),
+      );
+    };
+
     const renderDesignToolRuntimeBadge = (routePath: string) => {
       if (routePath !== "/external/design-tool") {
         return undefined;
@@ -680,6 +710,9 @@ export default defineComponent({
       }
       if (routePath === "/external/design-tool") {
         return designToolRuntimeState.runningCount > 0;
+      }
+      if (routePath === "/ai/agent") {
+        return agentRunState.running > 0;
       }
       return false;
     };
@@ -949,6 +982,7 @@ export default defineComponent({
                           >
                             <span class={`${prefixCls}__link-text`}>{t(child.meta?.title as string)}</span>
                             {renderResourceLibraryNewTag(childPath) ||
+                              renderAgentRunBadge(childPath) ||
                               renderWorkflowRuntimeBadge(childPath) ||
                               renderDesignToolRuntimeBadge(childPath) ||
                               renderBrowserPluginRuntimeBadge(childPath) ||
@@ -2027,5 +2061,132 @@ $prefix-cls: #{$namespace}-menu;
   color: rgb(51 65 85 / 98%) !important;
   background: rgb(248 250 252 / 98%) !important;
   border-color: rgb(100 116 139 / 40%) !important;
+}
+</style>
+
+<style lang="scss">
+/* 智能体菜单运行角标 + hover 详情 */
+.agent-menu-badge {
+  display: inline-flex !important;
+  flex-shrink: 0 !important;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 5px;
+  margin-left: 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--el-text-color-secondary, #64748b);
+  background: var(--el-fill-color, rgba(148, 163, 184, 0.18));
+  vertical-align: middle;
+  opacity: 1 !important;
+  visibility: visible !important;
+
+  &.is-active {
+    color: #fff !important;
+    background: #fe3666 !important;
+    box-shadow: 0 0 0 2px rgba(254, 54, 102, 0.15);
+  }
+}
+
+/* 真实菜单渲染入口使用的角标 */
+.v-menu__agent-run-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 5px;
+  margin-left: 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  color: #64748b;
+  background: rgba(148, 163, 184, 0.2);
+  flex-shrink: 0;
+
+  &--active {
+    color: #fff;
+    background: #fe3666;
+  }
+}
+
+.agent-menu-popper {
+  padding: 10px 12px !important;
+
+  .agent-menu-pop {
+    &__head {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin-bottom: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--el-text-color-primary, #0f172a);
+    }
+
+    &__num {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--el-text-color-secondary, #64748b);
+    }
+
+    &__list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    &__empty {
+      font-size: 11px;
+      color: var(--el-text-color-placeholder, #94a3b8);
+    }
+
+    &__row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11.5px;
+      color: var(--el-text-color-regular, #334155);
+    }
+
+    &__dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #94a3b8;
+      flex-shrink: 0;
+
+      &.is-running {
+        background: #10b981;
+      }
+
+      &.is-waiting_approval,
+      &.is-waiting_input {
+        background: #f59e0b;
+      }
+
+      &.is-pending {
+        background: #64748b;
+      }
+    }
+
+    &__name {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    &__status {
+      flex-shrink: 0;
+      color: var(--el-text-color-secondary, #64748b);
+    }
+  }
 }
 </style>
