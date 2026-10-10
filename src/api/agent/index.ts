@@ -94,6 +94,14 @@ export interface CapabilityItem {
   category?: string
   risk: 'low' | 'medium' | 'high'
   readOnly?: boolean
+  /** Source-as-Capability 扩展元数据（采集源等） */
+  meta?: {
+    module?: string
+    moduleLabel?: string
+    sourceId?: string
+    domains?: string[]
+    searchParams?: Array<{ key: string; label: string; type: string }>
+  }
 }
 
 export type AgentTaskStatus =

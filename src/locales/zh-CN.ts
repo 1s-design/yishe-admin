@@ -230,6 +230,7 @@ export default {
     tools: '工具',
     statistics: '数据统计',
     vectorSearch: '向量库',
+    designTool: '设计工具',
     designKnowledge: '设计知识库',
     designPrompt: '设计提示词',
     resourceCenter: '资源中心',

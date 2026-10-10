@@ -352,38 +352,45 @@
                 </button>
               </div>
 
-              <div v-else class="fs-caps-grid">
-                <div
-                  v-for="cap in filteredCapabilities"
-                  :key="cap.id"
-                  class="fs-cap-card"
-                  :class="{ 'is-selected': agentForm.capabilities.includes(cap.id) }"
-                  @click="toggleCapability(cap.id)"
-                >
-                  <div class="fs-cap-card__header">
-                    <div class="fs-checkbox-box" :class="{ 'is-checked': agentForm.capabilities.includes(cap.id) }">
-                      <el-icon v-if="agentForm.capabilities.includes(cap.id)"><Check /></el-icon>
-                    </div>
+              <template v-else>
+                <div v-for="group in groupedFilteredCapabilities" :key="group.key || '_flat'">
+                  <!-- 模块子分组标题（仅采集源 tab 显示） -->
+                  <div v-if="group.label" class="fs-cap-group-header">{{ group.label }}</div>
 
-                    <div class="fs-cap-card__title" :title="cap.name || cap.id">
-                      {{ cap.name || cap.id }}
-                    </div>
+                  <div class="fs-caps-grid">
+                    <div
+                      v-for="cap in group.items"
+                      :key="cap.id"
+                      class="fs-cap-card"
+                      :class="{ 'is-selected': agentForm.capabilities.includes(cap.id) }"
+                      @click="toggleCapability(cap.id)"
+                    >
+                      <div class="fs-cap-card__header">
+                        <div class="fs-checkbox-box" :class="{ 'is-checked': agentForm.capabilities.includes(cap.id) }">
+                          <el-icon v-if="agentForm.capabilities.includes(cap.id)"><Check /></el-icon>
+                        </div>
 
-                    <div class="fs-cap-card__badges">
-                      <span class="fs-cat-tag">{{ resolveCapCategory(cap).label }}</span>
-                      <span class="fs-risk-tag" :class="`fs-risk-tag--${cap.risk || 'low'}`">
-                        {{ cap.risk === 'high' ? '敏感' : (cap.risk === 'medium' ? '执行' : '只读') }}
-                      </span>
+                        <div class="fs-cap-card__title" :title="cap.name || cap.id">
+                          {{ cap.name || cap.id }}
+                        </div>
+
+                        <div class="fs-cap-card__badges">
+                          <span class="fs-cat-tag">{{ cap.meta?.moduleLabel || resolveCapCategory(cap).label }}</span>
+                          <span class="fs-risk-tag" :class="`fs-risk-tag--${cap.risk || 'low'}`">
+                            {{ cap.risk === 'high' ? '敏感' : (cap.risk === 'medium' ? '执行' : '只读') }}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div class="fs-cap-card__id">{{ cap.id }}</div>
+
+                      <p class="fs-cap-card__desc" :title="cap.description || ''">
+                        {{ cap.description || '支持当前业务环境内的该项能力调用与调度。' }}
+                      </p>
                     </div>
                   </div>
-
-                  <div class="fs-cap-card__id">{{ cap.id }}</div>
-
-                  <p class="fs-cap-card__desc" :title="cap.description || ''">
-                    {{ cap.description || '支持当前业务环境内的该项能力调用与调度。' }}
-                  </p>
                 </div>
-              </div>
+              </template>
             </div>
           </div>
         </div>
@@ -527,6 +534,7 @@ const capabilityCategories = [
   { key: 'creative', label: '创意与工作流' },
   { key: 'material', label: '素材与知识库' },
   { key: 'ecommerce', label: '电商与业务' },
+  { key: 'collect', label: '采集源' },
   { key: 'system', label: '系统与服务' },
   { key: 'selected', label: '已选能力' }
 ]
@@ -535,6 +543,11 @@ const capabilityCategories = [
 function resolveCapCategory(cap: CapabilityItem): { key: string; label: string } {
   const cat = String(cap.category || '').toLowerCase()
   const id = String(cap.id || '').toLowerCase()
+
+  // 0. 采集源（Source-as-Capability）: collect.source.* / collect.module.*
+  if (cat === 'collect' || id.startsWith('collect.')) {
+    return { key: 'collect', label: '采集源' }
+  }
 
   // 1. 自动化操作: browser, ps, client_runtime, mcp
   if (
@@ -612,6 +625,7 @@ const categoryCounts = computed(() => {
     creative: { total: 0, selected: 0 },
     material: { total: 0, selected: 0 },
     ecommerce: { total: 0, selected: 0 },
+    collect: { total: 0, selected: 0 },
     system: { total: 0, selected: 0 }
   }
 
@@ -658,6 +672,53 @@ const filteredCapabilities = computed(() => {
   }
 
   return list
+})
+
+// ── 采集源按模块子分组（Source-as-Capability 展示） ──
+const COLLECT_MODULE_ORDER = ['image-collect', 'media-collect', 'hotsearch', 'news', 'data-tools']
+const COLLECT_MODULE_LABELS: Record<string, string> = {
+  'image-collect': '图片采集',
+  'media-collect': '媒体采集',
+  hotsearch: '热搜榜单',
+  news: '新闻资讯',
+  'data-tools': '数据工具'
+}
+
+const groupedFilteredCapabilities = computed(() => {
+  const list = filteredCapabilities.value
+  // 非采集源 tab 或搜索时保持平铺
+  if (activeCapGroup.value !== 'collect' || capSearch.value.trim()) {
+    return [{ key: '', label: '', items: list }]
+  }
+  // 采集源 tab 按模块分组
+  const groups = new Map<string, CapabilityItem[]>()
+  for (const cap of list) {
+    const mod = cap.meta?.module || 'other'
+    if (!groups.has(mod)) groups.set(mod, [])
+    groups.get(mod)!.push(cap)
+  }
+  const ordered: Array<{ key: string; label: string; items: CapabilityItem[] }> = []
+  // 模块级能力（collect.module.*）放最前
+  const moduleItems = list.filter((c) => c.id.startsWith('collect.module.'))
+  if (moduleItems.length) {
+    ordered.push({ key: '_module', label: '整组启用', items: moduleItems })
+  }
+  for (const mod of COLLECT_MODULE_ORDER) {
+    const items = groups.get(mod)
+    if (items?.length) {
+      ordered.push({
+        key: mod,
+        label: COLLECT_MODULE_LABELS[mod] || mod,
+        items: items.filter((c) => !c.id.startsWith('collect.module.'))
+      })
+    }
+  }
+  // 其余
+  for (const [mod, items] of groups) {
+    if (COLLECT_MODULE_ORDER.includes(mod)) continue
+    ordered.push({ key: mod, label: mod === 'other' ? '工具' : (COLLECT_MODULE_LABELS[mod] || mod), items })
+  }
+  return ordered.filter((g) => g.items.length > 0)
 })
 
 // ── 列表筛选与统计 ──
@@ -991,13 +1052,13 @@ onMounted(() => {
   width: 240px;
   height: 34px;
   padding: 0 10px;
-  border: 1px solid var(--c-border);
+  border: none;
   border-radius: 8px;
-  background: var(--c-bg-surface);
-  transition: border-color 0.15s ease;
+  background: var(--el-fill-color-light, rgba(0, 0, 0, 0.03));
+  transition: background 0.15s ease;
 
   &:focus-within {
-    border-color: var(--c-primary);
+    background: var(--el-fill-color, rgba(0, 0, 0, 0.06));
   }
 
   &__icon {
@@ -1145,11 +1206,10 @@ onMounted(() => {
   corner-shape: squircle;
   cursor: pointer;
   background: var(--el-fill-color-lighter, rgba(148, 163, 184, 0.08));
-  transition: background 0.15s ease, box-shadow 0.15s ease;
+  transition: background 0.15s ease;
 
   &:hover {
     background: var(--el-fill-color-light, rgba(148, 163, 184, 0.14));
-    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
 
     .agent-row__more {
       opacity: 1;
@@ -1227,7 +1287,6 @@ onMounted(() => {
     font-size: 18px;
     font-weight: 600;
     flex-shrink: 0;
-    box-shadow: 0 3px 10px rgba(15, 23, 42, 0.1);
     overflow: hidden;
   }
 
@@ -1443,7 +1502,6 @@ onMounted(() => {
   .el-dialog__header {
     padding: 0 !important;
     margin: 0 !important;
-    border-bottom: 1px solid var(--c-dialog-border);
     flex-shrink: 0;
     background: var(--c-dialog-bg);
   }
@@ -1573,7 +1631,6 @@ onMounted(() => {
     justify-content: flex-end;
     gap: 10px;
     padding: 12px 28px;
-    border-top: 1px solid var(--c-dialog-border);
     background: var(--c-dialog-bg);
   }
 
@@ -1680,7 +1737,8 @@ onMounted(() => {
     height: 26px;
     padding: 0 10px;
     border-radius: 6px;
-    border: 1px solid var(--c-dialog-border);
+    border: none;
+    background: var(--el-fill-color-light, rgba(0, 0, 0, 0.03));
     background: var(--c-dialog-bg);
     color: var(--el-text-color-regular, #334155);
     font-size: 12px;
@@ -1770,12 +1828,12 @@ onMounted(() => {
       padding: 14px 16px;
       resize: none;
       border-radius: 8px;
-      background: var(--c-dialog-bg);
+      background: var(--el-fill-color-light, rgba(0, 0, 0, 0.02));
       color: var(--c-dialog-text);
-      border-color: var(--c-dialog-border);
+      border: none;
 
       &:focus {
-        border-color: var(--c-primary);
+        outline: none;
       }
     }
   }
@@ -1787,7 +1845,6 @@ onMounted(() => {
     gap: 6px;
     overflow-x: auto;
     padding-bottom: 12px;
-    border-bottom: 1px solid var(--c-dialog-border);
     margin-bottom: 12px;
     flex-shrink: 0;
 
@@ -1803,8 +1860,8 @@ onMounted(() => {
     height: 32px;
     padding: 0 12px;
     border-radius: 6px;
-    border: 1px solid var(--c-dialog-border);
-    background: var(--c-dialog-bg);
+    border: none;
+    background: transparent;
     color: var(--c-dialog-subtext);
     font-size: 12.5px;
     font-weight: 500;
@@ -1813,13 +1870,12 @@ onMounted(() => {
     transition: all 0.12s ease;
 
     &:hover {
-      border-color: var(--el-border-color);
+      background: var(--el-fill-color-light, rgba(0, 0, 0, 0.03));
       color: var(--c-dialog-text);
     }
 
     &.is-active {
       background: var(--el-fill-color, #e2e8f0);
-      border-color: var(--el-border-color);
       color: var(--c-dialog-text);
       font-weight: 600;
     }
@@ -1872,14 +1928,15 @@ onMounted(() => {
     height: 28px;
     padding: 0 10px;
     border-radius: 6px;
-    border: 1px solid var(--c-dialog-border);
-    background: var(--c-dialog-bg);
+    border: none;
+    background: transparent;
     color: var(--c-dialog-subtext);
     font-size: 12px;
     cursor: pointer;
     transition: all 0.12s ease;
 
     &:hover {
+      background: var(--el-fill-color-light, rgba(0, 0, 0, 0.03));
       color: var(--c-dialog-text);
     }
 
@@ -1945,6 +2002,17 @@ onMounted(() => {
     }
   }
 
+  /* 采集源模块子分组标题 */
+  .fs-cap-group-header {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--c-dialog-mute);
+    padding: 14px 0 6px;
+    margin-bottom: 6px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
   /* 通用能力网格 (全宽网格 · 靠左铺满分配空间) */
   .fs-caps-grid {
     display: grid;
@@ -1958,18 +2026,16 @@ onMounted(() => {
     flex-direction: column;
     padding: 12px 14px;
     border-radius: 8px;
-    border: 1px solid var(--c-dialog-border);
-    background: var(--c-dialog-bg);
+    background: transparent;
     cursor: pointer;
-    transition: all 0.12s ease;
+    transition: background 0.12s ease;
 
     &:hover {
-      border-color: var(--el-border-color);
+      background: var(--el-fill-color-light, rgba(0, 0, 0, 0.03));
     }
 
     &.is-selected {
-      border-color: var(--c-primary);
-      background: color-mix(in srgb, var(--c-primary) 6%, var(--c-dialog-bg));
+      background: color-mix(in srgb, var(--c-primary) 8%, var(--c-dialog-bg));
     }
 
     &__header {
@@ -2048,7 +2114,7 @@ onMounted(() => {
     border-radius: 4px;
     background: var(--c-tag-cat-bg);
     color: var(--c-tag-cat-text);
-    border: 1px solid var(--c-tag-cat-border);
+    border: none;
   }
 
   /* 关键：只读 / 执行 / 敏感 Tag 样式（高对比度，兼容黑天白天） */
@@ -2060,25 +2126,22 @@ onMounted(() => {
     padding: 2px 6px;
     border-radius: 4px;
     font-weight: 500;
-    border: 1px solid transparent;
+    border: none;
     transition: all 0.12s ease;
 
     &--low {
       background: var(--c-tag-low-bg);
       color: var(--c-tag-low-text);
-      border-color: var(--c-tag-low-border);
     }
 
     &--medium {
       background: var(--c-tag-med-bg);
       color: var(--c-tag-med-text);
-      border-color: var(--c-tag-med-border);
     }
 
     &--high {
       background: var(--c-tag-high-bg);
       color: var(--c-tag-high-text);
-      border-color: var(--c-tag-high-border);
     }
   }
 }
@@ -2120,33 +2183,29 @@ html.dark .flat-fs-dialog {
   }
 
   .fs-cat-btn {
-    background: #19191b;
-    border-color: rgba(255, 255, 255, 0.08);
+    background: transparent;
     color: #94a3b8;
 
     &:hover {
+      background: rgba(255, 255, 255, 0.06);
       color: #f8fafc;
-      border-color: rgba(255, 255, 255, 0.15);
     }
 
     &.is-active {
       background: #262629;
       color: #ffffff;
-      border-color: rgba(255, 255, 255, 0.18);
     }
   }
 
   .fs-cap-card {
-    background: #19191b;
-    border-color: rgba(255, 255, 255, 0.08);
+    background: transparent;
 
     &:hover {
-      border-color: rgba(255, 255, 255, 0.18);
+      background: rgba(255, 255, 255, 0.04);
     }
 
     &.is-selected {
       background: color-mix(in srgb, var(--el-color-primary, #2563eb) 14%, #19191b);
-      border-color: var(--el-color-primary, #2563eb);
     }
   }
 
@@ -2162,34 +2221,30 @@ html.dark .flat-fs-dialog {
 
   .fs-editor-textarea .el-textarea__inner {
     background: #19191b;
-    border-color: rgba(255, 255, 255, 0.08);
     color: #f8fafc;
   }
 
   .fs-preset-pill {
     background: #19191b;
-    border-color: rgba(255, 255, 255, 0.08);
     color: #cbd5e1;
 
     &:hover {
-      border-color: var(--el-color-primary, #2563eb);
+      background: rgba(255, 255, 255, 0.06);
       color: #ffffff;
     }
   }
 
   .fs-filter-pill {
-    background: #19191b;
-    border-color: rgba(255, 255, 255, 0.08);
+    background: transparent;
     color: #94a3b8;
 
     &:hover {
+      background: rgba(255, 255, 255, 0.06);
       color: #f8fafc;
-      border-color: rgba(255, 255, 255, 0.18);
     }
 
     &.is-active {
       background: #262629;
-      border-color: rgba(255, 255, 255, 0.2);
       color: #ffffff;
     }
   }

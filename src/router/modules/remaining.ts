@@ -19,6 +19,59 @@ const { t } = useI18n();
  * meta.canTo: 即使 hidden 为 true，也允许路由跳转。
  */
 const remainingRouter: AppRouteRecordRaw[] = [
+  // ── 设计工具 ─────────────────────────────────────────────────────
+  {
+    path: '/design-tool',
+    component: Layout,
+    name: 'DesignTool',
+    redirect: '/design-tool/design-knowledge',
+    meta: {
+      title: "router.designTool",
+      icon: 'lucide:palette',
+      order: 5,
+      alwaysShow: true,
+    },
+    children: [
+      {
+        path: 'design-knowledge',
+        component: () => import("@/views/design-knowledge/index.vue"),
+        name: "DesignKnowledge",
+        meta: {
+          title: "router.designKnowledge",
+          menuKey: "design-tool.design-knowledge",
+        },
+      },
+      {
+        path: 'design-prompt',
+        component: () => import("@/views/design-prompt/index.vue"),
+        name: "DesignPrompt",
+        meta: {
+          title: "router.designPrompt",
+          menuKey: "design-tool.design-prompt",
+        },
+      },
+      {
+        path: "design-tool",
+        component: () => import("@/views/external/design-tool/index.vue"),
+        name: "DesignToolConnection",
+        meta: {
+          title: "router.designToolConnection",
+        },
+      },
+      {
+        path: "design-inspiration",
+        component: () => import("@/views/material/designInspiration/index.vue"),
+        name: "DesignInspiration",
+        meta: {
+          canTo: true,
+          hidden: false,
+          noTagsView: false,
+          title: "router.designInspiration",
+          menuKey: "design-tool.design-inspiration",
+        },
+      },
+    ],
+  },
   // ── 工作流 ────────────────────────────────────────────────────
   {
     path: '/workflow',
@@ -307,24 +360,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           menuKey: "home.vector-search",
         },
       },
-      {
-        path: "design-knowledge",
-        component: () => import("@/views/design-knowledge/index.vue"),
-        name: "DesignKnowledge",
-        meta: {
-          title: "router.designKnowledge",
-          menuKey: "home.design-knowledge",
-        },
-      },
-      {
-        path: "design-prompt",
-        component: () => import("@/views/design-prompt/index.vue"),
-        name: "DesignPrompt",
-        meta: {
-          title: "router.designPrompt",
-          menuKey: "home.design-prompt",
-        },
-      },
+
     ],
   },
   {
@@ -537,18 +573,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           title: "router.commonUrl",
         },
       },
-      {
-        path: "design-inspiration",
-        component: () => import("@/views/material/designInspiration/index.vue"),
-        name: "DesignInspiration",
-        meta: {
-          canTo: true,
-          hidden: false,
-          noTagsView: false,
-          title: "router.designInspiration",
-          menuKey: "resource.design-inspiration",
-        },
-      },
+
     ],
   },
   // ── 3. AI创作 ─────────────────────────────────────────────────────
@@ -1022,14 +1047,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           title: "router.clientManagement",
         },
       },
-      {
-        path: "design-tool",
-        component: () => import("@/views/external/design-tool/index.vue"),
-        name: "DesignToolConnection",
-        meta: {
-          title: "router.designToolConnection",
-        },
-      },
+
     ],
   },
   // ── 6. 工具集 ─────────────────────────────────────────────────────

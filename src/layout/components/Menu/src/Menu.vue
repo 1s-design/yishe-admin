@@ -642,7 +642,7 @@ export default defineComponent({
     };
 
     const renderDesignToolRuntimeBadge = (routePath: string) => {
-      if (routePath !== "/external/design-tool") {
+      if (routePath !== "/design-tool/design-tool") {
         return undefined;
       }
 
@@ -708,7 +708,7 @@ export default defineComponent({
       if (isImageProcessingRoute(routePath)) {
         return !!routeRunningMap.value[routePath];
       }
-      if (routePath === "/external/design-tool") {
+      if (routePath === "/design-tool/design-tool") {
         return designToolRuntimeState.runningCount > 0;
       }
       if (routePath === "/ai/agent") {
@@ -746,7 +746,7 @@ export default defineComponent({
     const shouldTrackAiConfig = computed(() => hasRoutePath(routers.value, "/system/ai-api-key"));
     const shouldTrackAiAssistant = computed(() => hasRoutePath(routers.value, "/ai/assistant"));
     const shouldTrackDesignTool = computed(() =>
-      hasRoutePath(routers.value, "/external/design-tool"),
+      hasRoutePath(routers.value, "/design-tool/design-tool"),
     );
     const shouldTrackMessagePush = computed(() =>
       hasRoutePath(routers.value, "/system/message-push"),
