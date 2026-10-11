@@ -35,6 +35,8 @@ export interface CollectSourceMeta {
   timeoutMs?: number
   available?: boolean
   unavailableReason?: string
+  useCases?: string[]
+  website?: string
 }
 
 export interface CollectTaskResult {
@@ -59,10 +61,13 @@ export const listCollectSources = (module?: string) => {
 }
 
 /** AI 采集站点指南 */
-export const listSiteGuides = (module?: string) => {
+export const listSiteGuides = (module?: string, includePending?: boolean) => {
   return request.get({
     url: '/collect/site-guides',
-    params: module ? { module } : {}
+    params: {
+      ...(module ? { module } : {}),
+      ...(includePending ? { includePending: 'true' } : {})
+    }
   })
 }
 

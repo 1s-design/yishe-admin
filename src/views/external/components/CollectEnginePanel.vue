@@ -78,6 +78,14 @@
       >
         最新列表
       </el-button>
+      <el-button
+        v-if="sourceMeta?.website"
+        size="small"
+        text
+        @click="openSourceWebsite"
+      >
+        访问源网站
+      </el-button>
     </div>
 
     <!-- 批量操作栏（仅当源支持采集下载） -->
@@ -413,6 +421,13 @@ function validateForm(): boolean {
     }
   }
   return true
+}
+
+function openSourceWebsite() {
+  const url = sourceMeta.value?.website
+  if (url) {
+    window.open(url, '_blank', 'noopener')
+  }
 }
 
 async function handleSearch() {

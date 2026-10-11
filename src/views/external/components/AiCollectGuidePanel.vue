@@ -14,37 +14,71 @@
       </el-button>
     </div>
 
-    <div v-if="guides.length" class="guide-grid">
-      <div v-for="guide in guides" :key="guide.id" class="guide-card">
-        <div class="guide-card__header">
-          <div class="guide-card__title">{{ guide.name }}</div>
-          <el-tag size="small" effect="plain" type="info">
-            {{ guide.module === 'media-collect' ? '媒体采集' : '图片采集' }}
-          </el-tag>
-        </div>
-
-        <p class="guide-card__desc">{{ guide.description }}</p>
-
-        <div class="guide-card__meta">
-          <div class="meta-row">
-            <span class="meta-label">搜索方式</span>
-            <span class="meta-value">{{ searchMethodLabel(guide.searchMethod) }}</span>
+    <!-- 可采集站点 -->
+    <template v-if="activeGuides.length">
+      <div class="section-label">可采集</div>
+      <div class="guide-grid">
+        <div v-for="guide in activeGuides" :key="guide.id" class="guide-card">
+          <div class="guide-card__header">
+            <div class="guide-card__title">{{ guide.name }}</div>
+            <div class="guide-card__badges">
+              <el-tag size="small" effect="plain" type="success">可用</el-tag>
+              <el-tag size="small" effect="plain" type="info">
+                {{ guide.module === 'media-collect' ? '媒体' : '图片' }}
+              </el-tag>
+            </div>
           </div>
-          <div class="meta-row">
-            <span class="meta-label">主页</span>
-            <a class="meta-link" :href="guide.homepage" target="_blank" rel="noopener">{{ guide.homepage }}</a>
+          <p class="guide-card__desc">{{ guide.description }}</p>
+          <div class="guide-card__meta">
+            <div class="meta-row">
+              <span class="meta-label">搜索方式</span>
+              <span class="meta-value">{{ searchMethodLabel(guide.search?.method) }}</span>
+            </div>
+            <div class="meta-row" v-if="guide.website">
+              <span class="meta-label">网站</span>
+              <a class="meta-link" :href="guide.website" target="_blank" rel="noopener">{{ guide.website }}</a>
+            </div>
           </div>
-        </div>
-
-        <div class="guide-card__actions">
-          <el-button size="small" text type="primary" @click="viewGuide(guide)">
-            查看采集指南
-          </el-button>
+          <div class="guide-card__actions">
+            <el-button size="small" text type="primary" @click="viewGuide(guide)">
+              查看采集指南
+            </el-button>
+          </div>
         </div>
       </div>
-    </div>
+    </template>
 
-    <el-empty v-else-if="!loading" description="暂无 AI 采集站点指南" :image-size="80" />
+    <!-- 待接入站点 -->
+    <template v-if="pendingGuides.length">
+      <div class="section-label section-label--pending">待接入（{{ pendingGuides.length }}）</div>
+      <div class="guide-grid">
+        <div v-for="guide in pendingGuides" :key="guide.id" class="guide-card guide-card--pending">
+          <div class="guide-card__header">
+            <div class="guide-card__title">{{ guide.name }}</div>
+            <div class="guide-card__badges">
+              <el-tag size="small" effect="plain" type="warning">待接入</el-tag>
+            </div>
+          </div>
+          <p class="guide-card__desc">{{ guide.description }}</p>
+          <div v-if="guide.blockedReason" class="guide-card__blocked">
+            <span class="blocked-label">阻塞原因：</span>{{ guide.blockedReason }}
+          </div>
+          <div class="guide-card__meta">
+            <div class="meta-row" v-if="guide.website">
+              <span class="meta-label">网站</span>
+              <a class="meta-link" :href="guide.website" target="_blank" rel="noopener">{{ guide.website }}</a>
+            </div>
+          </div>
+          <div class="guide-card__actions">
+            <el-button size="small" text type="primary" @click="viewGuide(guide)">
+              查看详情
+            </el-button>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <el-empty v-if="!loading && !activeGuides.length && !pendingGuides.length" description="暂无 AI 采集站点指南" :image-size="80" />
 
     <!-- 指南详情抽屉 -->
     <el-drawer
@@ -54,11 +88,16 @@
       direction="rtl"
     >
       <div v-if="selectedGuide" class="guide-detail">
+        <div v-if="selectedGuide.status === 'pending'" class="detail-pending-badge">
+          <el-tag type="warning" size="small">待接入</el-tag>
+          <span v-if="selectedGuide.blockedReason" class="pending-reason">{{ selectedGuide.blockedReason }}</span>
+        </div>
+
         <section class="detail-section">
           <h4>站点简介</h4>
           <p>{{ selectedGuide.description }}</p>
-          <p class="detail-link">
-            主页：<a :href="selectedGuide.homepage" target="_blank" rel="noopener">{{ selectedGuide.homepage }}</a>
+          <p class="detail-link" v-if="selectedGuide.website">
+            主页：<a :href="selectedGuide.website" target="_blank" rel="noopener">{{ selectedGuide.website }}</a>
           </p>
         </section>
 
@@ -96,7 +135,7 @@
           </ul>
         </section>
 
-        <section class="detail-section">
+        <section class="detail-section" v-if="selectedGuide.status !== 'pending'">
           <h4>MCP 工具调用示例</h4>
           <div class="detail-code">{{ toolExample }}</div>
         </section>
@@ -116,6 +155,9 @@ interface SiteGuide {
   description: string
   module: string
   homepage: string
+  website?: string
+  status?: string
+  blockedReason?: string
   searchMethod: string
   search?: { urlTemplate?: string; notes?: string }
   parsing?: { imageUrlPatterns?: string[]; primaryImage?: string; detailPageHints?: string }
@@ -127,6 +169,9 @@ const loading = ref(false)
 const guides = ref<SiteGuide[]>([])
 const drawerVisible = ref(false)
 const selectedGuide = ref<SiteGuide | null>(null)
+
+const activeGuides = computed(() => guides.value.filter((g) => g.status !== 'pending'))
+const pendingGuides = computed(() => guides.value.filter((g) => g.status === 'pending'))
 
 const searchMethodLabel = (method: string) => {
   const map: Record<string, string> = {
@@ -150,7 +195,7 @@ const toolExample = computed(() => {
 const fetchGuides = async () => {
   loading.value = true
   try {
-    const res: any = await listSiteGuides()
+    const res: any = await listSiteGuides(undefined, true)  // includePending=true
     const list = res?.data ?? res ?? []
     guides.value = Array.isArray(list) ? list : (list?.data || [])
   } catch (e) {
@@ -328,5 +373,73 @@ onMounted(() => {
       color: var(--el-text-color-regular);
     }
   }
+}/* 分组标题 */
+.section-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  margin: 16px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+
+  &--pending {
+    color: var(--el-color-warning);
+  }
+}
+
+/* 卡片徽章组 */
+.guide-card__badges {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+/* 待接入卡片 */
+.guide-card--pending {
+  opacity: 0.75;
+
+  &:hover {
+    opacity: 1;
+    border-color: var(--el-color-warning-light-5);
+  }
+}
+
+/* 阻塞原因 */
+.guide-card__blocked {
+  margin: 6px 0;
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--el-color-warning);
+  background: var(--el-color-warning-light-9);
+  border-radius: 4px;
+  line-height: 1.5;
+}
+
+.blocked-label {
+  font-weight: 600;
+}
+
+/* 详情抽屉 pending 标记 */
+.detail-pending-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  background: var(--el-color-warning-light-9);
+  border-radius: 6px;
+}
+
+.pending-reason {
+  font-size: 12px;
+  color: var(--el-color-warning);
+  line-height: 1.5;
+}
+
+/* 操作按钮 */
+.guide-card__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
 }
 </style>
