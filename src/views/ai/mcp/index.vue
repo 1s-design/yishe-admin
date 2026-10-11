@@ -141,7 +141,7 @@
                   <li>Type: <code>SSE</code></li>
                   <li>URL:
                     <div class="copy-box">
-                      <code>{{ mcpSseUrl }}</code>
+                      <div class="code">{{ mcpSseUrl }}</div>
                       <el-button size="small" link type="primary" @click="copyText(mcpSseUrl)">复制</el-button>
                     </div>
                   </li>
@@ -182,22 +182,35 @@
             <el-button size="small" link type="primary" @click="fetchSessions">刷新连接</el-button>
           </div>
           <el-table :data="activeSessions" style="width: 100%" border empty-text="当前无活跃 Agent 客户端连接">
-            <el-table-column prop="sessionId" label="会话 ID" min-width="240">
+            <el-table-column prop="sessionId" label="会话 ID" min-width="220">
               <template #default="{ row }">
                 <code class="code-style">{{ row.sessionId }}</code>
               </template>
             </el-table-column>
-            <el-table-column label="连接账号" width="180">
+            <el-table-column label="连接账号" width="150">
               <template #default="{ row }">
                 <span>{{ row.user?.account || "系统账号" }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="用户姓名" width="180">
+            <el-table-column label="用户姓名" width="130">
               <template #default="{ row }">
                 <span>{{ row.user?.name || "管理员" }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="连接状态" width="120">
+            <el-table-column label="设备信息" min-width="260">
+              <template #default="{ row }">
+                <div class="device-info-cell">
+                  <span v-if="getDeviceInfo(row)" class="device-info-text">{{ getDeviceInfo(row) }}</span>
+                  <span v-else class="device-info-empty">暂无设备信息</span>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="地理位置" width="150">
+              <template #default="{ row }">
+                <span>{{ getLocationInfo(row) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="连接状态" width="110">
               <template #default>
                 <span class="active-status">● 活动中</span>
               </template>
@@ -515,16 +528,58 @@ const handleToggleConfirmation = async (tool: McpTool) => {
 };
 
 // 活跃会话
+const connectionViews = ref<any[]>([]);
+
 const fetchSessions = async () => {
   try {
-    const res = await McpApi.getSessions();
-    if (res.success) {
-      activeSessions.value = res.list || [];
+    const [sessionRes, connRes] = await Promise.all([
+      McpApi.getSessions(),
+      fetch('/api/websocket/my-online-runtime-connection-views', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ summary: false })
+      }).then(r => r.json()).catch(() => ({ data: [] }))
+    ]);
+    if (sessionRes.success) {
+      activeSessions.value = sessionRes.list || [];
     }
+    // 解析连接视图数据
+    const connData = connRes?.data || connRes || [];
+    connectionViews.value = Array.isArray(connData) ? connData : (connData.connections || connData.views || []);
   } catch (error) {
     console.error(error);
   }
 };
+
+/** 从连接视图中查找匹配的设备信息 */
+function findConnectionForSession(row: any) {
+  const userId = row?.user?.id;
+  if (!userId) return null;
+  // 优先按 userId 匹配在线的客户端连接
+  return connectionViews.value.find((c: any) =>
+    c?.tokenUser?.id === userId && c?.clientInfo?.source === '客户端'
+  ) || connectionViews.value.find((c: any) => c?.tokenUser?.id === userId);
+}
+
+function getDeviceInfo(row: any) {
+  const conn = findConnectionForSession(row);
+  const info = conn?.clientInfo;
+  if (!info) return '';
+  const parts: string[] = [];
+  if (info.source) parts.push(info.source);
+  if (info.appVersion) parts.push(`v${info.appVersion}`);
+  if (info.os?.name) parts.push(`${info.os.name}${info.os.version ? ' ' + info.os.version : ''}`);
+  else if (info.machine?.platform) parts.push(info.machine.platform);
+  if (info.machine?.code) parts.push(info.machine.code);
+  return parts.join(' · ');
+}
+
+function getLocationInfo(row: any) {
+  const conn = findConnectionForSession(row);
+  const loc = conn?.clientInfo?.location;
+  if (!loc) return conn?.ip || '-';
+  return [loc.city, loc.country].filter(Boolean).join(', ') || loc.ip || '-';
+}
 
 // 审计日志
 const fetchLogs = async () => {
@@ -709,6 +764,23 @@ onMounted(() => {
   font-weight: 600;
 }
 
+.device-info-cell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.device-info-text {
+  font-size: 12px;
+  color: var(--el-text-color-regular);
+  line-height: 1.5;
+}
+
+.device-info-empty {
+  font-size: 12px;
+  color: var(--el-text-color-placeholder);
+}
+
 .active-status {
   font-size: 12px;
   color: var(--el-color-success);
@@ -757,13 +829,17 @@ onMounted(() => {
 }
 
 .copy-box {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 8px;
   margin-top: 6px;
+  flex-wrap: wrap;
 }
 
-.copy-box code {
+.copy-box .code {
+  flex: 1;
+  min-width: 0;
+  word-break: break-all;
   padding: 4px 8px;
   font-family: Menlo, Monaco, monospace;
   background-color: var(--el-fill-color-light);

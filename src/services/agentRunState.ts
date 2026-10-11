@@ -104,8 +104,14 @@ export const ensureAgentRunStateInitialized = () => {
 
 export const resolveAgentRunTooltip = () => {
   const { running, waiting, dutyOn, tasks } = agentRunState;
-  const head = `运行 ${running} · 等待 ${waiting} · 开启值守 ${dutyOn}`;
-  if (!tasks.length) return `智能体状态：${head}\n暂无运行中任务`;
+  const total = running + waiting + dutyOn;
+  if (total === 0) return "智能体状态：暂无运行中的智能体";
+  const head = `运行 ${running} · 等待 ${waiting} · 值守 ${dutyOn}`;
+  if (!tasks.length) {
+    return dutyOn > 0
+      ? `智能体状态：${head}\n${dutyOn} 个智能体值守中，按计划自动执行采集任务`
+      : `智能体状态：${head}`;
+  }
   const lines = tasks
     .slice(0, 5)
     .map((t) => `• ${t.agentName}（${t.statusLabel}）${t.title ? " · " + t.title : ""}`);

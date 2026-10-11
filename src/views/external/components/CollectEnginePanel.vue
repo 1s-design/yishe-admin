@@ -14,14 +14,15 @@
       <span class="unavailable-reason">{{ sourceMeta?.unavailableReason || '该采集源当前不可用' }}</span>
     </div>
 
-    <!-- 搜索表单（由源 meta.searchParams 动态渲染） -->
+    <!-- 搜索表单（由源 meta.searchParams 动态渲染，label 在输入框上方） -->
     <div class="engine-toolbar">
-      <template v-for="field in searchParams" :key="field.key">
+      <div v-for="field in searchParams" :key="field.key" class="field-group">
+        <span class="field-label">{{ field.label }}</span>
         <el-input
           v-if="field.type === 'text'"
           v-model="formModel[field.key]"
           class="search-input"
-          :placeholder="field.placeholder || `${field.label}...`"
+          :placeholder="field.placeholder || `请输入${field.label}`"
           clearable
           size="small"
           :disabled="!selectedClientId"
@@ -31,7 +32,7 @@
           v-else-if="field.type === 'select'"
           v-model="formModel[field.key]"
           class="field-select"
-          :placeholder="field.label"
+          :placeholder="`请选择${field.label}`"
           size="small"
           clearable
           :disabled="!selectedClientId"
@@ -53,12 +54,11 @@
           v-else-if="field.type === 'number'"
           v-model="formModel[field.key]"
           size="small"
-          :min="1"
-          :max="100"
-          :placeholder="field.label"
+          :min="field.min !== undefined ? field.min : undefined"
+          :max="field.max !== undefined ? field.max : undefined"
           :disabled="!selectedClientId"
         />
-      </template>
+      </div>
 
       <el-button
         type="primary"
@@ -263,7 +263,7 @@ const formModel = reactive<Record<string, any>>({})
 
 function initFormModel() {
   for (const f of searchParams.value) {
-    formModel[f.key] = f.default !== undefined ? f.default : f.type === 'number' ? 24 : ''
+    formModel[f.key] = f.default !== undefined ? f.default : f.type === 'number' ? null : ''
   }
 }
 
@@ -278,7 +278,7 @@ const lastSyncResult = ref('')
 
 // ─── 翻页状态 ──────────────────────────────────────────────
 const currentPage = ref(1)
-const pageSize = computed(() => Number(formModel.pageSize) || 24)
+const pageSize = computed(() => Number(formModel.pageSize) || 20)
 const hasNext = ref(false)
 const lastMode = ref<'search' | 'list'>('search')
 const lastParams = ref<Record<string, any>>({})
@@ -672,9 +672,22 @@ onMounted(() => {
 
 .engine-toolbar {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: flex-end;
+  gap: 12px;
   flex-wrap: wrap;
+}
+
+/* 每个搜索参数一组：label 在上、输入框在下 */
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.field-label {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  white-space: nowrap;
 }
 
 .search-input {

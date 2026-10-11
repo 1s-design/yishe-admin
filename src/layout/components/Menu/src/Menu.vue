@@ -617,16 +617,16 @@ export default defineComponent({
       );
     };
 
-    /** 智能体菜单：运行数量角标 + hover 详情 */
+    /** 智能体菜单：运行数量角标 + hover 详情（显示工作中的智能体个数） */
     const renderAgentRunBadge = (routePath: string) => {
       if (routePath !== "/ai/agent") {
         return undefined;
       }
       ensureAgentRunStateInitialized();
-      // 偶尔主动刷新，hover 时数据不过旧
       void refreshAgentRunState();
-      const active = agentRunState.running + agentRunState.waiting > 0;
-      const n = agentRunState.running + agentRunState.waiting;
+      // 工作中智能体数 = max(活跃任务数, 值守开启数)，避免同一智能体重复计数
+      const n = Math.max(agentRunState.running + agentRunState.waiting, agentRunState.dutyOn);
+      const active = n > 0;
       const label = n > 99 ? "99+" : String(n);
       return renderMenuStatusHint(
         <span
