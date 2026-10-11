@@ -42,6 +42,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useTagsView } from '@/hooks/web/useTagsView'
 import GoogleArtView from '../google-art/index.vue'
 import CollectEnginePanel from '../components/CollectEnginePanel.vue'
+import AiCollectGuidePanel from '../components/AiCollectGuidePanel.vue'
 import { listCollectSources, type CollectSourceMeta } from '@/api/external/collect'
 import { saveSourceMetas, loadSourceMetas, filterModuleMetas } from '../components/collectPanelState'
 
@@ -67,6 +68,7 @@ interface MenuItem {
 
 // ── 特殊采集（定制实现，保留独立界面）────────────────────
 const specialItems: MenuItem[] = [
+  { key: 'ai-collect', name: 'AI 智能采集', component: markRaw(AiCollectGuidePanel), group: 'special' },
   { key: 'google-art', name: 'Google Arts 文化资产', component: markRaw(GoogleArtView), group: 'special' },
 ]
 

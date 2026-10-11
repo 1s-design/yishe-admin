@@ -58,6 +58,14 @@ export const listCollectSources = (module?: string) => {
   })
 }
 
+/** AI 采集站点指南 */
+export const listSiteGuides = (module?: string) => {
+  return request.get({
+    url: '/collect/site-guides',
+    params: module ? { module } : {}
+  })
+}
+
 /** 创建并执行采集任务（同步等待客户端执行完成） */
 export const createCollectTask = (data: {
   sourceId: string
