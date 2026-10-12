@@ -242,6 +242,35 @@ export function updateAssetLibrary(data) {
 }
 
 /**
+ * 关联图：查询素材的关联图列表
+ */
+export function getRelatedImages(id: string) {
+  return request.get({
+    url: `/sticker/${id}/related-images`
+  })
+}
+
+/**
+ * 关联图：按 ID 添加关联图
+ */
+export function addRelatedImages(data: { id: string; ids: string[] }) {
+  return request.post({
+    url: '/sticker/add-related-images',
+    data
+  })
+}
+
+/**
+ * 关联图：删除关联图
+ */
+export function removeRelatedImages(data: { id: string; ids: string[] }) {
+  return request.post({
+    url: '/sticker/remove-related-images',
+    data
+  })
+}
+
+/**
  * Crawler material APIs
  */
 

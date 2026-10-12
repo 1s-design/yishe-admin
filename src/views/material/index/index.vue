@@ -2179,6 +2179,10 @@
                               <div class="op-submenu-item" @click.stop="handleOperationCommand('view-meta', row)">
                                 {{ t('material.viewMetaData') }}
                               </div>
+                              <div class="op-submenu-item"
+                                @click.stop="handleOperationCommand('manage-related-images', row)">
+                                {{ t('material.manageRelatedImages') }}
+                              </div>
                             </div>
                           </div>
 
@@ -3089,6 +3093,7 @@
     </el-dialog>
 
     <RelatedPsdSetDialog ref="relatedPsdSetDialogRef" />
+    <RelatedImageDialog ref="relatedImageDialogRef" />
     <el-dialog v-model="storyScriptDialogVisible" fullscreen destroy-on-close class="story-script-dialog"
       :title="t('material.storyScriptFor', { name: storyScriptCurrentSticker?.name || t('material.materialImage') })">
       <div
@@ -3447,6 +3452,7 @@ import {
 } from "./sizeShapeConfig";
 import { useFolderRowDrag } from "@/hooks/useFolderRowDrag";
 import RelatedPsdSetDialog from "./RelatedPsdSetDialog.vue";
+import RelatedImageDialog from "./RelatedImageDialog.vue";
 import FolderTree from "@/components/material/FolderTree.vue";
 import TableRowDragHandle from "@/components/TableRowDragHandle/index.vue";
 import ListPageLayout from "@/components/ListPageLayout/index.vue";
@@ -4759,6 +4765,7 @@ const enabledPsdSetAutomationKeys = computed(() =>
   psdSetAutomationActions.value.filter((action) => action.enabled).map((action) => action.key),
 );
 const relatedPsdSetDialogRef = ref<any>(null);
+const relatedImageDialogRef = ref<any>(null);
 
 // PSD制作套图允许的图片格式（固定为这三个）
 const psdSetAllowedFormats = ["jpg", "png", "jpeg", "svg", "webp"];
@@ -8005,6 +8012,9 @@ async function handleOperationCommand(command: string, row: any) {
         break;
       case "view-ps-sets":
         relatedPsdSetDialogRef.value?.open(row);
+        break;
+      case "manage-related-images":
+        relatedImageDialogRef.value?.open(row);
         break;
       case "image-process":
         openImageProcessingWorkbench(row, "process");

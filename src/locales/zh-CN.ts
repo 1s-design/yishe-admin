@@ -4220,6 +4220,7 @@ export default {
     viewDetail: '查看详情',
     viewMaterialPsSets: '查看素材套图',
     viewMetaData: '查看元数据',
+    manageRelatedImages: '管理关联图',
     viewPublishBinding: '查看发布绑定',
     viewSendParams: '查看发送参数',
     viewShare: '查看分享',

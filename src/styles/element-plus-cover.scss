@@ -706,6 +706,30 @@ html.dark .el-alert {
     box-shadow var(--ep-cover-motion-base);
 }
 
+/*
+ * el-table 的外框是 4 条绝对定位的 1px 直线伪元素拼出来的，本身是直角；
+ * 一旦给 .el-table 加 border-radius + overflow:hidden，直线被圆角裁切，
+ * 四个角就会缺边。这里改用 outline（会跟随 border-radius）统一描一圈，
+ * 并隐藏那 4 条直线与滚动时的补边块，避免出现双线或残留直角。
+ */
+.el-table.el-table--border {
+  outline: 1px solid var(--el-table-border-color);
+  outline-offset: -1px;
+}
+
+.el-table--border::before,
+.el-table--border::after,
+.el-table--border .el-table__inner-wrapper::after {
+  content: none;
+}
+
+.el-table__inner-wrapper::before,
+.el-table__border-left-patch,
+.el-table__border-right-patch,
+.el-table__border-bottom-patch {
+  display: none;
+}
+
 .el-table th.el-table__cell {
   padding: 9px 0;
   font-size: var(--ep-cover-font-size-sm);
@@ -720,10 +744,6 @@ html.dark .el-alert {
 
 .el-table .el-table__row {
   transition: background-color var(--ep-cover-motion-fast);
-}
-
-.el-table__inner-wrapper::before {
-  display: none;
 }
 
 .el-tag {

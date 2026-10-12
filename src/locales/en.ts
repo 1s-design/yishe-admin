@@ -4225,6 +4225,7 @@ export default {
     viewDetail: 'View detail',
     viewMaterialPsSets: 'View material PSD sets',
     viewMetaData: 'View meta data',
+    manageRelatedImages: 'Manage related images',
     viewPublishBinding: 'View publish binding',
     viewSendParams: 'View send params',
     viewShare: 'View share',

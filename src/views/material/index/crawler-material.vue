@@ -529,41 +529,14 @@
     <el-dialog
       v-model="importConfirmDialogVisible"
       title="确认入库"
-      width="600px"
+      width="400px"
       :destroy-on-close="true"
       align-center
     >
-      <div class="import-confirm-content">
-        <p style="margin-bottom: 16px">
-          即将入库 {{ selectedRowsForPreview.length }} 个素材，请确认：
-        </p>
-        <div class="preview-list" style="max-height: 400px; overflow-y: auto">
-          <div
-            v-for="row in selectedRowsForPreview"
-            :key="row.id"
-            class="preview-item"
-            style="
-              display: flex;
-              align-items: center;
-              padding: 12px;
-              border-bottom: 1px solid #eee;
-              gap: 12px;
-            "
-          >
-            <img
-              :src="row.url"
-              :alt="row.name"
-              style="width: 80px; height: 80px; object-fit: contain; background: #f5f5f5"
-            />
-            <div style="flex: 1; min-width: 0">
-              <div style=" margin-bottom: 4px;font-weight: 500">{{ row.name || "未命名" }}</div>
-              <div style="font-size: 12px; color: #999">ID: {{ row.id }}</div>
-              <div v-if="row.description" style=" margin-top: 4px;font-size: 12px; color: #666">
-                {{ row.description }}
-              </div>
-            </div>
-          </div>
-        </div>
+      <div class="import-confirm-summary">
+        <div class="import-confirm-summary__count">{{ importIds.length }}</div>
+        <div class="import-confirm-summary__label">个素材即将入库到贴纸库</div>
+        <div class="import-confirm-summary__hint">入库将在后台执行，完成后可在贴纸素材库中查看</div>
       </div>
       <template #footer>
         <el-button @click="importConfirmDialogVisible = false">取消</el-button>
@@ -577,7 +550,6 @@
 <script setup lang="tsx">
 import { ref, reactive, watchEffect, computed } from "vue";
 import { CrawlerMaterialApi } from "@/api/crawler-material";
-import { getUserList } from "@/api/user";
 import { buildOperationColumn, commonGridOptions } from "@/common/table";
 import { formatTimestamp } from "@/common/date";
 import { ElNotification, ElMessage, ElMessageBox } from "element-plus";
@@ -810,7 +782,6 @@ const currentImageUrl = ref("");
 
 // 入库确认对话框相关
 const importConfirmDialogVisible = ref(false);
-const selectedRowsForPreview = ref<any[]>([]);
 const importIds = ref<string[]>([]); // 用于存储要入库的ID列表
 
 
@@ -965,8 +936,7 @@ async function handleBatchImport() {
     return ElMessage.warning("选中的数据暂不可用，请重新选择");
   }
 
-  // 显示带预览的确认对话框
-  selectedRowsForPreview.value = selectedRows.slice(0, 10); // 最多显示10个预览
+  // 只提示数量，素材可能很多，无法全部展示
   importIds.value = [...ids.value]; // 保存要入库的ID列表
   importConfirmDialogVisible.value = true;
 }
@@ -1005,8 +975,6 @@ async function confirmBatchImport() {
 
 // 单个入库到贴纸
 async function handleSingleImport(row) {
-  // 显示带预览的确认对话框
-  selectedRowsForPreview.value = [row];
   importIds.value = [String(row.id)]; // 保存单个入库的ID
   importConfirmDialogVisible.value = true;
 }
@@ -1375,5 +1343,33 @@ getList();
   gap: 8px;
   padding-top: 4px;
   border-top: 1px solid var(--el-border-color-lighter);
+}
+
+/* 入库确认弹窗：只提示数量，素材可能很多无法全部展示 */
+.import-confirm-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0 20px;
+  text-align: center;
+}
+
+.import-confirm-summary__count {
+  font-size: 44px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--el-color-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.import-confirm-summary__label {
+  font-size: 15px;
+  color: var(--el-text-color-primary);
+}
+
+.import-confirm-summary__hint {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 </style>
