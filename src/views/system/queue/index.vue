@@ -297,42 +297,53 @@
                   @checkbox-change="checkboxChange"
                   @checkbox-all="checkboxAllChange"
                 >
-                  <template #statusDefaultSlot="{ row }">
-                    <el-tag :type="getStatusType(row.status)">
-                      {{ getStatusText(row.status) }}
-                    </el-tag>
+                  <template #taskDescriptionDefaultSlot="{ row }">
+                    <div class="queue-task-cell">
+                      <div class="queue-task-cell__title">{{ row.description || "-" }}</div>
+                      <div class="queue-task-cell__meta">
+                        <span v-if="getQueuePlatformLabel(row)" class="queue-task-cell__chip">
+                          {{ getQueuePlatformLabel(row) }}
+                        </span>
+                        <span>
+                          {{ t('queue.creator') }}
+                          {{ row?.uploader?.account || row?.uploader?.name || row?.userId || "-" }}
+                        </span>
+                        <span>{{ t('queue.duration') }} {{ getQueueDurationText(row) }}</span>
+                        <span v-if="getQueueCurrentStepText(row)">
+                          {{ getQueueCurrentStepText(row) }}
+                        </span>
+                        <span v-if="getQueueTaskDispatchTargetText(row) !== '-'">
+                          {{ t('queue.node') }} {{ getQueueTaskDispatchTargetText(row) }}
+                        </span>
+                        <span>{{ t('queue.retryCount') }} {{ getQueueRetryText(row) }}</span>
+                      </div>
+                      <div v-if="row.error" class="queue-task-cell__error">{{ row.error }}</div>
+                    </div>
                   </template>
 
-                  <template #executionStatusDefaultSlot="{ row }">
+                  <template #conclusionDefaultSlot="{ row }">
                     <el-tooltip
-                      :disabled="!getExecutionStatusInfo(row).reason"
-                      :content="getExecutionStatusInfo(row).reason || ''"
+                      :disabled="!getQueueConclusion(row).reason"
+                      :content="getQueueConclusion(row).reason"
                       placement="top"
                     >
-                      <el-tag
-                        v-if="getExecutionStatusInfo(row).type"
-                        :type="getExecutionStatusInfo(row).type"
-                        size="small"
-                        effect="plain"
+                      <span
+                        class="queue-conclusion"
+                        :class="[
+                          `queue-conclusion--${getQueueConclusion(row).key}`,
+                          { 'is-running': getQueueConclusion(row).running },
+                        ]"
                       >
-                        {{ getExecutionStatusInfo(row).text }}
-                      </el-tag>
-                      <span v-else class="text-gray-400 text-sm">-</span>
+                        <i class="queue-conclusion__dot"></i>
+                        <span class="queue-conclusion__text">{{ getQueueConclusion(row).text }}</span>
+                      </span>
                     </el-tooltip>
                   </template>
 
-                  <template #dispatchTargetDefaultSlot="{ row }">
-                    <div class="queue-dispatch-target-cell">
-                      <div class="queue-dispatch-target-cell__main">
-                        {{ getQueueTaskDispatchTargetText(row) }}
-                      </div>
-                      <div
-                        v-if="getQueueTaskDispatchTargetHint(row)"
-                        class="queue-dispatch-target-cell__hint"
-                      >
-                        {{ getQueueTaskDispatchTargetHint(row) }}
-                      </div>
-                    </div>
+                  <template #createdAtDefaultSlot="{ row }">
+                    <el-tooltip :content="formatQueueFullTime(row.createdAt)" placement="top">
+                      <span class="queue-time-cell">{{ formatQueueDateTime(row.createdAt) }}</span>
+                    </el-tooltip>
                   </template>
 
                   <template #operationDefaultSlot="{ row }">
@@ -951,8 +962,18 @@ import {
 import { getClientServiceRuntime } from "@/store/modules/clientNode";
 import PublishDispatchTargetTable from "./components/PublishDispatchTargetTable.vue";
 import TaskStatsDialog from "./components/TaskStatsDialog.vue";
+import { PLATFORM_LABEL_MAP, resolveTaskTypePlatform } from "@/config/task-types";
 
 type QueueTagType = "success" | "warning" | "info" | "primary" | "danger";
+
+/** 列表「结论态」：把消息状态与可执行性合并成一个直观结论，避免多列互相矛盾 */
+interface QueueConclusion {
+  key: string;
+  text: string;
+  type: QueueTagType;
+  reason: string;
+  running: boolean;
+}
 
 interface ExecutionStatusInfo {
   text: string;
@@ -1145,81 +1166,32 @@ const gridOptions = ref({
     reserve: true,
   },
   columns: [
-    { type: "checkbox", width: 50, ellipsis: true, reserve: true },
-    { title: t('queue.taskId'), field: "id", minWidth: 200, showOverflow: true },
-    { title: t('queue.taskType'), field: "type", width: 240 },
+    { type: "checkbox", width: 46, ellipsis: true, reserve: true },
     {
-      title: t('queue.creator'),
-      field: "uploader",
-      width: 140,
-      showOverflow: true,
-      formatter: ({ row }) => row?.uploader?.account || row?.uploader?.name || row?.userId || "-",
-    },
-    {
+      // 任务描述放最前：宽度自适应铺满剩余空间，全文换行展示（不截断）
       title: t('queue.taskDescription'),
       field: "description",
-      minWidth: 200,
-      showOverflow: true,
-      formatter: (e) => {
-        return e.cellValue || "-";
+      minWidth: 280,
+      showOverflow: false,
+      className: "queue-desc-column",
+      slots: {
+        default: "taskDescriptionDefaultSlot",
       },
     },
     {
       title: t('queue.status'),
       field: "status",
-      width: 100,
+      width: 116,
       slots: {
-        default: "statusDefaultSlot",
+        default: "conclusionDefaultSlot",
       },
-    },
-    {
-      title: t('queue.executionStatus'),
-      field: "executionStatus",
-      width: 120,
-      slots: {
-        default: "executionStatusDefaultSlot",
-      },
-    },
-    {
-      title: t('queue.executionNode'),
-      field: "dispatchTarget",
-      minWidth: 220,
-      slots: {
-        default: "dispatchTargetDefaultSlot",
-      },
-    },
-    {
-      title: t('queue.statusMessage'),
-      field: "statusMessage",
-      minWidth: 280,
-      showOverflow: true,
-      formatter: ({ row }) => resolveQueueTaskStatusMessage(row),
     },
     {
       title: t('queue.createdAt'),
       field: "createdAt",
-      width: 180,
-      showOverflow: true,
-      formatter: (e) => {
-        return e.cellValue ? new Date(e.cellValue).toLocaleString() : "-";
-      },
-    },
-    {
-      title: t('queue.updatedAt'),
-      field: "updatedAt",
-      width: 180,
-      showOverflow: true,
-      formatter: (e) => {
-        return e.cellValue ? new Date(e.cellValue).toLocaleString() : "-";
-      },
-    },
-    {
-      title: t('queue.errorMessage'),
-      field: "error",
-      minWidth: 200,
-      showOverflow: true,
-      formatter: (e) => {
-        return e.cellValue || "-";
+      width: 158,
+      slots: {
+        default: "createdAtDefaultSlot",
       },
     },
     buildOperationColumn("operationDefaultSlot"),
@@ -2047,6 +2019,100 @@ function getStatusText(status: QueueMessage["status"]) {
   return map[status] || status;
 }
 
+/**
+ * 列表结论态：把「消息状态」与「可执行性」合并为一个结论。
+ * 原来状态/执行状态/执行节点/状态说明四列语义重叠且会互相矛盾
+ * （例如 status=failed 却显示「可执行」），这里统一成一个直观结论。
+ */
+function getQueueConclusion(row: QueueMessage): QueueConclusion {
+  const status = String(row?.status || "").trim().toLowerCase();
+  const readiness = row?.executionReadiness || null;
+  const readinessReason = String(readiness?.reason || "").trim();
+
+  if (status === "completed") {
+    return { key: "completed", text: t('queue.completed'), type: "success", reason: readinessReason, running: false };
+  }
+  if (status === "failed") {
+    return {
+      key: "failed",
+      text: t('queue.failed'),
+      type: "danger",
+      reason: String(row?.error || readinessReason || "").trim(),
+      running: false,
+    };
+  }
+  if (status === "processing") {
+    return { key: "processing", text: t('queue.executing'), type: "primary", reason: readinessReason, running: true };
+  }
+  if (status === "waiting") {
+    return { key: "waiting", text: t('queue.waiting'), type: "info", reason: readinessReason, running: false };
+  }
+  if (readiness?.ready) {
+    return { key: "pending-ready", text: t('queue.pendingReady'), type: "warning", reason: readinessReason, running: false };
+  }
+  return { key: "pending-blocked", text: t('queue.blockedPending'), type: "info", reason: readinessReason, running: false };
+}
+
+/** 平台短标签：publish-product-doudian -> 抖店 */
+function getQueuePlatformLabel(row?: QueueMessage | null): string {
+  const type = String(row?.type || row?.queue || "").trim();
+  if (!type) return "";
+  const platform = resolveTaskTypePlatform(type);
+  if (!platform) return type;
+  return PLATFORM_LABEL_MAP[platform] || platform;
+}
+
+function parseQueueTimestamp(value?: string | null): number | null {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  const parsed = new Date(raw.replace(" ", "T")).getTime();
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+function formatQueueDuration(ms: number): string {
+  const totalSeconds = Math.max(0, Math.round(ms / 1000));
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes < 60) return seconds ? `${minutes}m${seconds}s` : `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const restMinutes = minutes % 60;
+  return restMinutes ? `${hours}h${restMinutes}m` : `${hours}h`;
+}
+
+/** 耗时：已结束看 processedAt/updatedAt，未结束看「至今」 */
+function getQueueDurationText(row?: QueueMessage | null): string {
+  const startedAt = parseQueueTimestamp(row?.createdAt);
+  if (startedAt === null) return "-";
+  const status = String(row?.status || "");
+  const finished = status === "completed" || status === "failed";
+  const endedAt = finished
+    ? parseQueueTimestamp(row?.processedAt) ?? parseQueueTimestamp(row?.updatedAt)
+    : null;
+  return formatQueueDuration((endedAt ?? Date.now()) - startedAt);
+}
+
+function getQueueRetryText(row?: QueueMessage | null): string {
+  return `${row?.attempts ?? 0}/${row?.maxAttempts ?? 0}`;
+}
+
+function getQueueCurrentStepText(row?: QueueMessage | null): string {
+  return String(getPublishDispatchMeta(row)?.currentStep || "").trim();
+}
+
+function formatQueueDateTime(value?: string | null): string {
+  const ts = parseQueueTimestamp(value);
+  if (ts === null) return "-";
+  const date = new Date(ts);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function formatQueueFullTime(value?: string | null): string {
+  const ts = parseQueueTimestamp(value);
+  return ts === null ? "-" : new Date(ts).toLocaleString();
+}
+
 function getExecutionStatusInfo(row: QueueMessage): ExecutionStatusInfo {
   const indicator = resolveTaskExecutionReadinessIndicator(row);
   return {
@@ -2086,66 +2152,6 @@ function getQueueTaskDispatchTargetText(row?: QueueMessage | null) {
   }
 
   return target.machineCode || target.clientId || t('queue.unknownClient');
-}
-
-function getQueueTaskDispatchTargetHint(row?: QueueMessage | null) {
-  const meta = getPublishDispatchMeta(row);
-  const hints = [
-    meta?.status ? t('queue.dispatchStatus', { status: meta.status }) : "",
-    meta?.currentStep ? String(meta.currentStep) : "",
-  ]
-    .map((item) => String(item || "").trim())
-    .filter(Boolean);
-
-  return hints.join(" · ");
-}
-
-function resolveQueueTaskStatusMessage(row?: QueueMessage | null) {
-  const normalizedStatus = String(row?.status || "")
-    .trim()
-    .toLowerCase();
-  const meta = getPublishDispatchMeta(row);
-  const currentStep = String(meta?.currentStep || "").trim();
-  const lastError = String(meta?.lastError || row?.error || "").trim();
-  const dispatchStatus = String(meta?.status || "")
-    .trim()
-    .toLowerCase();
-
-  if (
-    currentStep &&
-    (normalizedStatus === "processing" ||
-      dispatchStatus === "assigned" ||
-      dispatchStatus === "running")
-  ) {
-    return currentStep;
-  }
-
-  if (lastError && (normalizedStatus === "failed" || dispatchStatus === "failed")) {
-    return lastError;
-  }
-
-  if (dispatchStatus === "timeout") {
-    return lastError || currentStep || t('queue.executionTimeout');
-  }
-
-  if (currentStep) {
-    return currentStep;
-  }
-
-  switch (normalizedStatus) {
-    case "completed":
-      return t('queue.executionCompleted');
-    case "failed":
-      return lastError || t('queue.executionFailed');
-    case "processing":
-      return t('queue.processing');
-    case "waiting":
-      return t('queue.waitingServerPrepare');
-    case "pending":
-      return getExecutionStatusInfo(row as QueueMessage).reason || t('queue.pending');
-    default:
-      return lastError || "-";
-  }
 }
 
 function canStartPublishExecution(row: QueueMessage) {
@@ -4659,6 +4665,128 @@ onUnmounted(() => {
   background:
     linear-gradient(90deg, rgba(239, 68, 68, 0.06), transparent 32%),
     linear-gradient(0deg, transparent, transparent);
+}
+
+/* ── 列表：任务描述两行式单元格（描述全文 + 关键元信息） ── */
+.queue-page :deep(.queue-desc-column .vxe-cell) {
+  white-space: normal;
+  word-break: break-word;
+  overflow: visible;
+}
+
+.queue-page :deep(.queue-task-cell) {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 6px 0;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.55;
+}
+
+.queue-page :deep(.queue-task-cell__title) {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+  white-space: normal;
+  word-break: break-word;
+}
+
+.queue-page :deep(.queue-task-cell__meta) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.queue-page :deep(.queue-task-cell__chip) {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border: 1px solid color-mix(in srgb, var(--el-color-primary) 32%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--el-color-primary) 7%, transparent);
+  color: var(--el-color-primary);
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.2px;
+}
+
+.queue-page :deep(.queue-task-cell__error) {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--el-color-danger);
+  word-break: break-word;
+}
+
+/* ── 列表：结论态徽章（圆点 + 文字，取代原来的四列状态） ── */
+.queue-page :deep(.queue-conclusion) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 10px;
+  border-radius: 11px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.queue-page :deep(.queue-conclusion__dot) {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+  opacity: 0.85;
+}
+
+.queue-page :deep(.queue-conclusion--completed) {
+  color: var(--el-color-success);
+}
+
+.queue-page :deep(.queue-conclusion--failed) {
+  color: var(--el-color-danger);
+}
+
+.queue-page :deep(.queue-conclusion--processing) {
+  color: var(--el-color-primary);
+}
+
+.queue-page :deep(.queue-conclusion--pending-ready) {
+  color: var(--el-color-warning);
+}
+
+.queue-page :deep(.queue-conclusion--waiting),
+.queue-page :deep(.queue-conclusion--pending-blocked) {
+  color: var(--el-text-color-secondary);
+}
+
+.queue-page :deep(.queue-conclusion.is-running .queue-conclusion__dot) {
+  animation: queue-conclusion-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes queue-conclusion-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.8);
+  }
+}
+
+.queue-page :deep(.queue-time-cell) {
+  font-size: 12px;
+  color: var(--el-text-color-regular);
+  white-space: nowrap;
 }
 
 .data-preview {

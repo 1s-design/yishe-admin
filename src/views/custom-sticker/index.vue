@@ -79,6 +79,16 @@
               </el-dropdown>
               <el-button
                 size="small"
+                type="primary"
+                :icon="CopyDocument"
+                :loading="copyingToLibrary"
+                :disabled="loading || !selectedIds.length"
+                @click="handleBatchCopyToLibrary"
+              >
+                复制到素材库 ({{ selectedIds.length }})
+              </el-button>
+              <el-button
+                size="small"
                 type="warning"
                 :disabled="loading || !selectedIds.length"
                 @click="openBatchPublish"
@@ -492,6 +502,7 @@ const publishTargetIds = ref<string[]>([])
 const detailVisible = ref(false)
 const publishVisible = ref(false)
 const publishing = ref(false)
+const copyingToLibrary = ref(false)
 
 // 分发/共享相关状态（与素材库、图库完全统一）
 const userTransferAction = ref<CustomStickerTransferAction>('share')
@@ -783,6 +794,49 @@ function handleOperation(command: string, row: CustomSticker) {
   if (command === 'move') openUserTransferDialog('move', row)
   if (command === 'copyToLibrary') copyToLibrary(row)
   if (command === 'delete') handleDelete(row)
+}
+
+async function handleBatchCopyToLibrary() {
+  const targets = rows.value.filter((item) => selectedIds.value.includes(item.id) && !item.imported)
+  if (!targets.length) {
+    return ElMessage.warning(selectedIds.value.length ? '选中的自定义贴纸都已复制到素材库' : '请选择要复制到素材库的自定义贴纸')
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `确认将选中的 ${targets.length} 个自定义贴纸复制到素材库吗？复制后将生成独立的素材库副本，原自定义贴纸保留。`,
+      '复制到素材库确认',
+      { confirmButtonText: '确认复制', cancelButtonText: '取消', type: 'info' },
+    )
+  } catch {
+    return
+  }
+
+  copyingToLibrary.value = true
+  try {
+    const res = await CustomStickerApi.batchCopyToStickerLibrary({ ids: targets.map((item) => item.id) })
+    const result = res || {}
+    const successCount = Array.isArray(result?.list) ? result.list.length : Number(result?.total || 0)
+    const failedCount = Array.isArray(result?.failed) ? result.failed.length : 0
+
+    if (successCount > 0) {
+      const failedText = failedCount ? `（${failedCount} 项失败）` : ''
+      ElNotification.success(`已成功复制 ${successCount} 个到素材库${failedText}`)
+      if (failedCount) {
+        ElMessage.warning(result.failed.slice(0, 3).map((f: any) => f?.message).filter(Boolean).join('；') || '部分条目复制失败')
+      }
+      selectedIds.value = []
+      await loadData()
+    } else if (failedCount > 0) {
+      ElMessage.error(`复制到素材库失败：${result.failed?.[0]?.message || '未知错误'}`)
+    } else {
+      ElMessage.warning('未处理任何数据')
+    }
+  } catch (error: any) {
+    ElMessage.error(error?.message || '复制到素材库失败')
+  } finally {
+    copyingToLibrary.value = false
+  }
 }
 
 function openBatchPublish() {

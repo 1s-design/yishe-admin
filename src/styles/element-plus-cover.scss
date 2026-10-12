@@ -799,8 +799,9 @@ html.dark .el-alert {
   }
 
   &.el-tag--plain {
-    background-color: #ffffff;
-    border-color: currentColor;
+    // 由标签自身文字色派生淡色底，避免纯白底在表格里显得空洞
+    background-color: color-mix(in srgb, currentColor 6%, transparent);
+    border-color: color-mix(in srgb, currentColor 22%, transparent);
   }
 
   .el-tag__close {
@@ -896,8 +897,8 @@ html.dark {
     }
 
     &.el-tag--plain {
-      background-color: color-mix(in srgb, var(--el-bg-color, #141414) 80%, transparent) !important;
-      border-color: currentColor !important;
+      background-color: color-mix(in srgb, currentColor 12%, transparent) !important;
+      border-color: color-mix(in srgb, currentColor 30%, transparent) !important;
     }
 
     .el-tag__close {

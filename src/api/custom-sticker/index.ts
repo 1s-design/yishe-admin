@@ -92,6 +92,9 @@ export const CustomStickerApi = {
       [key: string]: any
     }>({ url: '/custom-sticker/import-to-sticker', data }),
 
+  batchCopyToStickerLibrary: (data: { ids: string[]; folderId?: string | null }) =>
+    request.post<CustomStickerTransferResult>({ url: '/custom-sticker/batch-import-to-sticker', data }),
+
   delete: (id: string) =>
     request.delete({ url: `/custom-sticker/${id}` }),
 

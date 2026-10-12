@@ -251,6 +251,12 @@
                 </el-form-item>
               </el-col>
 
+              <el-col class="list-page-search-form__col--narrow" :xs="24" :sm="12" :md="8" :lg="3" :xl="3">
+                <el-form-item :label="t('material.pixelSize')">
+                  <ImageSizeFilter v-model="sizeFilter" @change="handleSizeFilterChange" />
+                </el-form-item>
+              </el-col>
+
               <el-col class="list-page-search-form__col--narrow" :xs="24" :sm="12" :md="8" :lg="2" :xl="2">
                 <el-form-item :label="t('material.random')">
                   <el-select v-model="queryParams.random" size="small" @change="getList">
@@ -3444,6 +3450,7 @@ import RelatedPsdSetDialog from "./RelatedPsdSetDialog.vue";
 import FolderTree from "@/components/material/FolderTree.vue";
 import TableRowDragHandle from "@/components/TableRowDragHandle/index.vue";
 import ListPageLayout from "@/components/ListPageLayout/index.vue";
+import ImageSizeFilter, { type ImageSizeFilterValue } from "@/components/ImageSizeFilter.vue";
 import ImageGroupView from "../imageGroup/index.vue";
 import { imageGroupApi, type ImageGroupItem } from "@/api/imageGroup";
 import { FOLDER_FILTER } from "@/constants/folder";
@@ -3630,6 +3637,15 @@ const queryParams = reactive({
 const customRatioPopoverVisible = ref(false);
 const customRatioInput = ref("");
 const customRatioTolerance = ref(5);
+
+// 像素尺寸筛选（宽/高，精确或范围）
+const sizeFilter = ref<ImageSizeFilterValue>({});
+
+/** 像素尺寸筛选变化：回到第一页重新查询 */
+function handleSizeFilterChange() {
+  queryParams.currentPage = 1;
+  getList();
+}
 
 const parsedCustomRatio = computed(() => {
   return parseAspectRatioInput(customRatioInput.value);
@@ -4852,6 +4868,7 @@ async function getList() {
       : [];
   const params = {
     ...queryParams,
+    ...sizeFilter.value,
     listMode: "compact",
     includeRelations: true,
     keyword: undefined,

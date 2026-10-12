@@ -75,6 +75,211 @@
                 </el-form-item>
               </el-col>
             </el-row>
+
+            <!-- 第二行：比例搜索 + 抠图筛选 -->
+            <el-row :gutter="12" class="list-page-search-form__row">
+              <el-col class="list-page-search-form__col--narrow" :xs="24" :sm="12" :md="8" :lg="3">
+                <el-form-item label="是否抠图">
+                  <el-select
+                    v-model="queryParams.isCutout"
+                    size="small"
+                    placeholder="全部"
+                    clearable
+                    @change="handleFilterChange"
+                  >
+                    <el-option label="全部" value="" />
+                    <el-option label="是" :value="true" />
+                    <el-option label="否" :value="false" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+
+              <el-col class="list-page-search-form__col--base" :xs="24" :sm="12" :md="16" :lg="9">
+                <el-form-item label="尺寸形状（比例）">
+                  <el-select
+                    v-model="queryParams.sizeShape"
+                    size="small"
+                    placeholder="请选择尺寸形状，可多选"
+                    clearable
+                    multiple
+                    collapse-tags
+                    collapse-tags-tooltip
+                    class="size-shape-select"
+                    popper-class="crawler-size-shape-dropdown"
+                    @change="handleFilterChange"
+                  >
+                    <el-option-group label="正方图">
+                      <el-option
+                        v-for="config in sizeShapeGroups.square"
+                        :key="config.key"
+                        :value="config.key"
+                        :label="getFullLabel(config)"
+                      >
+                        <div class="size-option">
+                          <div
+                            class="size-thumb"
+                            :style="{
+                              width: `${config.thumbWidth}px`,
+                              height: `${config.thumbHeight}px`,
+                              background: `linear-gradient(135deg, color-mix(in srgb, ${SIZE_SHAPE_GROUP_COLORS[config.group]} 15%, transparent) 0%, color-mix(in srgb, ${SIZE_SHAPE_GROUP_COLORS[config.group]} 25%, transparent) 100%)`,
+                              borderColor: `color-mix(in srgb, ${SIZE_SHAPE_GROUP_COLORS[config.group]} 40%, transparent)`,
+                            }"
+                          ></div>
+                          <span class="size-label">{{ config.label }} ({{ config.ratio }})</span>
+                          <span class="size-key">[{{ config.key }}]</span>
+                        </div>
+                      </el-option>
+                    </el-option-group>
+                    <el-option-group label="横图（宽 > 高）">
+                      <el-option
+                        v-for="config in sizeShapeGroups.landscape"
+                        :key="config.key"
+                        :value="config.key"
+                        :label="getFullLabel(config)"
+                      >
+                        <div class="size-option">
+                          <div
+                            class="size-thumb"
+                            :style="{
+                              width: `${config.thumbWidth}px`,
+                              height: `${config.thumbHeight}px`,
+                              background: `linear-gradient(135deg, color-mix(in srgb, ${SIZE_SHAPE_GROUP_COLORS[config.group]} 15%, transparent) 0%, color-mix(in srgb, ${SIZE_SHAPE_GROUP_COLORS[config.group]} 25%, transparent) 100%)`,
+                              borderColor: `color-mix(in srgb, ${SIZE_SHAPE_GROUP_COLORS[config.group]} 40%, transparent)`,
+                            }"
+                          ></div>
+                          <span class="size-label">{{ config.label }} ({{ config.ratio }})</span>
+                          <span class="size-key">[{{ config.key }}]</span>
+                        </div>
+                      </el-option>
+                    </el-option-group>
+                    <el-option-group label="竖图（高 > 宽）">
+                      <el-option
+                        v-for="config in sizeShapeGroups.portrait"
+                        :key="config.key"
+                        :value="config.key"
+                        :label="getFullLabel(config)"
+                      >
+                        <div class="size-option">
+                          <div
+                            class="size-thumb"
+                            :style="{
+                              width: `${config.thumbWidth}px`,
+                              height: `${config.thumbHeight}px`,
+                              background: `linear-gradient(135deg, color-mix(in srgb, ${SIZE_SHAPE_GROUP_COLORS[config.group]} 15%, transparent) 0%, color-mix(in srgb, ${SIZE_SHAPE_GROUP_COLORS[config.group]} 25%, transparent) 100%)`,
+                              borderColor: `color-mix(in srgb, ${SIZE_SHAPE_GROUP_COLORS[config.group]} 40%, transparent)`,
+                            }"
+                          ></div>
+                          <span class="size-label">{{ config.label }} ({{ config.ratio }})</span>
+                          <span class="size-key">[{{ config.key }}]</span>
+                        </div>
+                      </el-option>
+                    </el-option-group>
+                  </el-select>
+                </el-form-item>
+              </el-col>
+
+              <el-col class="list-page-search-form__col--narrow" :xs="24" :sm="12" :md="8" :lg="4">
+                <el-form-item label="精确比例">
+                  <el-popover
+                    v-model:visible="customRatioPopoverVisible"
+                    placement="bottom-start"
+                    :width="320"
+                    trigger="click"
+                    popper-class="crawler-ratio-popover"
+                  >
+                    <template #reference>
+                      <el-button
+                        size="small"
+                        :type="hasCustomAspectRatio ? 'primary' : 'default'"
+                        :plain="!hasCustomAspectRatio"
+                        class="custom-ratio-trigger-btn"
+                        :title="customAspectRatioBadgeText"
+                      >
+                        <el-icon><Operation /></el-icon>
+                        <span class="custom-ratio-btn-text">{{ customAspectRatioBadgeText }}</span>
+                        <el-icon
+                          v-if="hasCustomAspectRatio"
+                          class="custom-ratio-close-icon"
+                          @click.stop="clearCustomAspectRatio"
+                        >
+                          <Close />
+                        </el-icon>
+                      </el-button>
+                    </template>
+
+                    <div class="custom-ratio-popover-body">
+                      <div class="ratio-presets">
+                        <span
+                          v-for="preset in COMMON_ASPECT_RATIOS"
+                          :key="preset.label"
+                          class="ratio-preset-chip"
+                          :class="{ 'is-active': customRatioInput === preset.label }"
+                          :title="preset.name"
+                          @click="selectPresetRatio(preset)"
+                        >
+                          {{ preset.label }}
+                        </span>
+                      </div>
+
+                      <div class="ratio-input-row">
+                        <el-input
+                          v-model="customRatioInput"
+                          size="small"
+                          placeholder="输入比例，如 0.7、16:9"
+                          clearable
+                          class="ratio-input"
+                          @keyup.enter="applyCustomAspectRatio"
+                        />
+                        <el-select v-model="customRatioTolerance" size="small" class="tolerance-select">
+                          <el-option
+                            v-for="opt in TOLERANCE_OPTIONS"
+                            :key="opt.value"
+                            :label="opt.label"
+                            :value="opt.value"
+                          />
+                        </el-select>
+                      </div>
+
+                      <div v-if="parsedCustomRatio !== null && customRatioRange" class="ratio-preview-line">
+                        <span class="preview-value">{{ parsedCustomRatio }}</span>
+                        <span class="preview-range">
+                          [{{ customRatioRange.min }} ~ {{ customRatioRange.max }}]
+                        </span>
+                      </div>
+                      <div v-else-if="customRatioInput.trim()" class="ratio-hint-line is-error">
+                        无效比例，支持 0.7、1.2、16:9、3:4
+                      </div>
+                      <div v-else class="ratio-hint-line">支持小数或比例格式</div>
+
+                      <div class="custom-ratio-footer">
+                        <el-button
+                          size="small"
+                          link
+                          :disabled="!customRatioInput && !hasCustomAspectRatio"
+                          @click="clearCustomAspectRatio"
+                        >
+                          清空
+                        </el-button>
+                        <el-button
+                          size="small"
+                          type="primary"
+                          :disabled="parsedCustomRatio === null"
+                          @click="applyCustomAspectRatio"
+                        >
+                          应用
+                        </el-button>
+                      </div>
+                    </div>
+                  </el-popover>
+                </el-form-item>
+              </el-col>
+
+              <el-col class="list-page-search-form__col--narrow" :xs="24" :sm="12" :md="8" :lg="4">
+                <el-form-item label="像素尺寸">
+                  <ImageSizeFilter v-model="sizeFilter" @change="handleFilterChange" />
+                </el-form-item>
+              </el-col>
+            </el-row>
             <div class="list-page-search-form__actions">
               <el-button size="small" type="primary" :icon="Search" :loading="loading" @click="getList">搜索</el-button>
               <el-button
@@ -129,8 +334,27 @@
                 />
               </div>
             </template>
-            <template #sizeSlot="{ row }">
-              <span>{{ row.size ? (row.size / 1024).toFixed(1) + " KB" : "-" }}</span>
+            <template #dimensionSlot="{ row }">
+              <span v-if="row.width && row.height" class="dimension-cell">
+                {{ row.width }} × {{ row.height }}
+                <span v-if="row.aspectRatio" class="dimension-cell__ratio">
+                  ({{ Number(row.aspectRatio).toFixed(2) }})
+                </span>
+              </span>
+              <span v-else>-</span>
+            </template>
+            <template #fileSizeSlot="{ row }">
+              <span>{{ row.fileSize ? formatFileSize(row.fileSize) : "-" }}</span>
+            </template>
+            <template #cutoutSlot="{ row }">
+              <el-tag
+                :type="row.isCutout ? 'success' : 'info'"
+                effect="plain"
+                size="small"
+                class="table-status-tag"
+              >
+                {{ row.isCutout ? "是" : "否" }}
+              </el-tag>
             </template>
             <template #operationDefaultSlot="{ row }">
               <div class="flex items-center">
@@ -177,16 +401,12 @@
               }}</el-tag>
             </template>
             <template #originUrlSlot="{ row }">
-              <div
-                v-if="row.originUrl"
-                class="origin-url-cell"
-                style="display: flex; align-items: center"
-              >
+              <div v-if="row.originUrl" class="origin-url-cell">
                 <img
                   :key="`${row.id}_origin_p${queryParams.currentPage}`"
                   :src="row.originUrl"
                   :alt="row.name || '原始图片'"
-                  style="height: 80px; object-fit: contain; cursor: pointer"
+                  class="origin-url-cell__img"
                   loading="lazy"
                   @click="openImagePreview(row.originUrl, row.name)"
                 />
@@ -195,12 +415,7 @@
                   target="_blank"
                   type="primary"
                   :underline="false"
-                  style="
-                    display: block;
-                    margin-top: 4px;
-                    font-size: 12px;
-                    word-break: break-all;
-                  "
+                  class="origin-url-cell__link"
                 >
                   {{
                     row.originUrl.length > 50
@@ -222,14 +437,14 @@
                 content="这是共享快捷引用，请将资源转存副本备份，防止源文件删除导致丢失"
                 placement="top"
               >
-                <el-tag type="warning" size="small" effect="light" style="cursor: help">
+                <el-tag type="warning" size="small" effect="plain" class="table-status-tag table-status-tag--help">
                   由【{{ row.sourceUser?.name || row.sourceUser?.account || ('用户' + row.sourceUserId) }}】共享
                 </el-tag>
               </el-tooltip>
-              <el-tag v-else-if="row.shareType === 'copy' || (row.sourceUserId && row.sourceUserId !== row.userId)" type="success" size="small" effect="light">
+              <el-tag v-else-if="row.shareType === 'copy' || (row.sourceUserId && row.sourceUserId !== row.userId)" type="success" size="small" effect="plain" class="table-status-tag">
                 由【{{ row.sourceUser?.name || row.sourceUser?.account || ('用户' + row.sourceUserId) }}】转存
               </el-tag>
-              <el-tag v-else type="info" size="small" effect="plain">我上传的</el-tag>
+              <el-tag v-else type="info" size="small" effect="plain" class="table-status-tag">我上传的</el-tag>
             </template>
           </vxe-grid>
         </div>
@@ -372,14 +587,26 @@ import {
   Upload,
   Edit,
   Download,
+  Operation,
+  Close,
 } from "@element-plus/icons-vue";
 import { useWindowSize } from "@vueuse/core";
 import { downloadImage } from "@/common/download";
 import { useUserStore } from "@/store/modules/user";
+import {
+  SIZE_SHAPE_GROUPS,
+  SIZE_SHAPE_GROUP_COLORS,
+  getFullLabel,
+  COMMON_ASPECT_RATIOS,
+  TOLERANCE_OPTIONS,
+  parseAspectRatioInput,
+  calculateAspectRatioRange,
+} from "./sizeShapeConfig";
 import ContentWrap from '@/components/ContentWrap/src/ContentWrap.vue'
 import ListPageLayout from '@/components/ListPageLayout/index.vue'
 import Pagination from '@/components/Pagination/index.vue'
 import DateRangePicker from '@/components/DateRangePicker.vue'
+import ImageSizeFilter, { type ImageSizeFilterValue } from '@/components/ImageSizeFilter.vue'
 
 const userStore = useUserStore();
 
@@ -393,10 +620,86 @@ const queryParams = reactive({
   startTime: "",
   endTime: "",
   sortingFields: "createTime DESC", // 默认倒序
-  suffix: "", // 新增后缀参数
-  id: "", // 新增ID精确查询参数
+  suffix: "", // 后缀参数
+  id: "", // ID精确查询参数
+  isCutout: "" as boolean | "", // 是否抠图：'' 表示全部
+  sizeShape: [] as string[], // 尺寸形状（比例）多选
+  targetAspectRatio: undefined as number | undefined, // 精确比例目标值
+  aspectRatioTolerance: undefined as number | undefined, // 精确比例容差（百分比）
+  minAspectRatio: undefined as number | undefined, // 宽高比下限
+  maxAspectRatio: undefined as number | undefined, // 宽高比上限
 });
 const gridRef = ref();
+
+// 比例搜索相关状态
+const sizeShapeGroups = SIZE_SHAPE_GROUPS;
+const customRatioPopoverVisible = ref(false);
+const customRatioInput = ref("");
+const customRatioTolerance = ref(5);
+
+// 像素尺寸筛选（宽/高，精确或范围）
+const sizeFilter = ref<ImageSizeFilterValue>({});
+
+const parsedCustomRatio = computed(() => parseAspectRatioInput(customRatioInput.value));
+
+const customRatioRange = computed(() => {
+  if (parsedCustomRatio.value === null) return null;
+  return calculateAspectRatioRange(parsedCustomRatio.value, customRatioTolerance.value);
+});
+
+const hasCustomAspectRatio = computed(
+  () =>
+    queryParams.targetAspectRatio !== undefined ||
+    (queryParams.minAspectRatio !== undefined && queryParams.maxAspectRatio !== undefined),
+);
+
+const customAspectRatioBadgeText = computed(() => {
+  if (queryParams.targetAspectRatio !== undefined) {
+    const tol = queryParams.aspectRatioTolerance ?? 5;
+    return `${queryParams.targetAspectRatio} (±${tol}%)`;
+  }
+  if (queryParams.minAspectRatio !== undefined && queryParams.maxAspectRatio !== undefined) {
+    return `${queryParams.minAspectRatio}~${queryParams.maxAspectRatio}`;
+  }
+  return "精确比例";
+});
+
+function selectPresetRatio(preset: { label: string; value: number }) {
+  customRatioInput.value = preset.label;
+}
+
+function applyCustomAspectRatio() {
+  const target = parsedCustomRatio.value;
+  if (target === null) {
+    ElMessage.warning("请输入有效的宽高比例（如 1.2 或 16:9）");
+    return;
+  }
+  const range = calculateAspectRatioRange(target, customRatioTolerance.value);
+  queryParams.targetAspectRatio = target;
+  queryParams.aspectRatioTolerance = customRatioTolerance.value;
+  queryParams.minAspectRatio = range.min;
+  queryParams.maxAspectRatio = range.max;
+  customRatioPopoverVisible.value = false;
+  queryParams.currentPage = 1;
+  getList();
+}
+
+function clearCustomAspectRatio() {
+  customRatioInput.value = "";
+  queryParams.targetAspectRatio = undefined;
+  queryParams.aspectRatioTolerance = undefined;
+  queryParams.minAspectRatio = undefined;
+  queryParams.maxAspectRatio = undefined;
+  customRatioPopoverVisible.value = false;
+  queryParams.currentPage = 1;
+  getList();
+}
+
+/** 筛选条件变化后回到第一页重新查询 */
+function handleFilterChange() {
+  queryParams.currentPage = 1;
+  getList();
+}
 
 const { height } = useWindowSize();
 const maxHeight = ref(Math.max(height.value - 280, 360));
@@ -425,6 +728,9 @@ const gridOptions = computed(() => {
     { title: "描述", field: "description", minWidth: 200 },
     { title: "关键词", field: "keywords", minWidth: 160 },
     { title: "后缀", field: "suffix", width: 80 },
+    { title: "尺寸", field: "width", width: 150, slots: { default: "dimensionSlot" } },
+    { title: "文件大小", field: "fileSize", width: 110, slots: { default: "fileSizeSlot" } },
+    { title: "是否抠图", field: "isCutout", width: 100, align: "center", slots: { default: "cutoutSlot" } },
   ]
 
   // 只有管理员显示的字段
@@ -440,28 +746,27 @@ const gridOptions = computed(() => {
     {
       title: "原始地址",
       field: "originUrl",
-      width: 200,
+      width: 320,
       slots: { default: "originUrlSlot" },
     }, // 原始地址列
-        { title: "ID", field: "id", width: 80 },
     {
       title: "创建时间",
       field: "createTime",
-      width: 150,
+      width: 180,
       ellipsis: true,
       formatter: (e) => formatTimestamp(e.cellValue),
     },
     {
       title: "修改时间",
       field: "updateTime",
-      width: 150,
+      width: 180,
       ellipsis: true,
       formatter: (e) => formatTimestamp(e.cellValue),
     },
     {
       title: "资源类型",
       field: "shareType",
-      width: 200,
+      width: 220,
       slots: { default: "shareTypeSlot" },
     },
   ]
@@ -515,7 +820,7 @@ const importIds = ref<string[]>([]); // 用于存储要入库的ID列表
 function getList() {
   loading.value = true;
   dataSource.value = []; // 清空旧数据，避免切换页数时旧图残留
-  CrawlerMaterialApi.getCrawlerMaterialPage({ ...queryParams })
+  CrawlerMaterialApi.getCrawlerMaterialPage({ ...queryParams, ...sizeFilter.value })
     .then((res) => {
       dataSource.value = res.list;
       total.value = res.total;
@@ -717,6 +1022,15 @@ function closeImagePreview() {
   currentImageUrl.value = "";
 }
 
+// 格式化文件大小（字节 → B/KB/MB/GB）
+function formatFileSize(bytes: number): string {
+  if (!bytes || bytes <= 0) return "-";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+}
+
 function getSuffixTagType(suffix) {
   switch ((suffix || "").toLowerCase()) {
     case "jpg":
@@ -841,4 +1155,225 @@ getList();
 
 /* 操作dropdown样式 */
 
+/* 尺寸列：宽 × 高 + 宽高比 */
+.dimension-cell {
+  white-space: nowrap;
+}
+
+.dimension-cell__ratio {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+/* 原始地址列：图片与链接上下布局 */
+.origin-url-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+
+.origin-url-cell__img {
+  height: 80px;
+  max-width: 100%;
+  object-fit: contain;
+  cursor: pointer;
+}
+
+.origin-url-cell__link {
+  display: block;
+  align-self: stretch;
+  font-size: 12px;
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+/* 状态标签：统一外观，长文本截断 */
+.table-status-tag {
+  max-width: 100%;
+  vertical-align: middle;
+}
+
+.table-status-tag :deep(.el-tag__content) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table-status-tag--help {
+  cursor: help;
+}
+
+/* 比例筛选：尺寸形状选择器 + 精确比例触发按钮 */
+.size-shape-select {
+  width: 100%;
+}
+
+.custom-ratio-trigger-btn {
+  display: inline-flex;
+  gap: 6px;
+  max-width: 100%;
+  align-items: center;
+}
+
+.custom-ratio-btn-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.custom-ratio-close-icon {
+  margin-left: auto;
+  opacity: 0.7;
+}
+
+.custom-ratio-close-icon:hover {
+  opacity: 1;
+}
+
+</style>
+
+<!--
+  尺寸形状下拉与精确比例弹层会 teleport 到 body，scoped 样式无法命中，
+  因此这里用 popper-class 命名空间做非 scoped 样式（避免与图库同名类冲突）。
+-->
+<style>
+/* 下拉项默认固定 34px 高，装不下带缩略图的两行内容，这里放开高度避免遮挡 */
+.crawler-size-shape-dropdown .el-select-dropdown__item {
+  display: flex;
+  height: auto;
+  min-height: 52px;
+  /* 右侧留出选中勾选标记（right: 20px）的位置，避免压住 size-key 徽标 */
+  padding: 8px 34px 8px 14px;
+  line-height: 1.5;
+  align-items: center;
+}
+
+.crawler-size-shape-dropdown .el-select-group__title {
+  padding: 8px 14px;
+  font-weight: 600;
+  color: var(--el-text-color-regular);
+}
+
+.crawler-size-shape-dropdown .el-select-dropdown__list {
+  padding: 4px 0;
+}
+
+.crawler-size-shape-dropdown .size-option {
+  display: flex;
+  min-height: 36px;
+  box-sizing: border-box;
+  align-items: center;
+  gap: 10px;
+}
+
+.crawler-size-shape-dropdown .size-thumb {
+  position: relative;
+  display: flex;
+  flex-shrink: 0;
+  background: var(--el-fill-color-light);
+  border: 1.5px solid var(--el-border-color);
+  border-radius: 3px;
+  align-items: center;
+  justify-content: center;
+}
+
+.crawler-size-shape-dropdown .size-label {
+  flex: 1;
+  font-size: 13px;
+  color: var(--el-text-color-primary);
+}
+
+.crawler-size-shape-dropdown .size-key {
+  padding: 2px 6px;
+  font-family: "Courier New", Consolas, Monaco, monospace;
+  font-size: 11px;
+  color: var(--el-text-color-secondary);
+  background: var(--el-fill-color-light);
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.crawler-ratio-popover .custom-ratio-popover-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.crawler-ratio-popover .ratio-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.crawler-ratio-popover .ratio-preset-chip {
+  padding: 2px 8px;
+  font-size: 12px;
+  color: var(--el-text-color-regular);
+  background: var(--el-fill-color-light);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.crawler-ratio-popover .ratio-preset-chip:hover {
+  color: var(--el-color-primary);
+  border-color: var(--el-color-primary);
+}
+
+.crawler-ratio-popover .ratio-preset-chip.is-active {
+  color: var(--el-color-primary);
+  background: color-mix(in srgb, var(--el-color-primary) 12%, transparent);
+  border-color: var(--el-color-primary);
+}
+
+.crawler-ratio-popover .ratio-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.crawler-ratio-popover .ratio-input {
+  flex: 1;
+}
+
+.crawler-ratio-popover .tolerance-select {
+  width: 110px;
+  flex-shrink: 0;
+}
+
+.crawler-ratio-popover .ratio-preview-line {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  align-items: center;
+}
+
+.crawler-ratio-popover .preview-value {
+  font-weight: 600;
+  color: var(--el-color-primary);
+}
+
+.crawler-ratio-popover .preview-range {
+  color: var(--el-text-color-secondary);
+}
+
+.crawler-ratio-popover .ratio-hint-line {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.crawler-ratio-popover .ratio-hint-line.is-error {
+  color: var(--el-color-danger);
+}
+
+.crawler-ratio-popover .custom-ratio-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 4px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
 </style>

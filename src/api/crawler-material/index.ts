@@ -19,6 +19,11 @@ export interface CrawlerMaterialVO {
   description: string
   suffix: string
   userId?: string
+  fileSize?: number | null
+  isCutout?: boolean
+  width?: number | null
+  height?: number | null
+  aspectRatio?: number | null
   meta: any
   createTime: Date
   updateTime: Date
