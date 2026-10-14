@@ -128,45 +128,61 @@
           <span>配置接入指南</span>
         </template>
         <div class="guide-panel">
-          <div class="guide-section">
-            <h3>Cursor 配置步骤</h3>
-            <ol>
-              <li>
-                打开 Cursor，进入设置 <code>Settings -> Features -> MCP</code>。
-              </li>
-              <li>点击 <strong>"+ Add New MCP Server"</strong> 按钮。</li>
-              <li>在表单中填写：
-                <ul>
-                  <li>Name: <code>yishe-server</code></li>
-                  <li>Type: <code>SSE</code></li>
-                  <li>URL:
-                    <div class="copy-box">
-                      <div class="code">{{ mcpSseUrl }}</div>
-                      <el-button size="small" link type="primary" @click="copyText(mcpSseUrl)">复制</el-button>
-                    </div>
-                  </li>
-                </ul>
-              </li>
-            </ol>
-            <el-alert
-              title="提示：系统已自动读取并拼接你当前的 JWT Token 到 URL 中。如果是远程运行，请把 localhost 替换为对应服务器 IP/域名。"
-              type="info"
-              :closable="false"
-              class="guide-alert"
-            />
+          <!-- 连接地址 -->
+          <div class="guide-card">
+            <div class="guide-card-title">连接地址</div>
+            <div class="copy-box">
+              <div class="code">{{ mcpSseUrl }}</div>
+              <el-button size="small" type="primary" plain @click="copyText(mcpSseUrl)">
+                复制
+              </el-button>
+            </div>
+            <div class="guide-tip">
+              系统已自动拼接当前账号的 JWT Token；远程部署时请把 localhost 替换为服务器 IP 或域名。
+            </div>
           </div>
 
-          <div class="guide-section">
-            <h3>Claude Desktop 配置文件</h3>
-            <p>编辑配置文件 <code>~/Library/Application Support/Claude/claude_desktop_config.json</code> 并写入：</p>
-            <pre class="json-pre"><code>{
-  "mcpServers": {
-    "yishe-server": {
-      "type": "sse",
-      "url": "{{ mcpSseUrl }}"
-    }
-  }
-}</code></pre>
+          <!-- 双栏：图形界面配置 + 配置文件 -->
+          <div class="guide-grid">
+            <div class="guide-card">
+              <div class="guide-card-title">
+                图形界面配置
+                <el-tag size="small" effect="plain">Cursor</el-tag>
+              </div>
+              <ol class="guide-steps">
+                <li>打开 Cursor 设置：<code>Settings → Features → MCP</code></li>
+                <li>点击 <strong>"+ Add New MCP Server"</strong></li>
+                <li>
+                  按下方参数填写表单：
+                  <div class="kv-list">
+                    <div class="kv-row"><span class="kv-k">Name</span><code>yishe-server</code></div>
+                    <div class="kv-row"><span class="kv-k">Type</span><code>SSE</code></div>
+                    <div class="kv-row"><span class="kv-k">URL</span><code class="kv-code-wrap">{{ mcpSseUrl }}</code></div>
+                  </div>
+                </li>
+              </ol>
+            </div>
+
+            <div class="guide-card">
+              <div class="guide-card-title">
+                配置文件
+                <el-tag size="small" type="success" effect="plain">通用</el-tag>
+              </div>
+              <div class="guide-tip">
+                编辑 <code>claude_desktop_config.json</code>（macOS 路径：
+                <code>~/Library/Application Support/Claude/</code>）或客户端对应的 MCP 配置文件。
+              </div>
+
+              <div class="code-block">
+                <div class="code-block-head">
+                  <span class="code-block-name">mcpServers 配置</span>
+                  <el-button size="small" link type="primary" @click="copyText(sseConfigJson)">
+                    复制
+                  </el-button>
+                </div>
+                <pre class="code-block-body"><code>{{ sseConfigJson }}</code></pre>
+              </div>
+            </div>
           </div>
         </div>
       </el-tab-pane>
@@ -407,6 +423,22 @@ const mcpSseUrl = computed(() => {
   const apiBase = (import.meta.env.VITE_BASE_URL || window.location.origin).replace(/\/+$/, "").replace(/\/api$/, "");
   return `${apiBase}/api/sse?token=${token}`;
 });
+
+/** mcpServers 配置文件 JSON */
+const sseConfigJson = computed(() =>
+  JSON.stringify(
+    {
+      mcpServers: {
+        "yishe-server": {
+          type: "sse",
+          url: mcpSseUrl.value,
+        },
+      },
+    },
+    null,
+    2,
+  ),
+);
 
 const activeTab = ref("tools");
 const loading = ref(false);
@@ -804,50 +836,167 @@ onMounted(() => {
 
 /* 接入指南 */
 .guide-panel {
-  max-width: 720px;
-  padding: 12px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 4px 0 12px;
 }
 
-.guide-section {
-  margin-bottom: 30px;
+.guide-grid {
+  display: grid;
+  grid-template-columns: minmax(300px, 1fr) minmax(360px, 1.2fr);
+  gap: 16px;
+  align-items: start;
 }
 
-.guide-section h3 {
+@media (max-width: 960px) {
+  .guide-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.guide-card {
+  padding: 16px;
+  background: var(--el-fill-color-blank);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  min-width: 0;
+}
+
+.guide-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-bottom: 12px;
   font-size: 14px;
   font-weight: 600;
+  color: var(--el-text-color-primary);
 }
 
-.guide-section ol {
-  padding-left: 20px;
+.guide-tip {
+  margin-top: 10px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--el-text-color-secondary);
+}
+
+.guide-steps {
+  padding-left: 18px;
+  margin: 0;
   font-size: 13px;
-  line-height: 1.8;
+  line-height: 2;
+  color: var(--el-text-color-regular);
 }
 
-.guide-section ul {
-  padding-left: 20px;
+.guide-steps code {
+  padding: 1px 6px;
+  font-family: Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  background: var(--el-fill-color-light);
+  border-radius: 4px;
+}
+
+.kv-list {
+  margin: 6px 0 4px;
+  padding: 8px 12px;
+  background: var(--el-fill-color-lighter);
+  border-radius: 6px;
+}
+
+.kv-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 3px 0;
+  font-size: 12px;
+}
+
+.kv-row .kv-k {
+  flex-shrink: 0;
+  width: 48px;
+  color: var(--el-text-color-secondary);
+}
+
+.kv-row code {
+  flex: 1;
+  min-width: 0;
+  padding: 1px 6px;
+  color: var(--el-text-color-primary);
+  background: var(--el-fill-color-blank);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 4px;
+  font-family: Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+}
+
+/* 长 URL 完整换行显示，避免被截断 */
+.kv-row code.kv-code-wrap {
+  word-break: break-all;
+  white-space: normal;
+  line-height: 1.5;
 }
 
 .copy-box {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 6px;
-  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 6px;
 }
 
 .copy-box .code {
   flex: 1;
   min-width: 0;
+  color: var(--el-text-color-primary);
+  font-family: Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
   word-break: break-all;
-  padding: 4px 8px;
-  font-family: Menlo, Monaco, monospace;
-  background-color: var(--el-fill-color-light);
-  border-radius: 4px;
+  white-space: normal;
 }
 
-.guide-alert {
+.code-block {
   margin-top: 12px;
+  overflow: hidden;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 6px;
+}
+
+.code-block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 12px;
+  background: var(--el-fill-color-light);
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.code-block-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--el-text-color-regular);
+}
+
+.code-block-body {
+  padding: 12px;
+  margin: 0;
+  overflow-x: auto;
+  font-family: Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--el-text-color-primary);
+  background: var(--el-fill-color-blank);
+}
+
+.code-block-foot {
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--el-text-color-secondary);
+  background: var(--el-fill-color-lighter);
+  border-top: 1px solid var(--el-border-color-lighter);
 }
 
 .json-pre {
