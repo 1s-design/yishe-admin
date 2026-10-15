@@ -32,6 +32,41 @@
             @mouseup="handleMouseUp"
             @mouseleave="handleMouseUp"
           />
+
+          <!-- 左右切换 -->
+          <template v-if="hasMultiple">
+            <button class="image-preview-nav prev" @click.stop="goPrev" title="上一张">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </button>
+            <button class="image-preview-nav next" @click.stop="goNext" title="下一张">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </button>
+            <div class="image-preview-counter">{{ currentIndex + 1 }} / {{ normalizedList.length }}</div>
+          </template>
+
+          <!-- 缩略图试文字文案展示 -->
+          <div v-if="currentText" class="image-preview-caption" @click.stop>
+            <span class="caption-tag">试文字</span>
+            <span class="caption-text">{{ currentText }}</span>
+          </div>
+        </div>
+
+        <!-- 缩略图条（多图时显示） -->
+        <div v-if="hasMultiple" class="image-preview-thumbs" @click.stop>
+          <div
+            v-for="(item, i) in normalizedList"
+            :key="item.url + i"
+            class="image-preview-thumb-item"
+            :class="{ active: i === currentIndex }"
+            @click="switchTo(i)"
+          >
+            <img :src="item.url" class="image-preview-thumb" />
+            <span v-if="item.text" class="thumb-text-badge" :title="item.text">{{ item.text }}</span>
+          </div>
         </div>
 
         <!-- 工具栏 -->
@@ -93,14 +128,27 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 
+export type PreviewImageItem =
+  | string
+  | { thumbnail?: string; url?: string; text?: string }
+
+export interface NormalizedPreviewItem {
+  url: string
+  text: string
+}
+
 interface Props {
   visible: boolean
-  imageUrl: string
+  imageUrl?: string
+  /** 多图模式：传入数组支持 string[] 或 [{ thumbnail, text }] */
+  imageUrls?: PreviewImageItem[]
   alt?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  alt: '图片预览'
+  alt: '图片预览',
+  imageUrl: '',
+  imageUrls: () => []
 })
 
 const emit = defineEmits<{
@@ -116,9 +164,59 @@ const isDragging = ref(false)
 const dragStart = ref({ x: 0, y: 0 })
 const hasDragged = ref(false)
 const imageRef = ref<HTMLImageElement>()
+const currentIndex = ref(0)
 
 // 计算属性
-const currentImage = computed(() => props.imageUrl)
+const normalizedList = computed<NormalizedPreviewItem[]>(() => {
+  const rawList =
+    props.imageUrls && props.imageUrls.length
+      ? props.imageUrls
+      : props.imageUrl
+      ? [props.imageUrl]
+      : []
+
+  return rawList
+    .map((item) => {
+      if (typeof item === 'string') {
+        const u = item.trim()
+        return u ? { url: u, text: '' } : null
+      }
+      if (item && typeof item === 'object') {
+        const u = String(item.thumbnail || item.url || '').trim()
+        return u
+          ? {
+              url: u,
+              text: typeof item.text === 'string' ? item.text : '',
+            }
+          : null
+      }
+      return null
+    })
+    .filter((it): it is NormalizedPreviewItem => !!it && !!it.url)
+})
+
+const hasMultiple = computed(() => normalizedList.value.length > 1)
+
+const currentItem = computed<NormalizedPreviewItem | null>(() => {
+  return normalizedList.value[currentIndex.value] || null
+})
+
+const currentImage = computed(() => currentItem.value?.url || '')
+const currentText = computed(() => currentItem.value?.text || '')
+
+/** 切图后重置缩放/位移 */
+function switchTo(index: number) {
+  const len = normalizedList.value.length
+  if (!len) return
+  currentIndex.value = (index + len) % len
+  scale.value = 1
+  rotation.value = 0
+  translateX.value = 0
+  translateY.value = 0
+}
+
+const goPrev = () => switchTo(currentIndex.value - 1)
+const goNext = () => switchTo(currentIndex.value + 1)
 
 const imageStyle = computed(() => ({
   transform: `translate(${translateX.value}px, ${translateY.value}px) scale(${scale.value}) rotate(${rotation.value}deg)`,
@@ -227,13 +325,18 @@ const handleMouseUp = () => {
   }, 100)
 }
 
-// 键盘事件处理
-const handleKeydown = (e: KeyboardEvent) => {
+function handleKeydown(e: KeyboardEvent) {
   if (!props.visible) return
-  
+
   switch (e.key) {
     case 'Escape':
       close()
+      break
+    case 'ArrowLeft':
+      goPrev()
+      break
+    case 'ArrowRight':
+      goNext()
       break
     case '+':
     case '=':
@@ -252,6 +355,7 @@ const handleKeydown = (e: KeyboardEvent) => {
 
 watch(() => props.visible, (visible) => {
   if (visible) {
+    currentIndex.value = 0
     document.body.style.overflow = 'hidden'
     nextTick(() => {
       const overlay = document.querySelector('.image-preview-overlay') as HTMLElement
@@ -376,4 +480,144 @@ onUnmounted(() => {
 }
 
 
+/* 多图：左右切换按钮 */
+.image-preview-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 45%);
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.2s;
+  z-index: 3;
+}
+
+.image-preview-nav:hover {
+  background: rgb(0 0 0 / 70%);
+}
+
+.image-preview-nav.prev {
+  left: 16px;
+}
+
+.image-preview-nav.next {
+  right: 16px;
+}
+
+/* 多图：计数器 */
+.image-preview-counter {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 12px;
+  border-radius: 12px;
+  background: rgb(0 0 0 / 55%);
+  color: #fff;
+  font-size: 13px;
+  z-index: 3;
+}
+
+/* 多图：底部缩略图条 */
+.image-preview-thumbs {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  max-width: 80vw;
+  padding: 8px;
+  border-radius: 10px;
+  background: rgb(0 0 0 / 45%);
+  overflow-x: auto;
+  z-index: 3;
+}
+
+.image-preview-thumb {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  background: #fff;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.2s;
+}
+
+.image-preview-thumb.active {
+  border-color: #409eff;
+}
+
+/* 多图：当前试文字文案浮层 */
+.image-preview-caption {
+  position: absolute;
+  top: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  border-radius: 20px;
+  background: rgb(0 0 0 / 65%);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  font-size: 14px;
+  max-width: 80vw;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  z-index: 3;
+}
+
+.caption-tag {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #409eff;
+  color: #fff;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.caption-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 缩略图项外层包装 */
+.image-preview-thumb-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.thumb-text-badge {
+  position: absolute;
+  bottom: 2px;
+  left: 2px;
+  right: 2px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-size: 10px;
+  line-height: 14px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 2px;
+  border-radius: 2px;
+  pointer-events: none;
+}
 </style>

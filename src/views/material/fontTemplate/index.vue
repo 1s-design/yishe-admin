@@ -194,10 +194,10 @@
                     <TableRowDragHandle />
                   </template>
                   <template #thumbnailDefaultSlot="{ row }">
-                    <div class="flex items-center justify-center p-2">
+                    <div class="flex items-center justify-center p-2" style="position: relative">
                       <img
-                        v-if="row.thumbnail"
-                        :src="row.thumbnail"
+                        v-if="rowThumbs(row).length"
+                        :src="rowThumbs(row)[0]"
                         :alt="row.name || t('fontTemplate.thumbnailAlt')"
                         loading="lazy"
                         style="
@@ -209,11 +209,18 @@
                           box-shadow: 0 2px 8px rgb(0 0 0 / 10%);
                           object-fit: contain;
                         "
-                        @click="openThumbnailPreview(row.thumbnail, row.name)"
+                        @click="openRowThumbnails(row)"
                         @error="handleThumbnailError"
                       />
+                      <span
+                        v-if="rowThumbs(row).length > 1"
+                        class="thumb-count-badge"
+                        :title="`共 ${rowThumbs(row).length} 张缩略图`"
+                      >
+                        {{ rowThumbs(row).length }}
+                      </span>
                       <div
-                        v-else
+                        v-else-if="!rowThumbs(row).length"
                         class="w-40 h-40 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-sm"
                       >
                         {{ t('fontTemplate.noThumbnail') }}
@@ -862,6 +869,7 @@
     <ImagePreview
       :visible="imagePreviewVisible"
       :image-url="currentImageUrl"
+      :image-urls="currentImageUrls"
       @close="closeImagePreview"
     />
 
@@ -1190,6 +1198,44 @@ watchEffect(() => {
 
 const dataSource = ref([]);
 const loading = ref(false);
+
+export interface FontThumbnailItem {
+  thumbnail: string;
+  text?: string;
+}
+
+/** 归一化读取缩略图对象数组：优先 thumbnails，兜底单图 thumbnail，自动兼容历史 string[] 结构 */
+const rowThumbItems = (row: any): FontThumbnailItem[] => {
+  const arr = row?.thumbnails;
+  if (Array.isArray(arr) && arr.length) {
+    return arr
+      .filter(Boolean)
+      .map((item) => {
+        if (typeof item === 'string') {
+          const s = item.trim();
+          return s ? { thumbnail: s, text: '' } : null;
+        }
+        if (item && typeof item === 'object') {
+          const thumb = String(item.thumbnail || item.url || '').trim();
+          return thumb
+            ? {
+                thumbnail: thumb,
+                text: typeof item.text === 'string' ? item.text : '',
+              }
+            : null;
+        }
+        return null;
+      })
+      .filter((it): it is FontThumbnailItem => !!it && !!it.thumbnail);
+  }
+  const single = String(row?.thumbnail || '').trim();
+  return single ? [{ thumbnail: single, text: '' }] : [];
+};
+
+/** 归一化读取缩略图 URL 字符串数组（便捷消费） */
+const rowThumbs = (row: any): string[] => {
+  return rowThumbItems(row).map((it) => it.thumbnail);
+};
 const ids = ref([]);
 const total = ref(0);
 const formRef = ref();
@@ -1388,6 +1434,7 @@ const thumbnailRules = {
 // 图片预览相关状态
 const imagePreviewVisible = ref(false);
 const currentImageUrl = ref("");
+const currentImageUrls = ref<any[]>([]);
 
 // 字体预览相关状态
 const fontLoading = ref(false);
@@ -2183,10 +2230,12 @@ async function submitFrontendGenerateThumbnail() {
     });
     const { url } = cos;
 
-    // 调用后端API更新缩略图路径
+    // 追加到缩略图数组（保留已有图，不覆盖），包含当前输入的试文字文案
+    const currentText = previewText.value || (currentRow.value as any)?.templateText || '';
+    const existing = rowThumbItems(currentRow.value);
     await fontTemplateApi.updateFontTemplate({
       id: currentRow.value.id,
-      thumbnail: url,
+      thumbnails: [...existing, { thumbnail: url, text: currentText }],
     });
 
     ElMessage.success(t('fontTemplate.frontendThumbnailSuccess'));
@@ -2351,10 +2400,11 @@ async function handleBatchGenerateThumbnail(options: BatchGenerateThumbnailOptio
       });
       const { url } = cos;
 
-      // 8. 更新数据库
+      // 8. 更新数据库（追加到缩略图数组，并保存试文字文案）
+      const currentText = previewText.value || font.templateText || '';
       await fontTemplateApi.updateFontTemplate({
         id: font.id,
-        thumbnail: url,
+        thumbnails: [...rowThumbItems(font), { thumbnail: url, text: currentText }],
       });
 
       // 9. 关闭弹窗
@@ -2547,6 +2597,16 @@ function handleOperationCommand(command: string, row: any) {
 // 缩略图预览相关方法
 function openThumbnailPreview(thumbnailUrl: string, _fontName?: string) {
   currentImageUrl.value = thumbnailUrl;
+  currentImageUrls.value = thumbnailUrl ? [thumbnailUrl] : [];
+  imagePreviewVisible.value = true;
+}
+
+/** 打开整行的全部缩略图 */
+function openRowThumbnails(row: any) {
+  const items = rowThumbItems(row);
+  if (!items.length) return;
+  currentImageUrls.value = items;
+  currentImageUrl.value = items[0]?.thumbnail || '';
   imagePreviewVisible.value = true;
 }
 
@@ -2566,11 +2626,28 @@ function handleThumbnailError(event: Event) {
 function closeImagePreview() {
   imagePreviewVisible.value = false;
   currentImageUrl.value = "";
+  currentImageUrls.value = [];
 }
 </script>
 
 <style scoped>
 
+/* 多图角标：显示该字体共有几张缩略图 */
+.thumb-count-badge {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 11px;
+  background: rgb(0 0 0 / 65%);
+  color: #fff;
+  font-size: 12px;
+  line-height: 22px;
+  text-align: center;
+  pointer-events: none;
+}
 
 @keyframes pulse {
   0% {
