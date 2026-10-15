@@ -1271,13 +1271,6 @@ $prefix-cls: #{$namespace}-menu;
     }
   }
 
-  @media (width <= 767px) {
-    &__links {
-      grid-template-columns: 1fr;
-      padding-left: calc(var(--left-menu-links-padding-left) + 2px);
-    }
-  }
-
   &::-webkit-scrollbar {
     width: 4px;
   }

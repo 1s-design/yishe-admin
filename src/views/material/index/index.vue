@@ -6381,8 +6381,13 @@ function getPublishConfigPlatformBadgeStyle(platform?: string) {
   return { background: "var(--el-fill-color-light)", color: "var(--el-color-primary)", borderColor: "var(--el-color-primary-light-5)" };
 }
 
+function isPublishConfigActive(row: any): boolean {
+  if (!row) return false;
+  return row.isActive === true || row.isActive === 1 || row.isActive === "1" || row.isActive === "true";
+}
+
 function isMaterialPublishConfigUsable(row: any) {
-  if (row?.isActive === false) return false;
+  if (!isPublishConfigActive(row)) return false;
   const configData = getPublishConfigConfigData(row);
   return Boolean(String(configData?.templateBinding?.psdTemplateId || "").trim());
 }
@@ -6892,7 +6897,7 @@ async function loadProductTemplatesForPsdAutomation() {
 }
 
 async function fetchPublishConfigOptions() {
-  const res = await getPublishConfigPageApi({ pageNo: 1, pageSize: 100 });
+  const res = await getPublishConfigPageApi({ pageNo: 1, pageSize: 100, isActive: true });
   let list: any[] = [];
   if (Array.isArray(res)) {
     list = res;
@@ -6901,10 +6906,12 @@ async function fetchPublishConfigOptions() {
   } else if (Array.isArray((res as any)?.data?.list)) {
     list = (res as any).data.list;
   }
-  return list.map((item: any) => ({
-    ...item,
-    id: String(item?.id ?? ""),
-  }));
+  return list
+    .filter((item: any) => isPublishConfigActive(item))
+    .map((item: any) => ({
+      ...item,
+      id: String(item?.id ?? ""),
+    }));
 }
 
 async function loadPublishConfigsForPsdAutomation() {
@@ -6918,7 +6925,7 @@ async function loadPublishConfigsForPsdAutomation() {
   psdSetAutomationPublishConfigsLoading.value = true;
   try {
     const list = await fetchPublishConfigOptions();
-    psdSetAutomationPublishConfigs.value = list.filter((item: any) => item?.isActive !== false);
+    psdSetAutomationPublishConfigs.value = list.filter((item: any) => isPublishConfigActive(item));
   } catch (error) {
     console.error("加载任务配置失败:", error);
     ElMessage.error(t("material.taskConfigLoadFailed"));
@@ -6939,10 +6946,12 @@ async function loadPublishConfigsForMaterialPublishDialog() {
       onlyUsable: materialPublishConfigOnlyUsable.value || undefined,
     });
     const payload = res?.data && !Array.isArray(res.data) ? res.data : res;
-    materialPublishConfigOptions.value = (Array.isArray(payload?.list) ? payload.list : []).map((item: any) => ({
-      ...item,
-      id: String(item?.id ?? ""),
-    }));
+    materialPublishConfigOptions.value = (Array.isArray(payload?.list) ? payload.list : [])
+      .filter((item: any) => isPublishConfigActive(item))
+      .map((item: any) => ({
+        ...item,
+        id: String(item?.id ?? ""),
+      }));
     materialPublishConfigTotal.value = Number(payload?.total ?? materialPublishConfigOptions.value.length);
     nextTick(syncPublishConfigTableSelection);
   } catch (error) {

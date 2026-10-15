@@ -74,41 +74,41 @@ const gridOptions = computed(() => ({
   },
   columns: [
     { type: "checkbox", width: 48, fixed: "left" as const },
-    { field: "name", title: t("publishConfig.configName"), minWidth: 170, slots: { default: "nameSlot" } },
+    { field: "name", title: t("publishConfig.configName"), minWidth: 220, headerAlign: "left" as const, slots: { default: "nameSlot" } },
     {
       field: "taskType",
       title: t("publishConfig.taskType"),
-      minWidth: 160,
+      width: 160,
+      headerAlign: "left" as const,
+      align: "center" as const,
       slots: { default: "taskTypeSlot" },
     },
-    { field: "vendor", title: "关联厂家/商品", minWidth: 220, slots: { default: "vendorSlot" } },
-    { field: "templateBinding", title: "关联主图模板", minWidth: 150, slots: { default: "templateSlot" } },
-    { field: "description", title: t("common.description"), minWidth: 160, showOverflow: "tooltip" },
+    { field: "vendor", title: "关联厂家/商品", minWidth: 200, headerAlign: "left" as const, slots: { default: "vendorSlot" } },
+    { field: "templateBinding", title: "关联主图模板", width: 160, headerAlign: "left" as const, align: "center" as const, slots: { default: "templateSlot" } },
     {
       field: "isActive",
       title: t("common.status"),
-      width: 95,
+      width: 90,
+      headerAlign: "left" as const,
+      align: "center" as const,
       slots: { default: "statusSlot" },
     },
     {
       field: "uploader",
       title: t("publishConfig.creator"),
-      width: 120,
+      width: 130,
+      headerAlign: "left" as const,
+      align: "center" as const,
       slots: { default: "uploaderSlot" },
     },
     {
-      field: "createTime",
-      title: t("common.createTime"),
-      width: 150,
-      sortable: true,
-      slots: { default: "createTimeSlot" },
-    },
-    {
       field: "updateTime",
-      title: t("common.updateTime"),
-      width: 150,
+      title: "更新时间",
+      width: 160,
+      headerAlign: "left" as const,
+      align: "center" as const,
       sortable: true,
-      slots: { default: "updateTimeSlot" },
+      slots: { default: "timeSlot" },
     },
     buildOperationColumn("action"),
   ],
@@ -1492,74 +1492,55 @@ onMounted(() => {
               >
                 <!-- 配置名称 -->
                 <template #nameSlot="{ row }">
-                  <div class="publish-config-name-cell">
-                    <div
-                      class="publish-config-name-text cursor-pointer hover:text-[var(--el-color-primary)] font-medium"
-                      @click="handleEdit(row)"
-                    >
-                      {{ row.name || '-' }}
-                    </div>
-                    <div v-if="row.platform" class="publish-config-sub-platform mt-0.5">
-                      <span
-                        class="publish-config-platform-pill"
-                        :style="getPlatformBadgeStyle(row.platform)"
-                      >
-                        {{ row.platform }}
-                      </span>
-                    </div>
+                  <div
+                    class="publish-config-name-text cursor-pointer hover:text-[var(--el-color-primary)] font-medium"
+                    @click="handleEdit(row)"
+                  >
+                    {{ row.name || '-' }}
                   </div>
                 </template>
 
                 <!-- 任务类型 -->
                 <template #taskTypeSlot="{ row }">
-                  <div class="publish-config-tasktype-cell">
-                    <el-tag
-                      size="small"
-                      effect="plain"
-                      class="font-medium"
-                      :style="{
-                        background: getPlatformBadgeStyle(row?.taskType || derivePublishTaskTypeByPlatform(row?.platform)).bg,
-                        color: getPlatformBadgeStyle(row?.taskType || derivePublishTaskTypeByPlatform(row?.platform)).color,
-                        borderColor: getPlatformBadgeStyle(row?.taskType || derivePublishTaskTypeByPlatform(row?.platform)).border,
-                      }"
-                    >
-                      {{ getTaskTypeLabel(row?.taskType || derivePublishTaskTypeByPlatform(row?.platform), row?.platform) }}
-                    </el-tag>
-                  </div>
+                  <el-tag
+                    size="small"
+                    effect="plain"
+                    class="font-medium"
+                    :style="{
+                      background: getPlatformBadgeStyle(row?.taskType || derivePublishTaskTypeByPlatform(row?.platform)).bg,
+                      color: getPlatformBadgeStyle(row?.taskType || derivePublishTaskTypeByPlatform(row?.platform)).color,
+                      borderColor: getPlatformBadgeStyle(row?.taskType || derivePublishTaskTypeByPlatform(row?.platform)).border,
+                    }"
+                  >
+                    {{ getTaskTypeLabel(row?.taskType || derivePublishTaskTypeByPlatform(row?.platform), row?.platform) }}
+                  </el-tag>
                 </template>
 
-                <!-- 关联厂家 / 旗下商品 -->
+                <!-- 关联厂家/商品 -->
                 <template #vendorSlot="{ row }">
-                  <div class="publish-config-vendor-cell text-xs">
-                    <template v-if="row?.configData?.vendorName || row?.configData?.vendorCode">
-                      <div class="flex items-center gap-1 font-medium text-[var(--el-text-color-primary)]">
-                        <span>{{ row.configData.vendorName || '未命名厂家' }}</span>
-                        <span v-if="row.configData.vendorCode" class="text-[var(--el-text-color-secondary)] font-mono text-[11px]">
-                          ({{ row.configData.vendorCode }})
-                        </span>
-                      </div>
-                      <div v-if="row?.configData?.vendorProductMappings?.length" class="text-[11px] text-[var(--el-text-color-secondary)] mt-0.5">
-                        绑定 {{ row.configData.vendorProductMappings.length }} 款商品
-                      </div>
-                    </template>
-                    <span v-else class="text-[var(--el-text-color-placeholder)]">-</span>
-                  </div>
+                  <template v-if="row?.configData?.vendorName || row?.configData?.vendorCode">
+                    <div class="publish-config-vendor-name">{{ row.configData.vendorName || '未命名厂家' }}</div>
+                    <div v-if="row?.configData?.vendorProductMappings?.length" class="publish-config-vendor-count">
+                      {{ row.configData.vendorProductMappings.length }} 款商品
+                    </div>
+                  </template>
+                  <span v-else class="publish-config-empty-text">-</span>
                 </template>
 
-                <!-- 关联套图模板 -->
+                <!-- 关联主图模板 -->
                 <template #templateSlot="{ row }">
-                  <div class="publish-config-template-cell text-xs">
-                    <template v-if="row?.configData?.templateBinding?.psdTemplateId">
-                      <el-tag size="small" type="warning" effect="light" class="inline-flex items-center gap-1">
-                        <span>PSD 模板</span>
-                        <span class="font-mono text-[10px]">#{{ String(row.configData.templateBinding.psdTemplateId).slice(0, 8) }}</span>
-                      </el-tag>
-                    </template>
-                    <span v-else class="text-[var(--el-text-color-placeholder)]">-</span>
-                  </div>
+                  <el-tag
+                    v-if="row?.configData?.templateBinding?.psdTemplateId"
+                    size="small"
+                    type="warning"
+                    effect="light"
+                  >
+                    PSD #{{ String(row.configData.templateBinding.psdTemplateId).slice(0, 8) }}
+                  </el-tag>
+                  <span v-else class="publish-config-empty-text">-</span>
                 </template>
 
-                <!-- 状态与开关 -->
+                <!-- 状态 -->
                 <template #statusSlot="{ row }">
                   <el-switch
                     :model-value="row.isActive !== false"
@@ -1573,21 +1554,14 @@ onMounted(() => {
 
                 <!-- 创建人 -->
                 <template #uploaderSlot="{ row }">
-                  <div class="text-xs text-[var(--el-text-color-regular)]">
+                  <span class="publish-config-uploader-name">
                     {{ row?.uploader?.account || row?.uploader?.name || row?.creator || row?.userId || '-' }}
-                  </div>
-                </template>
-
-                <!-- 创建时间 -->
-                <template #createTimeSlot="{ row }">
-                  <span class="table-time-text text-xs text-[var(--el-text-color-secondary)]">
-                    {{ formatTime(row.createTime, 'yyyy-MM-dd HH:mm') }}
                   </span>
                 </template>
 
-                <!-- 修改时间 -->
-                <template #updateTimeSlot="{ row }">
-                  <span class="table-time-text text-xs text-[var(--el-text-color-secondary)]">
+                <!-- 更新时间 -->
+                <template #timeSlot="{ row }">
+                  <span class="publish-config-time-text">
                     {{ formatTime(row.updateTime, 'yyyy-MM-dd HH:mm') }}
                   </span>
                 </template>
@@ -2758,38 +2732,63 @@ onMounted(() => {
   width: 100%;
 }
 
-.publish-config-name-cell {
-  line-height: 1.35;
-}
-
+/* ── 配置名称 ── */
 .publish-config-name-text {
   font-size: 13px;
-  color: var(--el-text-color-primary, #e2e8f0);
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.15s ease;
 }
 
-.publish-config-platform-pill {
-  display: inline-block;
-  padding: 1px 7px;
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  border-radius: 9999px;
-  border: 1px solid transparent;
+/* ── 关联厂家/商品 ── */
+.publish-config-vendor-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.publish-config-vendor-cell {
-  line-height: 1.35;
+.publish-config-vendor-count {
+  font-size: 11px;
+  color: var(--el-text-color-secondary);
+  margin-top: 1px;
 }
 
-/* 停用配置行的半透明淡化效果 */
+.publish-config-empty-text {
+  color: var(--el-text-color-placeholder);
+  font-size: 13px;
+}
+
+/* ── 创建人 ── */
+.publish-config-uploader-name {
+  font-size: 13px;
+  color: var(--el-text-color-regular);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── 时间 ── */
+.publish-config-time-text {
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* 停用配置行的高透明淡化效果 */
 :deep(.publish-config-row--disabled) {
-  opacity: 0.45;
-  filter: grayscale(20%);
+  opacity: 0.25;
+  filter: grayscale(35%);
   transition: opacity 0.2s ease, filter 0.2s ease;
 
   &:hover {
-    opacity: 0.88;
+    opacity: 0.75;
     filter: grayscale(0%);
   }
 }

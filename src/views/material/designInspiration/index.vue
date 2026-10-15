@@ -78,6 +78,13 @@
                 @checkbox-change="checkboxChange"
                 @checkbox-all="checkboxAllChange"
               >
+                <template #idSlot="{ row }">
+                  <span
+                    class="id-copy"
+                    :title="row.id + '（点击复制）'"
+                    @click.stop="copyId(row.id)"
+                  >{{ row.id }}</span>
+                </template>
                 <template #imagesSlot="{ row }">
                   <div v-if="row.images?.length" class="flex items-center gap-1.5 py-1">
                     <el-image
@@ -85,7 +92,7 @@
                       :preview-src-list="row.images"
                       preview-teleported
                       fit="cover"
-                      style="width: 36px; height: 36px; border-radius: 4px; border: 1px solid var(--el-border-color-lighter); flex-shrink: 0; cursor: pointer;"
+                      style="width: 72px; height: 72px; border-radius: 6px; border: 1px solid var(--el-border-color-lighter); flex-shrink: 0; cursor: pointer; object-fit: cover;"
                     />
                     <el-tag
                       v-if="row.images.length > 1"
@@ -465,7 +472,7 @@ const gridOptions = ref<any>({
   maxHeight: Math.max(height.value - 280, 360),
   columns: [
     { type: "checkbox", width: 50 },
-    { title: "参考图", field: "images", width: 110, slots: { default: "imagesSlot" } },
+    { title: "参考图", field: "images", width: 170, slots: { default: "imagesSlot" } },
     { title: "标题", field: "title", minWidth: 180, slots: { default: "titleSlot" } },
     { title: "分类", field: "category", width: 120 },
     { title: "关键词", field: "keywords", minWidth: 180, slots: { default: "keywordsSlot" } },
@@ -478,6 +485,7 @@ const gridOptions = ref<any>({
     },
     buildTimeColumn("创建时间", "createTime", 160),
     buildTimeColumn("更新时间", "updateTime", 160),
+    { title: "ID", field: "id", width: 190, slots: { default: "idSlot" } },
     buildOperationColumn("operationDefaultSlot"),
   ],
 });
@@ -575,10 +583,23 @@ const defaultForm = () => ({
 const form = ref(defaultForm());
 
 const rules: FormRules = {
-  title: [{ required: true, message: "请输入标题", trigger: "blur" }],
-  content: [{ required: true, message: "请输入内容", trigger: "blur" }],
+  // 名称与内容均不强制：灵感可以只有一张参考图、或只有关键词
+  title: [{ max: 200, message: "标题长度不能超过 200 个字符", trigger: "blur" }],
+  content: [{ max: 4000, message: "内容长度不能超过 4000 个字符", trigger: "blur" }],
   category: [{ max: 80, message: "分类长度不能超过 80 个字符", trigger: "blur" }],
 };
+
+async function copyId(id?: string | number) {
+  const text = String(id || "");
+  if (!text) return;
+  try {
+    await navigator.clipboard.writeText(text);
+    ElMessage.success("ID 已复制");
+  } catch {
+    // 剪贴板不可用时退化为可选中文本
+    ElMessage.info(`ID：${text}`);
+  }
+}
 
 function parseKeywords(value: string) {
   return value
@@ -743,8 +764,8 @@ async function submitForm() {
 
     const payload: DesignInspiration = {
       id: form.value.id || undefined,
-      title: form.value.title,
-      content: form.value.content,
+      title: form.value.title || "",
+      content: form.value.content || "",
       category: form.value.category,
       keywords: parseKeywords(form.value.keywordsText),
       images,
@@ -921,6 +942,23 @@ onMounted(() => {
 }
 
 /* 参考图横向滑槽 */
+.id-copy {
+  display: inline-block;
+  font-family: monospace;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 170px;
+  cursor: pointer;
+  border-bottom: 1px dashed var(--el-border-color);
+}
+
+.id-copy:hover {
+  color: var(--el-color-primary);
+  border-bottom-color: var(--el-color-primary);
+}
+
 .mobile-card-images {
   margin-top: 2px;
 }

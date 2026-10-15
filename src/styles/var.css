@@ -239,6 +239,11 @@ html.light {
   html.dark {
     --top-tool-height: 46px;
     --app-content-padding: 8px;
+    /* 移动端导航：一个路由一行（覆盖桌面端双列） */
+    --left-menu-links-columns: 1;
+    --left-menu-links-padding-left: 12px;
+    --left-menu-links-gap-x: 4px;
+    --left-menu-links-gap-y: 4px;
     --app-form-label-size: 12px;
     --app-form-item-margin: 14px;
     --app-form-item-top-margin: 12px;
