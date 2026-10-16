@@ -194,36 +194,40 @@
                     <TableRowDragHandle />
                   </template>
                   <template #thumbnailDefaultSlot="{ row }">
-                    <div class="flex items-center justify-center p-2" style="position: relative">
-                      <img
-                        v-if="rowThumbs(row).length"
-                        :src="rowThumbs(row)[0]"
-                        :alt="row.name || t('fontTemplate.thumbnailAlt')"
-                        loading="lazy"
-                        style="
-                          width: 160px;
-                          height: auto;
-                          cursor: pointer;
-                          background: #f5f5f5;
-                          border-radius: 8px;
-                          box-shadow: 0 2px 8px rgb(0 0 0 / 10%);
-                          object-fit: contain;
-                        "
-                        @click="openRowThumbnails(row)"
-                        @error="handleThumbnailError"
-                      />
-                      <span
-                        v-if="rowThumbs(row).length > 1"
-                        class="thumb-count-badge"
-                        :title="`共 ${rowThumbs(row).length} 张缩略图`"
-                      >
-                        {{ rowThumbs(row).length }}
-                      </span>
+                    <div class="thumb-cell-wrapper">
+                      <template v-if="rowThumbs(row).length">
+                        <img
+                          :src="rowThumbs(row)[0]"
+                          :alt="row.name || t('fontTemplate.thumbnailAlt')"
+                          loading="lazy"
+                          class="thumb-table-img"
+                          @click="openRowThumbnails(row)"
+                          @error="handleThumbnailError"
+                        />
+                        <span
+                          v-if="rowThumbs(row).length > 1"
+                          class="thumb-count-badge"
+                          :title="`共 ${rowThumbs(row).length} 张缩略图，点击维护`"
+                          @click.stop="openManageThumbnails(row)"
+                        >
+                          {{ rowThumbs(row).length }}
+                        </span>
+                        <div class="thumb-hover-actions">
+                          <button class="thumb-action-btn" title="大图预览" @click.stop="openRowThumbnails(row)">
+                            <el-icon><ZoomIn /></el-icon>
+                          </button>
+                          <button class="thumb-action-btn" title="维护缩略图" @click.stop="openManageThumbnails(row)">
+                            <el-icon><Edit /></el-icon>
+                          </button>
+                        </div>
+                      </template>
                       <div
-                        v-else-if="!rowThumbs(row).length"
-                        class="w-40 h-40 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-sm"
+                        v-else
+                        class="thumb-empty-placeholder"
+                        @click="openManageThumbnails(row)"
                       >
-                        {{ t('fontTemplate.noThumbnail') }}
+                        <div>{{ t('fontTemplate.noThumbnail') }}</div>
+                        <span class="text-xs text-primary mt-1">+ 添加维护</span>
                       </div>
                     </div>
                   </template>
@@ -295,6 +299,12 @@
                                 <Edit />
                               </el-icon>
                               <span>{{ t('common.edit') }}</span>
+                            </el-dropdown-item>
+                            <el-dropdown-item command="manage-thumbnails">
+                              <el-icon>
+                                <PictureFilled />
+                              </el-icon>
+                              <span>维护缩略图</span>
                             </el-dropdown-item>
                             <el-dropdown-item v-if="isAdmin" command="generate-thumbnail">
                               <el-icon>
@@ -873,6 +883,106 @@
       @close="closeImagePreview"
     />
 
+    <!-- 缩略图维护弹窗 -->
+    <el-dialog
+      v-model="manageThumbnailsDialogVisible"
+      :title="`维护缩略图 - ${manageTargetFont?.name || ''}`"
+      width="820px"
+      align-center
+      destroy-on-close
+    >
+      <div class="thumbnail-manage-container">
+        <!-- 顶部操作栏 -->
+        <div class="thumbnail-manage-toolbar">
+          <div class="toolbar-tip">
+            共 <b>{{ editingThumbnailList.length }}</b> 张缩略图。首张自动作为默认主图展示，可直接修改每张对应的试文字文案或设为首图。
+          </div>
+          <div class="toolbar-actions">
+            <el-upload
+              action="#"
+              :show-file-list="false"
+              :auto-upload="false"
+              :on-change="handleUploadNewThumbnail"
+              accept="image/*"
+            >
+              <el-button type="primary" size="small" :icon="Plus" :loading="uploadingNewThumb">
+                上传新缩略图
+              </el-button>
+            </el-upload>
+            <el-button
+              type="success"
+              size="small"
+              :icon="Picture"
+              @click="openGenerateForCurrent"
+            >
+              渲染生成新图
+            </el-button>
+          </div>
+        </div>
+
+        <!-- 缩略图卡片列表 -->
+        <div v-if="editingThumbnailList.length" class="thumbnail-card-grid">
+          <div
+            v-for="(item, index) in editingThumbnailList"
+            :key="item.thumbnail + index"
+            class="thumbnail-edit-card"
+            :class="{ 'is-primary': index === 0 }"
+          >
+            <!-- 卡片图片预览 -->
+            <div class="card-img-wrap" @click="previewSingleInManage(item)">
+              <img :src="item.thumbnail" class="card-img" />
+              <div class="card-badges">
+                <span v-if="index === 0" class="badge-primary">首图</span>
+                <span v-else class="badge-seq">#{{ index + 1 }}</span>
+              </div>
+              <div class="card-overlay">
+                <el-icon><ZoomIn /></el-icon>
+                <span>点击预览</span>
+              </div>
+            </div>
+
+            <!-- 卡片操作与文案编辑 -->
+            <div class="card-body">
+              <div class="card-input-label">对应试文字文案:</div>
+              <el-input
+                v-model="item.text"
+                size="small"
+                placeholder="输入对应试文字文案"
+                clearable
+              />
+              <div class="card-actions">
+                <el-button
+                  v-if="index !== 0"
+                  size="small"
+                  type="primary"
+                  link
+                  @click="setAsPrimaryThumbnail(index)"
+                >
+                  设为首图
+                </el-button>
+                <el-button
+                  size="small"
+                  type="danger"
+                  link
+                  @click="removeThumbnailItem(index)"
+                >
+                  删除
+                </el-button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <el-empty v-else description="暂无缩略图，请点击上方按钮添加" />
+      </div>
+
+      <template #footer>
+        <el-button @click="manageThumbnailsDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="savingThumbnails" @click="saveManageThumbnails">
+          保存修改
+        </el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog
       v-model="fontTemplateUserTransferDialogVisible"
       :title="fontTemplateUserTransferDialogTitle"
@@ -1014,6 +1124,8 @@ import {
   ArrowDown,
   Share,
   Connection,
+  ZoomIn,
+  PictureFilled,
 } from "@element-plus/icons-vue";
 import { useWindowSize, useLocalStorage } from "@vueuse/core";
 
@@ -2231,7 +2343,7 @@ async function submitFrontendGenerateThumbnail() {
     const { url } = cos;
 
     // 追加到缩略图数组（保留已有图，不覆盖），包含当前输入的试文字文案
-    const currentText = previewText.value || (currentRow.value as any)?.templateText || '';
+    const currentText = thumbnailForm.value?.templateText || (currentRow.value as any)?.templateText || defaultTemplates[0]?.content || '';
     const existing = rowThumbItems(currentRow.value);
     await fontTemplateApi.updateFontTemplate({
       id: currentRow.value.id,
@@ -2401,7 +2513,7 @@ async function handleBatchGenerateThumbnail(options: BatchGenerateThumbnailOptio
       const { url } = cos;
 
       // 8. 更新数据库（追加到缩略图数组，并保存试文字文案）
-      const currentText = previewText.value || font.templateText || '';
+      const currentText = thumbnailForm.value?.templateText || font.templateText || defaultTemplates[0]?.content || '';
       await fontTemplateApi.updateFontTemplate({
         id: font.id,
         thumbnails: [...rowThumbItems(font), { thumbnail: url, text: currentText }],
@@ -2585,12 +2697,113 @@ function handleOperationCommand(command: string, row: any) {
       break;
     case "view-shared":
       openShareRecordsDialog(row);
+    case "manage-thumbnails":
+      openManageThumbnails(row);
       break;
     case "delete":
       handleDelete(row);
       break;
     default:
       console.warn("未知的操作命令:", command);
+  }
+}
+
+// 缩略图维护相关状态与方法
+const manageThumbnailsDialogVisible = ref(false);
+const manageTargetFont = ref<any>(null);
+const editingThumbnailList = ref<FontThumbnailItem[]>([]);
+const savingThumbnails = ref(false);
+const uploadingNewThumb = ref(false);
+
+function openManageThumbnails(row: any) {
+  manageTargetFont.value = row;
+  editingThumbnailList.value = JSON.parse(JSON.stringify(rowThumbItems(row)));
+  manageThumbnailsDialogVisible.value = true;
+}
+
+function setAsPrimaryThumbnail(index: number) {
+  if (index <= 0 || index >= editingThumbnailList.value.length) return;
+  const [target] = editingThumbnailList.value.splice(index, 1);
+  editingThumbnailList.value.unshift(target);
+  ElMessage.success("已将该缩略图设为首图");
+}
+
+function removeThumbnailItem(index: number) {
+  editingThumbnailList.value.splice(index, 1);
+  ElMessage.info("已移除缩略图项，点击【保存修改】后生效");
+}
+
+function previewSingleInManage(item: FontThumbnailItem) {
+  currentImageUrl.value = item.thumbnail;
+  currentImageUrls.value = [item];
+  imagePreviewVisible.value = true;
+}
+
+async function handleUploadNewThumbnail(uploadFile: any) {
+  if (!uploadFile?.raw) return;
+  uploadingNewThumb.value = true;
+  try {
+    const userAccount =
+      (userStore.user as any)?.account ||
+      userStore.user?.shortName ||
+      userStore.user?.name ||
+      "anonymous";
+    const userId = (userStore.user as any)?.id || (userStore as any).userInfo?.id;
+    const cos = await uploadToCOS({
+      file: uploadFile.raw,
+      category: "font-template",
+      account: userAccount,
+      userId,
+      entityId: manageTargetFont.value?.id,
+      isThumbnail: true,
+    });
+    const defaultText =
+      manageTargetFont.value?.templateText ||
+      manageTargetFont.value?.name ||
+      "";
+    editingThumbnailList.value.push({
+      thumbnail: cos.url,
+      text: defaultText,
+    });
+    ElMessage.success("上传新缩略图成功，点击底部保存即可生效");
+  } catch (e: any) {
+    ElMessage.error("上传缩略图失败: " + (e?.message || e));
+  } finally {
+    uploadingNewThumb.value = false;
+  }
+}
+
+function openGenerateForCurrent() {
+  if (!manageTargetFont.value) return;
+  handleGenerateThumbnail(manageTargetFont.value);
+}
+
+async function saveManageThumbnails() {
+  if (!manageTargetFont.value?.id) return;
+  savingThumbnails.value = true;
+  try {
+    const payload = editingThumbnailList.value
+      .map((item) => ({
+        thumbnail: String(item.thumbnail || "").trim(),
+        text: typeof item.text === "string" ? item.text.trim() : "",
+      }))
+      .filter((it) => !!it.thumbnail);
+
+    await fontTemplateApi.updateFontTemplate({
+      id: manageTargetFont.value.id,
+      thumbnails: payload,
+    });
+
+    // 同步本地行数据
+    manageTargetFont.value.thumbnails = payload;
+    manageTargetFont.value.thumbnail = payload[0]?.thumbnail || "";
+    manageThumbnailsDialogVisible.value = false;
+    ElMessage.success("缩略图维护成功！");
+    getList();
+  } catch (e: any) {
+    ElMessage.error("保存缩略图失败: " + (e?.message || e));
+  } finally {
+    savingThumbnails.value = false;
   }
 }
 
@@ -2934,5 +3147,199 @@ function closeImagePreview() {
 
 .language-tag .el-icon {
   cursor: help;
+}
+
+/* 表格缩略图单元格 */
+.thumb-cell-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+}
+.thumb-cell-wrapper:hover .thumb-hover-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+.thumb-table-img {
+  width: 160px;
+  height: auto;
+  cursor: pointer;
+  background: #f5f5f5;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 10%);
+  object-fit: contain;
+  transition: transform 0.2s;
+}
+.thumb-table-img:hover {
+  transform: scale(1.02);
+}
+.thumb-hover-actions {
+  position: absolute;
+  bottom: 12px;
+  display: flex;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  padding: 4px 8px;
+  border-radius: 16px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+.thumb-action-btn {
+  background: transparent;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  padding: 2px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s;
+}
+.thumb-action-btn:hover {
+  color: #409eff;
+}
+.thumb-empty-placeholder {
+  width: 140px;
+  height: 100px;
+  background: #f8f9fa;
+  border: 1px dashed #dcdfe6;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #909399;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.thumb-empty-placeholder:hover {
+  border-color: #409eff;
+  background: #ecf5ff;
+}
+
+/* 缩略图维护弹窗 */
+.thumbnail-manage-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.thumbnail-manage-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: #f4f6f8;
+  border-radius: 8px;
+}
+.toolbar-tip {
+  font-size: 13px;
+  color: #606266;
+}
+.toolbar-tip b {
+  color: #409eff;
+}
+.toolbar-actions {
+  display: flex;
+  gap: 10px;
+}
+.thumbnail-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+  max-height: 520px;
+  overflow-y: auto;
+  padding: 4px;
+}
+.thumbnail-edit-card {
+  position: relative;
+  background: #fff;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.thumbnail-edit-card:hover {
+  border-color: #409eff;
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
+}
+.thumbnail-edit-card.is-primary {
+  border-color: #409eff;
+  border-width: 2px;
+}
+.card-img-wrap {
+  position: relative;
+  width: 100%;
+  height: 140px;
+  background: #f8f9fa;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.card-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.card-badges {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  gap: 4px;
+  z-index: 2;
+}
+.badge-primary {
+  background: #e6a23c;
+  color: #fff;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+.badge-seq {
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.card-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.card-img-wrap:hover .card-overlay {
+  opacity: 1;
+}
+.card-body {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.card-input-label {
+  font-size: 12px;
+  color: #909399;
+}
+.card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
 }
 </style>
