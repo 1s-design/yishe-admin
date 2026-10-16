@@ -4628,7 +4628,7 @@ const materialPublishConfigTaskCount = computed(() =>
 const materialPublishConfigUsableCount = computed(
   () =>
     materialPublishConfigOptions.value.filter(
-      (item: any) => item?.isActive !== false && isMaterialPublishConfigUsable(item),
+      (item: any) => isPublishConfigActive(item) && isMaterialPublishConfigUsable(item),
     ).length,
 );
 const filteredMaterialProductConfigs = computed(() => {

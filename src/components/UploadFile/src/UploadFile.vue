@@ -38,7 +38,7 @@
           <div class="ml-10px">
             <el-link
               :href="row.file.url"
-              :underline="false"
+              underline="never"
               download
               target="_blank"
               type="primary"
@@ -59,7 +59,7 @@
     <div v-for="(file, index) in fileList" :key="index" class="flex items-center file-list-item">
       <span>{{ file.name }}</span>
       <div class="ml-10px">
-        <el-link :href="file.url" :underline="false" download target="_blank" type="primary">
+        <el-link :href="file.url" underline="never" download target="_blank" type="primary">
           下载
         </el-link>
       </div>

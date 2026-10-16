@@ -4603,7 +4603,7 @@ export default {
     psdTemplateInfo: 'PSD模板信息',
     publishTask: '发布任务',
     publishTaskCount: '发布任务数量',
-    publishTasksTitle: '发布任务标题',
+    publishTasksTitle: '发布任务',
     publishUsageRecords: '发布使用记录',
     published: '已发布',
     regeneratePublishData: '重新生成发布数据',

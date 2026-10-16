@@ -624,10 +624,25 @@ export default defineComponent({
       }
       ensureAgentRunStateInitialized();
       void refreshAgentRunState();
-      // 工作中智能体数 = max(活跃任务数, 值守开启数)，避免同一智能体重复计数
-      const n = Math.max(agentRunState.running + agentRunState.waiting, agentRunState.dutyOn);
+      // 工作中智能体数：按任务归属智能体去重（同一智能体并发多任务不重复计数）
+      const busyAgentNames = new Set(
+        (agentRunState.tasks || []).map((t) => t.agentName).filter(Boolean),
+      );
+      const busyCount = busyAgentNames.size || (agentRunState.running > 0 ? 1 : 0);
+      const n = Math.max(busyCount, agentRunState.dutyOn);
       const active = n > 0;
       const label = n > 99 ? "99+" : String(n);
+
+      const activeTasks = agentRunState.running + agentRunState.waiting;
+      const tooltip =
+        n > 0 && activeTasks > n
+          ? `智能体状态：${n} 个智能体工作中（共 ${activeTasks} 个任务执行中）\n` +
+            (agentRunState.tasks || [])
+              .slice(0, 5)
+              .map((t) => `• ${t.agentName}（${t.statusLabel}）${t.title ? " · " + t.title : ""}`)
+              .join("\n")
+          : resolveAgentRunTooltip();
+
       return renderMenuStatusHint(
         <span
           class={[
@@ -637,7 +652,7 @@ export default defineComponent({
         >
           {label}
         </span>,
-        resolveAgentRunTooltip(),
+        tooltip,
       );
     };
 

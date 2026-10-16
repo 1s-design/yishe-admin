@@ -284,6 +284,16 @@
               <el-button size="small" type="primary" :icon="Search" :loading="loading" @click="getList">搜索</el-button>
               <el-button
                 size="small"
+                type="warning"
+                :icon="View"
+                :disabled="!total"
+                title="全屏逐张审核：入库 / 删除 / 忽略"
+                @click="quickReviewVisible = true"
+              >
+                快捷审核
+              </el-button>
+              <el-button
+                size="small"
                 type="success"
                 :icon="Upload"
                 @click="handleBatchImport"
@@ -414,7 +424,7 @@
                   :href="row.originUrl"
                   target="_blank"
                   type="primary"
-                  :underline="false"
+                  underline="never"
                   class="origin-url-cell__link"
                 >
                   {{
@@ -545,6 +555,13 @@
         >
       </template>
     </el-dialog>
+
+    <!-- 快捷审核（全屏逐张：入库 / 删除 / 忽略） -->
+    <CrawlerQuickReview
+      v-model:visible="quickReviewVisible"
+      :query="quickReviewQuery"
+      @reviewed="getList"
+    />
   </ContentWrap>
 </template>
 <script setup lang="tsx">
@@ -561,6 +578,7 @@ import {
   Download,
   Operation,
   Close,
+  View,
 } from "@element-plus/icons-vue";
 import { useWindowSize } from "@vueuse/core";
 import { downloadImage } from "@/common/download";
@@ -579,6 +597,7 @@ import ListPageLayout from '@/components/ListPageLayout/index.vue'
 import Pagination from '@/components/Pagination/index.vue'
 import DateRangePicker from '@/components/DateRangePicker.vue'
 import ImageSizeFilter, { type ImageSizeFilterValue } from '@/components/ImageSizeFilter.vue'
+import CrawlerQuickReview from './CrawlerQuickReview.vue'
 
 const userStore = useUserStore();
 
@@ -779,6 +798,15 @@ const canBatchImport = computed(() => hasSelection.value);
 // 图片预览相关状态
 const imagePreviewVisible = ref(false);
 const currentImageUrl = ref("");
+
+// 快捷审核：沿用列表当前筛选条件（去掉分页参数）
+const quickReviewVisible = ref(false);
+const quickReviewQuery = computed(() => {
+  const rest: Record<string, any> = { ...(queryParams as any) };
+  delete rest.currentPage;
+  delete rest.pageSize;
+  return { ...rest, ...sizeFilter.value };
+});
 
 // 入库确认对话框相关
 const importConfirmDialogVisible = ref(false);

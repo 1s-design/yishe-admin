@@ -24,7 +24,7 @@
           </div>
           <span>仅允许导入 xls、xlsx 格式文件。</span>
           <el-link
-            :underline="false"
+            underline="never"
             style="font-size: 12px; vertical-align: baseline"
             type="primary"
             @click="importTemplate"

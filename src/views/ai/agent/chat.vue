@@ -143,30 +143,37 @@
               <div class="assistant-content-wrap">
                 <!-- 1. Grok / DeepSeek 风格深度思考与工具调度折叠块 -->
                 <div v-if="item.tools && item.tools.length" class="thought-accordion">
-                  <button class="thought-toggle" @click="toggleToolsExpand(idx)">
+                  <button class="thought-toggle" @click="toggleToolsExpand(idx, item)">
                     <div class="thought-toggle__left">
                       <span class="thought-label">
                         已调度 {{ item.tools.length }} 个执行动作
+                        <template v-if="item.tools.some((t: any) => t.status === 'running')">
+                          · 正在执行中
+                        </template>
                       </span>
                     </div>
-                    <span class="thought-chevron" :class="{ 'is-open': expandedToolGroups.has(idx) }">
+                    <span class="thought-chevron" :class="{ 'is-open': isToolsExpanded(idx, item) }">
                       ▾
                     </span>
                   </button>
 
-                  <div v-show="expandedToolGroups.has(idx) || toolAutoOpen" class="thought-body">
+                  <div v-show="isToolsExpanded(idx, item)" class="thought-body">
                     <div
                       v-for="(tool, tIdx) in item.tools"
                       :key="tIdx"
                       class="tool-step"
-                      :class="{ 'tool-step--error': tool.status === 'error' }"
+                      :class="{
+                        'tool-step--error': tool.status === 'error',
+                        'tool-step--running': tool.status === 'running'
+                      }"
                     >
                       <div class="tool-step__header">
                         <span class="tool-step__status-dot" />
                         <span class="tool-step__seq">#{{ tIdx + 1 }}</span>
                         <span class="tool-step__name">{{ tool.label || tool.tool }}</span>
                         <span class="tool-step__badge">{{ tool.tool }}</span>
-                        <span v-if="tool.durationMs != null" class="tool-step__dur">
+                        <span v-if="tool.status === 'running'" class="tool-step__running-tag">执行中...</span>
+                        <span v-else-if="tool.durationMs != null" class="tool-step__dur">
                           {{ formatDuration(tool.durationMs) }}
                         </span>
                       </div>
@@ -218,7 +225,7 @@
                     <span class="agent-thinking-pill__main">{{ thinkingLabel }}</span>
                     <span class="agent-thinking-pill__meta">
                       <template v-if="thinkingElapsed">{{ thinkingElapsed }}</template>
-                      <template v-if="thinkingLastAction"> · {{ thinkingLastAction }}</template>
+                      <template v-if="thinkingSubDetail && thinkingSubDetail !== thinkingLabel"> · {{ thinkingSubDetail }}</template>
                       <template v-if="thinkingStalled"> · ⚠ 可能等待响应中</template>
                     </span>
                   </div>
@@ -1006,7 +1013,7 @@ const starterPrompts = computed(() => {
 })
 
 // ── 状态计算 ──────────────────────────────────────────────
-const isWorking = computed(() => agent.value?.dutyMode === 'duty')
+const isWorking = computed(() => Boolean(agent.value?.enabled && agent.value?.dutyMode === 'duty'))
 
 async function toggleWorking() {
   if (!agent.value) return
@@ -1017,9 +1024,11 @@ async function toggleWorking() {
     return
   }
   try {
-    const res: any = await AgentAdminApi.updateDefinition(agent.value.id, {
-      dutyMode: next
-    })
+    const payload: any = { dutyMode: next }
+    if (next === 'duty' && !agent.value.enabled) {
+      payload.enabled = true
+    }
+    const res: any = await AgentAdminApi.updateDefinition(agent.value.id, payload)
     agent.value = ((res as any)?.data ?? res) as AgentDefinition
     ElMessage.success(next === 'duty' ? '已开启，开始持续执行' : '已关闭，停止自动执行')
     if (next === 'duty') {
@@ -1062,9 +1071,21 @@ onBeforeUnmount(() => {
 
 const thinkingElapsed = computed(() => {
   void thinkingTick.value
-  const startedAt = (currentTask.value as any)?.startedAt
-  if (!startedAt) return ''
-  const sec = Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000)
+  const events = (currentTask.value?.worklog || []) as any[]
+  // 核心修复：优先取本轮用户输入或本轮调度唤醒的时间，精准统计「本轮正在执行」的时长，避免累加整个历史会话创建时长
+  let roundStartTime: number | null = null
+  for (let i = events.length - 1; i >= 0; i--) {
+    const ev = events[i]
+    if (ev?.type === 'user' || (ev?.type === 'system' && /唤醒|发起|开始/i.test(ev?.content || ''))) {
+      if (ev.at) {
+        roundStartTime = new Date(ev.at).getTime()
+        break
+      }
+    }
+  }
+  const baseTime = roundStartTime || (currentTask.value as any)?.startedAt
+  if (!baseTime) return ''
+  const sec = Math.max(0, Math.floor((Date.now() - new Date(baseTime).getTime()) / 1000))
   if (sec < 60) return `${sec}s`
   return `${Math.floor(sec / 60)}m${sec % 60}s`
 })
@@ -1074,10 +1095,19 @@ const thinkingLastAction = computed(() => {
   const events = (currentTask.value?.worklog || []) as any[]
   for (let i = events.length - 1; i >= 0; i--) {
     const ev = events[i]
-    if (ev?.type === 'tool') return ev.label || ev.tool || ''
+    if (ev?.type === 'tool_pending') {
+      const q = ev.input?.query || ev.input?.keyword || ev.input?.searchText || ''
+      const s = ev.input?.sourceId || ev.input?.source || ''
+      let detail = ''
+      if (q && s) detail = ` · [${s}]「${q}」`
+      else if (q) detail = ` ·「${q}」`
+      return `正在调用【${ev.label || ev.tool}】${detail}`
+    }
+    if (ev?.type === 'thinking' && ev.content) return ev.content
+    if (ev?.type === 'tool') return `已完成【${ev.label || ev.tool}】`
     if (ev?.type === 'system') return (ev.content || '').slice(0, 30)
-    if (ev?.type === 'text') return '生成回复中'
-    if (ev?.type === 'user') return '分析指令中'
+    if (ev?.type === 'text') return '正在生成回复...'
+    if (ev?.type === 'user') return '正在分析指令与意图...'
   }
   return ''
 })
@@ -1088,14 +1118,41 @@ const thinkingStalled = computed(() => {
   const last = events[events.length - 1]
   if (!last?.at) return false
   const idleSec = (Date.now() - new Date(last.at).getTime()) / 1000
-  return idleSec > 30
+  // 心跳每 3s 发送，若超过 45s 无任何新事件才提示等待中
+  return idleSec > 45
 })
 
 const thinkingLabel = computed(() => {
-  const last = thinkingLastAction.value
-  if (thinkingStalled.value) return '正在处理中，请稍候'
-  if (last) return `正在执行：${last}`
+  void thinkingTick.value
+  const events = (currentTask.value?.worklog || []) as any[]
+  for (let i = events.length - 1; i >= 0; i--) {
+    const ev = events[i]
+    if (ev?.type === 'tool_pending') {
+      const q = ev.input?.query || ev.input?.keyword || ev.input?.searchText || ''
+      const s = ev.input?.sourceId || ev.input?.source || ''
+      let detail = ''
+      if (q && s) detail = ` · [${s}]「${q}」`
+      else if (q) detail = ` ·「${q}」`
+      return `正在执行：${ev.label || ev.tool}${detail}`
+    }
+    if (ev?.type === 'thinking' && ev.content) {
+      return ev.content
+    }
+  }
+  if (thinkingLastAction.value) return `正在执行：${thinkingLastAction.value}`
   return '正在自主思考与规划工具调用...'
+})
+
+const thinkingSubDetail = computed(() => {
+  void thinkingTick.value
+  const events = (currentTask.value?.worklog || []) as any[]
+  for (let i = events.length - 1; i >= 0; i--) {
+    const ev = events[i]
+    if (ev?.type === 'thinking' && ev.content) {
+      return ev.content
+    }
+  }
+  return ''
 })
 
 const taskBadgeClass = computed(() => {
@@ -1152,16 +1209,40 @@ const chatItems = computed(() => {
     if (ev?.type === 'thinking') {
       continue
     }
-    flush()
     if (ev?.type === 'user') {
+      flush()
       items.push({ kind: 'user', content: ev.content })
     } else if (ev?.type === 'system') {
+      flush()
       items.push({
         kind: 'system',
         content: ev.content || '',
         level: ev.level || 'info',
         at: ev.at
       })
+    } else if (ev?.type === 'tool_pending') {
+      let inputText = ''
+      try {
+        inputText = JSON.stringify(ev.input ?? {}, null, 2)
+        if (inputText.length > 800) inputText = inputText.slice(0, 800) + '…'
+      } catch {
+        inputText = String(ev.input || '')
+      }
+      const existing = toolBuf.find(t => t.tool === ev.tool && t.status === 'running')
+      if (!existing) {
+        toolBuf.push({
+          id: `pending-${ev.tool}-${ev.at}`,
+          tool: ev.tool,
+          label: ev.label,
+          input: ev.input,
+          inputText,
+          summary: '正在执行中...',
+          error: undefined,
+          durationMs: null,
+          assets: [],
+          status: 'running'
+        })
+      }
     } else if (ev?.type === 'tool') {
       let inputText = ''
       try {
@@ -1170,7 +1251,8 @@ const chatItems = computed(() => {
       } catch {
         inputText = String(ev.input || '')
       }
-      toolBuf.push({
+      const pendingIdx = toolBuf.findLastIndex(t => t.tool === ev.tool && t.status === 'running')
+      const toolItem = {
         id: `${ev.tool}-${ev.at}`,
         tool: ev.tool,
         label: ev.label,
@@ -1181,7 +1263,12 @@ const chatItems = computed(() => {
         durationMs: ev.durationMs,
         assets: ev.assets || [],
         status: ev.success ? 'done' : 'error'
-      })
+      }
+      if (pendingIdx !== -1) {
+        toolBuf[pendingIdx] = toolItem
+      } else {
+        toolBuf.push(toolItem)
+      }
     } else if (ev?.type === 'interrupt') {
       interact = toInteractionPayload(ev.payload || {})
     } else if (ev?.type === 'error') {
@@ -1189,16 +1276,18 @@ const chatItems = computed(() => {
       items.push({ kind: 'error', event: ev })
     }
   }
-  flush()
 
+  // 最后一轮 assistant 组装
   if (isBusy.value) {
     items.push({
       kind: 'assistant-group',
-      tools: [],
-      content: '',
+      tools: toolBuf,
+      content: textBuf || '',
       thinking: true,
-      interact: null
+      interact
     })
+  } else {
+    flush()
   }
 
   return items
@@ -1271,9 +1360,11 @@ async function loadAgentAndLatestTask() {
   }
 
   try {
-    const [defRes, capRes] = await Promise.all([
+    // 🚀 并发拉取智能体信息与最新任务，消除串行瀑布流延迟
+    const [defRes, capRes, taskRes] = await Promise.all([
       AgentAdminApi.definitions(),
-      AgentAdminApi.capabilities().catch(() => [])
+      AgentAdminApi.capabilities().catch(() => []),
+      AgentAdminApi.tasks({ agentDefinitionId: id, pageSize: 1 }).catch(() => null)
     ])
 
     const list = ((defRes as any)?.data ?? defRes) as AgentDefinition[] || []
@@ -1286,8 +1377,7 @@ async function loadAgentAndLatestTask() {
       return
     }
 
-    const taskRes: any = await AgentAdminApi.tasks({ agentDefinitionId: id, pageSize: 1 })
-    const items = taskRes?.data?.items ?? taskRes?.items ?? []
+    const items = (taskRes as any)?.data?.items ?? (taskRes as any)?.items ?? []
     if (items.length) {
       await openTask(items[0].id)
     }
@@ -1295,6 +1385,9 @@ async function loadAgentAndLatestTask() {
     ElMessage.error(e?.message || '加载智能体信息失败')
   } finally {
     pageReady.value = true
+    // 🚀 核心修复：在 DOM 切换到 chat-stream 并挂载完毕后，立即瞬间置底，并做延时补滚
+    await nextTick()
+    scrollToBottom({ instant: true, retries: 3 })
   }
 }
 
@@ -1303,7 +1396,7 @@ async function openTask(taskId: string) {
     const res: any = await AgentAdminApi.taskDetail(taskId)
     currentTask.value = (res?.data ?? res) as AgentTask
     await nextTick()
-    scrollToBottom()
+    scrollToBottom({ instant: true, retries: 2 })
     if (isBusy.value) startPolling()
     else stopPolling()
   } catch {
@@ -1408,7 +1501,8 @@ function startPolling() {
       if (!['pending', 'running'].includes(fresh.status)) {
         stopPolling()
       }
-      scrollToBottom()
+      await nextTick()
+      scrollToBottom({ instant: false, retries: 1 })
     } catch {
       stopPolling()
     }
@@ -1678,17 +1772,66 @@ function autoResizeComposer() {
   el.style.height = `${Math.min(el.scrollHeight, 180)}px`
 }
 
-function scrollToBottom() {
-  if (!chatScrollRef.value) return
-  chatScrollRef.value.scrollTop = chatScrollRef.value.scrollHeight
+function scrollToBottom(options: { instant?: boolean; retries?: number } = {}) {
+  const { instant = false, retries = 2 } = options
+  nextTick(() => {
+    const el = chatScrollRef.value
+    if (!el) return
+
+    const doScroll = () => {
+      if (!el) return
+      // 双重保障：scrollTop 置底 + scrollTo 执行
+      el.scrollTop = el.scrollHeight
+      el.scrollTo({
+        top: el.scrollHeight,
+        behavior: instant ? 'auto' : 'smooth'
+      })
+    }
+
+    doScroll()
+
+    // 针对 Markdown 异步高亮与图片渲染高度撑开的延时补滚
+    if (retries > 0) {
+      setTimeout(doScroll, 80)
+      setTimeout(doScroll, 220)
+      if (retries > 2) {
+        setTimeout(doScroll, 500)
+      }
+    }
+  })
 }
 
-function toggleToolsExpand(idx: number) {
-  if (expandedToolGroups.value.has(idx)) {
+// 消息条数变化时自动平滑滚到底部（仅在已就绪后触发）
+watch(
+  () => chatItems.value.length,
+  (newLen, oldLen) => {
+    if (pageReady.value && newLen > (oldLen || 0)) {
+      scrollToBottom({ instant: false, retries: 1 })
+    }
+  }
+)
+
+const userFoldedToolGroups = ref(new Set<number>())
+
+function isToolsExpanded(idx: number, item?: any) {
+  if (userFoldedToolGroups.value.has(idx)) return false
+  if (expandedToolGroups.value.has(idx)) return true
+  if (toolAutoOpen.value) return true
+  if (item?.tools?.some((t: any) => t.status === 'running')) return true
+  return false
+}
+
+function toggleToolsExpand(idx: number, item?: any) {
+  if (isToolsExpanded(idx, item)) {
+    userFoldedToolGroups.value.add(idx)
     expandedToolGroups.value.delete(idx)
   } else {
+    userFoldedToolGroups.value.delete(idx)
     expandedToolGroups.value.add(idx)
   }
+  nextTick(() => {
+    scrollToBottom({ instant: false, retries: 1 })
+  })
 }
 
 async function copyText(str: string) {
@@ -2518,6 +2661,23 @@ onBeforeUnmount(() => {
     background: #ef4444;
   }
 
+  &--running &__status-dot {
+    background: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+    animation: pulse-dot 1.2s ease-in-out infinite;
+  }
+
+  &__running-tag {
+    margin-left: auto;
+    font-size: 10px;
+    color: #3b82f6;
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.25);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-weight: 500;
+  }
+
   &__name {
     font-weight: 500;
     color: var(--c-text-primary);
@@ -2579,6 +2739,17 @@ onBeforeUnmount(() => {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+@keyframes pulse-dot {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(1.3);
+  }
 }
 
 .agent-markdown-body {
@@ -3404,19 +3575,26 @@ onBeforeUnmount(() => {
     flex-direction: column;
     padding: 12px 14px;
     border-radius: 8px;
-    corner-shape: squircle;
-    border: 1px solid var(--c-dialog-border);
-    background: var(--c-dialog-bg);
+    border: 1px solid var(--c-dialog-border, rgba(148, 163, 184, 0.22));
+    background: var(--el-fill-color-lighter, #f8fafc);
     cursor: pointer;
-    transition: all 0.12s ease;
+    transition: all 0.15s ease;
 
     &:hover {
-      border-color: var(--el-border-color);
+      background: var(--el-fill-color-light, #f1f5f9);
+      border-color: rgba(148, 163, 184, 0.45);
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+      transform: translateY(-1px);
     }
 
     &.is-selected {
       border-color: var(--c-primary);
-      background: color-mix(in srgb, var(--c-primary) 6%, var(--c-dialog-bg));
+      background: color-mix(in srgb, var(--c-primary) 8%, #ffffff);
+      box-shadow: 0 0 0 1px var(--c-primary), 0 2px 8px rgba(37, 99, 235, 0.08);
+
+      &:hover {
+        background: color-mix(in srgb, var(--c-primary) 12%, #ffffff);
+      }
     }
 
     &__header {
@@ -3587,16 +3765,23 @@ html.dark .flat-fs-dialog {
   }
 
   .fs-cap-card {
-    background: #19191b;
+    background: #1b1b1f;
     border-color: rgba(255, 255, 255, 0.08);
 
     &:hover {
-      border-color: rgba(255, 255, 255, 0.18);
+      background: #232328;
+      border-color: rgba(255, 255, 255, 0.16);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     }
 
     &.is-selected {
-      background: color-mix(in srgb, var(--el-color-primary, #2563eb) 14%, #19191b);
+      background: color-mix(in srgb, var(--el-color-primary, #2563eb) 16%, #18181b);
       border-color: var(--el-color-primary, #2563eb);
+      box-shadow: 0 0 0 1px var(--el-color-primary, #2563eb), 0 2px 10px rgba(0, 0, 0, 0.35);
+
+      &:hover {
+        background: color-mix(in srgb, var(--el-color-primary, #2563eb) 20%, #18181b);
+      }
     }
   }
 

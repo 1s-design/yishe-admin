@@ -97,7 +97,7 @@
                       :href="row.sourceUrl"
                       target="_blank"
                       type="primary"
-                      :underline="false"
+                      underline="never"
                     >
                       {{ row.sourceTitle || "-" }}
                     </el-link>

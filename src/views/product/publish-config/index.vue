@@ -61,11 +61,16 @@ watchEffect(() => {
   gridMaxHeight.value = Math.max(height.value - 280, 360);
 });
 
+const isPublishConfigActive = (row: any): boolean => {
+  if (!row) return false;
+  return row.isActive === true || row.isActive === 1 || row.isActive === "1" || row.isActive === "true";
+};
+
 const gridOptions = computed(() => ({
   ...commonGridOptions,
   maxHeight: gridMaxHeight.value,
   rowConfig: { keyField: "id" },
-  rowClassName: ({ row }: any) => (row?.isActive === false ? "publish-config-row--disabled" : ""),
+  rowClassName: ({ row }: any) => (!isPublishConfigActive(row) ? "publish-config-row--disabled" : ""),
   sortConfig: {
     trigger: "cell" as const,
     orders: ["ascending" as const, "descending" as const, null],
@@ -159,7 +164,7 @@ const getPlatformBadgeStyle = (platform?: string) => {
 };
 
 const handleToggleActive = async (row: any) => {
-  const nextStatus = !row.isActive;
+  const nextStatus = !isPublishConfigActive(row);
   const actionText = nextStatus ? t("publishConfig.enabled") : t("publishConfig.disabled");
   try {
     await updatePublishConfigApi(row.id, {
@@ -1703,7 +1708,7 @@ onMounted(() => {
                 <!-- 状态 -->
                 <template #statusSlot="{ row }">
                   <el-switch
-                    :model-value="row.isActive !== false"
+                    :model-value="isPublishConfigActive(row)"
                     size="small"
                     inline-prompt
                     active-text="启"

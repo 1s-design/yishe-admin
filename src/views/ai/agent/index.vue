@@ -64,9 +64,9 @@
         }"
         @click="openChat(item)"
       >
-        <div class="agent-row__avatar-wrap" :class="{ 'is-duty': item.dutyMode === 'duty' }">
+        <div class="agent-row__avatar-wrap" :class="{ 'is-duty': item.enabled && item.dutyMode === 'duty' }">
           <div class="agent-row__avatar agent-gradient" :class="resolveAgentGradient(item)" />
-          <span v-if="item.dutyMode === 'duty'" class="agent-row__duty-tag">工作中</span>
+          <span v-if="item.enabled && item.dutyMode === 'duty'" class="agent-row__duty-tag">工作中</span>
         </div>
 
         <div class="agent-row__body">
@@ -91,7 +91,7 @@
                     配置智能体
                   </el-dropdown-item>
                   <el-dropdown-item @click="toggleWorking(item)">
-                    {{ item.dutyMode === 'duty' ? '关闭' : '开启' }}
+                    {{ item.enabled && item.dutyMode === 'duty' ? '关闭工作' : '开启工作' }}
                   </el-dropdown-item>
                   <el-dropdown-item @click="toggleEnabled(item)">
                     {{ item.enabled ? "停用" : "启用" }}
@@ -946,18 +946,24 @@ async function toggleEnabled(agent: AgentDefinition) {
 
 /** 手动开关：开启=持续执行，关闭=停止自动开新一轮 */
 async function toggleWorking(agent: AgentDefinition) {
-  const next = agent.dutyMode === 'duty' ? 'off' : 'duty'
+  const isCurrentlyWorking = Boolean(agent.enabled && agent.dutyMode === 'duty')
+  const next = isCurrentlyWorking ? 'off' : 'duty'
   if (next === 'duty' && !agent.dutyGoal?.trim()) {
     ElMessage.warning('请先配置驻守目标，再开启')
     openEditAgent(agent)
     return
   }
   try {
-    const res: any = await AgentAdminApi.updateDefinition(agent.id, { dutyMode: next })
+    const payload: any = { dutyMode: next }
+    if (next === 'duty' && !agent.enabled) {
+      payload.enabled = true
+    }
+    const res: any = await AgentAdminApi.updateDefinition(agent.id, payload)
     const updated = ((res as any)?.data ?? res) as AgentDefinition
     agent.dutyMode = updated.dutyMode
+    agent.enabled = updated.enabled
     agent.nextWakeAt = updated.nextWakeAt
-    ElMessage.success(next === 'duty' ? `「${agent.name}」已开启` : `「${agent.name}」已关闭`)
+    ElMessage.success(next === 'duty' ? `「${agent.name}」已开启工作` : `「${agent.name}」已关闭工作`)
     void loadAll()
   } catch (e: any) {
     ElMessage.error(e?.message || '切换失败')
@@ -2026,16 +2032,26 @@ onMounted(() => {
     flex-direction: column;
     padding: 12px 14px;
     border-radius: 8px;
-    background: transparent;
+    border: 1px solid var(--c-dialog-border, rgba(148, 163, 184, 0.22));
+    background: var(--el-fill-color-lighter, #f8fafc);
     cursor: pointer;
-    transition: background 0.12s ease;
+    transition: all 0.15s ease;
 
     &:hover {
-      background: var(--el-fill-color-light, rgba(0, 0, 0, 0.03));
+      background: var(--el-fill-color-light, #f1f5f9);
+      border-color: rgba(148, 163, 184, 0.45);
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+      transform: translateY(-1px);
     }
 
     &.is-selected {
-      background: color-mix(in srgb, var(--c-primary) 8%, var(--c-dialog-bg));
+      border-color: var(--c-primary);
+      background: color-mix(in srgb, var(--c-primary) 8%, #ffffff);
+      box-shadow: 0 0 0 1px var(--c-primary), 0 2px 8px rgba(37, 99, 235, 0.08);
+
+      &:hover {
+        background: color-mix(in srgb, var(--c-primary) 12%, #ffffff);
+      }
     }
 
     &__header {
@@ -2198,14 +2214,23 @@ html.dark .flat-fs-dialog {
   }
 
   .fs-cap-card {
-    background: transparent;
+    background: #1b1b1f;
+    border-color: rgba(255, 255, 255, 0.08);
 
     &:hover {
-      background: rgba(255, 255, 255, 0.04);
+      background: #232328;
+      border-color: rgba(255, 255, 255, 0.16);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     }
 
     &.is-selected {
-      background: color-mix(in srgb, var(--el-color-primary, #2563eb) 14%, #19191b);
+      background: color-mix(in srgb, var(--el-color-primary, #2563eb) 16%, #18181b);
+      border-color: var(--el-color-primary, #2563eb);
+      box-shadow: 0 0 0 1px var(--el-color-primary, #2563eb), 0 2px 10px rgba(0, 0, 0, 0.35);
+
+      &:hover {
+        background: color-mix(in srgb, var(--el-color-primary, #2563eb) 20%, #18181b);
+      }
     }
   }
 

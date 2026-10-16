@@ -333,8 +333,11 @@
               }}</el-tag>
             <el-tag type="info" effect="plain" size="small">{{ t('psdSet.images', { count: detailImages.length }) }}</el-tag>
             <el-tag type="info" effect="plain" size="small">{{ t('psdSet.materials', { count: detailStickers.length }) }}</el-tag>
-            <el-tag v-if="detailAutomationCount" type="warning" effect="plain" size="small">
+            <el-tag v-if="detailAutomationCount" :type="detailAutomationHasFailed ? 'danger' : detailAutomationAllCompleted ? 'success' : 'primary'" effect="plain" size="small">
               {{ t('psdSet.autoTasks', { count: detailAutomationCount }) }}
+            </el-tag>
+            <el-tag v-else type="info" effect="plain" size="small">
+              无完成后动作
             </el-tag>
           </div>
         </div>
@@ -342,22 +345,7 @@
 
       <div v-loading="detailLoading" class="psd-set-detail-layout" v-if="detailData">
         <section class="psd-set-detail-top">
-          <div class="psd-set-detail-panel psd-set-detail-panel--hero">
-            <div class="detail-header">
-              <span class="detail-label">{{ t('psdSet.finishedImages') }}</span>
-              <span class="detail-count">{{ t('psdSet.pieceCount', { count: detailImages.length }) }}</span>
-            </div>
-            <div class="psd-set-detail-image-grid">
-              <div v-for="(img, idx) in detailImages" :key="idx" class="psd-set-detail-image-card">
-                <el-image v-if="img" :src="img" :preview-src-list="detailImages" :initial-index="Number(idx)"
-                  :preview-teleported="true" :hide-on-click-modal="false" class="psd-set-detail-image" fit="contain"
-                  loading="lazy" />
-                <span class="psd-set-detail-image-index">{{ Number(idx) + 1 }}</span>
-              </div>
-              <el-empty v-if="!detailImages.length" :description="t('psdSet.noPsdSetImages')" :image-size="80" />
-            </div>
-          </div>
-
+          <!-- 1. 套图基础信息 -->
           <div class="psd-set-detail-panel psd-set-detail-panel--compact">
             <div class="detail-header">
               <span class="detail-label">{{ t('psdSet.psdSetInfo') }}</span>
@@ -365,9 +353,10 @@
             <div class="psd-set-detail-summary">
               <div class="psd-set-detail-summary__item">
                 <span class="info-label">{{ t('psdSet.psdSetId') }}</span>
-                <span class="info-value cursor-pointer" @click="copyId(detailData.id)">{{
-                  detailData.id || "-"
-                  }}</span>
+                <span class="info-value cursor-pointer" @click="copyId(detailData.id)" :title="'点击复制 ID: ' + detailData.id">
+                  {{ detailData.id || "-" }}
+                  <el-icon class="copy-icon"><DocumentCopy /></el-icon>
+                </span>
               </div>
               <div class="psd-set-detail-summary__item">
                 <span class="info-label">{{ t('common.status') }}</span>
@@ -402,6 +391,15 @@
                 <span class="info-label">{{ t('psdSet.publishTaskCount') }}</span>
                 <span class="info-value">{{ detailPublishTaskCount }}</span>
               </div>
+              <div class="psd-set-detail-summary__item">
+                <span class="info-label">完成后动作</span>
+                <span class="info-value">
+                  <el-tag v-if="detailAutomationItems.length" size="small" :type="detailAutomationHasFailed ? 'danger' : detailAutomationAllCompleted ? 'success' : 'primary'" effect="plain">
+                    {{ detailAutomationItems.length }} 个动作
+                  </el-tag>
+                  <span v-else class="text-gray-400">未配置</span>
+                </span>
+              </div>
             </div>
             <div class="psd-set-detail-text-grid">
               <div class="psd-set-detail-text-card">
@@ -416,6 +414,67 @@
                 <div class="info-label">{{ t('psdSet.statusDescription') }}</div>
                 <div class="info-value">{{ resolvePsdSetStatusMessage(detailData) }}</div>
               </div>
+            </div>
+          </div>
+
+          <!-- 2. 完成后动作结构化展示 -->
+          <div class="psd-set-detail-panel psd-set-detail-panel--automations">
+            <div class="detail-header">
+              <div class="detail-header__left">
+                <span class="detail-label">完成后动作</span>
+                <span class="detail-count">{{ detailAutomationItems.length ? `${detailAutomationItems.length} 项配置` : '未配置' }}</span>
+              </div>
+              <div class="detail-header__right" v-if="detailAutomationItems.length">
+                <el-tag size="small" type="success" effect="plain" v-if="detailAutomationAllCompleted">全部已完成</el-tag>
+                <el-tag size="small" type="danger" effect="plain" v-else-if="detailAutomationHasFailed">存在失败</el-tag>
+                <el-tag size="small" type="primary" effect="plain" v-else-if="detailAutomationHasRunning">执行中</el-tag>
+              </div>
+            </div>
+
+            <div v-if="detailAutomationItems.length" class="psd-set-detail-automation-list">
+              <div
+                v-for="action in detailAutomationItems"
+                :key="action.actionType"
+                class="psd-set-detail-automation-item"
+                :class="{ 'is-failed': action.status === 'failed', 'is-completed': action.status === 'completed' }"
+              >
+                <div class="automation-item-header">
+                  <div class="automation-item-title-group">
+                    <span class="automation-item-name">{{ action.name }}</span>
+                    <el-tag size="small" :type="action.statusType" effect="plain">{{ action.statusLabel }}</el-tag>
+                  </div>
+                  <span v-if="action.queuedAt" class="automation-item-time">触发时间: {{ action.queuedAt }}</span>
+                </div>
+                <div class="automation-item-desc">{{ action.desc }}</div>
+                <div class="automation-item-summary">
+                  <span class="automation-summary-label">配置参数:</span>
+                  <span class="automation-summary-val">{{ action.summaryText }}</span>
+                </div>
+                <div v-if="action.lastError" class="automation-item-error">
+                  <el-icon><WarningFilled /></el-icon>
+                  <span>失败原因: {{ action.lastError }}</span>
+                </div>
+              </div>
+            </div>
+            <div v-else class="psd-set-detail-empty-note">
+              当前套图未配置完成后动作（套图制作完成后将保持完成状态，不自动触发商品生成或发布任务）
+            </div>
+          </div>
+
+          <!-- 3. 成品图展示 -->
+          <div class="psd-set-detail-panel psd-set-detail-panel--hero">
+            <div class="detail-header">
+              <span class="detail-label">{{ t('psdSet.finishedImages') }}</span>
+              <span class="detail-count">{{ t('psdSet.pieceCount', { count: detailImages.length }) }}</span>
+            </div>
+            <div class="psd-set-detail-image-grid">
+              <div v-for="(img, idx) in detailImages" :key="idx" class="psd-set-detail-image-card">
+                <el-image v-if="img" :src="img" :preview-src-list="detailImages" :initial-index="Number(idx)"
+                  :preview-teleported="true" :hide-on-click-modal="false" class="psd-set-detail-image" fit="contain"
+                  loading="lazy" />
+                <span class="psd-set-detail-image-index">{{ Number(idx) + 1 }}</span>
+              </div>
+              <el-empty v-if="!detailImages.length" :description="t('psdSet.noPsdSetImages')" :image-size="80" />
             </div>
           </div>
         </section>
@@ -1614,7 +1673,7 @@ const publishTasksGridOptions = computed(() => ({
       showOverflow: true,
       slots: { default: "taskErrorSlot" },
     },
-    buildOperationColumn("taskActionSlot"),
+    buildOperationColumn("taskActionSlot", 160),
   ],
 }));
 
@@ -1662,7 +1721,7 @@ const productsGridOptions = computed(() => ({
       width: 180,
       formatter: ({ cellValue }: any) => formatTimestamp(cellValue),
     },
-    buildOperationColumn("productActionSlot"),
+    buildOperationColumn("productActionSlot", 120),
   ],
 }));
 
@@ -1812,6 +1871,117 @@ const detailAutomationText = computed(() => {
     .map((item: any) => item?.type || item?.action || item?.kind || t("psdSet.unnamedAction"))
     .join("、");
 });
+
+interface FormattedAutomationItem {
+  actionType: string;
+  name: string;
+  desc: string;
+  status: string;
+  statusType: "" | "success" | "warning" | "danger" | "info" | "primary";
+  statusLabel: string;
+  queuedAt?: string;
+  lastError?: string;
+  config: Record<string, any>;
+  summaryText: string;
+}
+
+const detailAutomationItems = computed<FormattedAutomationItem[]>(() => {
+  const list = detailAutomationList.value;
+  const metaObj = detailMetaObject.value || {};
+  const states = (metaObj?.automationState || detailData.value?.automationState || {}) as Record<string, any>;
+  const isPsdCompleted = detailData.value?.status === "completed";
+
+  return list.map((item: any) => {
+    const actionType = String(item?.action_type || item?.type || item?.action || item?.kind || "").trim();
+    const state = states[actionType] || {};
+    const rawStatus = state?.status;
+
+    let statusType: "" | "success" | "warning" | "danger" | "info" | "primary" = "info";
+    let statusLabel = isPsdCompleted ? "未触发" : "等待套图完成";
+
+    if (rawStatus === "completed") {
+      statusType = "success";
+      statusLabel = "已完成";
+    } else if (rawStatus === "running") {
+      statusType = "primary";
+      statusLabel = "执行中";
+    } else if (rawStatus === "queued") {
+      statusType = "warning";
+      statusLabel = "已排队";
+    } else if (rawStatus === "failed") {
+      statusType = "danger";
+      statusLabel = "执行失败";
+    }
+
+    let name = actionType || t("psdSet.unnamedAction");
+    let desc = "";
+    let summaryText = "";
+
+    const config = item?.config || {};
+
+    if (actionType === "generate_product") {
+      name = "自动生成商品 (generate_product)";
+      desc = "套图制作完成后自动创建商品草稿并生成商品";
+      const templateIds = Array.isArray(config.productGenerationTemplateIds)
+        ? config.productGenerationTemplateIds
+        : config.productGenerationTemplateId
+        ? [config.productGenerationTemplateId]
+        : [];
+      const parts: string[] = [];
+      if (templateIds.length) {
+        parts.push(`关联商品模版: ${templateIds.length} 个 (${templateIds.join(", ")})`);
+      }
+      if (Array.isArray(config.publishConfigIds) && config.publishConfigIds.length) {
+        parts.push(`联动发布配置: ${config.publishConfigIds.length} 个`);
+      }
+      if (config.promptId || config.aiPrompt) {
+        parts.push(`自定义提示词: ${config.promptId || "已配置"}`);
+      }
+      summaryText = parts.join(" · ") || "未配置具体模版参数";
+    } else if (actionType === "create_publish_task_from_config") {
+      name = "自动生成发布任务 (create_publish_task_from_config)";
+      desc = "套图制作完成后自动根据选中的发布配置创建发布任务";
+      const configIds = Array.isArray(config.publishConfigIds)
+        ? config.publishConfigIds
+        : config.publishConfigId
+        ? [config.publishConfigId]
+        : [];
+      if (configIds.length) {
+        summaryText = `关联发布配置: ${configIds.length} 个 (${configIds.join(", ")})`;
+      } else {
+        summaryText = "未指定发布配置 ID";
+      }
+    } else {
+      summaryText = Object.keys(config).length ? JSON.stringify(config) : "无附加参数";
+    }
+
+    return {
+      actionType,
+      name,
+      desc,
+      status: rawStatus || (isPsdCompleted ? "not_triggered" : "pending"),
+      statusType,
+      statusLabel,
+      queuedAt: state?.queuedAt ? formatTimestamp(state.queuedAt) : "",
+      lastError: state?.lastError || "",
+      config,
+      summaryText,
+    };
+  });
+});
+
+const detailAutomationAllCompleted = computed(() => {
+  if (!detailAutomationItems.value.length) return false;
+  return detailAutomationItems.value.every((item) => item.status === "completed");
+});
+
+const detailAutomationHasFailed = computed(() => {
+  return detailAutomationItems.value.some((item) => item.status === "failed");
+});
+
+const detailAutomationHasRunning = computed(() => {
+  return detailAutomationItems.value.some((item) => item.status === "running" || item.status === "queued");
+});
 const detailStickerIdsText = computed(() => {
   const ids = detailStickers.value.map((item: any) => item?.id).filter(Boolean);
   return ids.length ? ids.join("\n") : "-";
@@ -1925,7 +2095,13 @@ function getPublishConfigMatchInfo(config: any) {
   };
 }
 
+function isPublishConfigActive(row: any): boolean {
+  if (!row) return false;
+  return row.isActive === true || row.isActive === 1 || row.isActive === "1" || row.isActive === "true";
+}
+
 function isPublishConfigSelectable(config: any) {
+  if (!isPublishConfigActive(config)) return false;
   return getPublishConfigMatchInfo(config).selectable;
 }
 
@@ -2106,7 +2282,7 @@ function getColumns() {
     },
   ];
 
-  const operationColumn = [buildOperationColumn("operationSlot")];
+  const operationColumn = [buildOperationColumn("operationSlot", 120)];
 
   return [...baseColumns, ...operationColumn];
 }
@@ -3686,7 +3862,7 @@ async function ensurePublishConfigOptions() {
       : Array.isArray((res as any)?.list)
         ? (res as any).list
         : [];
-    publishConfigOptions.value = list.filter((item: any) => item?.isActive !== false);
+    publishConfigOptions.value = list.filter((item: any) => isPublishConfigActive(item));
   } catch (error: any) {
     console.error("加载任务配置失败:", error);
     ElMessage.error(error?.message || t("psdSet.loadPublishConfigsFailed"));
@@ -5306,10 +5482,9 @@ getList();
 }
 
 .psd-set-detail-top {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 10px;
-  align-items: start;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .psd-set-detail-middle {
@@ -5324,21 +5499,11 @@ getList();
 }
 
 .psd-set-detail-panel {
-  padding: 12px;
+  padding: 14px 16px;
   background: var(--el-bg-color);
-  border: 1px solid var(--el-border-color-light);
-  border-radius: 6px;
-}
-
-.psd-set-detail-panel--hero {
-  order: 2;
-  padding: 12px;
-}
-
-.psd-set-detail-panel--compact,
-.psd-set-detail-panel--muted {
-  order: 1;
-  padding: 12px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  box-shadow: none !important;
 }
 
 .psd-set-detail-panel--balanced {
@@ -5350,63 +5515,167 @@ getList();
 .psd-set-detail-summary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
+  gap: 12px 18px;
 }
 
 .psd-set-detail-summary__item,
 .psd-set-detail-text-card {
   display: flex;
   min-width: 0;
-  padding: 7px 9px;
-  background: var(--el-fill-color-extra-light);
-  border-radius: 6px;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
 .psd-set-detail-text-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px 18px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--el-border-color-lighter);
+}
+
+.psd-set-detail-automation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.psd-set-detail-automation-item {
+  display: flex;
+  flex-direction: column;
   gap: 6px;
-  margin-top: 8px;
+  padding: 10px 14px;
+  background: var(--el-fill-color-extra-light);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 6px;
+  box-shadow: none !important;
+}
+
+.psd-set-detail-automation-item.is-failed {
+  border-color: var(--el-color-danger-light-7);
+  background: var(--el-color-danger-light-9);
+}
+
+.psd-set-detail-automation-item.is-completed {
+  border-color: var(--el-color-success-light-7);
+  background: var(--el-color-success-light-9);
+}
+
+.automation-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.automation-item-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.automation-item-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.automation-item-time {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.automation-item-desc {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  line-height: 1.4;
+}
+
+.automation-item-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.automation-summary-label {
+  color: var(--el-text-color-secondary);
+  flex-shrink: 0;
+}
+
+.automation-summary-val {
+  color: var(--el-text-color-regular);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+}
+
+.automation-item-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--el-color-danger);
+  margin-top: 2px;
+}
+
+.psd-set-detail-empty-note {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  padding: 6px 0;
 }
 
 .psd-set-detail-image-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 8px;
+  gap: 10px;
 }
 
 .psd-set-detail-image-card {
   position: relative;
   min-width: 0;
-  padding: 5px;
-  background: var(--el-fill-color-extra-light);
-  border: 1px solid var(--el-border-color-light);
-  border-radius: 6px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: none !important;
+  transition: border-color 0.2s ease;
+}
+
+.psd-set-detail-image-card:hover {
+  border-color: var(--el-color-primary);
+  box-shadow: none !important;
 }
 
 .psd-set-detail-image {
   width: 100%;
   height: 160px;
-  background: var(--el-bg-color-page);
-  border-radius: 6px;
+  background: var(--el-fill-color-extra-light);
+  border-radius: 0;
+  display: block;
 }
 
 .psd-set-detail-image-index {
   position: absolute;
-  top: 10px;
-  right: 10px;
-  height: 22px;
-  min-width: 22px;
+  top: 8px;
+  right: 8px;
+  height: 20px;
+  min-width: 20px;
   padding: 0 6px;
-  font-size: 12px;
-  line-height: 22px;
-  color: var(--el-text-color-secondary);
+  font-size: 11px;
+  line-height: 20px;
+  color: var(--el-text-color-regular);
   text-align: center;
-  background: rgb(255 255 255 / 92%);
-  border-radius: 999px;
-  box-shadow: 0 1px 4px rgb(15 23 42 / 8%);
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(4px);
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: none !important;
 }
 
 .detail-entity-list {
@@ -5421,33 +5690,35 @@ getList();
   display: flex;
   gap: 12px;
   padding: 10px 12px;
-  background: var(--el-fill-color-extra-light);
+  background: transparent;
   border: 1px solid var(--el-border-color-lighter);
-  border-radius: 6px;
+  border-radius: 8px;
   align-items: flex-start;
-  transition: all 0.2s ease;
+  box-shadow: none !important;
+  transition: border-color 0.2s ease;
 }
 
 .detail-entity-card:hover {
-  border-color: var(--el-color-primary-light-5);
-  box-shadow: 0 2px 8px rgb(0 0 0 / 4%);
+  border-color: var(--el-color-primary-light-3);
+  box-shadow: none !important;
 }
 
 .detail-entity-card--template {
-  background: var(--el-fill-color-extra-light);
+  background: transparent;
 }
 
 .detail-entity-card__thumb {
-  width: 92px;
-  height: 92px;
-  flex: 0 0 92px;
-  background: var(--el-bg-color);
-  border: 1px solid var(--el-border-color-light);
+  width: 84px;
+  height: 84px;
+  flex: 0 0 84px;
+  background: var(--el-fill-color-extra-light);
+  border: 1px solid var(--el-border-color-lighter);
   border-radius: 6px;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: none !important;
 }
 
 .detail-entity-card__image {
