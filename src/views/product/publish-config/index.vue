@@ -85,6 +85,7 @@ const gridOptions = computed(() => ({
     },
     { field: "vendor", title: "关联厂家/商品", minWidth: 200, headerAlign: "left" as const, slots: { default: "vendorSlot" } },
     { field: "templateBinding", title: "关联主图模板", width: 160, headerAlign: "left" as const, align: "center" as const, slots: { default: "templateSlot" } },
+    { field: "imageSpec", title: "图案规格", width: 140, headerAlign: "left" as const, align: "center" as const, slots: { default: "imageSpecSlot" } },
     {
       field: "isActive",
       title: t("common.status"),
@@ -354,6 +355,65 @@ const form = reactive({
   taskType: "",
   description: "",
   isActive: true,
+});
+
+// ──────────────────────────────────────────────────────────
+// 图案与素材规格配置 (Image / Artwork Spec)
+// ──────────────────────────────────────────────────────────
+const imageSpecForm = reactive({
+  aspectRatio: undefined as number | undefined,
+  aspectRatioTolerance: 0.08,
+  aspectRatioLabel: "",
+  minWidth: undefined as number | undefined,
+  minHeight: undefined as number | undefined,
+});
+
+const commonRatioPresets = [
+  { label: "1:1", value: 1.0, name: "1:1 正方形" },
+  { label: "3:4", value: 0.75, name: "3:4 竖版" },
+  { label: "4:3", value: 1.3333, name: "4:3 横版" },
+  { label: "9:16", value: 0.5625, name: "9:16 长竖版" },
+  { label: "16:9", value: 1.7778, name: "16:9 横屏" },
+];
+
+function isRatioPresetActive(val: number) {
+  if (imageSpecForm.aspectRatio === undefined || imageSpecForm.aspectRatio === null) return false;
+  return Math.abs(Number(imageSpecForm.aspectRatio) - val) < 0.005;
+}
+
+function applyRatioPreset(item: { label: string; value: number; name: string }) {
+  if (isRatioPresetActive(item.value)) {
+    imageSpecForm.aspectRatio = undefined;
+    return;
+  }
+  imageSpecForm.aspectRatio = item.value;
+  if (!imageSpecForm.aspectRatioLabel?.trim()) {
+    imageSpecForm.aspectRatioLabel = item.name;
+  }
+}
+
+const resolutionRatioHint = computed(() => {
+  const w = Number(imageSpecForm.minWidth);
+  const h = Number(imageSpecForm.minHeight);
+  if (!w || !h || isNaN(w) || isNaN(h) || w <= 0 || h <= 0) return null;
+  return Number((w / h).toFixed(4));
+});
+
+function applyRatioFromResolution() {
+  if (!resolutionRatioHint.value) return;
+  imageSpecForm.aspectRatio = resolutionRatioHint.value;
+  if (!imageSpecForm.aspectRatioLabel?.trim()) {
+    imageSpecForm.aspectRatioLabel = `${imageSpecForm.minWidth}×${imageSpecForm.minHeight}`;
+  }
+}
+
+const hasConfiguredImageSpec = computed(() => {
+  return (
+    imageSpecForm.aspectRatio !== undefined ||
+    Boolean(imageSpecForm.aspectRatioLabel?.trim()) ||
+    imageSpecForm.minWidth !== undefined ||
+    imageSpecForm.minHeight !== undefined
+  );
 });
 
 const currentTemplateBindingId = computed(() =>
@@ -1159,6 +1219,91 @@ function applyTemplateBindingDefaultConfig() {
   templateBindingConfigText.value = templateBindingDefaultConfigText.value;
 }
 
+function resetImageSpecForm() {
+  imageSpecForm.aspectRatio = undefined;
+  imageSpecForm.aspectRatioTolerance = 0.08;
+  imageSpecForm.aspectRatioLabel = "";
+  imageSpecForm.minWidth = undefined;
+  imageSpecForm.minHeight = undefined;
+}
+
+function hydrateImageSpecForm(spec?: any) {
+  if (
+    spec &&
+    typeof spec === "object" &&
+    (spec.aspectRatio || spec.aspectRatioLabel || spec.minResolution)
+  ) {
+    imageSpecForm.aspectRatio =
+      spec.aspectRatio !== undefined &&
+      spec.aspectRatio !== null &&
+      spec.aspectRatio !== ""
+        ? Number(spec.aspectRatio)
+        : undefined;
+    imageSpecForm.aspectRatioTolerance =
+      spec.aspectRatioTolerance !== undefined &&
+      spec.aspectRatioTolerance !== null
+        ? Number(spec.aspectRatioTolerance)
+        : 0.08;
+    imageSpecForm.aspectRatioLabel = spec.aspectRatioLabel || "";
+    imageSpecForm.minWidth =
+      spec.minResolution?.minWidth !== undefined
+        ? Number(spec.minResolution.minWidth)
+        : undefined;
+    imageSpecForm.minHeight =
+      spec.minResolution?.minHeight !== undefined
+        ? Number(spec.minResolution.minHeight)
+        : undefined;
+  } else {
+    resetImageSpecForm();
+  }
+}
+
+function getImageSpecConfigForSubmit() {
+  const aspectRatio =
+    imageSpecForm.aspectRatio !== undefined &&
+    imageSpecForm.aspectRatio !== null &&
+    !isNaN(Number(imageSpecForm.aspectRatio)) &&
+    Number(imageSpecForm.aspectRatio) > 0
+      ? Number(Number(imageSpecForm.aspectRatio).toFixed(4))
+      : undefined;
+
+  const aspectRatioTolerance =
+    imageSpecForm.aspectRatioTolerance !== undefined &&
+    !isNaN(Number(imageSpecForm.aspectRatioTolerance))
+      ? Number(Number(imageSpecForm.aspectRatioTolerance).toFixed(4))
+      : 0.08;
+
+  const aspectRatioLabel = imageSpecForm.aspectRatioLabel?.trim() || undefined;
+
+  const minWidth =
+    imageSpecForm.minWidth !== undefined &&
+    !isNaN(Number(imageSpecForm.minWidth)) &&
+    Number(imageSpecForm.minWidth) > 0
+      ? Number(imageSpecForm.minWidth)
+      : undefined;
+
+  const minHeight =
+    imageSpecForm.minHeight !== undefined &&
+    !isNaN(Number(imageSpecForm.minHeight)) &&
+    Number(imageSpecForm.minHeight) > 0
+      ? Number(imageSpecForm.minHeight)
+      : undefined;
+
+  const minResolution =
+    minWidth || minHeight ? { minWidth, minHeight } : undefined;
+
+  if (!aspectRatio && !aspectRatioLabel && !minResolution) {
+    return undefined;
+  }
+
+  return {
+    aspectRatio,
+    aspectRatioTolerance,
+    aspectRatioLabel,
+    minResolution,
+  };
+}
+
 const handleAdd = () => {
   dialogTitle.value = t("publishConfig.addConfig");
   form.id = undefined;
@@ -1174,6 +1319,7 @@ const handleAdd = () => {
   currentPlatformConfig.value = null;
   temuTemplateInspectorVisible.value = false;
   resetTemplateBindingState();
+  resetImageSpecForm();
   dialogVisible.value = true;
 };
 
@@ -1204,6 +1350,7 @@ const handleEdit = async (row: any) => {
   }
   temuTemplateInspectorVisible.value = false;
   resetTemplateBindingState();
+  hydrateImageSpecForm(configData.imageSpecConfig);
   await hydrateTemplateBinding(configData?.templateBinding?.psdTemplateId);
   templateBindingConfigText.value = formatTemplateBindingConfig(
     configData?.templateBinding?.psdTemplateConfig ??
@@ -1290,6 +1437,7 @@ const submitForm = async () => {
               psdTemplateConfig: parseTemplateBindingConfigText(templateBindingConfigText.value),
             }
           : undefined,
+        imageSpecConfig: getImageSpecConfigForSubmit(),
       },
     };
 
@@ -1344,6 +1492,7 @@ const handleCopy = async (row: any) => {
   }
   temuTemplateInspectorVisible.value = false;
   resetTemplateBindingState();
+  hydrateImageSpecForm(configData.imageSpecConfig);
   await hydrateTemplateBinding(configData?.templateBinding?.psdTemplateId);
   templateBindingConfigText.value = formatTemplateBindingConfig(
     configData?.templateBinding?.psdTemplateConfig ??
@@ -1537,6 +1686,17 @@ onMounted(() => {
                   >
                     PSD #{{ String(row.configData.templateBinding.psdTemplateId).slice(0, 8) }}
                   </el-tag>
+                  <span v-else class="publish-config-empty-text">-</span>
+                </template>
+
+                <!-- 图案规格 -->
+                <template #imageSpecSlot="{ row }">
+                  <span v-if="row?.configData?.imageSpecConfig?.aspectRatio">
+                    {{ row.configData.imageSpecConfig.aspectRatio }}:1
+                    <span v-if="row.configData.imageSpecConfig.aspectRatioLabel" class="text-gray-400">
+                      ({{ row.configData.imageSpecConfig.aspectRatioLabel }})
+                    </span>
+                  </span>
                   <span v-else class="publish-config-empty-text">-</span>
                 </template>
 
@@ -1801,6 +1961,126 @@ onMounted(() => {
                   </el-button>
                 </div>
               </el-form-item>
+            </section>
+
+            <!-- 图案与素材规格配置 -->
+            <section class="publish-config-panel publish-config-panel--spec">
+              <div class="publish-config-panel__header">
+                <div>
+                  <div class="publish-config-panel__title">图案与素材规格配置</div>
+                  <div class="publish-config-panel__desc">设定商品所需的印花宽高比及分辨率要求，用于智能选图及套图匹配</div>
+                </div>
+                <el-button
+                  v-if="hasConfiguredImageSpec"
+                  link
+                  type="info"
+                  size="small"
+                  @click="resetImageSpecForm"
+                >
+                  清空规格
+                </el-button>
+              </div>
+
+              <div class="publish-config-spec-form">
+                <el-row :gutter="20">
+                  <el-col :xs="24" :sm="12" :md="12">
+                    <el-form-item label="目标宽高比">
+                      <el-input-number
+                        v-model="imageSpecForm.aspectRatio"
+                        :controls="false"
+                        :precision="4"
+                        :step="0.01"
+                        :min="0.05"
+                        :max="20"
+                        placeholder="如 0.75 或 2.13 (选填)"
+                        style="width: 100%;"
+                      />
+                      <div class="publish-config-spec-presets">
+                        <span class="publish-config-spec-preset-label">快捷：</span>
+                        <button
+                          v-for="item in commonRatioPresets"
+                          :key="item.label"
+                          type="button"
+                          class="publish-config-spec-preset-btn"
+                          :class="{ 'is-active': isRatioPresetActive(item.value) }"
+                          @click="applyRatioPreset(item)"
+                        >
+                          {{ item.label }}
+                        </button>
+                      </div>
+                    </el-form-item>
+                  </el-col>
+
+                  <el-col :xs="24" :sm="12" :md="12">
+                    <el-form-item label="容差比例">
+                      <el-select
+                        v-model="imageSpecForm.aspectRatioTolerance"
+                        placeholder="默认 ±8%"
+                        style="width: 100%;"
+                      >
+                        <el-option :value="0.03" label="±3% (严格)" />
+                        <el-option :value="0.05" label="±5% (适中)" />
+                        <el-option :value="0.08" label="±8% (推荐默认)" />
+                        <el-option :value="0.10" label="±10% (宽松)" />
+                        <el-option :value="0.15" label="±15% (广阔)" />
+                      </el-select>
+                      <div class="publish-config-form-tip">匹配素材允许偏离目标比例的容忍范围</div>
+                    </el-form-item>
+                  </el-col>
+                </el-row>
+
+                <el-row :gutter="20">
+                  <el-col :xs="24" :sm="12" :md="12">
+                    <el-form-item label="最小分辨率">
+                      <div class="publish-config-res-wrapper">
+                        <div class="publish-config-res-row">
+                          <el-input-number
+                            v-model="imageSpecForm.minWidth"
+                            :controls="false"
+                            :step="100"
+                            :min="0"
+                            :max="20000"
+                            placeholder="宽 (px)"
+                            style="width: 100%;"
+                          />
+                          <span class="publish-config-res-x">×</span>
+                          <el-input-number
+                            v-model="imageSpecForm.minHeight"
+                            :controls="false"
+                            :step="100"
+                            :min="0"
+                            :max="20000"
+                            placeholder="高 (px)"
+                            style="width: 100%;"
+                          />
+                        </div>
+                        <div v-if="resolutionRatioHint" class="publish-config-res-hint">
+                          <span>换算比值：{{ resolutionRatioHint }}:1</span>
+                          <el-button
+                            link
+                            type="primary"
+                            size="small"
+                            style="font-size: 12px; padding: 0; margin-left: 6px;"
+                            @click="applyRatioFromResolution"
+                          >
+                            填入目标比值
+                          </el-button>
+                        </div>
+                      </div>
+                    </el-form-item>
+                  </el-col>
+
+                  <el-col :xs="24" :sm="12" :md="12">
+                    <el-form-item label="规格说明">
+                      <el-input
+                        v-model="imageSpecForm.aspectRatioLabel"
+                        placeholder="如：横版笔袋 / 3:4 竖版"
+                      />
+                      <div class="publish-config-form-tip">选填，便于素材库中按规格归类与快速识别</div>
+                    </el-form-item>
+                  </el-col>
+                </el-row>
+              </div>
             </section>
 
             <div class="publish-config-workspace">
@@ -2669,6 +2949,7 @@ onMounted(() => {
         <TemuProductTemplateInspector v-model="temuProductTemplateValue" />
       </div>
     </el-dialog>
+
   </ContentWrap>
 </template>
 
@@ -2896,6 +3177,116 @@ onMounted(() => {
 
 .publish-config-panel--template {
   margin-bottom: 10px;
+}
+
+.publish-config-panel--spec {
+  margin-bottom: 10px;
+
+  .publish-config-spec-form {
+    padding-top: 4px;
+
+    :deep(.el-form-item) {
+      margin-bottom: 14px;
+    }
+
+    :deep(.el-form-item__content) {
+      flex: 1 1 auto;
+      width: 100%;
+      min-width: 0;
+    }
+
+    :deep(.el-form-item__content > .el-input),
+    :deep(.el-form-item__content > .el-select),
+    :deep(.el-form-item__content > .el-input-number) {
+      width: 100%;
+      max-width: 100%;
+      flex: 1 1 auto;
+    }
+
+    :deep(.el-input-number .el-input__inner) {
+      text-align: left;
+    }
+  }
+
+  .publish-config-spec-presets {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+    width: 100%;
+  }
+
+  .publish-config-spec-preset-label {
+    color: var(--el-text-color-secondary);
+    font-size: 12px;
+  }
+
+  .publish-config-spec-preset-btn {
+    background: var(--el-fill-color-light);
+    border: 1px solid var(--el-border-color-lighter);
+    border-radius: 4px;
+    padding: 1px 7px;
+    font-size: 12px;
+    color: var(--el-text-color-regular);
+    cursor: pointer;
+    line-height: 20px;
+    transition: all 0.15s ease;
+
+    &:hover {
+      color: var(--el-color-primary);
+      border-color: var(--el-color-primary-light-5);
+      background: var(--el-color-primary-light-9);
+    }
+
+    &.is-active {
+      color: var(--el-color-primary);
+      border-color: var(--el-color-primary);
+      background: var(--el-color-primary-light-9);
+      font-weight: 500;
+    }
+  }
+
+  .publish-config-form-tip {
+    margin-top: 4px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--el-text-color-secondary);
+    width: 100%;
+  }
+
+  .publish-config-res-wrapper {
+    width: 100%;
+  }
+
+  .publish-config-res-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+
+    :deep(.el-input-number) {
+      flex: 1 1 0;
+      min-width: 0;
+      width: auto !important;
+    }
+  }
+
+  .publish-config-res-x {
+    color: var(--el-text-color-secondary);
+    font-size: 14px;
+    font-weight: 500;
+    user-select: none;
+    flex: 0 0 auto;
+  }
+
+  .publish-config-res-hint {
+    display: flex;
+    align-items: center;
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
+  }
 }
 
 .publish-config-basic-row,
@@ -3820,4 +4211,6 @@ onMounted(() => {
     min-height: calc(100vh - 72px);
   }
 }
+
+
 </style>
