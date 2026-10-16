@@ -888,7 +888,7 @@
     <el-dialog
       v-model="manageThumbnailsDialogVisible"
       :title="`缩略图管理 - ${manageTargetFont?.name || ''}`"
-      width="800px"
+      width="880px"
       align-center
       destroy-on-close
       class="minimal-manage-dialog"
@@ -1284,7 +1284,7 @@ const gridOptions = ref({
     {
       title: t('fontTemplate.thumbnail'),
       field: "thumbnail",
-      width: 200,
+      width: 260,
       slots: {
         default: "thumbnailDefaultSlot",
       },
@@ -3199,15 +3199,16 @@ function closeImagePreview() {
 }
 
 .thumb-table-img {
-  max-width: 150px;
-  max-height: 60px;
+  max-width: 220px;
+  max-height: 96px;
+  min-height: 54px;
   width: auto;
   height: auto;
   cursor: pointer;
   background: var(--el-fill-color-blank);
   border: 1px solid var(--el-border-color-lighter);
   border-radius: 6px;
-  padding: 2px;
+  padding: 3px;
   object-fit: contain;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
@@ -3244,8 +3245,8 @@ function closeImagePreview() {
   position: absolute;
   bottom: 2px;
   right: 2px;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3254,7 +3255,7 @@ function closeImagePreview() {
   background: var(--el-bg-color-overlay);
   color: var(--el-text-color-regular);
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
   opacity: 0;
   pointer-events: none;
   transform: scale(0.85);
@@ -3269,17 +3270,17 @@ function closeImagePreview() {
 }
 
 .thumb-empty-placeholder {
-  width: 130px;
-  height: 48px;
+  width: 180px;
+  height: 64px;
   background: var(--el-fill-color-lighter);
   border: 1px dashed var(--el-border-color);
   border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 6px;
   color: var(--el-text-color-placeholder);
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -3329,9 +3330,9 @@ function closeImagePreview() {
 
 .thumbnail-card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 14px;
-  max-height: 520px;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 16px;
+  max-height: 560px;
   overflow-y: auto;
   padding: 4px 2px;
 }
@@ -3408,7 +3409,7 @@ function closeImagePreview() {
 .card-img-wrap {
   position: relative;
   width: 100%;
-  height: 120px;
+  height: 160px;
   background: var(--el-fill-color-blank);
   cursor: pointer;
   display: flex;
