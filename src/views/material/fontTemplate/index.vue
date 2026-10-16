@@ -207,27 +207,28 @@
                         <span
                           v-if="rowThumbs(row).length > 1"
                           class="thumb-count-badge"
-                          :title="`共 ${rowThumbs(row).length} 张缩略图，点击维护`"
+                          :title="`共 ${rowThumbs(row).length} 张缩略图，点击进入缩略图管理`"
                           @click.stop="openManageThumbnails(row)"
                         >
-                          {{ rowThumbs(row).length }}
+                          {{ rowThumbs(row).length }} 图
                         </span>
-                        <div class="thumb-hover-actions">
-                          <button class="thumb-action-btn" title="大图预览" @click.stop="openRowThumbnails(row)">
-                            <el-icon><ZoomIn /></el-icon>
-                          </button>
-                          <button class="thumb-action-btn" title="维护缩略图" @click.stop="openManageThumbnails(row)">
-                            <el-icon><Edit /></el-icon>
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          class="thumb-quick-manage-btn"
+                          title="缩略图管理"
+                          @click.stop="openManageThumbnails(row)"
+                        >
+                          <el-icon><PictureFilled /></el-icon>
+                        </button>
                       </template>
                       <div
                         v-else
                         class="thumb-empty-placeholder"
                         @click="openManageThumbnails(row)"
+                        title="点击进入缩略图管理"
                       >
-                        <div>{{ t('fontTemplate.noThumbnail') }}</div>
-                        <span class="text-xs text-primary mt-1">+ 添加维护</span>
+                        <el-icon><Plus /></el-icon>
+                        <span>缩略图管理</span>
                       </div>
                     </div>
                   </template>
@@ -304,7 +305,7 @@
                               <el-icon>
                                 <PictureFilled />
                               </el-icon>
-                              <span>维护缩略图</span>
+                              <span>缩略图管理</span>
                             </el-dropdown-item>
                             <el-dropdown-item v-if="isAdmin" command="generate-thumbnail">
                               <el-icon>
@@ -507,7 +508,7 @@
       align-center
       :destroy-on-close="true"
     >
-      <div style="margin-bottom: 16px; font-size: 15px; color: #888">
+      <div style="margin-bottom: 16px; font-size: 15px; color: var(--el-text-color-secondary)">
         {{ t('fontTemplate.aiAnalyzeHint') }}
       </div>
       <el-input
@@ -533,7 +534,7 @@
       align-center
       :destroy-on-close="true"
     >
-      <div style="margin-bottom: 16px; font-size: 15px; color: #888">
+      <div style="margin-bottom: 16px; font-size: 15px; color: var(--el-text-color-secondary)">
         {{ t('fontTemplate.batchAiHint', { count: ids.length }) }}
       </div>
       <el-input
@@ -561,7 +562,7 @@
           :percentage="Math.round((batchProgress.processed / batchProgress.total) * 100)"
           :status="batchProgress.processed === batchProgress.total ? 'success' : ''"
         />
-        <div style="margin-top: 8px; font-size: 12px; color: #909399">
+        <div style="margin-top: 8px; font-size: 12px; color: var(--el-text-color-secondary)">
           {{ t('fontTemplate.batchResult', { success: batchProgress.success, failed: batchProgress.failed }) }}
         </div>
       </div>
@@ -571,8 +572,8 @@
           padding: 12px;
           margin-top: 16px;
           font-size: 14px;
-          color: #606266;
-          background: #f5f7fa;
+          color: var(--el-text-color-regular);
+          background: var(--el-fill-color-lighter);
           border-radius: 4px;
         "
       >
@@ -580,7 +581,7 @@
         <div>{{ t('fontTemplate.batchTip1') }}</div>
         <div>{{ t('fontTemplate.batchTip2') }}</div>
         <div>{{ t('fontTemplate.batchTip3') }}</div>
-        <div style="margin-top: 8px; color: #e6a23c"><strong>{{ t('fontTemplate.noticeTitle') }}</strong></div>
+        <div style="margin-top: 8px; color: var(--el-color-warning)"><strong>{{ t('fontTemplate.noticeTitle') }}</strong></div>
         <div>{{ t('fontTemplate.notice1') }}</div>
         <div>{{ t('fontTemplate.notice2') }}</div>
         <div>{{ t('fontTemplate.notice3') }}</div>
@@ -809,36 +810,36 @@
           <div
             style="
               padding: 12px;
-              background: #fef3c7;
-              border-left: 3px solid #f59e0b;
+              background: color-mix(in srgb, var(--el-color-warning) 10%, transparent);
+              border-left: 3px solid var(--el-color-warning);
               border-radius: 4px;
             "
           >
-            <div style="margin-bottom: 8px; font-size: 13px; font-weight: 500; color: #92400e">
+            <div style="margin-bottom: 8px; font-size: 13px; font-weight: 500; color: var(--el-color-warning)">
               {{ t('fontTemplate.fontLoadStatus') }}
             </div>
-            <div style="font-size: 12px; line-height: 1.5; color: #92400e">
+            <div style="font-size: 12px; line-height: 1.5; color: var(--el-text-color-regular)">
               <div v-if="fontLoading">
                 <strong>{{ t('fontTemplate.fontLoadingEmoji') }}</strong>
-                <div style="margin-top: 4px; font-size: 11px; color: #d97706">
+                <div style="margin-top: 4px; font-size: 11px; color: var(--el-color-warning)">
                   {{ t('fontTemplate.fontFileLoading') }}
                 </div>
               </div>
               <div v-else-if="loadedFontFamily">
                 <strong>{{ t('fontTemplate.fontLoadedEmoji') }}</strong>{{ loadedFontFamily }}
-                <div style="margin-top: 4px; font-size: 11px; color: #d97706">
+                <div style="margin-top: 4px; font-size: 11px; color: var(--el-color-warning)">
                   {{ t('fontTemplate.customFontEffect') }}
                 </div>
-                <div style="margin-top: 4px; font-size: 11px; color: #059669">
+                <div style="margin-top: 4px; font-size: 11px; color: var(--el-color-success)">
                   {{ t('fontTemplate.fontLoadedHint') }}
                 </div>
               </div>
               <div v-else>
                 <strong>{{ t('fontTemplate.fontNotLoadedEmoji') }}</strong>{{ t('fontTemplate.systemDefaultFont') }}
-                <div style="margin-top: 4px; font-size: 11px; color: #d97706">
+                <div style="margin-top: 4px; font-size: 11px; color: var(--el-color-warning)">
                   {{ t('fontTemplate.fontLoadFailCheckUrl') }}
                 </div>
-                <div style="margin-top: 4px; font-size: 11px; color: #dc2626">
+                <div style="margin-top: 4px; font-size: 11px; color: var(--el-color-danger)">
                   {{ t('fontTemplate.systemFontWarning') }}
                 </div>
               </div>
@@ -847,11 +848,11 @@
               style="
                 padding: 8px;
                 margin-top: 8px;
-                background: rgb(245 158 11 / 10%);
+                background: color-mix(in srgb, var(--el-color-warning) 6%, transparent);
                 border-radius: 4px;
               "
             >
-              <div style="font-size: 11px; color: #92400e">
+              <div style="font-size: 11px; color: var(--el-text-color-secondary)">
                 <strong>{{ t('fontTemplate.debugInfo') }}</strong>
                 <div>{{ t('fontTemplate.fontUrlLabel') }}: {{ currentRow.url || t('fontTemplate.notSet') }}</div>
                 <div>
@@ -883,19 +884,21 @@
       @close="closeImagePreview"
     />
 
-    <!-- 缩略图维护弹窗 -->
+    <!-- 缩略图管理弹窗 -->
     <el-dialog
       v-model="manageThumbnailsDialogVisible"
-      :title="`维护缩略图 - ${manageTargetFont?.name || ''}`"
-      width="820px"
+      :title="`缩略图管理 - ${manageTargetFont?.name || ''}`"
+      width="800px"
       align-center
       destroy-on-close
+      class="minimal-manage-dialog"
     >
       <div class="thumbnail-manage-container">
         <!-- 顶部操作栏 -->
         <div class="thumbnail-manage-toolbar">
-          <div class="toolbar-tip">
-            共 <b>{{ editingThumbnailList.length }}</b> 张缩略图。首张自动作为默认主图展示，可直接修改每张对应的试文字文案或设为首图。
+          <div class="toolbar-stats">
+            <span class="toolbar-count">已配置 {{ editingThumbnailList.length }} 张缩略图</span>
+            <span class="toolbar-subtip">（首张为主图，可输入试文字并按需排序）</span>
           </div>
           <div class="toolbar-actions">
             <el-upload
@@ -905,17 +908,18 @@
               :on-change="handleUploadNewThumbnail"
               accept="image/*"
             >
-              <el-button type="primary" size="small" :icon="Plus" :loading="uploadingNewThumb">
-                上传新缩略图
+              <el-button size="small" :icon="Upload" :loading="uploadingNewThumb">
+                上传缩略图
               </el-button>
             </el-upload>
             <el-button
-              type="success"
               size="small"
+              type="primary"
+              plain
               :icon="Picture"
               @click="openGenerateForCurrent"
             >
-              渲染生成新图
+              渲染生成
             </el-button>
           </div>
         </div>
@@ -928,46 +932,70 @@
             class="thumbnail-edit-card"
             :class="{ 'is-primary': index === 0 }"
           >
+            <!-- 头部状态栏与快捷删除 -->
+            <div class="card-header">
+              <span v-if="index === 0" class="badge-primary">
+                <el-icon><Check /></el-icon>
+                <span>主图</span>
+              </span>
+              <span v-else class="badge-seq">#{{ index + 1 }}</span>
+              <button
+                type="button"
+                class="card-del-btn"
+                @click.stop="removeThumbnailItem(index)"
+                title="删除该图"
+              >
+                <el-icon><Delete /></el-icon>
+              </button>
+            </div>
+
             <!-- 卡片图片预览 -->
             <div class="card-img-wrap" @click="previewSingleInManage(item)">
               <img :src="item.thumbnail" class="card-img" />
-              <div class="card-badges">
-                <span v-if="index === 0" class="badge-primary">首图</span>
-                <span v-else class="badge-seq">#{{ index + 1 }}</span>
-              </div>
               <div class="card-overlay">
                 <el-icon><ZoomIn /></el-icon>
                 <span>点击预览</span>
               </div>
             </div>
 
-            <!-- 卡片操作与文案编辑 -->
+            <!-- 试文字编辑与主图设置 -->
             <div class="card-body">
-              <div class="card-input-label">对应试文字文案:</div>
               <el-input
                 v-model="item.text"
                 size="small"
-                placeholder="输入对应试文字文案"
+                placeholder="试文字预览文案..."
                 clearable
               />
               <div class="card-actions">
+                <div class="order-actions">
+                  <el-button
+                    v-if="index > 0"
+                    size="small"
+                    link
+                    :icon="ArrowLeft"
+                    title="前移"
+                    @click="moveThumbnail(index, -1)"
+                  />
+                  <el-button
+                    v-if="index < editingThumbnailList.length - 1"
+                    size="small"
+                    link
+                    :icon="ArrowRight"
+                    title="后移"
+                    @click="moveThumbnail(index, 1)"
+                  />
+                </div>
                 <el-button
                   v-if="index !== 0"
                   size="small"
                   type="primary"
                   link
+                  class="action-set-primary"
                   @click="setAsPrimaryThumbnail(index)"
                 >
-                  设为首图
+                  设为主图
                 </el-button>
-                <el-button
-                  size="small"
-                  type="danger"
-                  link
-                  @click="removeThumbnailItem(index)"
-                >
-                  删除
-                </el-button>
+                <span v-else class="primary-label">默认主图</span>
               </div>
             </div>
           </div>
@@ -1126,6 +1154,10 @@ import {
   Connection,
   ZoomIn,
   PictureFilled,
+  Upload,
+  Check,
+  ArrowLeft,
+  ArrowRight,
 } from "@element-plus/icons-vue";
 import { useWindowSize, useLocalStorage } from "@vueuse/core";
 
@@ -2708,7 +2740,7 @@ function handleOperationCommand(command: string, row: any) {
   }
 }
 
-// 缩略图维护相关状态与方法
+// 缩略图管理相关状态与方法
 const manageThumbnailsDialogVisible = ref(false);
 const manageTargetFont = ref<any>(null);
 const editingThumbnailList = ref<FontThumbnailItem[]>([]);
@@ -2723,14 +2755,25 @@ function openManageThumbnails(row: any) {
 
 function setAsPrimaryThumbnail(index: number) {
   if (index <= 0 || index >= editingThumbnailList.value.length) return;
-  const [target] = editingThumbnailList.value.splice(index, 1);
-  editingThumbnailList.value.unshift(target);
-  ElMessage.success("已将该缩略图设为首图");
+  const list = [...editingThumbnailList.value];
+  const [target] = list.splice(index, 1);
+  list.unshift(target);
+  editingThumbnailList.value = list;
+  ElMessage.success("已设为主图");
+}
+
+function moveThumbnail(index: number, delta: number) {
+  const targetIndex = index + delta;
+  if (targetIndex < 0 || targetIndex >= editingThumbnailList.value.length) return;
+  const list = [...editingThumbnailList.value];
+  const [item] = list.splice(index, 1);
+  list.splice(targetIndex, 0, item);
+  editingThumbnailList.value = list;
 }
 
 function removeThumbnailItem(index: number) {
   editingThumbnailList.value.splice(index, 1);
-  ElMessage.info("已移除缩略图项，点击【保存修改】后生效");
+  ElMessage.info("已移除，点击【保存修改】后生效");
 }
 
 function previewSingleInManage(item: FontThumbnailItem) {
@@ -2765,7 +2808,7 @@ async function handleUploadNewThumbnail(uploadFile: any) {
       thumbnail: cos.url,
       text: defaultText,
     });
-    ElMessage.success("上传新缩略图成功，点击底部保存即可生效");
+    ElMessage.success("上传新缩略图成功，保存后生效");
   } catch (e: any) {
     ElMessage.error("上传缩略图失败: " + (e?.message || e));
   } finally {
@@ -2798,7 +2841,7 @@ async function saveManageThumbnails() {
     manageTargetFont.value.thumbnails = payload;
     manageTargetFont.value.thumbnail = payload[0]?.thumbnail || "";
     manageThumbnailsDialogVisible.value = false;
-    ElMessage.success("缩略图维护成功！");
+    ElMessage.success("缩略图更新成功！");
     getList();
   } catch (e: any) {
     ElMessage.error("保存缩略图失败: " + (e?.message || e));
@@ -2998,7 +3041,7 @@ function closeImagePreview() {
     font-size: 14px;
     font-weight: 500;
     line-height: 1.4;
-    color: #606266;
+    color: var(--el-text-color-regular);
   }
 
   .el-input-number,
@@ -3019,7 +3062,7 @@ function closeImagePreview() {
 
       .el-form-item__label {
         font-weight: 500;
-        color: #303133;
+        color: var(--el-text-color-primary);
       }
     }
   }
@@ -3028,8 +3071,8 @@ function closeImagePreview() {
 /* 预览效果样式 */
 .preview-container {
   padding: 16px;
-  background: #fafafa;
-  border: 1px solid #e4e7ed;
+  background: var(--el-fill-color-lighter);
+  border: 1px solid var(--el-border-color-lighter);
   border-radius: 6px;
 }
 
@@ -3039,7 +3082,7 @@ function closeImagePreview() {
   justify-content: space-between;
   margin-bottom: 16px;
   font-weight: 500;
-  color: #303133;
+  color: var(--el-text-color-primary);
 }
 
 .preview-header.compact {
@@ -3061,19 +3104,6 @@ function closeImagePreview() {
   padding: 12px;
 }
 
-.preview-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-  font-weight: 500;
-  color: #303133;
-}
-
-.preview-header.compact {
-  margin-bottom: 12px;
-}
-
 .preview-content {
   display: flex;
   justify-content: center;
@@ -3088,8 +3118,10 @@ function closeImagePreview() {
 }
 
 .preview-image {
-  background: white;
-  box-shadow: 0 2px 8px rgb(0 0 0 / 10%);
+  background: var(--el-bg-color-overlay);
+  box-shadow: var(--el-box-shadow-light);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 6px;
   transition: all 0.3s ease;
 }
 
@@ -3102,17 +3134,17 @@ function closeImagePreview() {
   min-height: 400px !important;
   word-break: break-word;
   word-wrap: break-word;
-  box-shadow: 0 1px 4px rgb(0 0 0 / 10%);
+  box-shadow: var(--el-box-shadow-lighter);
 }
 
 .preview-image:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgb(0 0 0 / 15%);
+  box-shadow: var(--el-box-shadow);
 }
 
 .preview-image.compact:hover {
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgb(0 0 0 / 15%);
+  box-shadow: var(--el-box-shadow-light);
 }
 
 /* 文字内容区域样式 */
@@ -3136,7 +3168,7 @@ function closeImagePreview() {
   display: block;
   margin-bottom: 8px;
   font-weight: 500;
-  color: #303133;
+  color: var(--el-text-color-regular);
 }
 
 .language-tag {
@@ -3149,171 +3181,256 @@ function closeImagePreview() {
   cursor: help;
 }
 
+/* ================= 极简缩略图单元格与管理弹窗 ================= */
+
 /* 表格缩略图单元格 */
 .thumb-cell-wrapper {
   position: relative;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 8px;
-}
-.thumb-cell-wrapper:hover .thumb-hover-actions {
-  opacity: 1;
-  pointer-events: auto;
-}
-.thumb-table-img {
-  width: 160px;
-  height: auto;
-  cursor: pointer;
-  background: #f5f5f5;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgb(0 0 0 / 10%);
-  object-fit: contain;
-  transition: transform 0.2s;
-}
-.thumb-table-img:hover {
-  transform: scale(1.02);
-}
-.thumb-hover-actions {
-  position: absolute;
-  bottom: 12px;
-  display: flex;
-  gap: 6px;
-  background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(4px);
-  padding: 4px 8px;
-  border-radius: 16px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s;
-}
-.thumb-action-btn {
-  background: transparent;
-  border: none;
-  color: #fff;
-  cursor: pointer;
-  padding: 2px;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: color 0.15s;
-}
-.thumb-action-btn:hover {
-  color: #409eff;
-}
-.thumb-empty-placeholder {
-  width: 140px;
-  height: 100px;
-  background: #f8f9fa;
-  border: 1px dashed #dcdfe6;
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: #909399;
-  cursor: pointer;
-  transition: border-color 0.2s, background 0.2s;
-}
-.thumb-empty-placeholder:hover {
-  border-color: #409eff;
-  background: #ecf5ff;
+  padding: 4px;
 }
 
-/* 缩略图维护弹窗 */
+.thumb-cell-wrapper:hover .thumb-quick-manage-btn {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1);
+}
+
+.thumb-table-img {
+  max-width: 150px;
+  max-height: 60px;
+  width: auto;
+  height: auto;
+  cursor: pointer;
+  background: var(--el-fill-color-blank);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 6px;
+  padding: 2px;
+  object-fit: contain;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.thumb-table-img:hover {
+  border-color: var(--el-color-primary);
+  box-shadow: var(--el-box-shadow-lighter);
+}
+
+.thumb-count-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  padding: 1px 6px;
+  font-size: 11px;
+  line-height: 14px;
+  border-radius: 10px;
+  background: var(--el-fill-color-dark);
+  color: var(--el-text-color-regular);
+  border: 1px solid var(--el-border-color-light);
+  cursor: pointer;
+  font-weight: 500;
+  user-select: none;
+  transition: all 0.15s ease;
+}
+
+.thumb-count-badge:hover {
+  background: var(--el-color-primary);
+  color: #fff;
+  border-color: var(--el-color-primary);
+}
+
+.thumb-quick-manage-btn {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--el-border-color);
+  background: var(--el-bg-color-overlay);
+  color: var(--el-text-color-regular);
+  cursor: pointer;
+  font-size: 12px;
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.85);
+  box-shadow: var(--el-box-shadow-lighter);
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.thumb-quick-manage-btn:hover {
+  color: var(--el-color-primary);
+  border-color: var(--el-color-primary);
+  background: var(--el-fill-color-light);
+}
+
+.thumb-empty-placeholder {
+  width: 130px;
+  height: 48px;
+  background: var(--el-fill-color-lighter);
+  border: 1px dashed var(--el-border-color);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  color: var(--el-text-color-placeholder);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.thumb-empty-placeholder:hover {
+  border-color: var(--el-color-primary);
+  color: var(--el-color-primary);
+  background: var(--el-fill-color-light);
+}
+
+/* 缩略图管理极简弹窗 */
 .thumbnail-manage-container {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
+
 .thumbnail-manage-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 16px;
-  background: #f4f6f8;
-  border-radius: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
 }
-.toolbar-tip {
+
+.toolbar-stats {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.toolbar-count {
   font-size: 13px;
-  color: #606266;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
 }
-.toolbar-tip b {
-  color: #409eff;
+
+.toolbar-subtip {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
+
 .toolbar-actions {
   display: flex;
-  gap: 10px;
+  gap: 8px;
 }
+
 .thumbnail-card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 16px;
+  gap: 14px;
   max-height: 520px;
   overflow-y: auto;
-  padding: 4px;
+  padding: 4px 2px;
 }
+
 .thumbnail-edit-card {
   position: relative;
-  background: #fff;
-  border: 1px solid #e4e7ed;
+  background: var(--el-bg-color);
+  border: 1px solid var(--el-border-color-lighter);
   border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: all 0.15s ease;
+  display: flex;
+  flex-direction: column;
 }
+
 .thumbnail-edit-card:hover {
-  border-color: #409eff;
-  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
+  border-color: var(--el-border-color);
+  box-shadow: var(--el-box-shadow-light);
 }
+
 .thumbnail-edit-card.is-primary {
-  border-color: #409eff;
-  border-width: 2px;
+  border-color: var(--el-color-primary);
+  box-shadow: 0 0 0 1px var(--el-color-primary-light-5);
 }
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  background: var(--el-fill-color-light);
+}
+
+.badge-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--el-color-primary);
+  background: var(--el-color-primary-light-9);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.badge-seq {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  color: var(--el-text-color-placeholder);
+  padding: 1px 4px;
+  font-weight: 500;
+}
+
+.card-del-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--el-text-color-placeholder);
+  padding: 3px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background 0.15s;
+}
+
+.card-del-btn:hover {
+  color: var(--el-color-danger);
+  background: var(--el-color-danger-light-9);
+}
+
 .card-img-wrap {
   position: relative;
   width: 100%;
-  height: 140px;
-  background: #f8f9fa;
+  height: 120px;
+  background: var(--el-fill-color-blank);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  padding: 8px;
 }
+
 .card-img {
-  width: 100%;
-  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
   object-fit: contain;
-}
-.card-badges {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  display: flex;
-  gap: 4px;
-  z-index: 2;
-}
-.badge-primary {
-  background: #e6a23c;
-  color: #fff;
-  font-size: 11px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-weight: 600;
-}
-.badge-seq {
-  background: rgba(0, 0, 0, 0.55);
-  color: #fff;
-  font-size: 11px;
-  padding: 2px 6px;
   border-radius: 4px;
 }
+
 .card-overlay {
   position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(2px);
   color: #fff;
   display: flex;
   align-items: center;
@@ -3321,25 +3438,52 @@ function closeImagePreview() {
   gap: 6px;
   font-size: 12px;
   opacity: 0;
-  transition: opacity 0.2s;
+  transition: opacity 0.15s;
 }
+
 .card-img-wrap:hover .card-overlay {
   opacity: 1;
 }
+
 .card-body {
-  padding: 10px 12px;
+  padding: 10px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  background: var(--el-bg-color);
+  flex: 1;
 }
-.card-input-label {
-  font-size: 12px;
-  color: #909399;
-}
+
 .card-actions {
   display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 4px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+  min-height: 24px;
+}
+
+.order-actions {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.order-actions .el-button {
+  padding: 2px 4px;
+  color: var(--el-text-color-placeholder);
+}
+
+.order-actions .el-button:hover {
+  color: var(--el-color-primary);
+}
+
+.action-set-primary {
+  font-size: 12px;
+  padding: 0;
+}
+
+.primary-label {
+  font-size: 11px;
+  color: var(--el-color-primary);
+  font-weight: 500;
 }
 </style>
