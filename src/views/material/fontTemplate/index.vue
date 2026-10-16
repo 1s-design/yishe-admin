@@ -74,6 +74,7 @@
                 </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
+                    <el-dropdown-item command="multi-card">✨ 批量生成多规格缩略图 (大写/小写/符号/排版)</el-dropdown-item>
                     <el-dropdown-item command="thumbnail-only">{{ t('fontTemplate.thumbnailOnly') }}</el-dropdown-item>
                     <el-dropdown-item command="thumbnail-skip-existing">{{ t('fontTemplate.thumbnailSkipExisting') }}</el-dropdown-item>
                     <el-dropdown-item command="thumbnail-ai">
@@ -703,29 +704,32 @@
               </div>
             </div>
             <div class="preview-content compact">
-              <!-- 预览区域 - 自适应高度 -->
+              <!-- 预览区域 - 自适应高度与大字号清晰展示 -->
               <div
                 v-if="currentRow.url"
                 class="preview-image compact single-preview"
                 :style="{
-                  width: '800px',
-                  minHeight: '400px',
-                  padding: '24px',
+                  width: '960px',
+                  minHeight: '520px',
+                  padding: '36px 48px',
                   color: thumbnailForm.options.textColor,
-                  fontSize: Math.min(thumbnailForm.options.fontSize, 80) + 'px',
+                  fontSize: (thumbnailForm.options.fontSize || 100) + 'px',
                   backgroundColor: 'white',
-                  border: '1px dashed #d9d9d9',
-                  borderRadius: '8px',
+                  border: '2px dashed #d9d9d9',
+                  borderRadius: '12px',
                   whiteSpace: 'pre-wrap',
-                  lineHeight: '1',
+                  lineHeight: '1.25',
+                  letterSpacing: '0.04em',
                   fontFamily: loadedFontFamily || 'inherit',
                   display: 'flex',
                   flexDirection: 'column',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+                  position: 'relative',
+                  boxSizing: 'border-box',
                 }"
               >
-                <!-- 状态信息区域 -->
-                <div style="margin-bottom: 8px; font-size: 10px; color: #909399; flex-shrink: 0">
+                <!-- 状态信息与字体名称区域 -->
+                <div style="margin-bottom: 12px; font-size: 13px; color: #909399; flex-shrink: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
                   <i class="el-icon-info"></i>
                   <span v-if="fontLoading">
                     <el-icon class="is-loading" style="margin-right: 4px">
@@ -734,10 +738,10 @@
                     {{ t('fontTemplate.fontPreviewLoading') }}
                   </span>
                   <span v-else-if="!loadedFontFamily">{{ t('fontTemplate.fontPreviewWaiting') }}</span>
-                  <span v-else>{{ t('fontTemplate.currentFont', { name: currentRow.name }) }}</span>
+                  <span v-else>当前使用字体: {{ currentRow.name }} <template v-if="currentSpecimenStageLabel">· {{ currentSpecimenStageLabel }}</template></span>
                 </div>
 
-                <!-- 文字内容区域 -->
+                <!-- 文字内容区域 - 大字居中 -->
                 <div
                   class="preview-text-content"
                   :style="{
@@ -749,6 +753,7 @@
                     textAlign: 'center',
                     wordBreak: 'break-word',
                     wordWrap: 'break-word',
+                    width: '100%',
                   }"
                 >
                   {{ thumbnailForm.templateText || defaultTemplates[0].content }}
@@ -867,6 +872,13 @@
 
       <template #footer>
         <el-button @click="generateThumbnailDialogVisible = false">{{ t('common.cancel') }}</el-button>
+        <el-button
+          type="success"
+          :loading="multiGenerateLoading"
+          @click="submitGenerateMultiThumbnails"
+        >
+          ✨ 交互生成多规格缩略图 (大写/小写/符号/排版)
+        </el-button>
         <el-button
           type="primary"
           :loading="frontendGenerateLoading"
@@ -1121,6 +1133,59 @@
         </el-table>
       </div>
     </el-dialog>
+    <!-- 前端批量交互生成多规格缩略图浮动进度面板 -->
+    <transition name="el-fade-in">
+      <div
+        v-if="batchGenerateThumbnailLoading"
+        class="batch-generate-floating-panel"
+        style="
+          position: fixed;
+          bottom: 24px;
+          right: 24px;
+          width: 380px;
+          background: var(--el-bg-color-overlay);
+          border: 1px solid var(--el-border-color);
+          box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
+          border-radius: 12px;
+          padding: 16px 20px;
+          z-index: 2999;
+          backdrop-filter: blur(8px);
+        "
+      >
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+          <div style="font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+            <el-icon class="is-loading" style="color: var(--el-color-primary)"><Loading /></el-icon>
+            前端交互生成多规格缩略图
+          </div>
+          <el-button
+            size="small"
+            type="danger"
+            link
+            @click="cancelBatchGenerateThumbnail"
+          >
+            终止任务
+          </el-button>
+        </div>
+
+        <div style="font-size: 12px; color: var(--el-text-color-regular); margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+          当前正在处理: <strong style="color: var(--el-color-primary)">{{ currentBatchProcessingName || '准备中...' }}</strong>
+        </div>
+
+        <el-progress
+          :percentage="Math.floor((batchGenerateThumbnailProgress.processed / (batchGenerateThumbnailProgress.total || 1)) * 100)"
+          :format="() => `${batchGenerateThumbnailProgress.processed}/${batchGenerateThumbnailProgress.total}`"
+          :stroke-width="8"
+          striped
+          striped-flow
+        />
+
+        <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--el-text-color-secondary); margin-top: 10px;">
+          <span>✅ 成功: {{ batchGenerateThumbnailProgress.success }}</span>
+          <span>❌ 失败: {{ batchGenerateThumbnailProgress.failed }}</span>
+          <span>⏳ 剩余: {{ Math.max(0, batchGenerateThumbnailProgress.total - batchGenerateThumbnailProgress.processed) }}</span>
+        </div>
+      </div>
+    </transition>
   </ContentWrap>
 </template>
 
@@ -1562,6 +1627,9 @@ const defaultTemplates = [
 // 生成缩略图相关
 const generateThumbnailDialogVisible = ref(false);
 const frontendGenerateLoading = ref(false);
+const multiGenerateLoading = ref(false);
+const currentSpecimenStageLabel = ref("");
+const currentBatchProcessingName = ref("");
 const thumbnailFormRef = ref();
 const selectedTemplateIndex = ref<number | null>(null);
 const thumbnailForm = ref({
@@ -1597,6 +1665,7 @@ const batchGenerateThumbnailAbortController = ref<AbortController | null>(null);
 type BatchGenerateThumbnailOptions = {
   completeWithAi?: boolean;
   skipExisting?: boolean;
+  multiCard?: boolean;
 };
 
 async function getList() {
@@ -2424,9 +2493,190 @@ function handleBatchActionCommand(command: string) {
   }
 }
 
+// 检测字符是否被当前字体支持（避免不支持中文的西文字体渲染方块）
+function checkFontSupportsChar(char: string, fontFamily: string): boolean {
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = 60;
+    canvas.height = 60;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return false;
+
+    ctx.font = "36px monospace";
+    const fallbackWidth = ctx.measureText(char).width;
+
+    ctx.font = `36px "${fontFamily}", monospace`;
+    const fontWidth = ctx.measureText(char).width;
+
+    if (Math.abs(fontWidth - fallbackWidth) > 0.5) return true;
+
+    ctx.clearRect(0, 0, 60, 60);
+    ctx.font = "36px monospace";
+    ctx.fillText(char, 10, 40);
+    const fallbackData = ctx.getImageData(0, 0, 60, 60).data;
+
+    ctx.clearRect(0, 0, 60, 60);
+    ctx.font = `36px "${fontFamily}", monospace`;
+    ctx.fillText(char, 10, 40);
+    const fontData = ctx.getImageData(0, 0, 60, 60).data;
+
+    for (let i = 0; i < fallbackData.length; i += 4) {
+      if (Math.abs(fallbackData[i] - fontData[i]) > 10) return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+// 在页面真实预览元素上执行交互式多规格样张渲染与截取
+async function runInteractiveSpecimenGenerationOnElement(
+  font: any,
+  previewElement: HTMLElement,
+  fontFamily: string,
+): Promise<Array<{ thumbnail: string; text: string }>> {
+  await document.fonts.ready;
+  if (fontFamily) {
+    previewElement.style.fontFamily = fontFamily;
+  }
+  previewElement.offsetHeight;
+
+  const isChineseSupported = checkFontSupportsChar("永", fontFamily);
+
+  const stages = [
+    {
+      label: "大写字母样张",
+      text: "大写字母 / Uppercase",
+      content: "ABCDEFGHIJKLM\nNOPQRSTUVWXYZ",
+      fontSize: 110,
+    },
+    {
+      label: "小写字母样张",
+      text: "小写字母 / Lowercase",
+      content: "abcdefghijklm\nnopqrstuvwxyz",
+      fontSize: 110,
+    },
+    {
+      label: "数字与符号样张",
+      text: "数字与符号 / Numbers & Symbols",
+      content: "0 1 2 3 4 5 6 7 8 9\n! @ # $ % & * ? + - =\n( ) [ ] { } / < > ~",
+      fontSize: 90,
+    },
+    isChineseSupported
+      ? {
+          label: "中文排版样张",
+          text: "中文排版样张",
+          content: "永和九年 岁在癸丑\n艺术设计 创意无限\n字体之美 润物无声",
+          fontSize: 88,
+        }
+      : {
+          label: "西文排版样张",
+          text: "西文排版样张 / The quick brown fox",
+          content: "The Quick Brown Fox\nJumps Over The Lazy Dog\nSphinx of Black Quartz",
+          fontSize: 80,
+        },
+  ];
+
+  if (isChineseSupported) {
+    const cn = stages.pop()!;
+    stages.unshift(cn); // 中文字体置顶中文排版
+  }
+
+  const userAccount =
+    (userStore.user as any)?.account ||
+    userStore.user?.shortName ||
+    userStore.user?.name ||
+    "anonymous";
+  const userId = (userStore.user as any)?.id || (userStore as any).userInfo?.id;
+
+  const uploadedCards: Array<{ thumbnail: string; text: string }> = [];
+
+  for (let i = 0; i < stages.length; i++) {
+    const stage = stages[i];
+    // 1. 模拟交互输入：更新页面试文字内容和字号
+    currentSpecimenStageLabel.value = stage.label;
+    thumbnailForm.value.templateText = stage.content;
+    thumbnailForm.value.options.fontSize = stage.fontSize;
+
+    // 2. 等待 Vue 响应式状态更新到 DOM
+    await nextTick();
+
+    // 3. 强制重排并等待字体在页面完全渲染上屏
+    previewElement.offsetHeight;
+    await document.fonts.ready;
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    // 4. 在页面渲染完成后，直接截取真实的渲染图片
+    const file = await htmlToPngFile(
+      previewElement,
+      `${font.name || "font"}_stage_${i}.png`
+    );
+
+    // 5. 上传 COS
+    const cos = await uploadToCOS({
+      file,
+      category: "font-template",
+      account: userAccount,
+      userId,
+      entityId: font.id,
+      isThumbnail: true,
+    });
+
+    uploadedCards.push({
+      thumbnail: cos.url,
+      text: stage.text,
+    });
+  }
+
+  return uploadedCards;
+}
+
+// 单字体交互式生成多规格缩略图
+async function submitGenerateMultiThumbnails() {
+  if (!currentRow.value?.id) {
+    ElMessage.warning("请先选择字体");
+    return;
+  }
+  const previewElement = document.querySelector(".single-preview") as HTMLElement;
+  if (!previewElement) {
+    ElMessage.error(t('fontTemplate.previewElementNotFound'));
+    return;
+  }
+
+  multiGenerateLoading.value = true;
+  try {
+    const cards = await runInteractiveSpecimenGenerationOnElement(
+      currentRow.value,
+      previewElement,
+      loadedFontFamily.value
+    );
+
+    await fontTemplateApi.updateFontTemplate({
+      id: currentRow.value.id,
+      thumbnails: cards,
+    });
+
+    ElMessage.success(`成功交互生成 ${cards.length} 张多规格缩略图！`);
+    generateThumbnailDialogVisible.value = false;
+    currentSpecimenStageLabel.value = "";
+    getList();
+  } catch (err: any) {
+    console.error("交互生成多规格缩略图失败:", err);
+    ElMessage.error(`生成失败: ${err.message || err}`);
+  } finally {
+    multiGenerateLoading.value = false;
+    currentSpecimenStageLabel.value = "";
+  }
+}
+
 function handleBatchGenerateThumbnailCommand(command: string) {
+  if (command === "multi-card") {
+    void handleBatchGenerateThumbnail({ multiCard: true });
+    return;
+  }
+
   if (command === "thumbnail-ai") {
-    void handleBatchGenerateThumbnail({ completeWithAi: true });
+    void handleBatchGenerateThumbnail({ completeWithAi: true, multiCard: true });
     return;
   }
 
@@ -2436,29 +2686,47 @@ function handleBatchGenerateThumbnailCommand(command: string) {
   }
 
   if (command === "thumbnail-skip-existing") {
-    void handleBatchGenerateThumbnail({ completeWithAi: false, skipExisting: true });
+    void handleBatchGenerateThumbnail({ completeWithAi: false, skipExisting: true, multiCard: true });
     return;
   }
 
-  void handleBatchGenerateThumbnail({ completeWithAi: false });
+  void handleBatchGenerateThumbnail({ completeWithAi: false, multiCard: true });
 }
 
-// 批量生成缩略图
+// 批量交互生成缩略图（在页面中逐一真实渲染上屏后捕获）
 async function handleBatchGenerateThumbnail(options: BatchGenerateThumbnailOptions = {}) {
   const completeWithAi = options.completeWithAi === true;
   const skipExisting = options.skipExisting === true;
-  // 获取要处理的字体列表：选中的或者全部没有缩略图的
-  let fontsToProcess = [];
+
+  let fontsToProcess: any[] = [];
   if (ids.value.length > 0) {
-    // 使用选中的，根据 skipExisting 过滤
     fontsToProcess = dataSource.value.filter((item) => {
       if (!ids.value.includes(item.id)) return false;
       if (skipExisting && item.thumbnail) return false;
       return true;
     });
   } else {
-    // 使用当前列表中没有缩略图的
-    fontsToProcess = dataSource.value.filter((item) => !item.thumbnail);
+    try {
+      await ElMessageBox.confirm(
+        "检测到未勾选具体项，是否从全库拉取缺少缩略图的字体进行批量交互生成？\n（将逐一在页面渲染大写、小写、符号、排版等多张大字样张并截取生成）",
+        "批量生成提示",
+        {
+          confirmButtonText: "确认开始",
+          cancelButtonText: "取消",
+          type: "info",
+        }
+      );
+    } catch {
+      return;
+    }
+
+    ElMessage.info("正在获取缺少缩略图的字体列表...");
+    const res = await fontTemplateApi.getFontTemplatePage({
+      needThumbnail: true,
+      pageSize: 50,
+      currentPage: 1,
+    });
+    fontsToProcess = res?.list || [];
   }
 
   if (fontsToProcess.length === 0) {
@@ -2466,18 +2734,6 @@ async function handleBatchGenerateThumbnail(options: BatchGenerateThumbnailOptio
     return;
   }
 
-  // 确认操作
-  try {
-    await ElMessageBox.confirm(
-      t('fontTemplate.batchGenerateConfirm', { count: fontsToProcess.length, aiSuffix: completeWithAi ? t('fontTemplate.batchGenerateConfirmAiSuffix') : '' }),
-      completeWithAi ? t('fontTemplate.batchGenerateWithAiTitle') : t('fontTemplate.batchGenerateTitle'),
-      { type: "warning" },
-    );
-  } catch {
-    return; // 用户取消
-  }
-
-  // 开始批量处理
   batchGenerateThumbnailLoading.value = true;
   batchGenerateThumbnailProgress.value = {
     total: fontsToProcess.length,
@@ -2487,111 +2743,69 @@ async function handleBatchGenerateThumbnail(options: BatchGenerateThumbnailOptio
   };
   batchGenerateThumbnailAbortController.value = new AbortController();
 
-  const templateText = defaultTemplates[0].content; // 使用默认模板文字
+  // 打开弹窗以展现页面交互渲染过程
+  generateThumbnailDialogVisible.value = true;
 
   for (let i = 0; i < fontsToProcess.length; i++) {
-    // 检查是否被取消
     if (batchGenerateThumbnailAbortController.value?.signal.aborted) {
       ElMessage.warning(t('fontTemplate.batchGenerateCancelled'));
       break;
     }
 
     const font = fontsToProcess[i];
-    console.log(`\n--- 批量生成 ${i + 1}/${fontsToProcess.length} ---`);
-    console.log(`处理: ${font.name || font.id}`);
+    currentBatchProcessingName.value = font.name || font.id;
+    console.log(`\n--- 交互渲染生成 ${i + 1}/${fontsToProcess.length}: ${currentBatchProcessingName.value} ---`);
 
     try {
-      // 1. 打开生成缩略图弹窗（这会设置 currentRow 并加载字体）
-      handleGenerateThumbnail(font);
+      // 1. 设置当前行并触发真实字体加载
+      currentRow.value = font;
+      await loadFontForPreview();
 
-      // 2. 等待弹窗打开和字体加载完成
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      // 3. 检查弹窗是否打开
-      if (!generateThumbnailDialogVisible.value) {
-        throw new Error("弹窗未打开");
-      }
-
-      // 4. 找到预览元素并生成图片
+      // 2. 找到弹窗中的页面预览元素
       const previewElement = document.querySelector(".single-preview") as HTMLElement;
       if (!previewElement) {
-        throw new Error("找不到预览元素");
+        throw new Error("找不到页面预览元素");
       }
 
-      // 5. 确保字体应用到预览元素
-      if (loadedFontFamily.value) {
-        previewElement.style.fontFamily = loadedFontFamily.value;
-        await new Promise((resolve) => setTimeout(resolve, 500));
-      }
+      // 3. 在页面元素上依次真实渲染大写、小写、符号、排版并截取
+      const cards = await runInteractiveSpecimenGenerationOnElement(
+        font,
+        previewElement,
+        loadedFontFamily.value
+      );
 
-      // 6. 生成 PNG 文件
-      const file = await htmlToPngFile(previewElement, `${font.name || "font"}_thumbnail.png`);
-
-      // 7. 上传到 COS
-      const userAccount =
-        (userStore.user as any)?.account ||
-        userStore.user?.shortName ||
-        userStore.user?.name ||
-        "anonymous";
-      const userId = (userStore.user as any)?.id || (userStore as any).userInfo?.id;
-      const cos = await uploadToCOS({
-        file,
-        category: "font-template",
-        account: userAccount,
-        userId,
-        entityId: font.id,
-        isThumbnail: true,
-      });
-      const { url } = cos;
-
-      // 8. 更新数据库（追加到缩略图数组，并保存试文字文案）
-      const currentText = thumbnailForm.value?.templateText || font.templateText || defaultTemplates[0]?.content || '';
+      // 4. 回写数据库
       await fontTemplateApi.updateFontTemplate({
         id: font.id,
-        thumbnails: [...rowThumbItems(font), { thumbnail: url, text: currentText }],
+        thumbnails: cards,
       });
 
-      // 9. 关闭弹窗
-      generateThumbnailDialogVisible.value = false;
-
       if (completeWithAi) {
-        await fontTemplateApi.aiCompleteContent(font.id).catch((error) => {
-          console.warn(`AI补全失败 ${font.name || font.id}:`, error);
-        });
+        await fontTemplateApi.aiCompleteContent(font.id).catch(() => {});
       }
 
       batchGenerateThumbnailProgress.value.success++;
-      console.log(`  [OK] ${font.name || font.id}`);
+      console.log(`  [OK] ${font.name || font.id} 成功交互生成 ${cards.length} 张缩略图`);
     } catch (error: any) {
       batchGenerateThumbnailProgress.value.failed++;
-      console.error(`  [FAIL] ${font.name || font.id}:`, error.message);
-      // 确保弹窗关闭
-      generateThumbnailDialogVisible.value = false;
+      console.error(`  [FAIL] ${font.name || font.id}:`, error.message || error);
     }
 
     batchGenerateThumbnailProgress.value.processed++;
-
-    // 延迟一下，避免太快
-    if (i < fontsToProcess.length - 1) {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-    }
+    await new Promise((resolve) => setTimeout(resolve, 200));
   }
 
-  // 完成
+  // 完成后关闭弹窗并提示
+  generateThumbnailDialogVisible.value = false;
+  currentSpecimenStageLabel.value = "";
   batchGenerateThumbnailLoading.value = false;
+  currentBatchProcessingName.value = "";
   batchGenerateThumbnailAbortController.value = null;
 
   const { success, failed, total } = batchGenerateThumbnailProgress.value;
   ElMessage.success(
-    t('fontTemplate.batchGenerateComplete', {
-      action: completeWithAi ? t('fontTemplate.batchGenerateWithAi') : t('fontTemplate.batchGenerate'),
-      success,
-      failed,
-      total,
-    }),
+    `批量生成完成: 成功 ${success} 款，失败 ${failed} 款 (共 ${total} 款)`
   );
-
-  // 刷新列表
   getList();
 }
 
