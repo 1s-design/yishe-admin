@@ -74,7 +74,7 @@
                 </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item command="multi-card">✨ 批量生成多规格缩略图 (大写/小写/符号/排版)</el-dropdown-item>
+                    <el-dropdown-item command="multi-card">✨ 批量生成 3 张规格样张 (英文/符号/中文 推荐)</el-dropdown-item>
                     <el-dropdown-item command="thumbnail-only">{{ t('fontTemplate.thumbnailOnly') }}</el-dropdown-item>
                     <el-dropdown-item command="thumbnail-skip-existing">{{ t('fontTemplate.thumbnailSkipExisting') }}</el-dropdown-item>
                     <el-dropdown-item command="thumbnail-ai">
@@ -877,7 +877,7 @@
           :loading="multiGenerateLoading"
           @click="submitGenerateMultiThumbnails"
         >
-          ✨ 交互生成多规格缩略图 (大写/小写/符号/排版)
+          ✨ 交互生成 3 张规格样张 (英文/符号/中文)
         </el-button>
         <el-button
           type="primary"
@@ -2543,44 +2543,28 @@ async function runInteractiveSpecimenGenerationOnElement(
 
   const isChineseSupported = checkFontSupportsChar("永", fontFamily);
 
-  const stages = [
-    {
-      label: "大写字母样张",
-      text: "大写字母 / Uppercase",
-      content: "ABCDEFGHIJKLM\nNOPQRSTUVWXYZ",
-      fontSize: 110,
-    },
-    {
-      label: "小写字母样张",
-      text: "小写字母 / Lowercase",
-      content: "abcdefghijklm\nnopqrstuvwxyz",
-      fontSize: 110,
-    },
-    {
-      label: "数字与符号样张",
-      text: "数字与符号 / Numbers & Symbols",
-      content: "0 1 2 3 4 5 6 7 8 9\n! @ # $ % & * ? + - =\n( ) [ ] { } / < > ~",
-      fontSize: 90,
-    },
-    isChineseSupported
-      ? {
-          label: "中文排版样张",
-          text: "中文排版样张",
-          content: "永和九年 岁在癸丑\n艺术设计 创意无限\n字体之美 润物无声",
-          fontSize: 88,
-        }
-      : {
-          label: "西文排版样张",
-          text: "西文排版样张 / The quick brown fox",
-          content: "The Quick Brown Fox\nJumps Over The Lazy Dog\nSphinx of Black Quartz",
-          fontSize: 80,
-        },
-  ];
+  const cardEn = {
+    label: "英文样张",
+    text: "英文",
+    content: "The Quick Brown Fox Jumps\nABCDEFGHIJKLMNOPQRSTUVWXYZ\nabcdefghijklmnopqrstuvwxyz",
+    fontSize: 78,
+  };
 
-  if (isChineseSupported) {
-    const cn = stages.pop()!;
-    stages.unshift(cn); // 中文字体置顶中文排版
-  }
+  const cardSym = {
+    label: "符号样张",
+    text: "符号",
+    content: "0 1 2 3 4 5 6 7 8 9\n! @ # $ % & * ? + - = / ~\n( ) [ ] { } < > : ; ' \"",
+    fontSize: 84,
+  };
+
+  const cardZh = {
+    label: "中文样张",
+    text: "中文",
+    content: "永和九年 岁在癸丑\n艺术设计 创意无限\n字体之美 润物无声",
+    fontSize: 92,
+  };
+
+  const stages = isChineseSupported ? [cardZh, cardEn, cardSym] : [cardEn, cardZh, cardSym];
 
   const userAccount =
     (userStore.user as any)?.account ||
