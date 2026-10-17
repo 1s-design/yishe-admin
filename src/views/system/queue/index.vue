@@ -340,6 +340,15 @@
                     </el-tooltip>
                   </template>
 
+                  <template #uploaderDefaultSlot="{ row }">
+                    <div class="queue-creator-cell">
+                      <el-tag v-if="getQueueCreatorText(row)" size="small" effect="plain" type="info">
+                        {{ getQueueCreatorText(row) }}
+                      </el-tag>
+                      <span v-else class="text-secondary">-</span>
+                    </div>
+                  </template>
+
                   <template #createdAtDefaultSlot="{ row }">
                     <el-tooltip :content="formatQueueFullTime(row.createdAt)" placement="top">
                       <span class="queue-time-cell">{{ formatQueueDateTime(row.createdAt) }}</span>
@@ -1184,6 +1193,14 @@ const gridOptions = ref({
       width: 116,
       slots: {
         default: "conclusionDefaultSlot",
+      },
+    },
+    {
+      title: t('common.creator') || "创建人",
+      field: "uploader",
+      width: 130,
+      slots: {
+        default: "uploaderDefaultSlot",
       },
     },
     {
@@ -2113,6 +2130,15 @@ function formatQueueFullTime(value?: string | null): string {
   return ts === null ? "-" : new Date(ts).toLocaleString();
 }
 
+function getQueueCreatorText(row?: QueueMessage | null): string {
+  const name = row?.uploader?.name;
+  const account = row?.uploader?.account;
+  if (name && account && name !== account) {
+    return `${name} (${account})`;
+  }
+  return name || account || (row?.userId ? `UID:${row.userId}` : "");
+}
+
 function getExecutionStatusInfo(row: QueueMessage): ExecutionStatusInfo {
   const indicator = resolveTaskExecutionReadinessIndicator(row);
   return {
@@ -2755,6 +2781,11 @@ function syncAutoDispatchTargetSelection() {
       item.profileId === normalizeDispatchProfileId(autoDispatchTargetProfileId.value),
   );
   if (matched?.selectable) {
+    return;
+  }
+
+  // 严禁后台静默篡改：如果用户已配置过目标客户端与环境，无论列表是否刷新均保持原值
+  if (autoDispatchTargetClientId.value) {
     return;
   }
 
@@ -3640,31 +3671,43 @@ function resolveClientConcreteDispatchProfileOptions(client: any): DispatchProfi
     ),
   ) as string[];
 
-  return orderedProfileIds.map((profileId) => {
-    const profile = profileMap.get(profileId) || instanceMap.get(profileId) || null;
-    const instance = instanceMap.get(profileId) || null;
-    const busy = instance?.busy === true;
-    const connected = instance?.connected === true || instance?.hasInstance === true;
-    const pageCount = typeof instance?.pageCount === "number" ? Number(instance.pageCount) : null;
-    let description = t('queue.specifiedEnvNotOpen');
-    if (busy) {
-      description = instance?.currentTaskId
-        ? t('queue.currentlyExecutingTask', { id: instance.currentTaskId })
-        : t('queue.envExecutingTask');
-    } else if (connected) {
-      description = pageCount !== null ? t('queue.browserOpenPages', { count: pageCount }) : t('queue.browserOpened');
-    }
+  return orderedProfileIds
+    .map((profileId) => {
+      const profile = profileMap.get(profileId) || instanceMap.get(profileId) || null;
+      const instance = instanceMap.get(profileId) || null;
+      const busy = instance?.busy === true;
+      const connected = instance?.connected === true || instance?.hasInstance === true;
+      const pageCount = typeof instance?.pageCount === "number" ? Number(instance.pageCount) : null;
+      let description = t('queue.specifiedEnvNotOpen');
+      if (busy) {
+        description = instance?.currentTaskId
+          ? t('queue.currentlyExecutingTask', { id: instance.currentTaskId })
+          : t('queue.envExecutingTask');
+      } else if (connected) {
+        description = pageCount !== null ? t('queue.browserOpenPages', { count: pageCount }) : t('queue.browserOpened');
+      }
 
-    return {
-      profileId,
-      label: formatDispatchProfileLabel(profileId, profile),
-      description,
-      enabled: !busy,
-      connected,
-      busy,
-      runtimeModeTag: getDispatchProfileRuntimeModeTag(instance),
-    } satisfies DispatchProfileOption;
-  });
+      const profileName = String(profile?.name || profile?.title || "").trim();
+      const isPureCollect = profileName.includes("素材采集") || profileName.includes("采集");
+
+      return {
+        profileId,
+        label: formatDispatchProfileLabel(profileId, profile),
+        description: isPureCollect ? "【素材采集专用环境，不可用于商品发布】" : description,
+        enabled: !busy && !isPureCollect,
+        connected,
+        busy,
+        runtimeModeTag: getDispatchProfileRuntimeModeTag(instance),
+      } satisfies DispatchProfileOption;
+    })
+    .sort((a, b) => {
+      const aCollect = a.label.includes("素材采集") || a.description.includes("素材采集");
+      const bCollect = b.label.includes("素材采集") || b.description.includes("素材采集");
+      if (aCollect !== bCollect) {
+        return aCollect ? 1 : -1;
+      }
+      return 0;
+    });
 }
 
 async function handleStopPublishTask(row: QueueMessage) {

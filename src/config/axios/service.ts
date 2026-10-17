@@ -23,6 +23,9 @@ const legacyOwnershipExcludedKeywords = [
   "/refresh-token",
   "/page",
   "/list",
+  "/stats",
+  "/summary",
+  "/count",
   "/delete",
   "/remove",
 ];

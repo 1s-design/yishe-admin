@@ -223,6 +223,14 @@
                   </el-icon>
                 </div>
               </template>
+              <template #creatorSlot="{ row }">
+                <div class="creator-cell">
+                  <el-tag v-if="resolvePsdSetCreator(row)" size="small" effect="plain" type="info">
+                    {{ resolvePsdSetCreator(row) }}
+                  </el-tag>
+                  <span v-else class="text-secondary">-</span>
+                </div>
+              </template>
               <template #stickersCountSlot="{ row }">
                 <div class="flex items-center gap-2">
                   <el-tag :type="getStickersCount(row) > 1 ? 'success' : 'info'" size="small" effect="plain"
@@ -238,6 +246,22 @@
                   <el-tag :type="statusTagType(getPsdSetDisplayStatus(row))" effect="plain" size="small">
                     {{ statusLabel(getPsdSetDisplayStatus(row)) }}
                   </el-tag>
+                </div>
+              </template>
+              <template #statusMessageSlot="{ row }">
+                <div class="flex items-center justify-between gap-1.5 w-full overflow-hidden">
+                  <span class="truncate flex-1" :title="resolvePsdSetStatusMessage(row)">
+                    {{ resolvePsdSetStatusMessage(row) }}
+                  </span>
+                  <el-button
+                    v-if="row.meta?.productionLogs?.length"
+                    link
+                    size="small"
+                    class="text-xs px-1 text-[var(--el-text-color-secondary)] hover:text-[var(--el-color-primary)] flex-shrink-0"
+                    @click.stop="handleViewProductionLogs(row)"
+                  >
+                    日志
+                  </el-button>
                 </div>
               </template>
               <template #imagesSlot="{ row }">
@@ -265,6 +289,7 @@
                   <template #dropdown>
                     <el-dropdown-menu class="operation-menu-compact">
                       <el-dropdown-item @click="() => handleViewDetail(row)">{{ t('psdSet.viewDetail') }}</el-dropdown-item>
+                      <el-dropdown-item @click="() => handleViewProductionLogs(row)">制作日志</el-dropdown-item>
                       <el-dropdown-item @click="() => handleEditConfigDirectly(row)">{{ t('psdSet.editConfig') }}</el-dropdown-item>
                       <el-dropdown-item
                         divided
@@ -360,9 +385,11 @@
               </div>
               <div class="psd-set-detail-summary__item">
                 <span class="info-label">{{ t('common.status') }}</span>
+                      <span class="info-value">
                 <el-tag :type="statusTagType(getPsdSetDisplayStatus(detailData))" size="small" effect="plain">
                   {{ statusLabel(getPsdSetDisplayStatus(detailData)) }}
                 </el-tag>
+                </span>
               </div>
               <div class="psd-set-detail-summary__item">
                 <span class="info-label">{{ t('psdSet.uploader') }}</span>
@@ -411,7 +438,18 @@
                 <div class="info-value">{{ detailData.keywords || "-" }}</div>
               </div>
               <div class="psd-set-detail-text-card">
-                <div class="info-label">{{ t('psdSet.statusDescription') }}</div>
+                <div class="info-label flex items-center justify-between">
+                  <span>{{ t('psdSet.statusDescription') }}</span>
+                  <el-button
+                    v-if="detailData?.meta?.productionLogs?.length"
+                    link
+                    size="small"
+                    class="text-xs p-0 text-[var(--el-text-color-secondary)] hover:text-[var(--el-color-primary)]"
+                    @click="handleViewProductionLogs(detailData)"
+                  >
+                    查看日志
+                  </el-button>
+                </div>
                 <div class="info-value">{{ resolvePsdSetStatusMessage(detailData) }}</div>
               </div>
             </div>
@@ -1147,6 +1185,49 @@
       </div>
     </el-dialog>
 
+    <!-- 套图制作日志对话框 -->
+    <el-dialog
+      v-model="productionLogDialogVisible"
+      title="制作日志"
+      width="540px"
+      align-center
+      destroy-on-close
+    >
+      <div v-loading="productionLogLoading" class="production-log-wrap">
+        <el-empty
+          v-if="!currentProductionLogs.length"
+          description="暂无制作日志"
+          :image-size="64"
+        />
+        <el-timeline v-else class="production-log-timeline">
+          <el-timeline-item
+            v-for="(item, index) in currentProductionLogs"
+            :key="index"
+            :type="item.level === 'error' ? 'danger' : item.level === 'warn' ? 'warning' : undefined"
+            :timestamp="item.time"
+            size="small"
+          >
+            <div class="log-item-content">
+              <span v-if="item.step" class="log-item-step">{{ item.step }}：</span>
+              <span class="log-item-message">{{ item.message }}</span>
+              <pre v-if="item.details" class="log-item-details">{{ item.details }}</pre>
+            </div>
+          </el-timeline-item>
+        </el-timeline>
+      </div>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button size="small" :icon="Refresh" :loading="productionLogLoading" @click="handleRefreshProductionLogs">
+            刷新
+          </el-button>
+          <el-button size="small" @click="productionLogDialogVisible = false">
+            关闭
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
+
     <el-image-viewer v-if="tableImageViewerVisible" :url-list="tableImageViewerUrls"
       :initial-index="tableImageViewerIndex" :hide-on-click-modal="false" teleported
       @switch="handleTableImageViewerSwitch" @close="handleTableImageViewerClose" />
@@ -1160,7 +1241,7 @@ import { ref, reactive, computed, onMounted, onUnmounted, watch, watchEffect } f
 import ContentWrap from "@/components/ContentWrap/src/ContentWrap.vue";
 import ListPageLayout from "@/components/ListPageLayout/index.vue";
 import { useWindowSize } from "@vueuse/core";
-import { Search, DocumentCopy, WarningFilled, CircleCheck } from "@element-plus/icons-vue";
+import { Search, DocumentCopy, WarningFilled, CircleCheck, Refresh } from "@element-plus/icons-vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { useI18n } from "@/hooks/web/useI18n";
 import { buildOperationColumn, commonGridOptions } from "@/common/table";
@@ -1241,6 +1322,44 @@ const autoDispatchFilterForm = reactive({
 const resettingPsRuntime = ref(false);
 const userAutoSchedulingLoading = ref(false);
 const psdSetSchedulerRuntime = ref<AutoDispatchSchedulerRuntime | null>(null);
+
+const productionLogDialogVisible = ref(false);
+const productionLogLoading = ref(false);
+const currentProductionLogRow = ref<any>(null);
+const currentProductionLogs = computed(() => {
+  const meta = currentProductionLogRow.value?.meta;
+  if (Array.isArray(meta?.productionLogs)) {
+    return meta.productionLogs;
+  }
+  return [];
+});
+
+async function handleViewProductionLogs(row: any) {
+  currentProductionLogRow.value = row;
+  productionLogDialogVisible.value = true;
+  await handleRefreshProductionLogs();
+}
+
+async function handleRefreshProductionLogs() {
+  if (!currentProductionLogRow.value?.id) return;
+  productionLogLoading.value = true;
+  try {
+    const res = await stickerPsdSetApi.findOne(currentProductionLogRow.value.id);
+    if (res?.data) {
+      currentProductionLogRow.value = res.data;
+      const found = dataSource.value.find((item: any) => item.id === res.data.id);
+      if (found) {
+        found.meta = res.data.meta;
+        found.status = res.data.status;
+        found.statusMessage = res.data.statusMessage;
+      }
+    }
+  } catch (err) {
+    console.warn("[psd-set] 刷新套图制作日志失败:", err);
+  } finally {
+    productionLogLoading.value = false;
+  }
+}
 const generateProductDialogVisible = ref(false);
 const generateProductDialogLoading = ref(false);
 const generateProductSubmitting = ref(false);
@@ -1642,7 +1761,7 @@ const publishTasksGridOptions = computed(() => ({
   rowConfig: { isHover: true, keyField: "id" },
   columnConfig: { resizable: true },
   columns: [
-    { field: "id", title: t("psdSet.taskId"), minWidth: 240, showOverflow: true },
+    { field: "id", title: t("psdSet.taskId"), minWidth: 280, showOverflow: true },
     { field: "platform", title: t("psdSet.platform"), width: 120, slots: { default: "taskPlatformSlot" } },
     {
       field: "uploader",
@@ -2240,6 +2359,15 @@ const detailMetaFormatted = computed(() => {
   }
 });
 
+function resolvePsdSetCreator(row: any) {
+  const name = row?.uploader?.name || row?.userName;
+  const account = row?.uploader?.account || row?.userAccount;
+  if (name && account && name !== account) {
+    return `${name} (${account})`;
+  }
+  return name || account || (row?.userId ? `UID:${row.userId}` : "");
+}
+
 function getColumns() {
   const baseColumns = [
     { type: "checkbox", width: 50, fixed: "left" as const },
@@ -2252,7 +2380,7 @@ function getColumns() {
       field: "statusMessage",
       width: 280,
       showOverflow: true,
-      formatter: ({ row }) => resolvePsdSetStatusMessage(row),
+      slots: { default: "statusMessageSlot" },
     },
     { title: t("psdSet.configInfo"), field: "config", width: 150, slots: { default: "configSlot" } },
     {
@@ -2264,9 +2392,15 @@ function getColumns() {
     {
       title: "ID",
       field: "id",
-      width: 120,
+      width: 160,
       showOverflow: false,
       slots: { default: "idSlot" },
+    },
+    {
+      title: t("common.creator") || "创建人",
+      field: "uploader",
+      width: 130,
+      slots: { default: "creatorSlot" },
     },
     {
       title: t("common.createTime"),
@@ -4742,6 +4876,21 @@ const productionStatusHandler = (data: {
       incomingStatus === "processing" ? t("psdSet.making") : data.message,
     );
 
+    const targetRow = findPsdSetRowById(normalizedPsdSetId);
+    if (targetRow && Array.isArray((data as any)?.logs)) {
+      if (!targetRow.meta) targetRow.meta = {};
+      targetRow.meta.productionLogs = (data as any).logs;
+    }
+    if (
+      productionLogDialogVisible.value &&
+      currentProductionLogRow.value?.id === normalizedPsdSetId
+    ) {
+      if (Array.isArray((data as any)?.logs)) {
+        if (!currentProductionLogRow.value.meta) currentProductionLogRow.value.meta = {};
+        currentProductionLogRow.value.meta.productionLogs = (data as any).logs;
+      }
+    }
+
     if (incomingStatus === "processing" && !findPsdSetRowById(normalizedPsdSetId)) {
       dataSource.value.unshift({
         id: normalizedPsdSetId,
@@ -6700,5 +6849,43 @@ getList();
   font-size: 12px;
   color: var(--el-text-color-secondary);
   text-decoration: line-through;
+}
+
+.production-log-wrap {
+  max-height: 440px;
+  overflow-y: auto;
+  padding: 8px 12px 0 4px;
+}
+
+.production-log-timeline {
+  padding-left: 2px;
+  margin-bottom: 0;
+}
+
+.log-item-content {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--el-text-color-primary);
+}
+
+.log-item-step {
+  font-weight: 500;
+  color: var(--el-text-color-regular);
+}
+
+.log-item-message {
+  color: var(--el-text-color-primary);
+}
+
+.log-item-details {
+  margin: 4px 0 0;
+  padding: 6px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-all;
+  background-color: var(--el-fill-color-light);
+  border-radius: var(--el-border-radius-base);
+  color: var(--el-text-color-secondary);
 }
 </style>
