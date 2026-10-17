@@ -340,6 +340,40 @@
                     </el-tooltip>
                   </template>
 
+                  <template #titleStatusDefaultSlot="{ row }">
+                    <el-tooltip
+                      v-if="isPublishTaskRow(row)"
+                      :content="getTitleStatusInfo(row).reason"
+                      placement="top"
+                    >
+                      <span
+                        class="queue-status-pill"
+                        :class="`queue-status-pill--${getTitleStatusInfo(row).type}`"
+                      >
+                        <i class="queue-status-pill__dot"></i>
+                        {{ getTitleStatusInfo(row).text }}
+                      </span>
+                    </el-tooltip>
+                    <span v-else class="text-secondary">-</span>
+                  </template>
+
+                  <template #psdSetStatusDefaultSlot="{ row }">
+                    <el-tooltip
+                      v-if="isPublishTaskRow(row)"
+                      :content="getPsdSetStatusInfo(row).reason"
+                      placement="top"
+                    >
+                      <span
+                        class="queue-status-pill"
+                        :class="`queue-status-pill--${getPsdSetStatusInfo(row).type}`"
+                      >
+                        <i class="queue-status-pill__dot"></i>
+                        {{ getPsdSetStatusInfo(row).text }}
+                      </span>
+                    </el-tooltip>
+                    <span v-else class="text-secondary">-</span>
+                  </template>
+
                   <template #uploaderDefaultSlot="{ row }">
                     <div class="queue-creator-cell">
                       <el-tag v-if="getQueueCreatorText(row)" size="small" effect="plain" type="info">
@@ -1188,15 +1222,33 @@ const gridOptions = ref({
       },
     },
     {
+      title: t('queue.psdSetStatus'),
+      field: "psdSetStatus",
+      width: 118,
+      showOverflow: true,
+      slots: {
+        default: "psdSetStatusDefaultSlot",
+      },
+    },
+    {
+      title: t('queue.titleStatus'),
+      field: "titleStatus",
+      width: 118,
+      showOverflow: true,
+      slots: {
+        default: "titleStatusDefaultSlot",
+      },
+    },
+    {
       title: t('queue.status'),
       field: "status",
-      width: 116,
+      width: 118,
       slots: {
         default: "conclusionDefaultSlot",
       },
     },
     {
-      title: t('common.creator') || "创建人",
+      title: t('queue.creator'),
       field: "uploader",
       width: 130,
       slots: {
@@ -2068,6 +2120,118 @@ function getQueueConclusion(row: QueueMessage): QueueConclusion {
     return { key: "pending-ready", text: t('queue.pendingReady'), type: "warning", reason: readinessReason, running: false };
   }
   return { key: "pending-blocked", text: t('queue.blockedPending'), type: "info", reason: readinessReason, running: false };
+}
+
+function getPublishMeta(row?: QueueMessage | null) {
+  const metadata = (row?.metadata as any) || {};
+  const dataMeta = ((row?.data as any)?.meta) || {};
+  // metadata 与 data.meta 都可能带状态字段，合并取值避免只看一边丢字段
+  return {
+    ...dataMeta,
+    ...metadata,
+    titleStatus: metadata.titleStatus || dataMeta.titleStatus || "",
+    stage: metadata.stage || dataMeta.stage || "",
+    psdSetId: metadata.psdSetId || dataMeta.psdSetId || "",
+    psdSetName: metadata.psdSetName || dataMeta.psdSetName || "",
+    psdSetStatus: metadata.psdSetStatus || dataMeta.psdSetStatus || "",
+  };
+}
+
+/** 标题状态：pending / generating / generated / fixed / failed / default */
+function getTitleStatusInfo(row: QueueMessage) {
+  const meta = getPublishMeta(row);
+  const raw = String(meta.titleStatus || "").trim().toLowerCase();
+  const map: Record<string, { text: string; type: QueueTagType; reason: string }> = {
+    pending: {
+      text: t('queue.titlePending'),
+      type: "info",
+      reason: t('queue.titlePendingReason'),
+    },
+    generating: {
+      text: t('queue.titleGenerating'),
+      type: "warning",
+      reason: t('queue.titleGeneratingReason'),
+    },
+    generated: {
+      text: t('queue.titleGenerated'),
+      type: "success",
+      reason: t('queue.titleGeneratedReason'),
+    },
+    fixed: {
+      text: t('queue.titleFixed'),
+      type: "success",
+      reason: t('queue.titleFixedReason'),
+    },
+    failed: {
+      text: t('queue.titleFailed'),
+      type: "danger",
+      reason: t('queue.titleFailedReason'),
+    },
+    default: {
+      text: t('queue.titleDefault'),
+      type: "info",
+      reason: t('queue.titleDefaultReason'),
+    },
+  };
+  // 发布任务始终展示标题状态，缺省显示「待生成」
+  return map[raw] || {
+    text: raw || t('queue.titlePending'),
+    type: (raw ? "info" : "info") as QueueTagType,
+    reason: raw || t('queue.titlePendingReason'),
+  };
+}
+
+/** 套图状态：pending / processing / completed / failed，或 awaiting-psd-set */
+function getPsdSetStatusInfo(row: QueueMessage) {
+  const meta = getPublishMeta(row);
+  const stage = String(meta.stage || "").trim().toLowerCase();
+  const raw = String(meta.psdSetStatus || "").trim().toLowerCase();
+  if (stage === "awaiting-psd-set" && (!raw || raw === "pending" || raw === "processing")) {
+    return {
+      text: t('queue.psdSetAwaiting'),
+      type: "warning" as QueueTagType,
+      reason: t('queue.psdSetAwaitingReason'),
+    };
+  }
+  const map: Record<string, { text: string; type: QueueTagType; reason: string }> = {
+    pending: {
+      text: t('queue.psdSetPending'),
+      type: "info",
+      reason: t('queue.psdSetPendingReason'),
+    },
+    processing: {
+      text: t('queue.psdSetProcessing'),
+      type: "warning",
+      reason: t('queue.psdSetProcessingReason'),
+    },
+    completed: {
+      text: t('queue.psdSetCompleted'),
+      type: "success",
+      reason: t('queue.psdSetCompletedReason'),
+    },
+    failed: {
+      text: t('queue.psdSetFailed'),
+      type: "danger",
+      reason: t('queue.psdSetFailedReason'),
+    },
+    // 预创建但套图状态未回传时的兜底
+    awaiting: {
+      text: t('queue.psdSetAwaiting'),
+      type: "warning",
+      reason: t('queue.psdSetAwaitingReason'),
+    },
+  };
+  if (raw && map[raw]) {
+    return map[raw];
+  }
+  // 发布任务始终展示套图状态
+  return {
+    text: raw || t('queue.psdSetAwaiting'),
+    type: "warning" as QueueTagType,
+    reason: meta.psdSetName
+      ? `${meta.psdSetName}${raw ? `: ${raw}` : ""}`
+      : raw || t('queue.psdSetAwaitingReason'),
+  };
 }
 
 /** 平台短标签：publish-product-doudian -> 抖店 */
@@ -4765,11 +4929,12 @@ onUnmounted(() => {
   word-break: break-word;
 }
 
-/* ── 列表：结论态徽章（圆点 + 文字，取代原来的四列状态） ── */
+/* ── 列表：状态胶囊（结论 / 套图 / 标题 统一圆角样式） ── */
+.queue-page :deep(.queue-status-pill),
 .queue-page :deep(.queue-conclusion) {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   height: 22px;
   padding: 0 10px;
   border-radius: 11px;
@@ -4777,9 +4942,9 @@ onUnmounted(() => {
   font-weight: 500;
   line-height: 1;
   white-space: nowrap;
-  background: color-mix(in srgb, currentColor 10%, transparent);
 }
 
+.queue-page :deep(.queue-status-pill__dot),
 .queue-page :deep(.queue-conclusion__dot) {
   width: 6px;
   height: 6px;
@@ -4787,6 +4952,36 @@ onUnmounted(() => {
   background: currentColor;
   flex: none;
   opacity: 0.85;
+}
+
+.queue-page :deep(.queue-status-pill) {
+  background: var(--el-fill-color-light);
+  color: var(--el-text-color-regular);
+}
+
+.queue-page :deep(.queue-status-pill--success) {
+  color: var(--el-color-success);
+  background: color-mix(in srgb, var(--el-color-success) 12%, transparent);
+}
+
+.queue-page :deep(.queue-status-pill--warning) {
+  color: var(--el-color-warning);
+  background: color-mix(in srgb, var(--el-color-warning) 12%, transparent);
+}
+
+.queue-page :deep(.queue-status-pill--danger) {
+  color: var(--el-color-danger);
+  background: color-mix(in srgb, var(--el-color-danger) 12%, transparent);
+}
+
+.queue-page :deep(.queue-status-pill--info),
+.queue-page :deep(.queue-status-pill--primary) {
+  color: var(--el-color-info);
+  background: var(--el-fill-color-light);
+}
+
+.queue-page :deep(.queue-conclusion) {
+  background: color-mix(in srgb, currentColor 10%, transparent);
 }
 
 .queue-page :deep(.queue-conclusion--completed) {
