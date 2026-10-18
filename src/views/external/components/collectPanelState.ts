@@ -10,7 +10,8 @@ export interface CollectPanelState {
   hasNext: boolean
   hasSearched: boolean
   lastParams: Record<string, any>
-  lastMode: 'search' | 'list'
+  /** 上次使用的方法 key（源自己声明的方法，如 search/popular/random） */
+  lastMethod: string
 }
 
 const cache = new Map<string, CollectPanelState>()

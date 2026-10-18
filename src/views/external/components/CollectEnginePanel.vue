@@ -14,9 +14,23 @@
       <span class="unavailable-reason">{{ sourceMeta?.unavailableReason || '该采集源当前不可用' }}</span>
     </div>
 
-    <!-- 搜索表单（由源 meta.searchParams 动态渲染，label 在输入框上方） -->
+    <!-- 采集方法切换：方法清单由源自己声明（meta.methods），不同源方法各不相同 -->
+    <div v-if="methodOptions.length > 1" class="mode-switch">
+      <span class="mode-switch__label">采集方式</span>
+      <el-radio-group v-model="activeMethod" size="small" @change="handleMethodChange">
+        <el-radio-button
+          v-for="m in methodOptions"
+          :key="m.key"
+          :value="m.key"
+        >
+          {{ m.label }}
+        </el-radio-button>
+      </el-radio-group>
+    </div>
+
+    <!-- 当前采集方式的参数表单（由该方式的 meta 动态渲染，label 在输入框上方） -->
     <div class="engine-toolbar">
-      <div v-for="field in searchParams" :key="field.key" class="field-group">
+      <div v-for="field in currentFields" :key="field.key" class="field-group">
         <span class="field-label">{{ field.label }}</span>
         <el-input
           v-if="field.type === 'text'"
@@ -26,7 +40,7 @@
           clearable
           size="small"
           :disabled="!selectedClientId"
-          @keyup.enter="handleSearch"
+          @keyup.enter="handleAction"
         />
         <el-select
           v-else-if="field.type === 'select'"
@@ -65,18 +79,9 @@
         size="small"
         :loading="searchLoading"
         :disabled="!selectedClientId || isUnavailable"
-        @click="handleSearch"
+        @click="handleAction"
       >
-        搜索
-      </el-button>
-      <el-button
-        v-if="hasListAction"
-        size="small"
-        :loading="searchLoading"
-        :disabled="!selectedClientId || isUnavailable"
-        @click="handleList"
-      >
-        最新列表
+        {{ actionLabel }}
       </el-button>
       <el-button
         v-if="sourceMeta?.website"
@@ -197,8 +202,8 @@
       <span>搜索中...</span>
     </div>
 
-    <!-- 分页（与其他采集功能一致） -->
-    <div v-if="items.length > 0" class="pagination">
+    <!-- 分页（仅当前采集方式支持分页时展示） -->
+    <div v-if="items.length > 0 && supportsPagination" class="pagination">
       <el-pagination
         v-model:current-page="currentPage"
         :page-size="pageSize"
@@ -224,6 +229,7 @@ import { saveCollectPanelState, loadCollectPanelState, saveSourceMetas, loadSour
 import {
   createCollectTask,
   listCollectSources,
+  type CollectMethodDef,
   type CollectSourceMeta,
   type CollectSearchParam
 } from '@/api/external/collect'
@@ -269,8 +275,49 @@ const searchParams = computed<CollectSearchParam[]>(() => {
 })
 const formModel = reactive<Record<string, any>>({})
 
+/** 源自己声明的采集方法（write 类如 download 不作为方式 tab） */
+const methodOptions = computed<CollectMethodDef[]>(() =>
+  // aliasOf：同一能力的别名入口（如热搜源的 search/list 都是拉热榜），
+  // 不作为独立 tab，但 MCP/agent 仍可按该 key 调用
+  (sourceMeta.value?.methods || []).filter((d) => d && d.key && !d.write && !d.aliasOf)
+)
+
+/** 当前方法 key（空则由 methodOptions 校正） */
+const activeMethod = ref<string>('')
+const activeMethodDef = computed(
+  () => methodOptions.value.find((d) => d.key === activeMethod.value) || methodOptions.value[0]
+)
+const actionLabel = computed(() => activeMethodDef.value?.label || '开始采集')
+
+/** 当前方法要渲染的参数：page 由分页组件托管，presetParams 隐藏 */
+const currentFields = computed<CollectSearchParam[]>(() => {
+  const presetKeys = new Set(Object.keys(props.presetParams || {}))
+  // meta 未加载时用关键词兜底，避免首屏空白
+  const base = methodOptions.value.length
+    ? activeMethodDef.value?.params || []
+    : searchParams.value
+  return base.filter((f) => f.key !== 'page' && !presetKeys.has(f.key))
+})
+
+/** 所有方法的字段并集（仅用于初始化表单值，切换方法不丢输入） */
+const allFields = computed<CollectSearchParam[]>(() => {
+  const seen = new Set<string>()
+  const out: CollectSearchParam[] = []
+  for (const d of sourceMeta.value?.methods || []) {
+    for (const f of d.params || []) {
+      if (seen.has(f.key)) continue
+      seen.add(f.key)
+      out.push(f)
+    }
+  }
+  return out.length ? out : searchParams.value
+})
+
+/** 是否显示分页：由方法自己声明 paginated */
+const supportsPagination = computed(() => activeMethodDef.value?.paginated !== false)
+
 function initFormModel() {
-  for (const f of searchParams.value) {
+  for (const f of allFields.value) {
     formModel[f.key] = f.default !== undefined ? f.default : f.type === 'number' ? null : ''
   }
 }
@@ -288,7 +335,7 @@ const lastSyncResult = ref('')
 const currentPage = ref(1)
 const pageSize = computed(() => Number(formModel.pageSize) || 20)
 const hasNext = ref(false)
-const lastMode = ref<'search' | 'list'>('search')
+const lastMethod = ref<string>('search')
 const lastParams = ref<Record<string, any>>({})
 const estimatedTotal = computed(() => {
   const base = (currentPage.value - 1) * pageSize.value + items.value.length
@@ -315,8 +362,9 @@ function itemKey(item: Record<string, any>, index: number): string {
 const metaOutput = computed(() => sourceMeta.value?.output || [])
 const metaActions = computed(() => sourceMeta.value?.actions || [])
 const isUnavailable = computed(() => sourceMeta.value?.available === false)
-const hasDownload = computed(() => metaActions.value.includes('download'))
-const hasListAction = computed(() => metaActions.value.includes('list'))
+const hasDownload = computed(
+  () => metaActions.value.includes('download') || (sourceMeta.value?.methods || []).some((d) => d.write)
+)
 const hasOpenPage = computed(() => metaActions.value.includes('openPage'))
 
 /** 缩略图字段：output 里第一个 image 类型字段；无声明则不显示缩略图列 */
@@ -392,7 +440,7 @@ function toggleSelectAll(checked: any) {
 
 // ─── 任务执行（REST → 服务端派发指定客户端）────────────────
 async function runTask(
-  action: 'search' | 'list' | 'download',
+  action: string,
   params: Record<string, any>
 ) {
   const res: any = await createCollectTask({
@@ -406,7 +454,7 @@ async function runTask(
 
 function collectFormParams(): Record<string, any> {
   const out: Record<string, any> = {}
-  for (const f of searchParams.value) {
+  for (const f of currentFields.value) {
     const v = formModel[f.key]
     if (v !== undefined && v !== null && v !== '') out[f.key] = v
   }
@@ -414,7 +462,7 @@ function collectFormParams(): Record<string, any> {
 }
 
 function validateForm(): boolean {
-  for (const f of searchParams.value) {
+  for (const f of currentFields.value) {
     if (f.required && (formModel[f.key] === undefined || formModel[f.key] === null || formModel[f.key] === '')) {
       ElMessage.warning(`请输入${f.label}`)
       return false
@@ -430,23 +478,15 @@ function openSourceWebsite() {
   }
 }
 
-async function handleSearch() {
+/** 执行当前采集方式 */
+async function handleAction() {
   if (!selectedClientId.value) {
     ElMessage.warning('请先选择客户端节点')
     return
   }
   if (!validateForm()) return
   currentPage.value = 1
-  await runSearch({ ...collectFormParams(), page: 1 })
-}
-
-async function handleList() {
-  if (!selectedClientId.value) {
-    ElMessage.warning('请先选择客户端节点')
-    return
-  }
-  currentPage.value = 1
-  await runSearch({ ...collectFormParams(), page: 1 }, true)
+  await runSearch({ ...collectFormParams(), page: 1 }, activeMethodDef.value?.key || 'search')
 }
 
 async function handlePageChange(page: number) {
@@ -454,17 +494,17 @@ async function handlePageChange(page: number) {
     ElMessage.warning('请先选择客户端节点')
     return
   }
-  await runSearch({ ...lastParams.value, page })
+  await runSearch({ ...lastParams.value, page }, lastMethod.value)
 }
 
-async function runSearch(params: Record<string, any>, isList = false) {
-  lastMode.value = isList ? 'list' : 'search'
+async function runSearch(params: Record<string, any>, methodKey = 'search') {
+  lastMethod.value = methodKey
   lastParams.value = { ...params }
   searchLoading.value = true
   selectedItems.value = []
   lastSyncResult.value = ''
   try {
-    const task = await runTask(isList ? 'list' : 'search', params)
+    const task = await runTask(methodKey, params)
     if (task?.status === 'failed') {
       items.value = []
       hasNext.value = false
@@ -597,7 +637,7 @@ function saveState() {
     hasNext: hasNext.value,
     hasSearched: hasSearched.value,
     lastParams: { ...lastParams.value },
-    lastMode: lastMode.value,
+    lastMethod: lastMethod.value,
   })
 }
 
@@ -610,7 +650,9 @@ function restoreState(): boolean {
   hasNext.value = !!cached.hasNext
   hasSearched.value = !!cached.hasSearched
   lastParams.value = { ...(cached.lastParams || {}) }
-  lastMode.value = cached.lastMode || 'search'
+  lastMethod.value = cached.lastMethod || 'search'
+  // 恢复上次使用的方法（不存在时由 methodOptions 校正）
+  activeMethod.value = cached.lastMethod || ''
   return true
 }
 
@@ -654,6 +696,29 @@ watch(
 // 表单变化同步缓存（无需提交即保留）
 watch(formModel, () => saveState(), { deep: true })
 
+// 采集方式就绪/变化时校正选中项（list-only 源默认落到榜单浏览）
+watch(
+  methodOptions,
+  (opts) => {
+    if (!opts.length) return
+    if (!opts.some((m) => m.key === activeMethod.value)) {
+      activeMethod.value = (opts.find((m) => m.default) || opts[0]).key
+    }
+  },
+  { immediate: true },
+)
+
+// 切换采集方法：清空上一方法的结果与翻页态
+function handleMethodChange() {
+  items.value = []
+  selectedItems.value = []
+  currentPage.value = 1
+  hasNext.value = false
+  hasSearched.value = false
+  lastSyncResult.value = ''
+  saveState()
+}
+
 onMounted(() => {
   refreshClientNodes()
   initForSource()
@@ -690,6 +755,18 @@ onMounted(() => {
   align-items: flex-end;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+/* 采集方式切换：多方式源先选方式，再渲染该方式的参数 */
+.mode-switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mode-switch__label {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 
 /* 每个搜索参数一组：label 在上、输入框在下 */

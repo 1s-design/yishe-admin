@@ -33,6 +33,14 @@
                   </el-select>
                 </el-form-item>
               </el-col>
+              <el-col class="list-page-search-form__col--narrow" :xs="24" :sm="12" :md="8" :lg="5" :xl="4">
+                <el-form-item label="来源">
+                  <el-select v-model="queryParams.source" size="small" clearable placeholder="全部" @change="load(1)">
+                    <el-option label="AI 自建" value="ai" />
+                    <el-option label="手动创建" value="manual" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
             </el-row>
             <div class="list-page-search-form__actions">
               <el-button size="small" type="primary" :icon="Search" :loading="loading" @click="load(1)">搜索</el-button>
@@ -53,6 +61,18 @@
                     <span class="task-title">{{ row.title }}</span>
                     <span class="task-instructions">{{ row.instructions }}</span>
                   </div>
+                </template>
+
+                <template #sourceSlot="{ row }">
+                  <div class="task-source-cell">
+                    <el-tag v-if="isAiCreated(row)" type="warning" size="small" effect="plain">AI 自建</el-tag>
+                    <el-tag v-else size="small" effect="plain" type="info">手动</el-tag>
+                    <span v-if="agentNameOf(row)" class="task-source-agent">{{ agentNameOf(row) }}</span>
+                  </div>
+                </template>
+
+                <template #userSlot="{ row }">
+                  <span class="task-time">{{ row.userId != null ? `用户 ${row.userId}` : '—' }}</span>
                 </template>
 
                 <template #triggerSlot="{ row }">
@@ -344,6 +364,7 @@ const queryParams = reactive({
   keyword: '',
   isEnabled: undefined as boolean | undefined,
   triggerType: '',
+  source: '' as '' | 'ai' | 'manual',
 });
 
 const gridOptions = computed(() => ({
@@ -351,6 +372,8 @@ const gridOptions = computed(() => ({
   rowConfig: { keyField: 'id' },
   columns: [
     { title: '任务 / 执行指令', field: 'title', minWidth: 240, slots: { default: 'titleSlot' } },
+    { title: '来源', field: 'source', width: 130, align: 'center', slots: { default: 'sourceSlot' } },
+    { title: '用户', field: 'userId', width: 110, slots: { default: 'userSlot' } },
     { title: '时间规则', field: 'triggerType', minWidth: 150, slots: { default: 'triggerSlot' } },
     { title: '状态', field: 'isEnabled', width: 90, align: 'center', slots: { default: 'statusSlot' } },
     { title: '下次执行', field: 'nextRunAt', width: 150, slots: { default: 'nextSlot' } },
@@ -369,6 +392,18 @@ function formatTime(v?: string | null) {
   } catch {
     return '—';
   }
+}
+
+function isAiCreated(row: any) {
+  const tags = (row?.tags || []) as string[];
+  return tags.includes('self-wake') || row?.source === 'ai' || !!row?.agentDefinitionId || !!(row as any)?.payloadConfig?.agentDefinitionId;
+}
+
+function agentNameOf(row: any) {
+  const id = String(row?.agentDefinitionId || (row as any)?.payloadConfig?.agentDefinitionId || '').trim();
+  if (!id) return '';
+  const hit = (agentOptions.value || []).find((a: any) => String(a.id) === id);
+  return hit?.name || id.slice(0, 8);
 }
 
 function execTagType(s: string) {
@@ -396,6 +431,7 @@ async function load(p = 1) {
       keyword: queryParams.keyword || undefined,
       isEnabled: queryParams.isEnabled,
       triggerType: queryParams.triggerType || undefined,
+      source: queryParams.source || undefined,
     });
     const result: any = data;
     list.value = result?.items || result?.list || [];
@@ -731,6 +767,22 @@ onMounted(() => {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+}
+
+.task-source-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+
+  .task-source-agent {
+    font-size: 11px;
+    color: var(--el-text-color-secondary);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 
