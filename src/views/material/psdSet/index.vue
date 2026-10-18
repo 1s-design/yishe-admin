@@ -3888,40 +3888,96 @@ async function handleSaveConfigDialog() {
   }
 }
 
-function handleDelete(row) {
-  ElMessageBox.confirm(t("psdSet.confirmDeletePsdSet"), t("psdSet.deleteConfirm"), {
-    confirmButtonText: t("common.delete"),
-    cancelButtonText: t("common.cancel"),
-    type: "warning",
-  })
-    .then(async () => {
+async function handleDelete(row) {
+  try {
+    const check: any = await stickerPsdSetApi.deleteCheck([row.id]);
+    const impact = check?.data ?? check;
+    const activeCount = Number(impact?.activeCount || 0);
+    const finishedCount = Number(impact?.finishedCount || 0);
+
+    if (activeCount > 0) {
+      const taskLines = (impact?.items?.[0]?.tasks || [])
+        .filter((t: any) => t.active)
+        .slice(0, 8)
+        .map((t: any) => `· ${t.description || t.id}（${t.status}）`)
+        .join("\n");
+      await ElMessageBox.confirm(
+        `该套图关联 ${activeCount} 个未执行的发布任务，删除套图会导致任务悬空。\n\n${taskLines}\n\n选择「取消任务并删除」将同时取消这些发布任务。`,
+        t("psdSet.deleteConfirm"),
+        {
+          confirmButtonText: "取消任务并删除",
+          cancelButtonText: t("common.cancel"),
+          type: "warning",
+          customStyle: { whiteSpace: "pre-line" },
+        },
+      );
+      await stickerPsdSetApi.remove(row.id, { force: true });
+    } else {
+      const extra = finishedCount > 0 ? `\n（另有 ${finishedCount} 个已完成关联，不受影响）` : "";
+      await ElMessageBox.confirm(
+        `${t("psdSet.confirmDeletePsdSet")}${extra}`,
+        t("psdSet.deleteConfirm"),
+        {
+          confirmButtonText: t("common.delete"),
+          cancelButtonText: t("common.cancel"),
+          type: "warning",
+          customStyle: { whiteSpace: "pre-line" },
+        },
+      );
       await stickerPsdSetApi.remove(row.id);
-      ElMessage.success(t("psdSet.deleteSuccess"));
-      selectedIds.value = selectedIds.value.filter((id) => id !== row.id);
-      selectedPsdSetRows.value = selectedPsdSetRows.value.filter((r) => r.id !== row.id);
-      getList();
-    })
-    .catch(() => { });
+    }
+    ElMessage.success(t("psdSet.deleteSuccess"));
+    selectedIds.value = selectedIds.value.filter((id) => id !== row.id);
+    selectedPsdSetRows.value = selectedPsdSetRows.value.filter((r) => r.id !== row.id);
+    getList();
+  } catch (e: any) {
+    if (e === "cancel" || e === "close") return;
+    ElMessage.error(e?.message || t("psdSet.deleteFailed"));
+  }
 }
 
-function handleBatchDelete() {
+async function handleBatchDelete() {
   if (!selectedIds.value.length) {
     return ElMessage.warning(t("psdSet.selectAtLeastOne"));
   }
-  ElMessageBox.confirm(t("psdSet.confirmBatchDelete", { count: selectedIds.value.length }), t("psdSet.batchDelete"), {
-    confirmButtonText: t("common.delete"),
-    cancelButtonText: t("common.cancel"),
-    type: "warning",
-  })
-    .then(async () => {
+  try {
+    const check: any = await stickerPsdSetApi.deleteCheck(selectedIds.value);
+    const impact = check?.data ?? check;
+    const activeCount = Number(impact?.activeCount || 0);
+
+    if (activeCount > 0) {
+      await ElMessageBox.confirm(
+        `所选 ${selectedIds.value.length} 个套图关联 ${activeCount} 个未执行的发布任务，删除套图会导致任务悬空。\n\n选择「取消任务并删除」将同时取消这些发布任务。`,
+        t("psdSet.batchDelete"),
+        {
+          confirmButtonText: "取消任务并删除",
+          cancelButtonText: t("common.cancel"),
+          type: "warning",
+          customStyle: { whiteSpace: "pre-line" },
+        },
+      );
+      await stickerPsdSetApi.removeBatch(selectedIds.value, { force: true });
+    } else {
+      await ElMessageBox.confirm(
+        t("psdSet.confirmBatchDelete", { count: selectedIds.value.length }),
+        t("psdSet.batchDelete"),
+        {
+          confirmButtonText: t("common.delete"),
+          cancelButtonText: t("common.cancel"),
+          type: "warning",
+        },
+      );
       await stickerPsdSetApi.removeBatch(selectedIds.value);
-      ElMessage.success(t("psdSet.batchDeleteSuccess"));
-      selectedIds.value = [];
-      selectedPsdSetRows.value = [];
-      psdSetGridRef.value?.clearCheckboxRow();
-      getList();
-    })
-    .catch(() => { });
+    }
+    ElMessage.success(t("psdSet.batchDeleteSuccess"));
+    selectedIds.value = [];
+    selectedPsdSetRows.value = [];
+    psdSetGridRef.value?.clearCheckboxRow();
+    getList();
+  } catch (e: any) {
+    if (e === "cancel" || e === "close") return;
+    ElMessage.error(e?.message || t("psdSet.batchDeleteFailed"));
+  }
 }
 
 async function handleBatchUpdateStatus(status: string) {

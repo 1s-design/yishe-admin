@@ -28,6 +28,30 @@ export interface PsdSetStatusStats {
   total: number;
 }
 
+export interface PsdSetDeleteCheckTask {
+  id: string;
+  status: string;
+  description: string;
+  queue: string;
+  active: boolean;
+}
+
+export interface PsdSetDeleteCheckItem {
+  psdSetId: string;
+  psdSetName: string;
+  tasks: PsdSetDeleteCheckTask[];
+  activeCount: number;
+  finishedCount: number;
+}
+
+export interface PsdSetDeleteCheckResult {
+  total: number;
+  items: PsdSetDeleteCheckItem[];
+  activeCount: number;
+  finishedCount: number;
+  hasActive: boolean;
+}
+
 export const stickerPsdSetApi = {
   page: (data: any) => request.post({ url: "/sticker-psd-set/page", data }),
   stats: (data: any) => request.post<PsdSetStatusStats>({ url: "/sticker-psd-set/stats", data }),
@@ -84,9 +108,21 @@ export const stickerPsdSetApi = {
     request.post({ url: `/sticker-psd-set/${id}/dispatch`, data, ownership: "skip" }),
   retry: (id: string, data?: { clientId?: string }) =>
     request.post({ url: `/sticker-psd-set/${id}/retry`, data, ownership: "skip" }),
-  remove: (id: string) => request.delete({ url: `/sticker-psd-set/${id}` }),
-  removeBatch: (ids: string[]) =>
-    request.post({ url: `/sticker-psd-set/delete-batch`, data: { ids } }),
+  deleteCheck: (ids: string[]) =>
+    request.post<PsdSetDeleteCheckResult>({
+      url: "/sticker-psd-set/delete-check",
+      data: { ids },
+    }),
+  remove: (id: string, options?: { force?: boolean }) =>
+    request.delete({
+      url: `/sticker-psd-set/${id}`,
+      params: options?.force ? { force: "true" } : undefined,
+    }),
+  removeBatch: (ids: string[], options?: { force?: boolean }) =>
+    request.post({
+      url: `/sticker-psd-set/delete-batch`,
+      data: { ids, force: options?.force === true },
+    }),
   // 根据ID查询贴纸详情
   getStickerById: (id: string) => request.get({ url: `/sticker/${id}` }),
   // 根据ID查询PSD模板详情
