@@ -131,11 +131,14 @@
           @change="toggleSelectItem(itemKey(item, index))"
         />
         <!-- 缩略图列：仅当源 output 声明了图片字段 -->
+        <!-- referrerpolicy=no-referrer：不少图床（如 assets.stickpng.com）按 Referer 防盗链，
+             浏览器从管理端（localhost:1521）加载会被 403，去掉 Referer 即可正常显示 -->
         <div v-if="thumbField" class="item-thumb" @click="openImagePreview(item)">
           <el-image
             :src="getField(item, thumbField)"
             fit="cover"
             loading="lazy"
+            referrerpolicy="no-referrer"
             class="thumb-img"
           >
             <template #error>
@@ -602,11 +605,23 @@ function openPage(item: Record<string, any>) {
 }
 
 function openImagePreview(item: Record<string, any>) {
+  // 优先取原图字段（output 里 download 标记的那个），其次缩略图
+  const fullResKey = metaOutput.value.find((o) => o.type === 'image' && o.download)?.key || ''
   const url =
-    (thumbField.value && getField(item, thumbField.value)) ||
+    (fullResKey && getField(item, fullResKey)) ||
     getField(item, 'image') ||
+    (thumbField.value && getField(item, thumbField.value)) ||
     getField(item, 'thumbnail')
-  if (url) window.open(url, '_blank')
+  if (!url) return
+  // 用 rel=noreferrer 的临时 <a> 打开：window.open 会带 localhost Referer，
+  // 被图床防盗链挡成 403；去掉 Referer 才能正常预览
+  const a = document.createElement('a')
+  a.href = url
+  a.target = '_blank'
+  a.rel = 'noreferrer'
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
 }
 
 async function loadSourceMeta() {
