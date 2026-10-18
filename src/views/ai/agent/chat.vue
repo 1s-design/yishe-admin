@@ -251,8 +251,8 @@
                   </button>
                 </div>
 
-                <!-- 4. 人机协作确认卡 (Human-in-the-loop) -->
-                <div v-if="item.interact" class="interaction-card-wrap">
+                <!-- 4. 人机协作确认卡：仅在真正挂起时展示 -->
+                <div v-if="item.interact && isWaiting" class="interaction-card-wrap">
                   <InteractionRenderer
                     :payload="item.interact"
                     :loading="opLoading"
@@ -1664,6 +1664,16 @@ async function onInteractSubmit(payload: any) {
   if (!currentTask.value) return
   opLoading.value = true
   try {
+    // 任务已不在挂起态：反馈转为追加消息，避免 500
+    if (!isWaiting.value) {
+      const text = String(
+        payload?.input?.value ?? payload?.input?.answer ?? payload?.reason ?? ''
+      ).trim() || JSON.stringify(payload?.input || {})
+      const res: any = await AgentAdminApi.sendMessage(currentTask.value.id, text)
+      currentTask.value = (res?.data ?? res) as AgentTask
+      startPolling()
+      return
+    }
     if (payload?.confirmed) {
       const res: any = await AgentAdminApi.approveTask(currentTask.value.id)
       currentTask.value = (res?.data ?? res) as AgentTask
@@ -1684,6 +1694,7 @@ async function onInteractSubmit(payload: any) {
 
 async function onInteractReject() {
   if (!currentTask.value) return
+  if (!isWaiting.value) return
   opLoading.value = true
   try {
     const res: any = await AgentAdminApi.declineTask(currentTask.value.id)
@@ -2005,7 +2016,7 @@ onBeforeUnmount(() => {
   --c-text-primary: var(--el-text-color-primary, #0f172a);
   --c-text-secondary: var(--el-text-color-secondary, #64748b);
   --c-text-placeholder: var(--el-text-color-placeholder, #94a3b8);
-  --c-primary: var(--el-color-primary, #2563eb);
+  --c-primary: var(--el-color-primary, var(--el-color-primary));
 }
 
 /* ════ 顶栏 ════ */
@@ -2068,7 +2079,7 @@ onBeforeUnmount(() => {
       position: absolute;
       inset: -3px;
       border-radius: 50%;
-      border: 2px solid rgb(254, 54, 102);
+      border: 2px solid var(--el-color-danger);
       pointer-events: none;
       animation: agent-duty-heartbeat 1.4s ease-in-out infinite;
     }
@@ -2078,7 +2089,7 @@ onBeforeUnmount(() => {
       position: absolute;
       inset: -3px;
       border-radius: 50%;
-      border: 2px solid rgb(254, 54, 102);
+      border: 2px solid var(--el-color-danger);
       opacity: 0;
       pointer-events: none;
       animation: agent-duty-heart-ring 1.4s ease-in-out infinite;
@@ -2103,7 +2114,7 @@ onBeforeUnmount(() => {
   }
 
   &.agent-gradient {
-    color: #fff;
+    color: var(--el-color-white);
     isolation: isolate;
   }
 }
@@ -2212,13 +2223,13 @@ onBeforeUnmount(() => {
   }
 
   &--running {
-    background: rgba(16, 185, 129, 0.12);
-    color: #10b981;
+    background: var(--el-color-success-light-9);
+    color: var(--el-color-success);
   }
 
   &--waiting {
-    background: rgba(245, 158, 11, 0.12);
-    color: #f59e0b;
+    background: var(--el-color-warning-light-9);
+    color: var(--el-color-warning);
   }
 }
 
@@ -2273,12 +2284,12 @@ onBeforeUnmount(() => {
   }
 
   &--danger {
-    background: rgba(239, 68, 68, 0.08);
-    color: #ef4444;
+    background: var(--el-color-danger-light-9);
+    color: var(--el-color-danger);
 
     &:hover {
-      background: rgba(239, 68, 68, 0.15);
-      color: #ef4444;
+      background: var(--el-color-danger-light-9);
+      color: var(--el-color-danger);
     }
   }
 
@@ -2293,21 +2304,21 @@ onBeforeUnmount(() => {
     }
 
     &.is-on {
-      background: rgba(16, 185, 129, 0.1);
-      color: #059669;
+      background: var(--el-color-success-light-9);
+      color: var(--el-color-success);
 
       .work-dot {
-        background: #10b981;
-        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
+        background: var(--el-color-success);
+        box-shadow: 0 0 0 3px var(--el-color-success-light-9);
         animation: duty-pulse 1.6s ease-in-out infinite;
       }
 
       &:hover {
-        background: rgba(239, 68, 68, 0.1);
-        color: #ef4444;
+        background: var(--el-color-danger-light-9);
+        color: var(--el-color-danger);
 
         .work-dot {
-          background: #ef4444;
+          background: var(--el-color-danger);
           box-shadow: none;
           animation: none;
         }
@@ -2459,7 +2470,7 @@ onBeforeUnmount(() => {
 
 .welcome-duty-hint {
   font-size: 12px;
-  color: var(--c-primary, #2563eb);
+  color: var(--c-primary, var(--el-color-primary));
   margin: -12px 0 20px;
   animation: chat-boot-pulse 1.4s ease-in-out infinite;
 }
@@ -2544,13 +2555,13 @@ onBeforeUnmount(() => {
   }
 
   &--warn {
-    background: rgba(245, 158, 11, 0.1);
-    color: #b45309;
+    background: var(--el-color-warning-light-9);
+    color: var(--el-color-warning);
   }
 
   &--success {
-    background: rgba(16, 185, 129, 0.1);
-    color: #047857;
+    background: var(--el-color-success-light-9);
+    color: var(--el-color-success);
   }
 }
 
@@ -2714,7 +2725,7 @@ onBeforeUnmount(() => {
   &__error {
     margin-top: 4px;
     font-size: 11px;
-    color: #ef4444;
+    color: var(--el-color-danger);
   }
 }
 
@@ -2769,25 +2780,25 @@ onBeforeUnmount(() => {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: #10b981;
+    background: var(--el-color-success);
   }
 
   &--error &__status-dot {
-    background: #ef4444;
+    background: var(--el-color-danger);
   }
 
   &--running &__status-dot {
-    background: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+    background: var(--el-color-primary);
+    box-shadow: 0 0 0 3px var(--el-color-primary-light-9);
     animation: pulse-dot 1.2s ease-in-out infinite;
   }
 
   &__running-tag {
     margin-left: auto;
     font-size: 10px;
-    color: #3b82f6;
-    background: rgba(59, 130, 246, 0.1);
-    border: 1px solid rgba(59, 130, 246, 0.25);
+    color: var(--el-color-primary);
+    background: var(--el-color-primary-light-9);
+    border: 1px solid var(--el-color-primary-light-9);
     padding: 1px 6px;
     border-radius: 4px;
     font-weight: 500;
@@ -2874,12 +2885,11 @@ onBeforeUnmount(() => {
 }
 
 .interaction-card-wrap {
-  margin-top: 14px;
-  border: 1px solid var(--c-border);
-  border-radius: 10px;
-  corner-shape: squircle;
-  padding: 14px;
-  background: var(--c-bg-surface);
+  margin-top: 10px;
+  border: none;
+  border-radius: 8px;
+  padding: 0;
+  background: transparent;
 }
 
 .error-banner {
@@ -2889,9 +2899,9 @@ onBeforeUnmount(() => {
   padding: 10px 14px;
   border-radius: 8px;
   corner-shape: squircle;
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.25);
-  color: #ef4444;
+  background: var(--el-color-danger-light-9);
+  border: 1px solid var(--el-color-danger-light-9);
+  color: var(--el-color-danger);
   font-size: 13px;
 }
 
@@ -3001,7 +3011,7 @@ onBeforeUnmount(() => {
 
     &.is-active {
       background: var(--c-primary);
-      color: #ffffff;
+      color: var(--el-color-white);
 
       &:hover {
         opacity: 0.9;
@@ -3010,13 +3020,13 @@ onBeforeUnmount(() => {
   }
 
   &--stop {
-    background: #000000;
-    color: #ffffff;
+    background: var(--el-color-primary);
+    color: var(--el-color-white);
 
     .stop-square {
       width: 10px;
       height: 10px;
-      background: #ffffff;
+      background: var(--el-color-white);
       border-radius: 2px;
       corner-shape: squircle;
     }
@@ -3174,24 +3184,24 @@ onBeforeUnmount(() => {
   --c-dialog-text: var(--el-text-color-primary, #0f172a);
   --c-dialog-subtext: var(--el-text-color-secondary, #64748b);
   --c-dialog-mute: var(--el-text-color-placeholder, #94a3b8);
-  --c-primary: var(--el-color-primary, #2563eb);
+  --c-primary: var(--el-color-primary, var(--el-color-primary));
 
   /* 关键：只读 (Low)、执行 (Medium)、敏感 (High) 标签色彩令牌 */
-  --c-tag-low-bg: #ecfdf5;
-  --c-tag-low-text: #059669;
-  --c-tag-low-border: #a7f3d0;
+  --c-tag-low-bg: var(--el-color-success-light-9);
+  --c-tag-low-text: var(--el-color-success);
+  --c-tag-low-border: var(--el-color-success-light-7);
 
-  --c-tag-med-bg: #eff6ff;
-  --c-tag-med-text: #2563eb;
-  --c-tag-med-border: #bfdbfe;
+  --c-tag-med-bg: var(--el-color-primary-light-9);
+  --c-tag-med-text: var(--el-color-primary);
+  --c-tag-med-border: var(--el-color-primary-light-7);
 
-  --c-tag-high-bg: #fef2f2;
-  --c-tag-high-text: #dc2626;
-  --c-tag-high-border: #fecaca;
+  --c-tag-high-bg: var(--el-color-danger-light-9);
+  --c-tag-high-text: var(--el-color-danger);
+  --c-tag-high-border: var(--el-color-danger-light-7);
 
-  --c-tag-cat-bg: #f1f5f9;
-  --c-tag-cat-text: #475569;
-  --c-tag-cat-border: #e2e8f0;
+  --c-tag-cat-bg: var(--el-fill-color-light);
+  --c-tag-cat-text: var(--el-text-color-regular);
+  --c-tag-cat-border: var(--el-border-color-lighter);
 
   background: var(--c-dialog-bg) !important;
 
@@ -3309,7 +3319,7 @@ onBeforeUnmount(() => {
 
     .is-active & {
       background: var(--c-primary);
-      color: #ffffff;
+      color: var(--el-color-white);
     }
   }
 
@@ -3350,7 +3360,7 @@ onBeforeUnmount(() => {
 
     &--primary {
       background: var(--c-primary);
-      color: #ffffff;
+      color: var(--el-color-white);
 
       &:hover { opacity: 0.9; }
       &:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -3804,7 +3814,7 @@ onBeforeUnmount(() => {
     &.is-selected {
       border-color: var(--c-primary);
       background: color-mix(in srgb, var(--c-primary) 8%, #ffffff);
-      box-shadow: 0 0 0 1px var(--c-primary), 0 2px 8px rgba(37, 99, 235, 0.08);
+      box-shadow: 0 0 0 1px var(--c-primary), 0 2px 8px var(--el-color-primary-light-9);
 
       &:hover {
         background: color-mix(in srgb, var(--c-primary) 12%, #ffffff);
@@ -3868,7 +3878,7 @@ onBeforeUnmount(() => {
     corner-shape: squircle;
     border: 1px solid rgba(148, 163, 184, 0.35);
     background: var(--c-dialog-bg);
-    color: #ffffff;
+    color: var(--el-color-white);
     font-size: 11px;
     flex-shrink: 0;
     transition: all 0.12s ease;
@@ -3936,15 +3946,15 @@ html.dark .flat-fs-dialog {
   --c-dialog-mute: #64748b;
 
   /* 暗色模式下：只读 (Low)、执行 (Medium)、敏感 (High) 标签色彩 */
-  --c-tag-low-bg: rgba(16, 185, 129, 0.16);
+  --c-tag-low-bg: var(--el-color-success-light-9);
   --c-tag-low-text: #34d399;
   --c-tag-low-border: rgba(52, 211, 153, 0.3);
 
-  --c-tag-med-bg: rgba(59, 130, 246, 0.16);
+  --c-tag-med-bg: var(--el-color-primary-light-9);
   --c-tag-med-text: #60a5fa;
   --c-tag-med-border: rgba(96, 165, 250, 0.3);
 
-  --c-tag-high-bg: rgba(239, 68, 68, 0.16);
+  --c-tag-high-bg: var(--el-color-danger-light-9);
   --c-tag-high-text: #f87171;
   --c-tag-high-border: rgba(248, 113, 113, 0.3);
 
@@ -3973,7 +3983,7 @@ html.dark .flat-fs-dialog {
 
     &.is-active {
       background: #262629;
-      color: #ffffff;
+      color: var(--el-color-white);
       border-color: rgba(255, 255, 255, 0.18);
     }
   }
@@ -3989,12 +3999,12 @@ html.dark .flat-fs-dialog {
     }
 
     &.is-selected {
-      background: color-mix(in srgb, var(--el-color-primary, #2563eb) 16%, #18181b);
-      border-color: var(--el-color-primary, #2563eb);
-      box-shadow: 0 0 0 1px var(--el-color-primary, #2563eb), 0 2px 10px rgba(0, 0, 0, 0.35);
+      background: color-mix(in srgb, var(--el-color-primary, var(--el-color-primary)) 16%, #18181b);
+      border-color: var(--el-color-primary, var(--el-color-primary));
+      box-shadow: 0 0 0 1px var(--el-color-primary, var(--el-color-primary)), 0 2px 10px rgba(0, 0, 0, 0.35);
 
       &:hover {
-        background: color-mix(in srgb, var(--el-color-primary, #2563eb) 20%, #18181b);
+        background: color-mix(in srgb, var(--el-color-primary, var(--el-color-primary)) 20%, #18181b);
       }
     }
   }
@@ -4004,8 +4014,8 @@ html.dark .flat-fs-dialog {
     border-color: rgba(255, 255, 255, 0.2);
 
     &.is-checked {
-      background: var(--el-color-primary, #2563eb);
-      border-color: var(--el-color-primary, #2563eb);
+      background: var(--el-color-primary, var(--el-color-primary));
+      border-color: var(--el-color-primary, var(--el-color-primary));
     }
   }
 
@@ -4021,8 +4031,8 @@ html.dark .flat-fs-dialog {
     color: #cbd5e1;
 
     &:hover {
-      border-color: var(--el-color-primary, #2563eb);
-      color: #ffffff;
+      border-color: var(--el-color-primary, var(--el-color-primary));
+      color: var(--el-color-white);
     }
   }
 
@@ -4039,7 +4049,7 @@ html.dark .flat-fs-dialog {
     &.is-active {
       background: #262629;
       border-color: rgba(255, 255, 255, 0.2);
-      color: #ffffff;
+      color: var(--el-color-white);
     }
   }
 }
