@@ -121,11 +121,14 @@ export async function refreshAiConfigState() {
       // featureBindings 结构：{ featureCode: { specCode: { keyId, specCode } } }
       const bindings = aiSetting.featureBindings as Record<string, Record<string, { keyId?: number; specCode?: string }>> | undefined;
       if (bindings && typeof bindings === "object" && !Array.isArray(bindings)) {
-        // 按 spec 行计数：每个 spec 行独立计算
+        // 按 spec 行计数：只认「该功能预期规格」的绑定，
+        // 避免绑错规格（如文本规格）也计成已配置、与配置页的缺口提示不一致
         for (const [featureCode, specs] of Object.entries(bindings)) {
           if (!specs || typeof specs !== "object") continue;
           if (featureCodes.size && !featureCodes.has(featureCode)) continue;
-          for (const [, binding] of Object.entries(specs)) {
+          const expectedSpecs = featureSpecCodes.get(featureCode) || [];
+          for (const [specCode, binding] of Object.entries(specs)) {
+            if (expectedSpecs.length > 0 && !expectedSpecs.includes(specCode)) continue;
             const keyId = normalizeKeyId(binding?.keyId);
             if (keyId) {
               countOne(keyId);

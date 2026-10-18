@@ -41,6 +41,8 @@ export function getAiScheduledTaskList(params: {
   keyword?: string;
   isEnabled?: boolean;
   triggerType?: string;
+  agentDefinitionId?: string;
+  source?: string;
   page?: number;
   pageSize?: number;
 }) {

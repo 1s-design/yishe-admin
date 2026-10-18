@@ -81,7 +81,12 @@
               By {{ agentStatusLabel(item) }} · {{ (item.capabilities || []).length }} 项能力
             </div>
 
-            <el-dropdown trigger="click" placement="top-end" @click.stop>
+            <el-dropdown
+              trigger="click"
+              placement="bottom-end"
+              :popper-options="{ modifiers: [{ name: 'flip', enabled: false }] }"
+              @click.stop
+            >
               <button class="agent-row__more" @click.stop>
                 <el-icon><MoreFilled /></el-icon>
               </button>

@@ -35,45 +35,57 @@
           class="topbar-btn topbar-btn--work"
           :class="{ 'is-on': isWorking }"
           :title="isWorking ? '停止后不再自动开新一轮' : '开启后将持续推进驻守目标'"
+          :aria-label="isWorking ? '关闭值守' : '开启值守'"
           @click="toggleWorking"
         >
           <span class="work-dot" />
-          <span>{{ isWorking ? '已开启 · 点此关闭' : '已关闭 · 点此开启' }}</span>
+          <span>{{ isWorking ? '开启中' : '已关闭' }}</span>
         </button>
 
-        <button class="topbar-btn" title="刷新任务状态" @click="refreshCurrent">
+        <span class="topbar-divider" />
+
+        <button class="topbar-btn topbar-btn--icon" title="刷新任务状态" aria-label="刷新" @click="refreshCurrent">
           <el-icon><Refresh /></el-icon>
-          <span>刷新</span>
-        </button>
-
-        <button
-          v-if="currentTask"
-          class="topbar-btn"
-          title="清空当前对话并重置状态"
-          @click="clearConversation"
-        >
-          <el-icon><Delete /></el-icon>
-          <span>清空对话</span>
-        </button>
-
-        <button
-          v-if="isBusy"
-          class="topbar-btn topbar-btn--danger"
-          title="中止任务执行"
-          @click="cancelCurrentTask"
-        >
-          <el-icon><CircleClose /></el-icon>
-          <span>中止执行</span>
         </button>
 
         <button
           v-if="agent"
-          class="topbar-btn topbar-btn--primary"
+          class="topbar-btn topbar-btn--icon"
+          title="定时任务（含 AI 自建循环计划）"
+          aria-label="定时任务"
+          @click="openScheduleDialog"
+        >
+          <el-icon><Timer /></el-icon>
+        </button>
+
+        <button
+          v-if="currentTask"
+          class="topbar-btn topbar-btn--icon"
+          title="清空当前对话并重置状态"
+          aria-label="清空对话"
+          @click="clearConversation"
+        >
+          <el-icon><Delete /></el-icon>
+        </button>
+
+        <button
+          v-if="isBusy"
+          class="topbar-btn topbar-btn--icon topbar-btn--danger"
+          title="中止任务执行"
+          aria-label="中止执行"
+          @click="cancelCurrentTask"
+        >
+          <el-icon><CircleClose /></el-icon>
+        </button>
+
+        <button
+          v-if="agent"
+          class="topbar-btn topbar-btn--icon"
           title="配置智能体设定与工具"
+          aria-label="配置"
           @click="openEditDialog"
         >
           <el-icon><Setting /></el-icon>
-          <span>配置</span>
         </button>
       </div>
     </header>
@@ -663,6 +675,36 @@
         </button>
       </div>
     </el-dialog>
+
+    <!-- 定时任务（含 AI 自建循环计划） -->
+    <el-dialog v-model="scheduleDialogVisible" title="定时任务" width="720px" class="sched-dialog">
+      <div class="sched-list">
+        <div v-if="scheduleLoading" class="sched-empty">加载中…</div>
+        <div v-else-if="!schedules.length" class="sched-empty">该智能体暂无定时任务</div>
+        <div v-for="s in schedules" :key="s.id" class="sched-item">
+          <div class="sched-main">
+            <div class="sched-title">
+              <el-tag v-if="isAiSched(s)" type="warning" size="small" effect="plain">AI 自建</el-tag>
+              <span>{{ s.title }}</span>
+            </div>
+            <div class="sched-meta">
+              {{ s.scheduleText || s.triggerType }} · 下次 {{ formatSchedTime(s.nextRunAt) }}
+            </div>
+            <div class="sched-instructions">{{ s.instructions }}</div>
+          </div>
+          <div class="sched-ops">
+            <el-switch
+              :model-value="s.isEnabled"
+              inline-prompt
+              active-text="启"
+              inactive-text="停"
+              @change="(v: boolean) => toggleSched(s, v)"
+            />
+            <el-button size="small" type="danger" text @click="removeSched(s)">删除</el-button>
+          </div>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -678,7 +720,8 @@ import {
   Delete,
   Refresh,
   Search,
-  Setting
+  Setting,
+  Timer
 } from '@element-plus/icons-vue'
 import MarkdownView from '@/components/MarkdownView/index.vue'
 import InteractionRenderer from '@/components/AiAssistant/interactions/InteractionRenderer.vue'
@@ -688,6 +731,12 @@ import {
   type AgentTask,
   type CapabilityItem
 } from '@/api/agent'
+import {
+  getAiScheduledTaskList,
+  enableAiScheduledTask,
+  disableAiScheduledTask,
+  deleteAiScheduledTask
+} from '@/api/aiScheduledTask'
 import { resolveAgentGradient } from './gradients'
 import './agent-gradients.css'
 
@@ -702,6 +751,67 @@ const reloadAppView = inject<() => void>('reload')
 const agent = ref<AgentDefinition | null>(null)
 const currentTask = ref<AgentTask | null>(null)
 const capabilities = ref<CapabilityItem[]>([])
+
+// ── 定时任务（含 AI 自建循环计划） ──────────────────────────
+const scheduleDialogVisible = ref(false)
+const scheduleLoading = ref(false)
+const schedules = ref<any[]>([])
+
+function isAiSched(s: any) {
+  return ((s?.tags || []) as string[]).includes('self-wake') || s?.source === 'ai';
+}
+function formatSchedTime(v?: string | null) {
+  if (!v) return '—';
+  try {
+    return new Date(v).toLocaleString('zh-CN', { hour12: false });
+  } catch {
+    return '—';
+  }
+}
+async function openScheduleDialog() {
+  scheduleDialogVisible.value = true;
+  await loadSchedules();
+}
+async function loadSchedules() {
+  if (!agent.value?.id) return;
+  scheduleLoading.value = true;
+  try {
+    const data = await getAiScheduledTaskList({
+      agentDefinitionId: String(agent.value.id),
+      pageSize: 50,
+    });
+    const result: any = data;
+    schedules.value = result?.items || result?.list || [];
+  } catch (e: any) {
+    ElMessage.error(e?.message || '加载定时任务失败');
+  } finally {
+    scheduleLoading.value = false;
+  }
+}
+async function toggleSched(s: any, v: boolean) {
+  try {
+    if (v) await enableAiScheduledTask(s.id);
+    else await disableAiScheduledTask(s.id);
+    s.isEnabled = v;
+    ElMessage.success(v ? '已启用' : '已暂停');
+  } catch (e: any) {
+    ElMessage.error(e?.message || '操作失败');
+  }
+}
+async function removeSched(s: any) {
+  try {
+    await ElMessageBox.confirm('确认删除该定时任务？删除后不再按计划执行。', '提示', {
+      type: 'warning',
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+    });
+    await deleteAiScheduledTask(s.id);
+    await loadSchedules();
+    ElMessage.success('已删除');
+  } catch {
+    /* 用户取消 */
+  }
+}
 
 const draftPrompt = ref('')
 const pageReady = ref(false)
@@ -2155,14 +2265,11 @@ onBeforeUnmount(() => {
     color: var(--c-text-primary);
   }
 
-  &--primary {
-    background: var(--c-primary);
-    color: #ffffff;
-
-    &:hover {
-      opacity: 0.9;
-      color: #ffffff;
-    }
+  &--icon {
+    width: 30px;
+    padding: 0;
+    justify-content: center;
+    font-size: 14px;
   }
 
   &--danger {
@@ -2207,6 +2314,14 @@ onBeforeUnmount(() => {
       }
     }
   }
+}
+
+.topbar-divider {
+  width: 1px;
+  height: 16px;
+  margin: 0 4px;
+  background: var(--el-border-color-lighter);
+  border-radius: 1px;
 }
 
 @keyframes duty-pulse {
@@ -2937,12 +3052,111 @@ onBeforeUnmount(() => {
     display: none;
   }
 }
+
+/* ── 定时任务弹窗 ─────────────────────────────────────── */
+.sched-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 56vh;
+  overflow: auto;
+}
+
+.sched-empty {
+  padding: 24px 0;
+  text-align: center;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+}
+
+.sched-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  corner-shape: squircle;
+}
+
+.sched-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sched-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+  font-size: 13px;
+}
+
+.sched-meta {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.sched-instructions {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.sched-ops {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
 </style>
 
 <style lang="scss">
 /* ═══════════════════════════════════════════════════════════
    全屏弹窗全局样式 (Teleport 兼容 · 黑夜/白天全兼容 · 零多余Icon)
    ═══════════════════════════════════════════════════════════ */
+
+.sched-dialog {
+  --el-dialog-padding-primary: 16px 20px;
+  border-radius: 12px;
+  corner-shape: squircle;
+  overflow: hidden;
+
+  .el-dialog__header {
+    display: flex;
+    align-items: center;
+    min-height: 52px;
+    padding: 0 20px !important;
+    margin: 0 !important;
+    border-bottom: 1px solid var(--el-border-color-lighter);
+  }
+
+  .el-dialog__title {
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  .el-dialog__headerbtn {
+    top: 0;
+    right: 8px;
+    height: 52px;
+    width: 40px;
+  }
+
+  .el-dialog__body {
+    padding: 16px 20px 20px;
+    background: var(--app-content-surface-color, var(--el-bg-color));
+  }
+}
 
 .flat-fs-dialog {
   margin: 0 !important;

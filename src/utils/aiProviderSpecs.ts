@@ -23,6 +23,7 @@ export function getDefaultAiProviderSpecForFeature(featureCode?: string | null) 
     code.includes("complete") ||
     code.includes("infringement") ||
     code.includes("story-script") ||
+    code.includes("audit-vision") ||
     code === "ai.chat.vision" ||
     code === "ai.image-analysis.execute" ||
     code === "product.product.generate-info" ||
