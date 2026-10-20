@@ -24,7 +24,12 @@
         当前还没有可用 Key。请先新增自己的 Key，或联系管理员开放公开 Key 和共享 AI 使用权限。
       </div>
 
-      <div v-loading="loading" class="ai-usage__body">
+      <div
+        v-loading="loading"
+        class="ai-usage__body"
+        element-loading-text="正在加载 AI 功能绑定…"
+        element-loading-background="rgba(255, 255, 255, 0.72)"
+      >
         <div v-for="group in featureGroups" :key="group.group" class="ai-usage__group">
           <div class="ai-usage__group-head">
             <span class="ai-usage__group-name">{{ group.group }}</span>
@@ -386,7 +391,9 @@ defineExpose({ open, reload: loadConfig });
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  overflow-x: hidden;
+  /* 用 clip 而不是 hidden：hidden 会连带把 overflow-y 变成 auto，
+     把 v-loading 的转圈一起裁掉 */
+  overflow-x: clip;
   padding-right: 16px;
   padding-bottom: 8px;
 }
@@ -445,6 +452,31 @@ defineExpose({ open, reload: loadConfig });
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
+  position: relative;
+  /* 内容很少/为空时也给 loading 留出居中空间 */
+  min-height: 280px;
+}
+
+/*
+ * v-loading 挂在整段内容高度的容器上时，转圈会居中在内容中段，
+ * 落到 ElScrollbar 可视区之外。这里把遮罩钉在弹窗视口上，保证始终可见。
+ */
+.ai-usage__body :deep(.el-loading-mask) {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 3000;
+}
+
+.ai-usage__body :deep(.el-loading-spinner) {
+  /* 弹窗本身是全屏，居中到视口正中即可 */
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.ai-usage__body :deep(.el-loading-spinner .el-loading-text) {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
 }
 
 /* ── Group ── */
