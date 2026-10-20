@@ -19,6 +19,68 @@ const { t } = useI18n();
  * meta.canTo: 即使 hidden 为 true，也允许路由跳转。
  */
 const remainingRouter: AppRouteRecordRaw[] = [
+
+  // ── 1. 工作台（置顶）────────────────────────────────────────
+  {
+    path: "/home",
+    component: Layout,
+    name: "Home",
+    redirect: "/home/index",
+    meta: {
+      title: "router.workplace",
+      icon: "lucide:layout-dashboard",
+      order: 1,
+      alwaysShow: true,
+    },
+    children: [
+      {
+        path: "index",
+        component: () => import("@/views/Home/Index.vue"),
+        name: "Index",
+        meta: {
+          title: "router.home",
+          noCache: false,
+          affix: true,
+        },
+      },
+      {
+        path: "hot-search",
+        component: () => import("@/views/Home/HotSearch.vue"),
+        name: "HotSearch",
+        meta: {
+          title: "router.hotSearch",
+        },
+      },
+      {
+        path: "tools/index",
+        component: () => import("@/views/Home/Tools/Index.vue"),
+        name: "ToolsIndex",
+        meta: {
+          title: "router.tools",
+        },
+      },
+      {
+        path: "statistics",
+        component: () => import("@/views/Home/Statistics/index.vue"),
+        name: "Statistics",
+        meta: {
+          title: "router.statistics",
+          // 本页自带 padding，关掉 AppView 的 16px，避免双重内边距
+          noAppViewPadding: true,
+        },
+      },
+      {
+        path: "vector-search",
+        component: () => import("@/views/vector-search/Index.vue"),
+        name: "VectorSearch",
+        meta: {
+          title: "router.vectorSearch",
+          menuKey: "home.vector-search",
+        },
+      },
+
+    ],
+  },
   // ── 设计工具 ─────────────────────────────────────────────────────
   {
     path: '/design-tool',
@@ -303,65 +365,6 @@ const remainingRouter: AppRouteRecordRaw[] = [
       hidden: true,
       noTagsView: true,
     },
-  },
-  // ── 1. 工作台 ──────────────────────────────────────────────────
-  {
-    path: "/home",
-    component: Layout,
-    name: "Home",
-    redirect: "/home/index",
-    meta: {
-      title: "router.workplace",
-      icon: "lucide:layout-dashboard",
-      order: 1,
-      alwaysShow: true,
-    },
-    children: [
-      {
-        path: "index",
-        component: () => import("@/views/Home/Index.vue"),
-        name: "Index",
-        meta: {
-          title: "router.home",
-          noCache: false,
-          affix: true,
-        },
-      },
-      {
-        path: "hot-search",
-        component: () => import("@/views/Home/HotSearch.vue"),
-        name: "HotSearch",
-        meta: {
-          title: "router.hotSearch",
-        },
-      },
-      {
-        path: "tools/index",
-        component: () => import("@/views/Home/Tools/Index.vue"),
-        name: "ToolsIndex",
-        meta: {
-          title: "router.tools",
-        },
-      },
-      {
-        path: "statistics",
-        component: () => import("@/views/Home/Statistics/index.vue"),
-        name: "Statistics",
-        meta: {
-          title: "router.statistics",
-        },
-      },
-      {
-        path: "vector-search",
-        component: () => import("@/views/vector-search/Index.vue"),
-        name: "VectorSearch",
-        meta: {
-          title: "router.vectorSearch",
-          menuKey: "home.vector-search",
-        },
-      },
-
-    ],
   },
   {
     path: "/login",

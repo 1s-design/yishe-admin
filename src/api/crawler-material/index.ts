@@ -38,8 +38,35 @@ export interface CrawlerMaterialImportTaskResponse {
   status: 'pending' | 'running'
 }
 
+// ── 资源统计（通用结构，其它模块可复用）────────────────────────
+export interface ResourceStatsWindow {
+  /** 稳定标识：today / d7 / d30 … */
+  key: string
+  label: string
+  count: number
+}
+
+export interface ResourceStatsPoint {
+  /** YYYY-MM-DD */
+  date: string
+  count: number
+}
+
+export interface ResourceStats {
+  total: number
+  windows: ResourceStatsWindow[]
+  series: ResourceStatsPoint[]
+  /** 最近一条记录时间，null 表示暂无数据 */
+  latestAt: string | null
+}
+
 // 爬图素材 API
 export const CrawlerMaterialApi = {
+  // 采集统计（总量 / 分档计数 / 按天序列 / 最近采集时间）
+  getStats: async (params?: { days?: number }) => {
+    return await request.get<ResourceStats>({ url: `/crawler/material/stats`, params })
+  },
+
   // 新增素材入库
   addCrawlerMaterial: async (data: {
     url: string

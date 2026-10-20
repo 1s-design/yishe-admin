@@ -14,6 +14,12 @@ import { usePsdSetRuntimeState } from "@/services/psdSetRuntimeState";
 import { usePublishTaskRuntimeState } from "@/services/publishTaskRuntimeState";
 import { isClientServiceRuntimeBusy } from "@/services/clientServiceRuntime";
 import { aiConfigState, refreshAiConfigState } from "@/services/aiConfigState";
+import {
+  crawlerMaterialState,
+  markCrawlerMaterialVisited,
+  startCrawlerMaterialPolling,
+  stopCrawlerMaterialPolling,
+} from "@/services/crawlerMaterialState";
 import { messagePushMenuState, refreshMessagePushMenuState } from "@/services/messagePushState";
 import { getBrowserAutomationRuntimeHint } from "@/services/browserAutomationRuntime";
 import {
@@ -155,6 +161,42 @@ export default defineComponent({
       return (
         <span class={`${prefixCls}__new-tag`} style={{ background: bg }}>
           新
+        </span>
+      );
+    };
+
+    /**
+     * 采集素材徽标：一眼看出「有没有新」和「有多少」。
+     * - 今日有新增 → 显示 +N（颜色随数量加深）
+     * - 仅有较早未读 → 显示「新」
+     * - 否则不显示
+     */
+    const renderCrawlerMaterialBadge = (routePath: string) => {
+      if (routePath !== "/resource/crawler-material") return undefined;
+      if (!crawlerMaterialState.initialized) return undefined;
+
+      const today = crawlerMaterialState.todayCount;
+      const hasNew = crawlerMaterialState.hasNew;
+
+      if (today <= 0 && !hasNew) return undefined;
+
+      // 数量越多颜色越深：1 条 → 浅红，10 条以上 → 深红
+      const magnitude = Math.min(1, Math.log10(today + 1) / 1.2);
+      const intensity = today > 0 ? magnitude : Math.min(0.45, crawlerMaterialState.intensity);
+      const r = Math.round(220 + (252 - 220) * (1 - intensity));
+      const g = Math.round(38 + (165 - 38) * (1 - intensity));
+      const b = Math.round(38 + (165 - 38) * (1 - intensity));
+      const bg = `rgb(${r}, ${g}, ${b})`;
+
+      const label = today > 0 ? `+${today > 999 ? "999+" : today}` : "新";
+      const title =
+        today > 0
+          ? `今日新增 ${today} 条采集素材（近7天 ${crawlerMaterialState.d7Count} 条）`
+          : "有未查看的采集素材";
+
+      return (
+        <span class={`${prefixCls}__new-tag`} style={{ background: bg }} title={title}>
+          {label}
         </span>
       );
     };
@@ -766,6 +808,9 @@ export default defineComponent({
     const shouldTrackMessagePush = computed(() =>
       hasRoutePath(routers.value, "/system/message-push"),
     );
+    const shouldTrackCrawlerMaterial = computed(() =>
+      hasRoutePath(routers.value, "/resource/crawler-material"),
+    );
 
     const hasActiveChild = (route: AppRouteRecordRaw) => {
       const routePath = getRoutePath(route);
@@ -786,6 +831,10 @@ export default defineComponent({
       }
       // 标记资源广场页面为已访问（消除"新"标签）
       markResourceLibraryVisited(path);
+      // 进入采集素材页同样消除「新」提示
+      if (path === "/resource/crawler-material") {
+        markCrawlerMaterialVisited();
+      }
       await push(path);
       closeMobileMenu();
     };
@@ -855,6 +904,19 @@ export default defineComponent({
       (enabled) => {
         if (enabled) {
           void refreshAiConfigState();
+        }
+      },
+      { immediate: true },
+    );
+
+    // 只在菜单里能看到采集素材时才轮询，避免无谓请求
+    watch(
+      shouldTrackCrawlerMaterial,
+      (enabled) => {
+        if (enabled) {
+          startCrawlerMaterialPolling();
+        } else {
+          stopCrawlerMaterialPolling();
         }
       },
       { immediate: true },
@@ -997,6 +1059,7 @@ export default defineComponent({
                           >
                             <span class={`${prefixCls}__link-text`}>{t(child.meta?.title as string)}</span>
                             {renderResourceLibraryNewTag(childPath) ||
+                              renderCrawlerMaterialBadge(childPath) ||
                               renderAgentRunBadge(childPath) ||
                               renderWorkflowRuntimeBadge(childPath) ||
                               renderDesignToolRuntimeBadge(childPath) ||

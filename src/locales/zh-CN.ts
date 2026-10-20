@@ -1438,6 +1438,8 @@ export default {
       offline: "离线",
       galleryStats: "图库新增统计",
       galleryStatsDesc: "图库素材每日新增曲线",
+      crawlerMaterial: "采集素材",
+      crawlerMaterialDesc: "采集素材新增数量与近期趋势",
       todayCreated: "今日新增",
       periodCreated: "{days} 天新增",
       connStatus: "连接状态",

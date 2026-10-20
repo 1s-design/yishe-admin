@@ -153,6 +153,38 @@
         <Echart :options="galleryChartOptions" height="260px" />
       </div>
     </section>
+
+    <!-- 4. Crawler Material Stats -->
+    <section class="home-section">
+      <div class="section-title-bar">
+        <div class="section-title-bar__left">
+          <div class="section-title-bar__icon"><Icon icon="lucide:cloud-download" /></div>
+          <div>
+            <h2 class="section-title-bar__title">{{ t('home.dashboard.crawlerMaterial') }}</h2>
+            <p class="section-title-bar__desc">{{ t('home.dashboard.crawlerMaterialDesc') }}</p>
+          </div>
+        </div>
+        <ElButton plain size="small" :loading="crawlerStatsLoading" @click="loadCrawlerMaterialStats">
+          {{ t('home.dashboard.refreshData') }}
+        </ElButton>
+      </div>
+
+      <div class="gallery-card crawler-stats-card">
+        <div class="crawler-stats">
+          <div
+            v-for="m in crawlerMetrics"
+            :key="m.key"
+            class="crawler-metric"
+            :class="`crawler-metric--${m.tone}`"
+          >
+            <div class="crawler-metric__label">{{ m.label }}</div>
+            <div class="crawler-metric__value">{{ m.display }}</div>
+          </div>
+        </div>
+
+        <Echart :options="crawlerChartOptions" height="260px" />
+      </div>
+    </section>
   </div>
 </template>
 
@@ -165,6 +197,7 @@ import { Echart } from "@/components/Echart";
 import type { EChartsOption } from "echarts";
 import { getDashboardStatsApi, type DashboardStats } from "@/api/dashboard";
 import { getModuleStatisticsApi } from "@/api/statistics";
+import { CrawlerMaterialApi, type ResourceStats } from "@/api/crawler-material";
 import { getMyPsAutomationStatus, type PsAutomationStatusVO } from "@/api/system/websocket";
 import {
   getBrowserAutomationClients,
@@ -393,7 +426,104 @@ const galleryChartOptions = computed<EChartsOption>(() => {
   };
 });
 
-// ── 4. Real Data Loading ────────────────────────────────────────
+// ── 4. 采集素材：配色计数 + 折线图 ────────────────────────────
+const CRAWLER_ACCENT = "#10B981"; // 与图库的靛蓝区分开
+
+const crawlerMetrics = computed(() => {
+  const s = crawlerStats.value;
+  const fmt = (n: number | null | undefined) => Number(n || 0).toLocaleString("en-US");
+  const win = (key: string) =>
+    Number(s?.windows?.find((w) => w.key === key)?.count || 0);
+
+  return [
+    { key: "today", label: t("home.dashboard.todayCreated"), display: `+${fmt(win("today"))}`, tone: "primary" },
+    { key: "d7", label: t("home.dashboard.last7Days"), display: fmt(win("d7")), tone: "success" },
+    { key: "d30", label: t("home.dashboard.last30Days"), display: fmt(win("d30")), tone: "info" },
+    { key: "total", label: t("home.stat.totalRecords"), display: fmt(s?.total), tone: "neutral" },
+  ];
+});
+
+const crawlerChartOptions = computed<EChartsOption>(() => {
+  const series = crawlerStats.value?.series || [];
+  const dates = series.map((p) => String(p.date || "").slice(5));
+  const counts = series.map((p) => Number(p.count || 0));
+
+  const textColor = isDark.value ? "#94a3b8" : "#64748b";
+  const tooltipBg = isDark.value ? "#1e293b" : "#ffffff";
+  const splitLineColor = isDark.value ? "#334155" : "#e2e8f0";
+  const itemBorderColor = isDark.value ? "#1e293b" : "#ffffff";
+
+  return {
+    tooltip: {
+      trigger: "axis",
+      backgroundColor: tooltipBg,
+      borderColor: splitLineColor,
+      borderWidth: 1,
+      padding: [8, 12],
+      textStyle: { color: textColor, fontSize: 12 },
+      extraCssText: "box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.12); border-radius: 8px;",
+      axisPointer: {
+        type: "line",
+        lineStyle: { color: "rgba(16, 185, 129, 0.35)", type: "dashed", width: 1.5 },
+      },
+    },
+    grid: {
+      left: "1%",
+      right: "2%",
+      top: "10%",
+      bottom: "2%",
+      containLabel: true,
+    },
+    xAxis: {
+      type: "category",
+      boundaryGap: false,
+      data: dates,
+      axisLine: { show: false },
+      axisTick: { show: false },
+      axisLabel: { color: textColor, fontSize: 11, margin: 12 },
+    },
+    yAxis: {
+      type: "value",
+      minInterval: 1,
+      splitLine: { lineStyle: { color: splitLineColor, type: "dashed" } },
+      axisLine: { show: false },
+      axisTick: { show: false },
+      axisLabel: { color: textColor, fontSize: 11 },
+    },
+    series: [
+      {
+        name: t("home.dashboard.crawlerMaterial"),
+        type: "line",
+        smooth: 0.35,
+        showSymbol: false,
+        symbol: "circle",
+        symbolSize: 6,
+        itemStyle: {
+          color: CRAWLER_ACCENT,
+          borderColor: itemBorderColor,
+          borderWidth: 2,
+        },
+        lineStyle: { width: 2.5, color: CRAWLER_ACCENT },
+        areaStyle: {
+          color: {
+            type: "linear",
+            x: 0,
+            y: 0,
+            x2: 0,
+            y2: 1,
+            colorStops: [
+              { offset: 0, color: "rgba(16, 185, 129, 0.28)" },
+              { offset: 1, color: "rgba(16, 185, 129, 0.01)" },
+            ],
+          },
+        },
+        data: counts,
+      },
+    ],
+  };
+});
+
+// ── 5. Real Data Loading ────────────────────────────────────────
 const loadEndpointStatus = async () => {
   loading.value = true;
   try {
@@ -439,8 +569,28 @@ const loadGalleryStats = async () => {
   };
 };
 
+// ── 采集素材统计（复用模块页的 ResourceStatsBar）──────────────
+const crawlerStats = ref<ResourceStats | null>(null);
+const crawlerStatsLoading = ref(false);
+
+const loadCrawlerMaterialStats = async () => {
+  crawlerStatsLoading.value = true;
+  try {
+    const res = await CrawlerMaterialApi.getStats({ days: 30 });
+    crawlerStats.value = (res as any)?.data || res || null;
+  } catch {
+    // 首页统计是辅助信息，失败不影响其它区块
+  } finally {
+    crawlerStatsLoading.value = false;
+  }
+};
+
 const loadDashboardData = async () => {
-  await Promise.allSettled([loadEndpointStatus(), loadGalleryStats()]);
+  await Promise.allSettled([
+    loadEndpointStatus(),
+    loadGalleryStats(),
+    loadCrawlerMaterialStats(),
+  ]);
 };
 
 let refreshTimer: ReturnType<typeof setInterval> | null = null;
@@ -762,6 +912,99 @@ onUnmounted(() => {
   background: var(--el-bg-color);
   border: 1px solid var(--el-border-color-lighter);
   border-radius: 12px;
+}
+
+/* 采集素材：配色计数卡 + 折线图 */
+.crawler-stats-card {
+  padding: 14px 8px 4px;
+}
+
+.crawler-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  padding: 4px 12px 14px;
+}
+
+.crawler-metric {
+  position: relative;
+  padding: 10px 12px 11px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 10px;
+  background: var(--el-fill-color-blank);
+  overflow: hidden;
+}
+
+/* 左侧色条 + 顶部渐变，给足配色但不喧宾夺主 */
+.crawler-metric::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  border-radius: 10px 0 0 10px;
+  background: var(--metric-color, var(--el-color-primary));
+}
+
+.crawler-metric::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    var(--metric-color, var(--el-color-primary)) 0%,
+    transparent 62%
+  );
+  opacity: 0.1;
+  pointer-events: none;
+}
+
+.crawler-metric__label {
+  position: relative;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  white-space: nowrap;
+}
+
+.crawler-metric__value {
+  position: relative;
+  margin-top: 3px;
+  font-size: 22px;
+  font-weight: 650;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.2px;
+  color: var(--metric-color, var(--el-color-primary));
+}
+
+.crawler-metric--primary {
+  --metric-color: #6366f1;
+}
+
+.crawler-metric--success {
+  --metric-color: #10b981;
+}
+
+.crawler-metric--info {
+  --metric-color: #0ea5e9;
+}
+
+.crawler-metric--neutral {
+  --metric-color: #94a3b8;
+}
+
+.crawler-metric--neutral .crawler-metric__value {
+  font-size: 19px;
+  font-weight: 600;
+}
+
+:global(.dark) .crawler-metric {
+  background: var(--el-bg-color-overlay);
+}
+
+@media (width <= 720px) {
+  .crawler-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 :global(.dark) .gallery-card {

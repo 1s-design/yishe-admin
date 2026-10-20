@@ -1438,6 +1438,8 @@ export default {
       offline: "Offline",
       galleryStats: "Gallery New Images",
       galleryStatsDesc: "Daily new image curve for gallery materials",
+      crawlerMaterial: "Crawler Materials",
+      crawlerMaterialDesc: "Crawler material counts and recent trend",
       todayCreated: "New Today",
       periodCreated: "New in {days} days",
       connStatus: "Connection Status",
