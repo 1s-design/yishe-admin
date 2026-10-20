@@ -323,6 +323,7 @@ export default {
     myMessages: 'My Messages',
     systemManagement: 'System Settings',
     aiApiKey: 'AI API Key',
+    aiUsageLog: 'AI Usage',
     messagePush: 'Push Notifications',
     userManagement: 'User Management',
     companyManagement: 'Company Management',
@@ -1240,6 +1241,7 @@ export default {
       psdSet: {
  title: 'PSD Set', desc: 'PS automated workflow' },
       aiApiKey: { title: 'AI API Key', desc: 'Platform key management' },
+      aiUsageLog: { title: 'AI Usage', desc: 'Call log and usage analytics' },
       statistics: { title: 'Data Statistics', desc: 'Module data trends' },
       hotSearch: { title: 'Hot Search', desc: 'Multi-platform hot search collection & analysis' },
       designInspiration: { title: 'Design Inspiration', desc: 'Inspiration collection & management' },

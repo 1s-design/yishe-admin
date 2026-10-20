@@ -151,7 +151,6 @@ interface FeatureSettingFormItem extends AiFeatureRegistryItem {
 const emit = defineEmits<{ saved: [] }>();
 
 const loading = ref(false);
-const saving = ref(false);
 const savingCodes = ref<string[]>([]);
 const dialogVisible = ref(false);
 const expandedGroups = ref<Set<string>>(new Set());
@@ -209,12 +208,6 @@ function resolveSpecLabel(specCode?: string) {
   return spec?.label || specCode;
 }
 
-function resolveSpecModel(specCode?: string) {
-  if (!specCode) return "";
-  const spec = specOptions.value.find((s) => s.code === specCode);
-  return spec?.defaultModel || "";
-}
-
 function resolveDefaultSpecCode(row: AiFeatureRegistryItem) {
   return (
     String(row.defaultSpecCode || "").trim() ||
@@ -227,11 +220,6 @@ function resolveDefaultSpecCode(row: AiFeatureRegistryItem) {
 function handleKeyChange(code: string, keyId: number | null) {
   const item = form.value.items.find((i) => i.code === code);
   if (item) item.keyId = keyId;
-}
-
-function handleSpecChange(code: string, specCode: string) {
-  const item = form.value.items.find((i) => i.code === code);
-  if (item) item.specCode = specCode;
 }
 
 function toggleGroup(groupName: string) {
@@ -254,13 +242,6 @@ async function saveRow(row: FeatureSettingFormItem) {
   if (savingCodes.value.includes(row.code)) return;
   savingCodes.value.push(row.code);
   try {
-    console.log('[AiUsageSettingPanel] saveRow 开始', {
-      code: row.code,
-      label: row.label,
-      keyId: row.keyId,
-      specCode: row.specCode,
-    });
-
     // 深拷贝嵌套的 featureBindings（保留 model 和 params 字段）
     const featureBindings: Record<string, Record<string, { keyId: number; specCode: string; model?: string; params?: Record<string, any> }>> = {};
     for (const [fc, specs] of Object.entries(savedFeatureBindings.value)) {
@@ -269,8 +250,6 @@ async function saveRow(row: FeatureSettingFormItem) {
         featureBindings[fc][sc] = { ...binding };
       }
     }
-
-    console.log('[AiUsageSettingPanel] 深拷贝后的 featureBindings', JSON.stringify(featureBindings));
 
     // 只更新当前行涉及的 spec，不影响其他 spec
     const specCode = String(row.specCode || "").trim();
@@ -312,13 +291,7 @@ async function saveRow(row: FeatureSettingFormItem) {
       }
     }
 
-    console.log('[AiUsageSettingPanel] 准备保存', {
-      featureBindings: JSON.stringify(featureBindings),
-    });
-
     await updateAiSetting({ version: 2, featureBindings, updatedAt: new Date().toISOString() });
-
-    console.log('[AiUsageSettingPanel] 保存成功');
 
     // 更新保存后的快照
     savedFeatureBindings.value = JSON.parse(JSON.stringify(featureBindings));
@@ -328,11 +301,7 @@ async function saveRow(row: FeatureSettingFormItem) {
     ElMessage.success(`${row.label} 已保存`);
     emit("saved");
   } catch (error: any) {
-    console.error('[AiUsageSettingPanel] 保存失败', {
-      error: error?.message || error,
-      response: error?.response?.data,
-      status: error?.response?.status,
-    });
+    console.error("[AiUsageSettingPanel] 保存失败", error?.message || error);
     ElMessage.error("保存失败");
   } finally {
     savingCodes.value = savingCodes.value.filter((c) => c !== row.code);

@@ -68,7 +68,8 @@ interface MenuItem {
 
 // ── 特殊采集（定制实现，保留独立界面）────────────────────
 const specialItems: MenuItem[] = [
-  { key: 'ai-collect', name: 'AI 智能采集', component: markRaw(AiCollectGuidePanel), group: 'special' },
+  { key: 'ai-collect', name: 'AI 智能采集', component: markRaw(AiCollectGuidePanel), props: { mode: 'active' }, group: 'special' },
+  { key: 'pending-collect', name: '待接入站点', component: markRaw(AiCollectGuidePanel), props: { mode: 'pending' }, group: 'special' },
   { key: 'google-art', name: 'Google Arts 文化资产', component: markRaw(GoogleArtView), group: 'special' },
 ]
 

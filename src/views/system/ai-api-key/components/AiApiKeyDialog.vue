@@ -56,14 +56,32 @@
           <div class="ai-api-key-field">
             <el-input
               v-model="formData.apiKey"
-              placeholder="请输入 API 密钥"
+              :placeholder="apiKeyPlaceholder"
               show-password
               autocomplete="new-password"
               name="ai-api-key"
             />
-            <el-button class="ai-api-key-field__copy" :disabled="!formData.apiKey" @click="copyApiKey">
+            <el-button
+              v-if="isEditMode && !formData.apiKey"
+              class="ai-api-key-field__copy"
+              :loading="revealLoading"
+              @click="handleReveal"
+            >
+              查看明文
+            </el-button>
+            <el-button
+              v-else
+              class="ai-api-key-field__copy"
+              :disabled="!formData.apiKey"
+              @click="copyApiKey"
+            >
               复制
             </el-button>
+          </div>
+          <div v-if="isEditMode" class="ai-api-key-field__hint">
+            {{ formData.apiKey
+              ? "已载入明文，提交后将更新为该值"
+              : "留空表示不修改原密钥；点「查看明文」可载入当前值" }}
           </div>
         </el-form-item>
       </section>
@@ -136,6 +154,7 @@ import { ElMessage } from "element-plus";
 import {
   createAiApiKey,
   getAiApiKeyDetail,
+  revealAiApiKey,
   updateAiApiKey,
   type AiApiKeyConfig,
 } from "@/api/aiApiKey";
@@ -168,14 +187,53 @@ const formData = reactive<AiApiKeyConfig>({
 
 const isEditMode = computed(() => !!formData.id);
 
+// 详情接口只回脱敏密钥，这里保留用于 placeholder 提示
+const maskedApiKey = ref("");
+const revealLoading = ref(false);
+
+const apiKeyPlaceholder = computed(() => {
+  if (!isEditMode.value) return "请输入 API 密钥";
+  return maskedApiKey.value
+    ? `当前密钥：${maskedApiKey.value}（留空表示不修改）`
+    : "留空表示不修改";
+});
+
+const handleReveal = async () => {
+  if (!formData.id || revealLoading.value) return;
+  revealLoading.value = true;
+  try {
+    const detail = await revealAiApiKey(formData.id as number);
+    formData.apiKey = String(detail.apiKey || "").trim();
+    if (formData.apiKey) {
+      ElMessage.success("已载入明文，提交后将更新为该值");
+    }
+  } catch (error: any) {
+    ElMessage.error(error?.message || "获取密钥明文失败");
+  } finally {
+    revealLoading.value = false;
+  }
+};
+
 const formRules = {
   name: [{ required: true, message: "请输入名称", trigger: "blur" }],
   // apiKey 在新增时必填，编辑时可选（留空表示不修改）
-  apiKey: [{ required: !isEditMode, message: "请输入 API Key", trigger: "blur" }],
+  apiKey: [
+    {
+      validator: (_rule: unknown, value: string, callback: (error?: Error) => void) => {
+        if (!isEditMode.value && !String(value || "").trim()) {
+          callback(new Error("请输入 API Key"));
+          return;
+        }
+        callback();
+      },
+      trigger: "blur",
+    },
+  ],
 };
 
 const resetForm = () => {
   Object.assign(formData, createFormData(), { id: undefined });
+  maskedApiKey.value = "";
 };
 
 const open = async (id?: number) => {
@@ -184,53 +242,28 @@ const open = async (id?: number) => {
   resetForm();
 
   if (!id) {
-    console.log('[AiApiKeyDialog] 新增模式');
     return;
   }
 
   formLoading.value = true;
   try {
     const data = await getAiApiKeyDetail(id);
-    console.log('[AiApiKeyDialog] 获取到详情数据', {
-      id: data.id,
-      name: data.name,
-      model: data.model,
-      apiKey: data.apiKey ? '***' : '',
-      baseUrl: data.baseUrl,
-      isPublic: data.isPublic,
-    });
 
-    // 编辑时，如果 apiKey 为空或看起来是掩码值，则不填充到 formData
-    // 避免提交时把掩码值当作真实 API Key 发送
-    const rawApiKey = String(data.apiKey || "").trim();
-    const isMaskedKey = rawApiKey.includes("...") || rawApiKey.includes("****");
-
-    console.log('[AiApiKeyDialog] apiKey 检测', {
-      rawApiKey: rawApiKey ? '***' : '',
-      isMaskedKey,
-      willFill: !isMaskedKey && !!rawApiKey,
-    });
-
+    // 详情接口只返回脱敏密钥；编辑时 apiKey 留空表示不修改
+    maskedApiKey.value = String(data.maskedApiKey || "").trim();
     Object.assign(formData, {
       ...createFormData(),
       ...data,
       model: data.model || "",
-      apiKey: isMaskedKey ? "" : rawApiKey,
+      apiKey: "",
       baseUrl: data.baseUrl || "",
       isPublic: !!data.isPublic,
       expiresAt: data.expiresAt || "",
       remark: data.remark || "",
     });
-
-    console.log('[AiApiKeyDialog] formData 填充完成', {
-      id: formData.id,
-      name: formData.name,
-      model: formData.model,
-      apiKey: formData.apiKey ? '***' : '',
-      baseUrl: formData.baseUrl,
-    });
   } catch (error: any) {
-    console.error('[AiApiKeyDialog] 获取详情失败', error);
+    console.error("[AiApiKeyDialog] 获取详情失败", error?.message || error);
+    ElMessage.error(error?.message || "获取详情失败");
   } finally {
     formLoading.value = false;
   }
@@ -247,23 +280,11 @@ const copyApiKey = async () => {
 const submitForm = async () => {
   const form = unref(formRef);
   if (!form) {
-    console.error('[AiApiKeyDialog] formRef is null');
     return;
   }
 
-  console.log('[AiApiKeyDialog] submitForm 开始', {
-    isEditMode: isEditMode.value,
-    formData: { ...formData, apiKey: formData.apiKey ? '***' : '' },
-  });
-
   await form.validate(async (valid) => {
-    console.log('[AiApiKeyDialog] 表单验证结果', { valid });
-
     if (!valid) {
-      console.error('[AiApiKeyDialog] 表单验证失败');
-      // 获取验证错误信息
-      const errors = formRef.value?.validateState;
-      console.error('[AiApiKeyDialog] 验证错误详情', errors);
       return;
     }
 
@@ -285,7 +306,6 @@ const submitForm = async () => {
         payload.apiKey = apiKeyTrimmed;
       } else if (!payload.id) {
         // 新增时 apiKey 必填
-        console.error('[AiApiKeyDialog] 新增时 apiKey 为空');
         ElMessage.error("请输入 API Key");
         formLoading.value = false;
         return;
@@ -294,11 +314,6 @@ const submitForm = async () => {
       if (canManagePublic.value) {
         payload.isPublic = Boolean(formData.isPublic);
       }
-
-      console.log('[AiApiKeyDialog] 准备发送请求', {
-        isEdit: !!payload.id,
-        payload: { ...payload, apiKey: payload.apiKey ? '***' : undefined },
-      });
 
       if (payload.id) {
         await updateAiApiKey(payload.id, payload);
@@ -311,11 +326,7 @@ const submitForm = async () => {
       dialogVisible.value = false;
       emit("success");
     } catch (error: any) {
-      console.error('[AiApiKeyDialog] 保存失败', {
-        error: error?.message || error,
-        response: error?.response?.data,
-        status: error?.response?.status,
-      });
+      console.error("[AiApiKeyDialog] 保存失败", error?.message || error);
       ElMessage.error(error?.message || "保存失败");
     } finally {
       formLoading.value = false;
@@ -378,6 +389,14 @@ defineExpose({ open });
   &__copy {
     flex-shrink: 0;
   }
+}
+
+.ai-api-key-field__hint {
+  margin-top: 4px;
+  width: 100%;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--el-text-color-secondary);
 }
 
 .ai-api-key-switch {

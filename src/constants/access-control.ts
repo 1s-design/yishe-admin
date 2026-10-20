@@ -98,6 +98,7 @@ export const ROUTE_MENU_KEY_MAP: Record<string, string> = {
   VendorProductIndex: "operation.vendor-product",
   CommonUrlIndex: "resource.common-url",
   SystemAiApiKeyIndex: "system.ai-api-key",
+  SystemAiUsageLogIndex: "system.ai-usage-log",
   MessagePushIndex: "system.message-push",
   User: "system.user",
   Company: "system.company",

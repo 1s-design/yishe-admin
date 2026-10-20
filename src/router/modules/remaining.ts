@@ -1530,6 +1530,15 @@ const remainingRouter: AppRouteRecordRaw[] = [
         },
       },
       {
+        path: "ai-usage-log",
+        component: () => import("@/views/system/ai-usage-log/index.vue"),
+        name: "SystemAiUsageLogIndex",
+        meta: {
+          title: "router.aiUsageLog",
+          order: 2,
+        },
+      },
+      {
         path: "message-push",
         component: () => import("@/views/message-push/index.vue"),
         name: "MessagePushIndex",

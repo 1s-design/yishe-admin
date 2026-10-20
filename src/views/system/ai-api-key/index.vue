@@ -200,9 +200,9 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import {
   applyAiApiKeyToAllFeatures,
   deleteAiApiKey,
-  getAiApiKeyDetail,
   getAiApiKeyList,
   getPublicAiApiKeyList,
+  revealAiApiKey,
   updateAiApiKey,
   type AiApiKeyConfig,
 } from "@/api/aiApiKey";
@@ -447,7 +447,7 @@ const handleToggleApiKeyVisible = async (row: AiApiKeyConfig) => {
 
   apiKeyLoadingId.value = row.id;
   try {
-    const detail = await getAiApiKeyDetail(row.id);
+    const detail = await revealAiApiKey(row.id);
     plainApiKeyMap[row.id] = String(detail.apiKey || "").trim();
     revealedApiKeyMap[row.id] = true;
   } catch (error: any) {

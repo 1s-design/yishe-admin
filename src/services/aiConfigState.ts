@@ -1,6 +1,7 @@
 import { reactive } from "vue";
 import { getAiApiKeyUsageOptions, getAiFeatureRegistry, type AiApiKeyConfig } from "@/api/aiApiKey";
-import { getAiSetting, type UserAiSetting } from "@/api/user";
+import { getAiSetting } from "@/api/user";
+import { getDefaultAiProviderSpecForFeature } from "@/utils/aiProviderSpecs";
 
 type AiConfigState = {
   initialized: boolean;
@@ -89,8 +90,10 @@ export async function refreshAiConfigState() {
       const keys = Array.isArray(unwrap(keyList)) ? unwrap(keyList) : [];
       const features = Array.isArray(unwrap(registry)) ? unwrap(registry) : [];
       const aiSetting = unwrap(settingResp);
-      const featureCodes = new Set(
-        features.map((item) => String(item?.code || "").trim()).filter(Boolean),
+      const featureCodes = new Set<string>(
+        features
+          .map((item: any) => String(item?.code || "").trim())
+          .filter((code: string) => !!code),
       );
       const enabledKeyIds = buildEnabledKeyIdSet(keys);
 
@@ -98,9 +101,9 @@ export async function refreshAiConfigState() {
       let totalFeatureCount = 0;
       const featureSpecCodes = new Map<string, string[]>();
       for (const code of featureCodes) {
-        const f = features.find((item) => String(item?.code || "").trim() === code);
-        const specs = (f?.allowedSpecCodes || []).filter(Boolean);
-        const specList = specs.length > 0 ? specs : [getDefaultAiProviderSpecForFeature(code)];
+        const f = features.find((item: any) => String(item?.code || "").trim() === code);
+        const specs: string[] = ((f?.allowedSpecCodes || []) as unknown[]).filter(Boolean) as string[];
+        const specList: string[] = specs.length > 0 ? specs : [getDefaultAiProviderSpecForFeature(code)].filter(Boolean) as string[];
         featureSpecCodes.set(code, specList);
         totalFeatureCount += specList.length;
       }

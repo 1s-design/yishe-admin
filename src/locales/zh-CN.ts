@@ -330,6 +330,7 @@ export default {
     myMessages: '我的消息',
     systemManagement: '系统管理',
     aiApiKey: 'AI API Key',
+    aiUsageLog: 'AI 使用统计',
     messagePush: '消息推送',
     userManagement: '用户管理',
     companyManagement: '公司管理',
@@ -1239,6 +1240,7 @@ export default {
         title: '套图制作', desc: 'PS 自动制作流程'
       },
       aiApiKey: { title: 'AI API Key', desc: '平台密钥管理' },
+      aiUsageLog: { title: 'AI 使用统计', desc: '调用流水与用量分析' },
       statistics: { title: '数据统计', desc: '模块数据趋势' },
       hotSearch: { title: '热搜管理', desc: '多平台热搜采集分析' },
       designInspiration: { title: '设计灵感', desc: '灵感收集与管理' },

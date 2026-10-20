@@ -80,6 +80,10 @@ export const getAiProviderSpecs = () =>
 export const getAiApiKeyDetail = (id: number) =>
   request.get<AiApiKeyConfig>({ url: `/system/ai-api-key/${id}` });
 
+// 明文密钥单独走 reveal 接口，后端会记审计日志
+export const revealAiApiKey = (id: number) =>
+  request.post<AiApiKeyConfig>({ url: `/system/ai-api-key/${id}/reveal` });
+
 export const createAiApiKey = (data: AiApiKeyConfig) =>
   request.post({ url: "/system/ai-api-key", data });
 

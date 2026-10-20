@@ -2,10 +2,9 @@
   <div class="ai-collect-guide" v-loading="loading">
     <div class="guide-header">
       <div class="guide-header__info">
-        <h3>AI 智能采集站点指南</h3>
+        <h3>{{ headerTitle }}</h3>
         <p class="guide-header__desc">
-          以下站点支持 AI 驱动采集——系统提供工具与站点规范，外部 AI Agent（MCP）自主分析采集。
-          无需编写爬虫代码，AI 自动适应页面结构。
+          {{ headerDesc }}
         </p>
       </div>
       <el-button size="small" text type="primary" @click="fetchGuides">
@@ -15,8 +14,8 @@
     </div>
 
     <!-- 可采集站点 -->
-    <template v-if="activeGuides.length">
-      <div class="section-label">可采集</div>
+    <template v-if="showActive && activeGuides.length">
+      <div v-if="mode === 'all'" class="section-label">可采集</div>
       <div class="guide-grid">
         <div v-for="guide in activeGuides" :key="guide.id" class="guide-card">
           <div class="guide-card__header">
@@ -49,8 +48,8 @@
     </template>
 
     <!-- 待接入站点 -->
-    <template v-if="pendingGuides.length">
-      <div class="section-label section-label--pending">待接入（{{ pendingGuides.length }}）</div>
+    <template v-if="showPending && pendingGuides.length">
+      <div v-if="mode === 'all'" class="section-label section-label--pending">待接入（{{ pendingGuides.length }}）</div>
       <div class="guide-grid">
         <div v-for="guide in pendingGuides" :key="guide.id" class="guide-card guide-card--pending">
           <div class="guide-card__header">
@@ -78,7 +77,7 @@
       </div>
     </template>
 
-    <el-empty v-if="!loading && !activeGuides.length && !pendingGuides.length" description="暂无 AI 采集站点指南" :image-size="80" />
+    <el-empty v-if="!loading && !hasItems" :description="emptyText" :image-size="80" />
 
     <!-- 指南详情抽屉 -->
     <el-drawer
@@ -165,6 +164,15 @@ interface SiteGuide {
   agentHints?: string[]
 }
 
+const props = withDefaults(
+  defineProps<{
+    mode?: 'all' | 'active' | 'pending'
+  }>(),
+  {
+    mode: 'all',
+  },
+)
+
 const loading = ref(false)
 const guides = ref<SiteGuide[]>([])
 const drawerVisible = ref(false)
@@ -172,6 +180,33 @@ const selectedGuide = ref<SiteGuide | null>(null)
 
 const activeGuides = computed(() => guides.value.filter((g) => g.status !== 'pending'))
 const pendingGuides = computed(() => guides.value.filter((g) => g.status === 'pending'))
+
+const showActive = computed(() => props.mode === 'all' || props.mode === 'active')
+const showPending = computed(() => props.mode === 'all' || props.mode === 'pending')
+
+const headerTitle = computed(() => {
+  if (props.mode === 'pending') return '待接入与待实现站点'
+  return 'AI 智能采集站点指南'
+})
+
+const headerDesc = computed(() => {
+  if (props.mode === 'pending') {
+    return '以下站点已录入待接入清单，记录了目标站点的技术特征、页面结构与阻塞原因（如 Cloudflare 挑战、客户端渲染、待逆向 API 等），待打通后即可接入采集。'
+  }
+  return '以下站点支持 AI 驱动采集——系统提供工具与站点规范，外部 AI Agent（MCP）自主分析采集。无需编写爬虫代码，AI 自动适应页面结构。'
+})
+
+const emptyText = computed(() => {
+  if (props.mode === 'pending') return '暂无待接入站点'
+  if (props.mode === 'active') return '暂无可用 AI 采集站点指南'
+  return '暂无 AI 采集站点指南'
+})
+
+const hasItems = computed(() => {
+  if (props.mode === 'pending') return pendingGuides.value.length > 0
+  if (props.mode === 'active') return activeGuides.value.length > 0
+  return activeGuides.value.length > 0 || pendingGuides.value.length > 0
+})
 
 const searchMethodLabel = (method: string) => {
   const map: Record<string, string> = {

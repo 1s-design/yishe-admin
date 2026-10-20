@@ -696,14 +696,48 @@
           <div class="preview-container compact">
             <div class="preview-header compact">
               <span>{{ t('fontTemplate.livePreview') }}</span>
-              <div v-if="fontLoading" class="font-loading-indicator">
-                <el-icon class="is-loading" style="margin-right: 4px; color: var(--el-color-primary)">
-                  <Loading />
-                </el-icon>
-                <span style=" font-size: 12px;color: var(--el-color-primary)">{{ t('fontTemplate.fontLoading') }}</span>
+              <div class="preview-header-actions">
+                <div v-if="fontLoading" class="font-loading-indicator">
+                  <el-icon class="is-loading" style="margin-right: 4px; color: var(--el-color-primary)">
+                    <Loading />
+                  </el-icon>
+                  <span style=" font-size: 12px;color: var(--el-color-primary)">{{ t('fontTemplate.fontLoading') }}</span>
+                </div>
+                <div class="preview-zoom-toolbar">
+                  <el-tooltip :content="t('fontTemplate.zoomOut')" placement="top">
+                    <el-button text size="small" :disabled="previewZoom <= PREVIEW_ZOOM_MIN" @click="zoomPreviewOut">
+                      <el-icon><ZoomOut /></el-icon>
+                    </el-button>
+                  </el-tooltip>
+                  <span class="preview-zoom-value">{{ previewZoomPercent }}%</span>
+                  <el-tooltip :content="t('fontTemplate.zoomIn')" placement="top">
+                    <el-button text size="small" :disabled="previewZoom >= PREVIEW_ZOOM_MAX" @click="zoomPreviewIn">
+                      <el-icon><ZoomIn /></el-icon>
+                    </el-button>
+                  </el-tooltip>
+                  <el-tooltip :content="t('fontTemplate.zoomFit')" placement="top">
+                    <el-button text size="small" @click="fitPreviewZoom">
+                      <el-icon><FullScreen /></el-icon>
+                    </el-button>
+                  </el-tooltip>
+                  <el-tooltip :content="t('fontTemplate.zoomActualSize')" placement="top">
+                    <el-button text size="small" :disabled="previewZoom === 1" @click="resetPreviewZoom">
+                      <el-icon><RefreshLeft /></el-icon>
+                    </el-button>
+                  </el-tooltip>
+                </div>
               </div>
             </div>
-            <div class="preview-content compact">
+            <div
+              ref="previewCanvasRef"
+              class="preview-content compact"
+              :class="{ 'is-zoomed': previewZoom > 1, 'is-panning': previewDragging }"
+              @wheel="handlePreviewWheel"
+              @pointerdown="handlePreviewPointerDown"
+              @pointermove="handlePreviewPointerMove"
+              @pointerup="handlePreviewPointerUp"
+              @pointercancel="handlePreviewPointerUp"
+            >
               <!-- 预览区域 - 自适应高度与大字号清晰展示 -->
               <div
                 v-if="currentRow.url"
@@ -726,6 +760,7 @@
                   boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
                   position: 'relative',
                   boxSizing: 'border-box',
+                  zoom: previewZoom,
                 }"
               >
                 <!-- 状态信息与字体名称区域 -->
@@ -778,6 +813,7 @@
                   display: 'flex',
                   flexDirection: 'column',
                   boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                  zoom: previewZoom,
                 }"
               >
                 <!-- 状态信息区域 -->
@@ -2065,6 +2101,73 @@ const resetFontPreview = () => {
   }
 };
 
+// ========== 预览画布缩放 ==========
+const PREVIEW_ZOOM_MIN = 0.25;
+const PREVIEW_ZOOM_MAX = 3;
+const PREVIEW_ZOOM_STEP = 0.25;
+
+const previewCanvasRef = ref<HTMLElement | null>(null);
+const previewZoom = ref(1);
+const previewZoomPercent = computed(() => Math.round(previewZoom.value * 100));
+const previewDragging = ref(false);
+let previewDragOrigin = { x: 0, y: 0, scrollLeft: 0, scrollTop: 0 };
+
+function clampPreviewZoom(zoom: number) {
+  return Math.min(PREVIEW_ZOOM_MAX, Math.max(PREVIEW_ZOOM_MIN, Math.round(zoom * 100) / 100));
+}
+
+function resetPreviewZoom() {
+  previewZoom.value = 1;
+}
+
+function zoomPreviewIn() {
+  previewZoom.value = clampPreviewZoom(previewZoom.value + PREVIEW_ZOOM_STEP);
+}
+
+function zoomPreviewOut() {
+  previewZoom.value = clampPreviewZoom(previewZoom.value - PREVIEW_ZOOM_STEP);
+}
+
+// 按画布可用空间等比缩放，便于整体查看样张
+async function fitPreviewZoom() {
+  previewZoom.value = 1;
+  await nextTick();
+  const canvas = previewCanvasRef.value;
+  const target = canvas?.querySelector(".single-preview") as HTMLElement | null;
+  if (!canvas || !target) return;
+  const availableWidth = canvas.clientWidth;
+  const availableHeight = canvas.clientHeight;
+  if (!availableWidth || !availableHeight) return;
+  const fitZoom = Math.min(availableWidth / target.offsetWidth, availableHeight / target.offsetHeight);
+  previewZoom.value = clampPreviewZoom(Math.min(fitZoom, 1));
+}
+
+// Ctrl/⌘ + 滚轮缩放
+function handlePreviewWheel(event: WheelEvent) {
+  if (!event.ctrlKey && !event.metaKey) return;
+  event.preventDefault();
+  previewZoom.value = clampPreviewZoom(previewZoom.value + (event.deltaY > 0 ? -PREVIEW_ZOOM_STEP : PREVIEW_ZOOM_STEP));
+}
+
+// 放大后按住拖动平移画布
+function handlePreviewPointerDown(event: PointerEvent) {
+  const canvas = previewCanvasRef.value;
+  if (!canvas || previewZoom.value <= 1 || event.button !== 0) return;
+  previewDragging.value = true;
+  previewDragOrigin = { x: event.clientX, y: event.clientY, scrollLeft: canvas.scrollLeft, scrollTop: canvas.scrollTop };
+}
+
+function handlePreviewPointerMove(event: PointerEvent) {
+  const canvas = previewCanvasRef.value;
+  if (!canvas || !previewDragging.value) return;
+  canvas.scrollLeft = previewDragOrigin.scrollLeft - (event.clientX - previewDragOrigin.x);
+  canvas.scrollTop = previewDragOrigin.scrollTop - (event.clientY - previewDragOrigin.y);
+}
+
+function handlePreviewPointerUp() {
+  previewDragging.value = false;
+}
+
 function checkboxChange(e) {
   ids.value = e.records.map((item) => item.id);
 }
@@ -2341,6 +2444,7 @@ function handleGenerateThumbnail(row) {
   // 重置为默认模板并打开弹窗
   selectedTemplateIndex.value = 0;
   thumbnailForm.value.templateText = defaultTemplates[0].content;
+  resetPreviewZoom();
   generateThumbnailDialogVisible.value = true;
 
   // 弹窗打开后自动加载字体预览
