@@ -22,6 +22,17 @@
             </div>
             <div class="agent-meta">
               <span>{{ (agent.capabilities || []).length }} 项通用能力</span>
+              <span v-if="contextCount">·</span>
+              <button
+                v-if="contextCount"
+                class="meta-link"
+                title="点击查看上下文明细"
+                @click="showContextDrawer = true"
+              >
+                上下文 {{ contextCount }} 条
+              </button>
+              <span v-if="userMessageCount">·</span>
+              <span v-if="userMessageCount" title="你在此会话中发送的消息条数">用户输入 {{ userMessageCount }} 条</span>
               <span v-if="agent.description">·</span>
               <span v-if="agent.description" class="agent-meta__desc">{{ agent.description }}</span>
             </div>
@@ -93,10 +104,14 @@
     <!-- ═══════════ 对话消息流主体 (铺满宽度 · 内部独立滚动) ═══════════ -->
     <main class="chat-scroll" ref="chatScrollRef">
       <div class="chat-container">
-        <!-- 首屏加载：避免欢迎文案/旧消息闪一下再替换 -->
+        <!-- 首屏加载：极简骨架 -->
         <div v-if="!pageReady" class="chat-boot">
-          <span class="chat-boot__spinner" />
-          <div class="chat-boot__hint">正在加载会话…</div>
+          <div class="boot-skeleton">
+            <div class="boot-skeleton__line boot-skeleton__line--user" />
+            <div class="boot-skeleton__line" />
+            <div class="boot-skeleton__line boot-skeleton__line--short" />
+            <div class="boot-skeleton__line" />
+          </div>
         </div>
 
         <!-- 空态欢迎屏 (ChatGPT / Grok 标配) -->
@@ -134,6 +149,9 @@
             <!-- 用户消息 (极简右侧气泡) -->
             <div v-if="item.kind === 'user'" class="msg-row msg-row--user">
               <div class="msg-bubble msg-bubble--user">
+                <div class="msg-time" :data-at="item.at">
+                  {{ formatLogTime(item.at) || (item.at ? String(item.at).slice(11, 19) : '无时间') }}
+                </div>
                 <div class="msg-text">{{ item.content }}</div>
                 <div class="msg-actions">
                   <button class="msg-copy-btn" title="复制内容" @click="copyText(item.content)">
@@ -153,6 +171,9 @@
             <!-- 智能体消息组 (左侧：思考折叠条 + 实时动画 + 正文 Markdown + 审批卡) -->
             <div v-else-if="item.kind === 'assistant-group'" class="msg-row msg-row--assistant">
               <div class="assistant-content-wrap">
+                <div class="msg-time msg-time--assistant" :data-at="item.at">
+                  {{ formatLogTime(item.at) || (item.at ? String(item.at).slice(11, 19) : '无时间') }}
+                </div>
                 <!-- 1. Grok / DeepSeek 风格深度思考与工具调度折叠块 -->
                 <div v-if="item.tools && item.tools.length" class="thought-accordion">
                   <button class="thought-toggle" @click="toggleToolsExpand(idx, item)">
@@ -230,17 +251,12 @@
                   </div>
                 </div>
 
-                <!-- 2. 执行中动画提示 -->
-                <div v-if="item.thinking && !item.content" class="agent-thinking-pill">
+                <!-- 2. 执行中：无内容或有工具在跑时才显示 -->
+                <div v-if="isBusy && (!item.content || item.tools?.some((t: any) => t.status === 'running'))" class="agent-thinking-pill">
                   <span class="thinking-spinner" />
-                  <div class="agent-thinking-pill__info">
-                    <span class="agent-thinking-pill__main">{{ thinkingLabel }}</span>
-                    <span class="agent-thinking-pill__meta">
-                      <template v-if="thinkingElapsed">{{ thinkingElapsed }}</template>
-                      <template v-if="thinkingSubDetail && thinkingSubDetail !== thinkingLabel"> · {{ thinkingSubDetail }}</template>
-                      <template v-if="thinkingStalled"> · ⚠ 可能等待响应中</template>
-                    </span>
-                  </div>
+                  <span class="agent-thinking-pill__text">
+                    {{ thinkingLabel }}<template v-if="thinkingElapsed"> · {{ thinkingElapsed }}</template>
+                  </span>
                 </div>
 
                 <!-- 3. Markdown 正文 -->
@@ -292,7 +308,6 @@
             class="composer-textarea"
             :placeholder="composerPlaceholder"
             rows="1"
-            :disabled="isBusy"
             @focus="isInputFocused = true"
             @blur="isInputFocused = false"
             @keydown="handleComposerKeyDown"
@@ -366,6 +381,25 @@
       </div>
     </footer>
 
+    <!-- ═══════════ 上下文明细抽屉 ═══════════ -->
+    <el-drawer
+      v-model="showContextDrawer"
+      title="上下文明细"
+      size="420px"
+      direction="rtl"
+    >
+      <div class="ctx-list">
+        <div v-for="(ev, i) in contextEvents" :key="i" class="ctx-item">
+          <div class="ctx-item__head">
+            <span class="ctx-item__type" :class="`ctx-item__type--${ev.type}`">{{ ctxTypeLabel(ev.type) }}</span>
+            <span class="ctx-item__time">{{ formatLogTime(ev.at) }}</span>
+          </div>
+          <div v-if="ev.content" class="ctx-item__content">{{ ctxPreview(ev.content) }}</div>
+          <div v-else-if="ev.tool" class="ctx-item__content ctx-item__content--tool">{{ ev.tool }}{{ ev.summary ? ' → ' + ctxPreview(ev.summary) : '' }}</div>
+        </div>
+      </div>
+    </el-drawer>
+
     <!-- ═══════════ 配置智能体全屏弹窗 (Tab 位于标题下左侧 · 靠左自适应 · 零多余Icon) ═══════════ -->
     <el-dialog
       v-model="dialogVisible"
@@ -390,19 +424,14 @@
           <!-- 下行靠左对齐：主配置 Tabs (位于标题下左侧) -->
           <div class="fs-dialog-header__tabs">
             <button
+              v-for="tab in dialogTabs"
+              :key="tab.key"
               class="fs-main-tab-btn"
-              :class="{ 'is-active': activeDialogTab === 'basic' }"
-              @click="activeDialogTab = 'basic'"
+              :class="{ 'is-active': activeDialogTab === tab.key }"
+              @click="activeDialogTab = tab.key"
             >
-              <span>角色设定与指令</span>
-            </button>
-            <button
-              class="fs-main-tab-btn"
-              :class="{ 'is-active': activeDialogTab === 'caps' }"
-              @click="activeDialogTab = 'caps'"
-            >
-              <span>通用能力库</span>
-              <span v-if="agentForm.capabilities.length" class="fs-main-tab-badge">
+              <span>{{ tab.label }}</span>
+              <span v-if="tab.key === 'caps' && agentForm.capabilities.length" class="fs-main-tab-badge">
                 {{ agentForm.capabilities.length }}
               </span>
             </button>
@@ -442,68 +471,14 @@
                   <el-switch v-model="agentForm.enabled" active-text="启用" inactive-text="停用" />
                 </div>
               </div>
-
-              <div class="fs-form-col fs-form-col--switch">
-                <label class="fs-label">持续执行</label>
-                <div class="fs-switch-wrap">
-                  <el-switch
-                    v-model="agentForm.dutyMode"
-                    active-value="duty"
-                    inactive-value="off"
-                    active-text="开"
-                    inactive-text="关"
-                  />
-                </div>
-              </div>
-
-              <div class="fs-form-col fs-form-col--desc">
-                <label class="fs-label">驻守目标（长期职责）</label>
-                <el-input
-                  v-model="agentForm.dutyGoal"
-                  placeholder="例如：每日整理 3–8 张图片素材入组"
-                  maxlength="200"
-                  show-word-limit
-                  :disabled="agentForm.dutyMode !== 'duty'"
-                />
-              </div>
             </div>
 
-            <!-- 运行参数 -->
-            <div class="fs-runtime-params">
-              <div class="fs-runtime-params__title">
-                <span>运行参数</span>
-                <span class="fs-subhint">精确控制调度与推理行为</span>
-              </div>
-              <div class="fs-runtime-params__grid">
-                <div class="fs-param">
-                  <label class="fs-label">日执行上限</label>
-                  <el-input-number v-model="agentForm.dailyRunLimit" :min="1" :max="500" size="small" />
-                </div>
-                <div class="fs-param">
-                  <label class="fs-label">轮询间隔（秒）</label>
-                  <el-input-number v-model="agentForm.wakeIntervalSeconds" :min="10" :max="86400" size="small" />
-                </div>
-                <div class="fs-param">
-                  <label class="fs-label">最大工具步数</label>
-                  <el-input-number v-model="agentForm.maxToolSteps" :min="5" :max="200" size="small" />
-                </div>
-                <div class="fs-param">
-                  <label class="fs-label">模型温度</label>
-                  <el-input-number v-model="agentForm.temperature" :min="0" :max="2" :step="0.1" :precision="1" size="small" />
-                </div>
-                <div class="fs-param">
-                  <label class="fs-label">LLM 超时（毫秒）</label>
-                  <el-input-number v-model="agentForm.llmTimeoutMs" :min="5000" :max="600000" :step="5000" size="small" />
-                </div>
-              </div>
-            </div>
-
-            <!-- 核心指令大编辑区 -->
+            <!-- 核心指令编辑区 -->
             <div class="fs-editor-box">
               <div class="fs-editor-box__header">
                 <div class="fs-editor-box__title-wrap">
-                  <label class="fs-label">核心业务提示词与执行准则 (System Instructions)</label>
-                  <span class="fs-subhint">定义智能体的身份角色、持续执行目标与工具调用规范</span>
+                  <label class="fs-label">核心业务提示词与执行准则</label>
+                  <span class="fs-subhint">定义身份角色、执行目标与工具调用规范</span>
                 </div>
                 <span class="fs-editor-counter">{{ agentForm.instructions.length }} 字符</span>
               </div>
@@ -530,6 +505,101 @@
                   </div>
                 </div>
                 <div class="fs-optimize-review__body">{{ autoOptimized }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: 值守 -->
+        <div v-show="activeDialogTab === 'duty'" class="fs-tab-view">
+          <div class="fs-view-content">
+            <div class="fs-form-row">
+              <div class="fs-form-col fs-form-col--switch">
+                <label class="fs-label">持续执行</label>
+                <div class="fs-switch-wrap">
+                  <el-switch
+                    v-model="agentForm.dutyMode"
+                    active-value="duty"
+                    inactive-value="off"
+                    active-text="开"
+                    inactive-text="关"
+                  />
+                </div>
+              </div>
+              <div class="fs-form-col fs-form-col--desc">
+                <label class="fs-label">驻守目标（长期职责）</label>
+                <el-input
+                  v-model="agentForm.dutyGoal"
+                  placeholder="例如：每日整理 3–8 张图片素材入组"
+                  maxlength="200"
+                  show-word-limit
+                  :disabled="agentForm.dutyMode !== 'duty'"
+                />
+              </div>
+            </div>
+            <div class="fs-runtime-params__grid" style="margin-top: 12px">
+              <div class="fs-param">
+                <label class="fs-label" title="智能体每天最多自动运行多少轮，达到后当天停止，次日重置">每日最多运行</label>
+                <el-input-number v-model="agentForm.dailyRunLimit" :min="1" :max="99999" size="small" />
+              </div>
+              <div class="fs-param">
+                <label class="fs-label" title="每隔多少秒自动唤醒一次智能体执行任务，越小越频繁">自动唤醒间隔（秒）</label>
+                <el-input-number v-model="agentForm.wakeIntervalSeconds" :min="10" :max="86400" size="small" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: 运行参数 -->
+        <div v-show="activeDialogTab === 'runtime'" class="fs-tab-view">
+          <div class="fs-view-content">
+            <div class="fs-runtime-params__grid">
+              <div class="fs-param">
+                <label class="fs-label" title="单轮任务中最多调用多少次工具（查素材/建任务等），防止无限循环">单轮最大操作数</label>
+                <el-input-number v-model="agentForm.maxToolSteps" :min="5" :max="200" size="small" />
+              </div>
+              <div class="fs-param">
+                <label class="fs-label" title="0=非常严谨稳定，1=平衡，2=自由发散。建任务建议 0.1~0.3">回答稳定度</label>
+                <el-input-number v-model="agentForm.temperature" :min="0" :max="2" :step="0.1" :precision="1" size="small" />
+              </div>
+              <div class="fs-param">
+                <label class="fs-label" title="等 AI 回复的最长时间，超时自动中止本轮。推荐 90000（90秒）">响应超时（毫秒）</label>
+                <el-input-number v-model="agentForm.llmTimeoutMs" :min="5000" :max="600000" :step="5000" size="small" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: 自动清理 -->
+        <div v-show="activeDialogTab === 'clean'" class="fs-tab-view">
+          <div class="fs-view-content">
+            <div class="fs-runtime-params__title" style="margin-bottom: 12px">
+              <span>自动清理</span>
+              <span class="fs-subhint">清理旧对话记录，用户微调指令自动保留</span>
+              <button class="fs-clean-btn" :disabled="cleaningAgent" @click="cleanNow">
+                {{ cleaningAgent ? '清理中...' : '立即清理' }}
+              </button>
+            </div>
+            <div class="fs-runtime-params__grid">
+              <div class="fs-param">
+                <label class="fs-label" title="开启后按间隔自动清理历史对话">自动清理</label>
+                <el-switch v-model="agentForm.autoCleanEnabled" />
+              </div>
+              <div class="fs-param">
+                <label class="fs-label" title="已完成对话保留几天的详细记录（超过后只留摘要）">完成保留天数</label>
+                <el-input-number v-model="agentForm.retainCompletedDays" :min="1" :max="365" size="small" />
+              </div>
+              <div class="fs-param">
+                <label class="fs-label" title="失败对话保留几天的详细记录">失败保留天数</label>
+                <el-input-number v-model="agentForm.retainFailedDays" :min="1" :max="365" size="small" />
+              </div>
+              <div class="fs-param">
+                <label class="fs-label" title="单个对话最多保留多少条上下文事件，超出自动裁剪">上下文上限</label>
+                <el-input-number v-model="agentForm.maxWorklogEntries" :min="50" :max="5000" :step="50" size="small" />
+              </div>
+              <div class="fs-param">
+                <label class="fs-label" title="每隔多少小时自动清理一次">清理间隔（小时）</label>
+                <el-input-number v-model="agentForm.cleanIntervalHours" :min="1" :max="720" size="small" />
               </div>
             </div>
           </div>
@@ -819,6 +889,21 @@ const cancelling = ref(false)
 const isInputFocused = ref(false)
 const opLoading = ref(false)
 const savingAgent = ref(false)
+const cleaningAgent = ref(false)
+
+async function cleanNow() {
+  if (!agent.value || cleaningAgent.value) return
+  cleaningAgent.value = true
+  try {
+    const res: any = await AgentAdminApi.cleanNow(agent.value.id)
+    const d = res?.data ?? res
+    ElMessage.success(`清理完成：提炼微调 ${d?.promoted ?? 0} 条，裁剪 ${d?.trimmed ?? 0} 条，清空 ${d?.cleared ?? 0} 条`)
+  } catch (e: any) {
+    ElMessage.error(e?.message || '清理失败')
+  } finally {
+    cleaningAgent.value = false
+  }
+}
 const optimizing = ref(false)
 const autoOptimized = ref('')
 const optimizeTime = ref('')
@@ -880,7 +965,15 @@ let idleWatchTimer: ReturnType<typeof setInterval> | null = null
 
 // ── 全屏弹窗表单 ──────────────────────────────────────────
 const dialogVisible = ref(false)
-const activeDialogTab = ref<'basic' | 'caps'>('basic')
+const activeDialogTab = ref<string>('basic')
+
+const dialogTabs = [
+  { key: 'basic', label: '基本与指令' },
+  { key: 'duty', label: '值守' },
+  { key: 'runtime', label: '运行' },
+  { key: 'clean', label: '清理' },
+  { key: 'caps', label: '能力' },
+]
 const activeCapGroup = ref<string>('all')
 const capSearch = ref('')
 const riskFilter = ref<'all' | 'low' | 'med_high'>('all')
@@ -897,7 +990,12 @@ const agentForm = reactive({
   wakeIntervalSeconds: 30,
   maxToolSteps: 50,
   temperature: 0.2,
-  llmTimeoutMs: 90000
+  llmTimeoutMs: 90000,
+  autoCleanEnabled: true,
+  retainCompletedDays: 7,
+  retainFailedDays: 3,
+  maxWorklogEntries: 500,
+  cleanIntervalHours: 24
 })
 
 // ── 通用业务智能体预设模板 (全业务通用，纯扁平，无多余Icon) ──
@@ -1125,6 +1223,43 @@ const starterPrompts = computed(() => {
 // ── 状态计算 ──────────────────────────────────────────────
 const isWorking = computed(() => Boolean(agent.value?.enabled && agent.value?.dutyMode === 'duty'))
 
+const contextCount = computed(() => {
+  const wl = currentTask.value?.worklog
+  return Array.isArray(wl) ? wl.length : 0
+})
+
+const userMessageCount = computed(() => {
+  const wl = currentTask.value?.worklog
+  if (!Array.isArray(wl)) return 0
+  return wl.filter((e: any) => e?.type === 'user').length
+})
+
+const showContextDrawer = ref(false)
+
+const contextEvents = computed(() => {
+  const wl = currentTask.value?.worklog
+  return Array.isArray(wl) ? wl : []
+})
+
+function ctxTypeLabel(type?: string) {
+  const map: Record<string, string> = {
+    user: '用户',
+    text: 'AI',
+    tool: '工具',
+    tool_pending: '工具',
+    thinking: '思考',
+    system: '系统',
+    error: '错误',
+    completed: '完成',
+  }
+  return map[type || ''] || type || '?'
+}
+
+function ctxPreview(content?: string) {
+  const s = String(content || '')
+  return s.length > 120 ? s.slice(0, 120) + '…' : s
+}
+
 async function toggleWorking() {
   if (!agent.value) return
   const next = isWorking.value ? 'off' : 'duty'
@@ -1295,24 +1430,28 @@ const chatItems = computed(() => {
   let textBuf = ''
   let toolBuf: any[] = []
   let interact: any = null
+  let groupAt = ''
 
-  const flush = () => {
+  const flush = (at?: string) => {
     if (toolBuf.length || textBuf || interact) {
       items.push({
         kind: 'assistant-group',
         tools: toolBuf,
         content: textBuf || '',
         thinking: false,
-        interact
+        interact,
+        at: groupAt || at || toolBuf[0]?.at || ''
       })
     }
     textBuf = ''
     toolBuf = []
     interact = null
+    groupAt = ''
   }
 
   for (const ev of events) {
     if (ev?.type === 'text') {
+      if (!groupAt && ev.at) groupAt = ev.at
       textBuf += ev.content || ''
       continue
     }
@@ -1320,10 +1459,10 @@ const chatItems = computed(() => {
       continue
     }
     if (ev?.type === 'user') {
-      flush()
-      items.push({ kind: 'user', content: ev.content })
+      flush(ev.at)
+      items.push({ kind: 'user', content: ev.content, at: ev.at })
     } else if (ev?.type === 'system') {
-      flush()
+      flush(ev.at)
       items.push({
         kind: 'system',
         content: ev.content || '',
@@ -1349,6 +1488,7 @@ const chatItems = computed(() => {
           summary: '正在执行中...',
           error: undefined,
           durationMs: null,
+          at: ev.at,
           assets: [],
           status: 'running'
         })
@@ -1372,7 +1512,8 @@ const chatItems = computed(() => {
         error: ev.error,
         durationMs: ev.durationMs,
         assets: ev.assets || [],
-        status: ev.success ? 'done' : 'error'
+        status: ev.success ? 'done' : 'error',
+        at: ev.at
       }
       if (pendingIdx !== -1) {
         toolBuf[pendingIdx] = toolItem
@@ -1382,8 +1523,8 @@ const chatItems = computed(() => {
     } else if (ev?.type === 'interrupt') {
       interact = toInteractionPayload(ev.payload || {})
     } else if (ev?.type === 'error') {
-      flush()
-      items.push({ kind: 'error', event: ev })
+      flush(ev.at)
+      items.push({ kind: 'error', event: ev, at: ev.at })
     }
   }
 
@@ -1394,18 +1535,19 @@ const chatItems = computed(() => {
       tools: toolBuf,
       content: textBuf || '',
       thinking: true,
-      interact
+      interact,
+      at: groupAt || toolBuf[0]?.at || ''
     })
   } else {
-    flush()
+    flush(groupAt || (events[events.length - 1] as any)?.at)
   }
 
   return items
 })
 
 const composerPlaceholder = computed(() => {
-  if (isWaiting.value) return '当前任务等待确认，请输入您的反馈意见或点击上方按钮操作...'
-  if (isBusy.value) return '智能体正在执行任务中，请稍候...'
+  if (isWaiting.value) return '当前任务等待确认，请输入您的反馈意见...'
+  if (isBusy.value) return '智能体执行中，可继续输入指令（Enter 发送）...'
   return '输入业务指令或目标，智能体将自主规划推进 (Enter 发送)...'
 })
 
@@ -1545,7 +1687,7 @@ function backToList(e?: Event) {
 // ── 发送指令与对话 ────────────────────────────────────────
 async function sendPrompt() {
   const text = draftPrompt.value.trim()
-  if (!text || !agent.value || isBusy.value) return
+  if (!text || !agent.value) return
 
   draftPrompt.value = ''
   nextTick(autoResizeComposer)
@@ -1573,7 +1715,12 @@ async function sendPrompt() {
       scrollToBottom()
       startPolling()
     } catch (e: any) {
-      ElMessage.error(e?.message || '发送消息失败')
+      if (isBusy.value) {
+        // 执行中：消息已入队，等当前轮完成后处理
+        ElMessage.info('消息已记录，将在当前任务完成后处理')
+      } else {
+        ElMessage.error(e?.message || '发送消息失败')
+      }
     }
     return
   }
@@ -1635,7 +1782,6 @@ function startIdleWatch() {
   idleWatchTimer = setInterval(async () => {
     if (!agent.value || !isWorking.value) return
     if (isBusy.value) return
-    // 已有未完/刚完的任务则由 startPolling 管；这里只负责捞「新出现的任务」
     try {
       const id = String(route.params.id || '')
       if (!id) return
@@ -1643,6 +1789,7 @@ function startIdleWatch() {
       const items = taskRes?.data?.items ?? taskRes?.items ?? []
       const latest = items[0]
       if (!latest) return
+      // 用户眼中只有一个对话：新任务静默切换
       if (!currentTask.value || currentTask.value.id !== latest.id) {
         await openTask(latest.id)
       }
@@ -1787,6 +1934,11 @@ function openEditDialog() {
   agentForm.maxToolSteps = (agent.value as any).maxToolSteps || 50
   agentForm.temperature = Number((agent.value as any).temperature) || 0.2
   agentForm.llmTimeoutMs = (agent.value as any).llmTimeoutMs || 90000
+  agentForm.autoCleanEnabled = (agent.value as any).autoCleanEnabled !== false
+  agentForm.retainCompletedDays = (agent.value as any).retainCompletedDays || 7
+  agentForm.retainFailedDays = (agent.value as any).retainFailedDays || 3
+  agentForm.maxWorklogEntries = (agent.value as any).maxWorklogEntries || 500
+  agentForm.cleanIntervalHours = (agent.value as any).cleanIntervalHours || 24
   agentForm.description = agent.value.description || ''
   agentForm.instructions = agent.value.instructions || ''
   agentForm.capabilities = Array.isArray(agent.value.capabilities) ? [...agent.value.capabilities] : []
@@ -1867,7 +2019,12 @@ async function saveAgentConfiguration() {
       wakeIntervalSeconds: agentForm.wakeIntervalSeconds,
       maxToolSteps: agentForm.maxToolSteps,
       temperature: agentForm.temperature,
-      llmTimeoutMs: agentForm.llmTimeoutMs
+      llmTimeoutMs: agentForm.llmTimeoutMs,
+      autoCleanEnabled: agentForm.autoCleanEnabled,
+      retainCompletedDays: agentForm.retainCompletedDays,
+      retainFailedDays: agentForm.retainFailedDays,
+      maxWorklogEntries: agentForm.maxWorklogEntries,
+      cleanIntervalHours: agentForm.cleanIntervalHours
     })
     agent.value = ((res as any)?.data ?? res) as AgentDefinition
     dialogVisible.value = false
@@ -2223,12 +2380,12 @@ onBeforeUnmount(() => {
   }
 
   &--running {
-    background: var(--el-color-success-light-9);
+    background: color-mix(in srgb, var(--el-color-success) 12%, transparent);
     color: var(--el-color-success);
   }
 
   &--waiting {
-    background: var(--el-color-warning-light-9);
+    background: color-mix(in srgb, var(--el-color-warning) 12%, transparent);
     color: var(--el-color-warning);
   }
 }
@@ -2284,11 +2441,11 @@ onBeforeUnmount(() => {
   }
 
   &--danger {
-    background: var(--el-color-danger-light-9);
+    background: color-mix(in srgb, var(--el-color-danger) 12%, transparent);
     color: var(--el-color-danger);
 
     &:hover {
-      background: var(--el-color-danger-light-9);
+      background: color-mix(in srgb, var(--el-color-danger) 12%, transparent);
       color: var(--el-color-danger);
     }
   }
@@ -2304,17 +2461,17 @@ onBeforeUnmount(() => {
     }
 
     &.is-on {
-      background: var(--el-color-success-light-9);
+      background: color-mix(in srgb, var(--el-color-success) 12%, transparent);
       color: var(--el-color-success);
 
       .work-dot {
         background: var(--el-color-success);
-        box-shadow: 0 0 0 3px var(--el-color-success-light-9);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--el-color-success) 18%, transparent);
         animation: duty-pulse 1.6s ease-in-out infinite;
       }
 
       &:hover {
-        background: var(--el-color-danger-light-9);
+        background: color-mix(in srgb, var(--el-color-danger) 12%, transparent);
         color: var(--el-color-danger);
 
         .work-dot {
@@ -2390,39 +2547,40 @@ onBeforeUnmount(() => {
 /* 首屏加载占位 */
 .chat-boot {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   margin: auto 0;
   padding: 48px 0;
+}
+
+.boot-skeleton {
+  display: flex;
+  flex-direction: column;
   gap: 12px;
+  width: 100%;
+  max-width: 480px;
 
-  &__spinner {
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    border: 2px solid var(--el-border-color, rgba(148, 163, 184, 0.35));
-    border-top-color: var(--c-text-secondary, #64748b);
-    animation: chat-boot-spin 0.8s linear infinite;
-  }
+  &__line {
+    height: 14px;
+    border-radius: 7px;
+    background: var(--el-fill-color, rgba(148, 163, 184, 0.12));
+    animation: boot-fade 1.4s ease-in-out infinite;
 
-  &__hint {
-    font-size: 12px;
-    color: var(--c-text-placeholder);
-    animation: chat-boot-pulse 1.2s ease-in-out infinite;
-  }
-}
+    &--user {
+      width: 60%;
+      align-self: flex-end;
+    }
 
-@keyframes chat-boot-spin {
-  to {
-    transform: rotate(360deg);
+    &--short {
+      width: 72%;
+    }
   }
 }
 
-@keyframes chat-boot-pulse {
+@keyframes boot-fade {
   0%,
   100% {
-    opacity: 0.45;
+    opacity: 0.5;
   }
   50% {
     opacity: 1;
@@ -2472,7 +2630,7 @@ onBeforeUnmount(() => {
   font-size: 12px;
   color: var(--c-primary, var(--el-color-primary));
   margin: -12px 0 20px;
-  animation: chat-boot-pulse 1.4s ease-in-out infinite;
+  animation: boot-fade 1.4s ease-in-out infinite;
 }
 
 .welcome-prompts {
@@ -2555,13 +2713,106 @@ onBeforeUnmount(() => {
   }
 
   &--warn {
-    background: var(--el-color-warning-light-9);
+    background: color-mix(in srgb, var(--el-color-warning) 12%, transparent);
     color: var(--el-color-warning);
   }
 
   &--success {
-    background: var(--el-color-success-light-9);
+    background: color-mix(in srgb, var(--el-color-success) 12%, transparent);
     color: var(--el-color-success);
+  }
+}
+
+.msg-time {
+  font-size: 11px;
+  color: var(--el-text-color-secondary, #909399);
+  margin-bottom: 4px;
+  user-select: none;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.3px;
+
+  &--assistant {
+    margin-bottom: 6px;
+    padding-left: 2px;
+  }
+}
+
+.meta-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+  color: var(--c-primary, var(--el-color-primary));
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+
+  &:hover {
+    opacity: 0.8;
+  }
+}
+
+.ctx-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.ctx-item {
+  padding: 8px 10px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  font-size: 12px;
+
+  &__head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  &__type {
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: var(--el-fill-color);
+    color: var(--el-text-color-secondary);
+
+    &--user {
+      background: color-mix(in srgb, var(--el-color-primary) 12%, transparent);
+      color: var(--el-color-primary);
+    }
+    &--error {
+      background: color-mix(in srgb, var(--el-color-danger) 12%, transparent);
+      color: var(--el-color-danger);
+    }
+    &--tool {
+      background: color-mix(in srgb, var(--el-color-warning) 12%, transparent);
+      color: var(--el-color-warning);
+    }
+    &--completed {
+      background: color-mix(in srgb, var(--el-color-success) 12%, transparent);
+      color: var(--el-color-success);
+    }
+  }
+
+  &__time {
+    font-size: 11px;
+    color: var(--el-text-color-placeholder);
+    margin-left: auto;
+  }
+
+  &__content {
+    color: var(--el-text-color-regular);
+    line-height: 1.5;
+    word-break: break-word;
+
+    &--tool {
+      color: var(--el-text-color-secondary);
+      font-family: monospace;
+      font-size: 11px;
+    }
   }
 }
 
@@ -2789,7 +3040,7 @@ onBeforeUnmount(() => {
 
   &--running &__status-dot {
     background: var(--el-color-primary);
-    box-shadow: 0 0 0 3px var(--el-color-primary-light-9);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--el-color-primary) 18%, transparent);
     animation: pulse-dot 1.2s ease-in-out infinite;
   }
 
@@ -2797,8 +3048,8 @@ onBeforeUnmount(() => {
     margin-left: auto;
     font-size: 10px;
     color: var(--el-color-primary);
-    background: var(--el-color-primary-light-9);
-    border: 1px solid var(--el-color-primary-light-9);
+    background: color-mix(in srgb, var(--el-color-primary) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--el-color-primary) 25%, transparent);
     padding: 1px 6px;
     border-radius: 4px;
     font-weight: 500;
@@ -2830,37 +3081,23 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 14px;
-  border-radius: 20px;
-  corner-shape: squircle;
-  background: var(--el-fill-color-light);
-  color: var(--c-text-secondary);
-  font-size: 12.5px;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+  padding: 4px 0;
 
-  &__info {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  &__main {
-    color: var(--c-text-primary);
-    font-weight: 500;
-  }
-
-  &__meta {
-    font-size: 11px;
-    color: var(--c-text-placeholder);
+  &__text {
+    font-size: 13px;
   }
 }
 
 .thinking-spinner {
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   border: 2px solid var(--el-border-color);
-  border-top-color: var(--c-text-primary);
+  border-top-color: var(--el-text-color-secondary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
 }
 
 @keyframes spin {
@@ -2899,8 +3136,8 @@ onBeforeUnmount(() => {
   padding: 10px 14px;
   border-radius: 8px;
   corner-shape: squircle;
-  background: var(--el-color-danger-light-9);
-  border: 1px solid var(--el-color-danger-light-9);
+  background: color-mix(in srgb, var(--el-color-danger) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--el-color-danger) 25%, transparent);
   color: var(--el-color-danger);
   font-size: 13px;
 }
@@ -3487,7 +3724,27 @@ onBeforeUnmount(() => {
     }
   }
 
-  .fs-runtime-params {
+  .fs-clean-btn {
+  margin-left: auto;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--el-color-primary);
+  background: color-mix(in srgb, var(--el-color-primary) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--el-color-primary) 25%, transparent);
+  border-radius: 5px;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--el-color-primary) 18%, transparent);
+  }
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.fs-runtime-params {
     margin-bottom: 16px;
 
     &__title {
@@ -3814,7 +4071,7 @@ onBeforeUnmount(() => {
     &.is-selected {
       border-color: var(--c-primary);
       background: color-mix(in srgb, var(--c-primary) 8%, #ffffff);
-      box-shadow: 0 0 0 1px var(--c-primary), 0 2px 8px var(--el-color-primary-light-9);
+      box-shadow: 0 0 0 1px var(--c-primary), 0 2px 8px color-mix(in srgb, var(--c-primary) 18%, transparent);
 
       &:hover {
         background: color-mix(in srgb, var(--c-primary) 12%, #ffffff);
@@ -3939,61 +4196,61 @@ onBeforeUnmount(() => {
    🌙 暗色模式 (html.dark) 针对全屏弹窗无缝生效
    ═══════════════════════════════════════════════════════════ */
 html.dark .flat-fs-dialog {
-  --c-dialog-bg: #141414;
-  --c-dialog-border: rgba(255, 255, 255, 0.08);
-  --c-dialog-text: #f8fafc;
-  --c-dialog-subtext: #94a3b8;
-  --c-dialog-mute: #64748b;
+  --c-dialog-bg: var(--el-bg-color-overlay);
+  --c-dialog-border: var(--el-border-color-lighter);
+  --c-dialog-text: var(--el-text-color-primary);
+  --c-dialog-subtext: var(--el-text-color-secondary);
+  --c-dialog-mute: var(--el-text-color-placeholder);
 
   /* 暗色模式下：只读 (Low)、执行 (Medium)、敏感 (High) 标签色彩 */
   --c-tag-low-bg: var(--el-color-success-light-9);
-  --c-tag-low-text: #34d399;
+  --c-tag-low-text: var(--el-color-success);
   --c-tag-low-border: rgba(52, 211, 153, 0.3);
 
   --c-tag-med-bg: var(--el-color-primary-light-9);
-  --c-tag-med-text: #60a5fa;
+  --c-tag-med-text: var(--el-color-primary);
   --c-tag-med-border: rgba(96, 165, 250, 0.3);
 
   --c-tag-high-bg: var(--el-color-danger-light-9);
-  --c-tag-high-text: #f87171;
+  --c-tag-high-text: var(--el-color-danger);
   --c-tag-high-border: rgba(248, 113, 113, 0.3);
 
-  --c-tag-cat-bg: #222225;
-  --c-tag-cat-text: #94a3b8;
+  --c-tag-cat-bg: var(--el-fill-color-light);
+  --c-tag-cat-text: var(--el-text-color-regular);
   --c-tag-cat-border: rgba(255, 255, 255, 0.08);
 
   .fs-dialog-header {
-    background: #141414;
+    background: var(--el-bg-color-overlay);
   }
 
   .fs-main-tab-badge {
-    background: #252528;
-    color: #94a3b8;
+    background: var(--el-fill-color-light);
+    color: var(--el-text-color-secondary);
   }
 
   .fs-cat-btn {
-    background: #19191b;
+    background: var(--el-bg-color);
     border-color: rgba(255, 255, 255, 0.08);
-    color: #94a3b8;
+    color: var(--el-text-color-secondary);
 
     &:hover {
-      color: #f8fafc;
+      color: var(--el-text-color-primary);
       border-color: rgba(255, 255, 255, 0.15);
     }
 
     &.is-active {
-      background: #262629;
+      background: var(--el-fill-color);
       color: var(--el-color-white);
       border-color: rgba(255, 255, 255, 0.18);
     }
   }
 
   .fs-cap-card {
-    background: #1b1b1f;
+    background: var(--el-fill-color-light);
     border-color: rgba(255, 255, 255, 0.08);
 
     &:hover {
-      background: #232328;
+      background: var(--el-fill-color);
       border-color: rgba(255, 255, 255, 0.16);
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     }
@@ -4010,7 +4267,7 @@ html.dark .flat-fs-dialog {
   }
 
   .fs-checkbox-box {
-    background: #19191b;
+    background: var(--el-bg-color);
     border-color: rgba(255, 255, 255, 0.2);
 
     &.is-checked {
@@ -4020,15 +4277,15 @@ html.dark .flat-fs-dialog {
   }
 
   .fs-editor-textarea .el-textarea__inner {
-    background: #19191b;
+    background: var(--el-bg-color);
     border-color: rgba(255, 255, 255, 0.08);
-    color: #f8fafc;
+    color: var(--el-text-color-primary);
   }
 
   .fs-preset-pill {
-    background: #19191b;
+    background: var(--el-bg-color);
     border-color: rgba(255, 255, 255, 0.08);
-    color: #cbd5e1;
+    color: var(--el-text-color-regular);
 
     &:hover {
       border-color: var(--el-color-primary, var(--el-color-primary));
@@ -4037,17 +4294,17 @@ html.dark .flat-fs-dialog {
   }
 
   .fs-filter-pill {
-    background: #19191b;
+    background: var(--el-bg-color);
     border-color: rgba(255, 255, 255, 0.08);
-    color: #94a3b8;
+    color: var(--el-text-color-secondary);
 
     &:hover {
-      color: #f8fafc;
+      color: var(--el-text-color-primary);
       border-color: rgba(255, 255, 255, 0.18);
     }
 
     &.is-active {
-      background: #262629;
+      background: var(--el-fill-color);
       border-color: rgba(255, 255, 255, 0.2);
       color: var(--el-color-white);
     }

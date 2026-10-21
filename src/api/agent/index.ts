@@ -82,6 +82,7 @@ export interface AgentDefinition {
   dutyMode?: 'off' | 'duty'
   dutyGoal?: string
   dailyRunLimit?: number
+  dutyRunCount?: number
   nextWakeAt?: string | null
   createTime?: string
   updateTime?: string
@@ -197,6 +198,11 @@ export const AgentAdminApi = {
   /** 拒绝优化版提示词 */
   rejectOptimized(id: string) {
     return request.post({ url: `/agent/definitions/${id}/reject-optimized` }) as Promise<AgentDefinition>
+  },
+  cleanNow(id: string) {
+    return request.post({ url: `/agent/definitions/${id}/clean-now` }) as Promise<{
+      promoted: number; trimmed: number; cleared: number
+    }>
   },
   /** 下发任务（后台异步执行） */
   dispatchTask(data: { agentDefinitionId: string; title?: string; prompt: string }) {

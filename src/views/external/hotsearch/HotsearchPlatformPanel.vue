@@ -143,7 +143,7 @@ const platformIcon = computed(() => {
 })
 
 // 执行模式：server（服务端，默认）或 client（客户端）
-const executionMode = ref<'server' | 'client'>('server')
+const executionMode = ref<'server' | 'client'>('client')
 
 // 当前节点是否支持服务端执行
 const supportsServer = computed(() => supportsServerExecution(props.pluginKey))
@@ -278,7 +278,7 @@ watch(
     resultMessage.value = ''
     items.value = []
     // 切换平台时重置为默认执行模式
-    executionMode.value = 'server'
+    executionMode.value = 'client'
   },
 )
 </script>

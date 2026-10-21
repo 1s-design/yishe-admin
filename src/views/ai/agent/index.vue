@@ -5,6 +5,9 @@
       <div class="console-head__left">
         <h2 class="console-head__title">智能体</h2>
         <span class="console-head__total">{{ agents.length }} 个智能体</span>
+        <span class="console-head__stats">
+          对话 {{ taskTotal }} · 运行中 {{ statusStats.running || 0 }} · 等待 {{ (statusStats.waiting_approval || 0) + (statusStats.waiting_input || 0) }} · 完成 {{ statusStats.completed || 0 }}
+        </span>
       </div>
 
       <div class="console-head__right">
@@ -78,7 +81,13 @@
 
           <div class="agent-row__foot">
             <div class="agent-row__byline">
-              By {{ agentStatusLabel(item) }} · {{ (item.capabilities || []).length }} 项能力
+              {{ agentStatusLabel(item) }} · {{ (item.capabilities || []).length }} 项能力
+              <template v-if="item.dutyMode === 'duty'">
+                · 值守 {{ item.dutyRunCount ?? 0 }}/{{ item.dailyRunLimit ?? 24 }}
+              </template>
+              <template v-if="lastActiveAt(item)">
+                · 最近活跃 {{ lastActiveAt(item) }}
+              </template>
             </div>
 
             <el-dropdown
@@ -136,19 +145,14 @@
           <!-- 下行靠左对齐：主配置 Tabs (位于标题下左侧) -->
           <div class="fs-dialog-header__tabs">
             <button
+              v-for="tab in dialogTabs"
+              :key="tab.key"
               class="fs-main-tab-btn"
-              :class="{ 'is-active': activeDialogTab === 'basic' }"
-              @click="activeDialogTab = 'basic'"
+              :class="{ 'is-active': activeDialogTab === tab.key }"
+              @click="activeDialogTab = tab.key"
             >
-              <span>角色设定与指令</span>
-            </button>
-            <button
-              class="fs-main-tab-btn"
-              :class="{ 'is-active': activeDialogTab === 'caps' }"
-              @click="activeDialogTab = 'caps'"
-            >
-              <span>通用能力库</span>
-              <span v-if="agentForm.capabilities.length" class="fs-main-tab-badge">
+              <span>{{ tab.label }}</span>
+              <span v-if="tab.key === 'caps' && agentForm.capabilities.length" class="fs-main-tab-badge">
                 {{ agentForm.capabilities.length }}
               </span>
             </button>
@@ -215,42 +219,12 @@
               </el-select>
             </div>
 
-            <!-- 运行参数 -->
-            <div class="fs-runtime-params">
-              <div class="fs-runtime-params__title">
-                <span>运行参数</span>
-                <span class="fs-subhint">精确控制调度与推理行为</span>
-              </div>
-              <div class="fs-runtime-params__grid">
-                <div class="fs-param">
-                  <label class="fs-label">日执行上限</label>
-                  <el-input-number v-model="agentForm.dailyRunLimit" :min="1" :max="500" size="small" />
-                </div>
-                <div class="fs-param">
-                  <label class="fs-label">轮询间隔（秒）</label>
-                  <el-input-number v-model="agentForm.wakeIntervalSeconds" :min="10" :max="86400" size="small" />
-                </div>
-                <div class="fs-param">
-                  <label class="fs-label">最大工具步数</label>
-                  <el-input-number v-model="agentForm.maxToolSteps" :min="5" :max="200" size="small" />
-                </div>
-                <div class="fs-param">
-                  <label class="fs-label">模型温度</label>
-                  <el-input-number v-model="agentForm.temperature" :min="0" :max="2" :step="0.1" :precision="1" size="small" />
-                </div>
-                <div class="fs-param">
-                  <label class="fs-label">LLM 超时（毫秒）</label>
-                  <el-input-number v-model="agentForm.llmTimeoutMs" :min="5000" :max="600000" :step="5000" size="small" />
-                </div>
-              </div>
-            </div>
-
-            <!-- 核心系统指令 (Instructions) 全高编辑区 -->
+            <!-- 核心指令编辑区 -->
             <div class="fs-editor-box">
               <div class="fs-editor-box__header">
                 <div class="fs-editor-box__title-wrap">
-                  <label class="fs-label">业务职责提示词与思考规则 (System Instructions)</label>
-                  <span class="fs-subhint">定义智能体执行目标、思考方式、工具调用逻辑及约束规则</span>
+                  <label class="fs-label">业务职责提示词与思考规则</label>
+                  <span class="fs-subhint">定义执行目标、思考方式与约束规则</span>
                 </div>
                 <span class="fs-editor-counter">{{ agentForm.instructions.length }} 字符</span>
               </div>
@@ -258,8 +232,100 @@
                 v-model="agentForm.instructions"
                 type="textarea"
                 class="fs-editor-textarea"
-                placeholder="请输入详细的系统职责提示词。例如：&#10;你是一个严谨高效的业务智能体，根据用户的任务指令自主推进执行。&#10;【执行原则】&#10;1. 优先调用系统已绑定的真实工具获取客观数据，严禁凭空捏造。&#10;2. 遇到需人工确认的操作时自动暂停并汇报关键参数。&#10;3. 执行完毕输出结构化结论与产物清单。"
+                placeholder="请输入系统职责提示词..."
               />
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: 值守 -->
+        <div v-show="activeDialogTab === 'duty'" class="fs-tab-view">
+          <div class="fs-view-content">
+            <div class="fs-form-row">
+              <div class="fs-form-col fs-form-col--switch">
+                <label class="fs-label">持续执行</label>
+                <div class="fs-switch-wrap">
+                  <el-switch
+                    v-model="agentForm.dutyMode"
+                    active-value="duty"
+                    inactive-value="off"
+                    active-text="开"
+                    inactive-text="关"
+                  />
+                </div>
+              </div>
+              <div class="fs-form-col fs-form-col--desc">
+                <label class="fs-label">驻守目标（长期职责）</label>
+                <el-input
+                  v-model="agentForm.dutyGoal"
+                  placeholder="例如：每日整理 3–8 张图片素材入组"
+                  maxlength="200"
+                  show-word-limit
+                  :disabled="agentForm.dutyMode !== 'duty'"
+                />
+              </div>
+            </div>
+            <div class="fs-runtime-params__grid" style="margin-top: 12px">
+              <div class="fs-param">
+                <label class="fs-label" title="智能体每天最多自动运行多少轮，达到后当天停止，次日重置">每日最多运行</label>
+                <el-input-number v-model="agentForm.dailyRunLimit" :min="1" :max="99999" size="small" />
+              </div>
+              <div class="fs-param">
+                <label class="fs-label" title="每隔多少秒自动唤醒一次智能体执行任务，越小越频繁">自动唤醒间隔（秒）</label>
+                <el-input-number v-model="agentForm.wakeIntervalSeconds" :min="10" :max="86400" size="small" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: 运行参数 -->
+        <div v-show="activeDialogTab === 'runtime'" class="fs-tab-view">
+          <div class="fs-view-content">
+            <div class="fs-runtime-params__grid">
+              <div class="fs-param">
+                <label class="fs-label" title="单轮任务中最多调用多少次工具（查素材/建任务等），防止无限循环">单轮最大操作数</label>
+                <el-input-number v-model="agentForm.maxToolSteps" :min="5" :max="200" size="small" />
+              </div>
+              <div class="fs-param">
+                <label class="fs-label" title="0=非常严谨稳定，1=平衡，2=自由发散。建任务建议 0.1~0.3">回答稳定度</label>
+                <el-input-number v-model="agentForm.temperature" :min="0" :max="2" :step="0.1" :precision="1" size="small" />
+              </div>
+              <div class="fs-param">
+                <label class="fs-label" title="等 AI 回复的最长时间，超时自动中止本轮。推荐 90000（90秒）">响应超时（毫秒）</label>
+                <el-input-number v-model="agentForm.llmTimeoutMs" :min="5000" :max="600000" :step="5000" size="small" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: 自动清理 -->
+        <div v-show="activeDialogTab === 'clean'" class="fs-tab-view">
+          <div class="fs-view-content">
+            <div class="fs-runtime-params__title" style="margin-bottom: 12px">
+              <span>自动清理</span>
+              <span class="fs-subhint">清理旧对话记录，用户微调指令自动保留</span>
+            </div>
+            <div class="fs-runtime-params__grid">
+              <div class="fs-param">
+                <label class="fs-label" title="开启后按间隔自动清理历史对话">自动清理</label>
+                <el-switch v-model="agentForm.autoCleanEnabled" />
+              </div>
+              <div class="fs-param">
+                <label class="fs-label" title="已完成对话保留几天的详细记录（超过后只留摘要）">完成保留天数</label>
+                <el-input-number v-model="agentForm.retainCompletedDays" :min="1" :max="365" size="small" />
+              </div>
+              <div class="fs-param">
+                <label class="fs-label" title="失败对话保留几天的详细记录">失败保留天数</label>
+                <el-input-number v-model="agentForm.retainFailedDays" :min="1" :max="365" size="small" />
+              </div>
+              <div class="fs-param">
+                <label class="fs-label" title="单个对话最多保留多少条上下文事件，超出自动裁剪">上下文上限</label>
+                <el-input-number v-model="agentForm.maxWorklogEntries" :min="50" :max="5000" :step="50" size="small" />
+              </div>
+              <div class="fs-param">
+                <label class="fs-label" title="每隔多少小时自动清理一次">清理间隔（小时）</label>
+                <el-input-number v-model="agentForm.cleanIntervalHours" :min="1" :max="720" size="small" />
+              </div>
             </div>
           </div>
         </div>
@@ -441,6 +507,8 @@ const opLoading = ref(false)
 const agents = ref<AgentDefinition[]>([])
 const tasks = ref<AgentTask[]>([])
 const capabilities = ref<CapabilityItem[]>([])
+const taskTotal = ref(0)
+const statusStats = ref<Record<string, number>>({})
 
 // 搜索与过滤
 const panelSearch = ref('')
@@ -449,7 +517,15 @@ const panelFilter = ref<'all' | 'running' | 'waiting' | 'ready' | 'disabled'>('a
 // ── 弹窗状态 ──
 const agentDialogVisible = ref(false)
 const editingAgent = ref<AgentDefinition | null>(null)
-const activeDialogTab = ref<'basic' | 'caps'>('basic')
+const activeDialogTab = ref<string>('basic')
+
+const dialogTabs = [
+  { key: 'basic', label: '基本与指令' },
+  { key: 'duty', label: '值守' },
+  { key: 'runtime', label: '运行' },
+  { key: 'clean', label: '清理' },
+  { key: 'caps', label: '能力' },
+]
 
 // 能力选择与分类过滤
 const activeCapGroup = ref<string>('all')
@@ -467,7 +543,12 @@ const agentForm = reactive({
   wakeIntervalSeconds: 30,
   maxToolSteps: 50,
   temperature: 0.2,
-  llmTimeoutMs: 90000
+  llmTimeoutMs: 90000,
+  autoCleanEnabled: true,
+  retainCompletedDays: 7,
+  retainFailedDays: 3,
+  maxWorklogEntries: 500,
+  cleanIntervalHours: 24
 })
 
 // ── 通用业务智能体预设模板 (全方位覆盖，纯扁平，无多余Icon) ──
@@ -783,18 +864,33 @@ function agentStatusLabel(agent: AgentDefinition): string {
   return agent.dutyMode === 'duty' ? '已开启' : '就绪'
 }
 
+function lastActiveAt(agent: AgentDefinition): string {
+  const t = tasks.value.find((t) => t.agentDefinitionId === agent.id)
+  if (!t?.updatedAt) return ''
+  try {
+    const d = new Date(t.updatedAt)
+    const p = (n: number) => String(n).padStart(2, '0')
+    return `${p(d.getHours())}:${p(d.getMinutes())}`
+  } catch {
+    return ''
+  }
+}
+
 // ── 加载数据 ──
 async function loadAll() {
   loading.value = true
   try {
-    const [defRes, capRes, taskRes] = await Promise.all([
+    const [defRes, capRes, taskRes, statRes] = await Promise.all([
       AgentAdminApi.definitions().catch(() => []),
       AgentAdminApi.capabilities().catch(() => []),
-      AgentAdminApi.tasks({ page: 1, pageSize: 100 }).catch(() => ({ items: [], total: 0 }))
+      AgentAdminApi.tasks({ page: 1, pageSize: 20 }).catch(() => ({ items: [], total: 0 })),
+      AgentAdminApi.taskStatusCounts().catch(() => ({}))
     ])
     agents.value = defRes || []
     capabilities.value = capRes || []
     tasks.value = (taskRes as any)?.items || []
+    taskTotal.value = (taskRes as any)?.total || 0
+    statusStats.value = statRes || {}
   } catch (e: any) {
     ElMessage.error(e?.message || '加载智能体数据失败')
   } finally {
@@ -821,6 +917,11 @@ function openCreateAgent() {
   agentForm.maxToolSteps = 50
   agentForm.temperature = 0.2
   agentForm.llmTimeoutMs = 90000
+  agentForm.autoCleanEnabled = true
+  agentForm.retainCompletedDays = 7
+  agentForm.retainFailedDays = 3
+  agentForm.maxWorklogEntries = 500
+  agentForm.cleanIntervalHours = 24
 
   agentDialogVisible.value = true
 }
@@ -843,6 +944,11 @@ function openEditAgent(agent: AgentDefinition) {
   agentForm.maxToolSteps = (agent as any).maxToolSteps || 50
   agentForm.temperature = Number((agent as any).temperature) || 0.2
   agentForm.llmTimeoutMs = (agent as any).llmTimeoutMs || 90000
+  agentForm.autoCleanEnabled = (agent as any).autoCleanEnabled !== false
+  agentForm.retainCompletedDays = (agent as any).retainCompletedDays || 7
+  agentForm.retainFailedDays = (agent as any).retainFailedDays || 3
+  agentForm.maxWorklogEntries = (agent as any).maxWorklogEntries || 500
+  agentForm.cleanIntervalHours = (agent as any).cleanIntervalHours || 24
 
   agentDialogVisible.value = true
 }
@@ -911,7 +1017,12 @@ async function saveAgent() {
         wakeIntervalSeconds: agentForm.wakeIntervalSeconds,
         maxToolSteps: agentForm.maxToolSteps,
         temperature: agentForm.temperature,
-        llmTimeoutMs: agentForm.llmTimeoutMs
+        llmTimeoutMs: agentForm.llmTimeoutMs,
+        autoCleanEnabled: agentForm.autoCleanEnabled,
+        retainCompletedDays: agentForm.retainCompletedDays,
+        retainFailedDays: agentForm.retainFailedDays,
+        maxWorklogEntries: agentForm.maxWorklogEntries,
+        cleanIntervalHours: agentForm.cleanIntervalHours
       })
       ElMessage.success('智能体创建成功')
     } else {
@@ -926,7 +1037,12 @@ async function saveAgent() {
         wakeIntervalSeconds: agentForm.wakeIntervalSeconds,
         maxToolSteps: agentForm.maxToolSteps,
         temperature: agentForm.temperature,
-        llmTimeoutMs: agentForm.llmTimeoutMs
+        llmTimeoutMs: agentForm.llmTimeoutMs,
+        autoCleanEnabled: agentForm.autoCleanEnabled,
+        retainCompletedDays: agentForm.retainCompletedDays,
+        retainFailedDays: agentForm.retainFailedDays,
+        maxWorklogEntries: agentForm.maxWorklogEntries,
+        cleanIntervalHours: agentForm.cleanIntervalHours
       })
       ElMessage.success('智能体配置已更新')
     }
@@ -1048,6 +1164,15 @@ onMounted(() => {
     color: var(--c-text-secondary);
   }
 
+  &__stats {
+    font-size: 12px;
+    color: var(--c-text-secondary);
+    opacity: 0.85;
+    margin-left: 4px;
+    padding-left: 10px;
+    border-left: 1px solid var(--c-border);
+  }
+
   &__right {
     display: flex;
     align-items: center;
@@ -1123,7 +1248,7 @@ onMounted(() => {
 
   &--primary {
     background: var(--c-primary);
-    color: #ffffff;
+    color: var(--el-color-white, #fff);
 
     &:hover {
       opacity: 0.9;
@@ -1232,11 +1357,11 @@ onMounted(() => {
   }
 
   &.is-running .agent-row__byline {
-    color: #059669;
+    color: var(--el-color-success, #67c23a);
   }
 
   &.is-waiting .agent-row__byline {
-    color: #d97706;
+    color: var(--el-color-warning, #e6a23c);
   }
 
   &__avatar-wrap {
@@ -1253,7 +1378,7 @@ onMounted(() => {
         position: absolute;
         inset: -4px;
         border-radius: 50%;
-        border: 3px solid rgb(254, 54, 102);
+        border: 3px solid var(--el-color-danger);
         pointer-events: none;
         animation: agent-duty-heartbeat 1.4s ease-in-out infinite;
       }
@@ -1263,10 +1388,14 @@ onMounted(() => {
         position: absolute;
         inset: -4px;
         border-radius: 50%;
-        border: 3px solid rgb(254, 54, 102);
+        border: 3px solid var(--el-color-danger);
         opacity: 0;
         pointer-events: none;
         animation: agent-duty-heart-ring 1.4s ease-in-out infinite;
+      }
+
+      .agent-row__duty-tag {
+        animation: agent-duty-tag-pulse 1.4s ease-in-out infinite;
       }
     }
   }
@@ -1280,8 +1409,8 @@ onMounted(() => {
     line-height: 1;
     padding: 2px 5px;
     border-radius: 6px;
-    background: rgb(254, 54, 102);
-    color: #fff;
+    background: var(--el-color-danger);
+    color: var(--el-color-white);
     white-space: nowrap;
     z-index: 1;
     pointer-events: none;
@@ -1294,7 +1423,7 @@ onMounted(() => {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #fff;
+    color: var(--el-color-white, #fff);
     font-size: 18px;
     font-weight: 600;
     flex-shrink: 0;
@@ -1395,6 +1524,34 @@ onMounted(() => {
   }
   100% {
     transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* 工作中标签心跳：保持水平居中 */
+@keyframes agent-duty-tag-pulse {
+  0% {
+    transform: translateX(-50%) scale(1);
+    opacity: 1;
+  }
+  15% {
+    transform: translateX(-50%) scale(1.06);
+    opacity: 1;
+  }
+  30% {
+    transform: translateX(-50%) scale(1);
+    opacity: 0.85;
+  }
+  45% {
+    transform: translateX(-50%) scale(1.04);
+    opacity: 1;
+  }
+  60% {
+    transform: translateX(-50%) scale(1);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateX(-50%) scale(1);
     opacity: 1;
   }
 }
@@ -1621,7 +1778,7 @@ onMounted(() => {
 
     .is-active & {
       background: var(--c-primary);
-      color: #ffffff;
+      color: var(--el-color-white, #fff);
     }
   }
 
@@ -2115,7 +2272,7 @@ onMounted(() => {
     border-radius: 4px;
     border: 1px solid rgba(148, 163, 184, 0.35);
     background: var(--c-dialog-bg);
-    color: #ffffff;
+    color: var(--el-color-white, #fff);
     font-size: 11px;
     flex-shrink: 0;
     transition: all 0.12s ease;
@@ -2171,59 +2328,59 @@ onMounted(() => {
    🌙 暗色模式 (html.dark) 针对全屏弹窗无缝生效
    ═══════════════════════════════════════════════════════════ */
 html.dark .flat-fs-dialog {
-  --c-dialog-bg: #141414;
-  --c-dialog-border: rgba(255, 255, 255, 0.08);
-  --c-dialog-text: #f8fafc;
-  --c-dialog-subtext: #94a3b8;
-  --c-dialog-mute: #64748b;
+  --c-dialog-bg: var(--el-bg-color-overlay);
+  --c-dialog-border: var(--el-border-color-lighter);
+  --c-dialog-text: var(--el-text-color-primary);
+  --c-dialog-subtext: var(--el-text-color-secondary);
+  --c-dialog-mute: var(--el-text-color-placeholder);
 
   /* 暗色模式下：只读 (Low)、执行 (Medium)、敏感 (High) 标签色彩 */
   --c-tag-low-bg: rgba(16, 185, 129, 0.16);
-  --c-tag-low-text: #34d399;
+  --c-tag-low-text: var(--el-color-success);
   --c-tag-low-border: rgba(52, 211, 153, 0.3);
 
   --c-tag-med-bg: rgba(59, 130, 246, 0.16);
-  --c-tag-med-text: #60a5fa;
+  --c-tag-med-text: var(--el-color-primary);
   --c-tag-med-border: rgba(96, 165, 250, 0.3);
 
   --c-tag-high-bg: rgba(239, 68, 68, 0.16);
-  --c-tag-high-text: #f87171;
+  --c-tag-high-text: var(--el-color-danger);
   --c-tag-high-border: rgba(248, 113, 113, 0.3);
 
-  --c-tag-cat-bg: #222225;
-  --c-tag-cat-text: #94a3b8;
+  --c-tag-cat-bg: var(--el-fill-color-light);
+  --c-tag-cat-text: var(--el-text-color-regular);
   --c-tag-cat-border: rgba(255, 255, 255, 0.08);
 
   .fs-dialog-header {
-    background: #141414;
+    background: var(--el-bg-color-overlay);
   }
 
   .fs-main-tab-badge {
-    background: #252528;
-    color: #94a3b8;
+    background: var(--el-fill-color-light);
+    color: var(--el-text-color-secondary);
   }
 
   .fs-cat-btn {
     background: transparent;
-    color: #94a3b8;
+    color: var(--el-text-color-secondary);
 
     &:hover {
       background: rgba(255, 255, 255, 0.06);
-      color: #f8fafc;
+      color: var(--el-text-color-primary);
     }
 
     &.is-active {
-      background: #262629;
-      color: #ffffff;
+      background: var(--el-fill-color);
+      color: var(--el-color-white, #fff);
     }
   }
 
   .fs-cap-card {
-    background: #1b1b1f;
+    background: var(--el-fill-color-light);
     border-color: rgba(255, 255, 255, 0.08);
 
     &:hover {
-      background: #232328;
+      background: var(--el-fill-color);
       border-color: rgba(255, 255, 255, 0.16);
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     }
@@ -2240,7 +2397,7 @@ html.dark .flat-fs-dialog {
   }
 
   .fs-checkbox-box {
-    background: #19191b;
+    background: var(--el-bg-color);
     border-color: rgba(255, 255, 255, 0.2);
 
     &.is-checked {
@@ -2250,32 +2407,32 @@ html.dark .flat-fs-dialog {
   }
 
   .fs-editor-textarea .el-textarea__inner {
-    background: #19191b;
-    color: #f8fafc;
+    background: var(--el-bg-color);
+    color: var(--el-text-color-primary);
   }
 
   .fs-preset-pill {
-    background: #19191b;
-    color: #cbd5e1;
+    background: var(--el-bg-color);
+    color: var(--el-text-color-regular);
 
     &:hover {
       background: rgba(255, 255, 255, 0.06);
-      color: #ffffff;
+      color: var(--el-color-white, #fff);
     }
   }
 
   .fs-filter-pill {
     background: transparent;
-    color: #94a3b8;
+    color: var(--el-text-color-secondary);
 
     &:hover {
       background: rgba(255, 255, 255, 0.06);
-      color: #f8fafc;
+      color: var(--el-text-color-primary);
     }
 
     &.is-active {
-      background: #262629;
-      color: #ffffff;
+      background: var(--el-fill-color);
+      color: var(--el-color-white, #fff);
     }
   }
 }

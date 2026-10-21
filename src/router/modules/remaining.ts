@@ -49,6 +49,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
         name: "HotSearch",
         meta: {
           title: "router.hotSearch",
+          noAppViewPadding: true,
         },
       },
       {

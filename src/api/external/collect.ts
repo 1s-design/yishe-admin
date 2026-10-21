@@ -77,11 +77,14 @@ export interface CollectTaskResult {
   items: Array<Record<string, any>>
 }
 
-/** 采集源清单 */
-export const listCollectSources = (module?: string) => {
+/** 采集源清单（包含不可用源，UI 标记用） */
+export const listCollectSources = (module?: string, includeUnavailable = true) => {
   return request.get({
     url: '/collect/sources',
-    params: module ? { module } : {}
+    params: {
+      ...(module ? { module } : {}),
+      ...(includeUnavailable ? { includeUnavailable: 'true' } : {})
+    }
   })
 }
 

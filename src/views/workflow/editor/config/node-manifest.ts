@@ -464,7 +464,7 @@ export const NODE_MANIFEST_REGISTRY: NodeManifest[] = [
     color: '#e6162d',
     badge: '多端运行',
     description: '采集微博实时热搜榜。支持服务端执行（默认，稳定可靠）或客户端执行（使用本地网络）。核心逻辑由服务端统一维护，客户端动态拉取。',
-    defaultData: { name: '微博热搜采集', config: { maxCount: 20, executionMode: 'server' } },
+    defaultData: { name: '微博热搜采集', config: { maxCount: 20, executionMode: 'client' } },
     inputSchema: [
       {
         field: 'maxCount',
@@ -476,7 +476,7 @@ export const NODE_MANIFEST_REGISTRY: NodeManifest[] = [
         field: 'executionMode',
         label: '执行位置',
         type: 'select',
-        defaultValue: 'server',
+        defaultValue: 'client',
         description: '服务端执行（默认）：由服务端直接采集，无需客户端在线；客户端执行：由客户端本地网络采集，适合需要客户端IP的场景。',
         options: [
           { label: '服务端执行', value: 'server' },
@@ -502,7 +502,7 @@ export const NODE_MANIFEST_REGISTRY: NodeManifest[] = [
     color: '#000000',
     badge: '多端运行',
     description: '采集抖音实时热搜榜。支持服务端执行（默认，稳定可靠）或客户端执行（使用本地网络）。核心逻辑由服务端统一维护，客户端动态拉取。',
-    defaultData: { name: '抖音热搜采集', config: { maxCount: 20, executionMode: 'server' } },
+    defaultData: { name: '抖音热搜采集', config: { maxCount: 20, executionMode: 'client' } },
     inputSchema: [
       {
         field: 'maxCount',
@@ -514,7 +514,7 @@ export const NODE_MANIFEST_REGISTRY: NodeManifest[] = [
         field: 'executionMode',
         label: '执行位置',
         type: 'select',
-        defaultValue: 'server',
+        defaultValue: 'client',
         description: '服务端执行（默认）：由服务端直接采集，无需客户端在线；客户端执行：由客户端本地网络采集，适合需要客户端IP的场景。',
         options: [
           { label: '服务端执行', value: 'server' },
@@ -540,7 +540,7 @@ export const NODE_MANIFEST_REGISTRY: NodeManifest[] = [
     color: '#00a1d6',
     badge: '多端运行',
     description: '采集B站实时热搜榜。支持服务端执行（默认，稳定可靠）或客户端执行（使用本地网络）。核心逻辑由服务端统一维护，客户端动态拉取。',
-    defaultData: { name: 'B站热搜采集', config: { maxCount: 20, executionMode: 'server' } },
+    defaultData: { name: 'B站热搜采集', config: { maxCount: 20, executionMode: 'client' } },
     inputSchema: [
       {
         field: 'maxCount',
@@ -552,7 +552,7 @@ export const NODE_MANIFEST_REGISTRY: NodeManifest[] = [
         field: 'executionMode',
         label: '执行位置',
         type: 'select',
-        defaultValue: 'server',
+        defaultValue: 'client',
         description: '服务端执行（默认）：由服务端直接采集，无需客户端在线；客户端执行：由客户端本地网络采集，适合需要客户端IP的场景。',
         options: [
           { label: '服务端执行', value: 'server' },
@@ -578,7 +578,7 @@ export const NODE_MANIFEST_REGISTRY: NodeManifest[] = [
     color: '#0084ff',
     badge: '多端运行',
     description: '采集知乎实时热榜。支持服务端执行（默认，稳定可靠）或客户端执行（使用本地网络）。核心逻辑由服务端统一维护，客户端动态拉取。',
-    defaultData: { name: '知乎热榜采集', config: { maxCount: 20, executionMode: 'server' } },
+    defaultData: { name: '知乎热榜采集', config: { maxCount: 20, executionMode: 'client' } },
     inputSchema: [
       {
         field: 'maxCount',
@@ -590,7 +590,7 @@ export const NODE_MANIFEST_REGISTRY: NodeManifest[] = [
         field: 'executionMode',
         label: '执行位置',
         type: 'select',
-        defaultValue: 'server',
+        defaultValue: 'client',
         description: '服务端执行（默认）：由服务端直接采集，无需客户端在线；客户端执行：由客户端本地网络采集，适合需要客户端IP的场景。',
         options: [
           { label: '服务端执行', value: 'server' },
@@ -616,7 +616,7 @@ export const NODE_MANIFEST_REGISTRY: NodeManifest[] = [
     color: '#f5222d',
     badge: '多端运行',
     description: '采集今日头条实时热搜榜。支持服务端执行（默认，稳定可靠）或客户端执行（使用本地网络）。核心逻辑由服务端统一维护，客户端动态拉取。',
-    defaultData: { name: '今日头条热搜采集', config: { maxCount: 20, executionMode: 'server' } },
+    defaultData: { name: '今日头条热搜采集', config: { maxCount: 20, executionMode: 'client' } },
     inputSchema: [
       {
         field: 'maxCount',
@@ -628,7 +628,7 @@ export const NODE_MANIFEST_REGISTRY: NodeManifest[] = [
         field: 'executionMode',
         label: '执行位置',
         type: 'select',
-        defaultValue: 'server',
+        defaultValue: 'client',
         description: '服务端执行（默认）：由服务端直接采集，无需客户端在线；客户端执行：由客户端本地网络采集，适合需要客户端IP的场景。',
         options: [
           { label: '服务端执行', value: 'server' },
@@ -654,7 +654,7 @@ export const NODE_MANIFEST_REGISTRY: NodeManifest[] = [
     color: '#007722',
     badge: '多端运行',
     description: '采集豆瓣热门内容榜单。支持服务端执行（默认，稳定可靠）或客户端执行（使用本地网络）。核心逻辑由服务端统一维护，客户端动态拉取。',
-    defaultData: { name: '豆瓣热门采集', config: { maxCount: 20, executionMode: 'server' } },
+    defaultData: { name: '豆瓣热门采集', config: { maxCount: 20, executionMode: 'client' } },
     inputSchema: [
       {
         field: 'maxCount',
@@ -666,7 +666,7 @@ export const NODE_MANIFEST_REGISTRY: NodeManifest[] = [
         field: 'executionMode',
         label: '执行位置',
         type: 'select',
-        defaultValue: 'server',
+        defaultValue: 'client',
         description: '服务端执行（默认）：由服务端直接采集，无需客户端在线；客户端执行：由客户端本地网络采集，适合需要客户端IP的场景。',
         options: [
           { label: '服务端执行', value: 'server' },
@@ -775,7 +775,7 @@ export const NODE_MANIFEST_REGISTRY: NodeManifest[] = [
     color: '#2b2b2b',
     badge: '多端运行',
     description: '采集V2EX热门话题。支持服务端执行（默认，稳定可靠）或客户端执行（使用本地网络）。核心逻辑由服务端统一维护，客户端动态拉取。',
-    defaultData: { name: 'V2EX热门采集', config: { maxCount: 20, executionMode: 'server' } },
+    defaultData: { name: 'V2EX热门采集', config: { maxCount: 20, executionMode: 'client' } },
     inputSchema: [
       {
         field: 'maxCount',
@@ -787,7 +787,7 @@ export const NODE_MANIFEST_REGISTRY: NodeManifest[] = [
         field: 'executionMode',
         label: '执行位置',
         type: 'select',
-        defaultValue: 'server',
+        defaultValue: 'client',
         description: '服务端执行（默认）：由服务端直接采集，无需客户端在线；客户端执行：由客户端本地网络采集，适合需要客户端IP的场景。',
         options: [
           { label: '服务端执行', value: 'server' },
@@ -813,10 +813,10 @@ export const NODE_MANIFEST_REGISTRY: NodeManifest[] = [
     color: '#2932e1',
     badge: '多端运行',
     description: '采集百度实时热搜榜。支持服务端执行（默认，稳定可靠）或客户端执行（使用本地网络）。核心逻辑由服务端统一维护，客户端动态拉取。',
-    defaultData: { name: '百度热搜采集', config: { maxCount: 20, executionMode: 'server' } },
+    defaultData: { name: '百度热搜采集', config: { maxCount: 20, executionMode: 'client' } },
     inputSchema: [
       { field: 'maxCount', label: '获取数量', type: 'number', defaultValue: 20 },
-      { field: 'executionMode', label: '执行位置', type: 'select', defaultValue: 'server', description: '服务端执行（默认）：由服务端直接采集，无需客户端在线；客户端执行：由客户端本地网络采集，适合需要客户端IP的场景。', options: [{ label: '服务端执行', value: 'server' }, { label: '客户端执行', value: 'client' }] },
+      { field: 'executionMode', label: '执行位置', type: 'select', defaultValue: 'client', description: '服务端执行（默认）：由服务端直接采集，无需客户端在线；客户端执行：由客户端本地网络采集，适合需要客户端IP的场景。', options: [{ label: '服务端执行', value: 'server' }, { label: '客户端执行', value: 'client' }] },
     ],
     outputSchema: [
       { field: 'platform', label: '平台标识', type: 'string' },
@@ -836,10 +836,10 @@ export const NODE_MANIFEST_REGISTRY: NodeManifest[] = [
     color: '#ff4906',
     badge: '多端运行',
     description: '采集快手实时热搜榜。支持服务端执行（默认，稳定可靠）或客户端执行（使用本地网络）。核心逻辑由服务端统一维护，客户端动态拉取。',
-    defaultData: { name: '快手热搜采集', config: { maxCount: 20, executionMode: 'server' } },
+    defaultData: { name: '快手热搜采集', config: { maxCount: 20, executionMode: 'client' } },
     inputSchema: [
       { field: 'maxCount', label: '获取数量', type: 'number', defaultValue: 20 },
-      { field: 'executionMode', label: '执行位置', type: 'select', defaultValue: 'server', description: '服务端执行（默认）：由服务端直接采集，无需客户端在线；客户端执行：由客户端本地网络采集，适合需要客户端IP的场景。', options: [{ label: '服务端执行', value: 'server' }, { label: '客户端执行', value: 'client' }] },
+      { field: 'executionMode', label: '执行位置', type: 'select', defaultValue: 'client', description: '服务端执行（默认）：由服务端直接采集，无需客户端在线；客户端执行：由客户端本地网络采集，适合需要客户端IP的场景。', options: [{ label: '服务端执行', value: 'server' }, { label: '客户端执行', value: 'client' }] },
     ],
     outputSchema: [
       { field: 'platform', label: '平台标识', type: 'string' },
@@ -859,10 +859,10 @@ export const NODE_MANIFEST_REGISTRY: NodeManifest[] = [
     color: '#24292e',
     badge: '多端运行',
     description: '采集GitHub热门Trending项目。支持服务端执行（默认，稳定可靠）或客户端执行（使用本地网络）。核心逻辑由服务端统一维护，客户端动态拉取。',
-    defaultData: { name: 'GitHub Trending采集', config: { maxCount: 20, executionMode: 'server' } },
+    defaultData: { name: 'GitHub Trending采集', config: { maxCount: 20, executionMode: 'client' } },
     inputSchema: [
       { field: 'maxCount', label: '获取数量', type: 'number', defaultValue: 20 },
-      { field: 'executionMode', label: '执行位置', type: 'select', defaultValue: 'server', description: '服务端执行（默认）：由服务端直接采集，无需客户端在线；客户端执行：由客户端本地网络采集，适合需要客户端IP的场景。', options: [{ label: '服务端执行', value: 'server' }, { label: '客户端执行', value: 'client' }] },
+      { field: 'executionMode', label: '执行位置', type: 'select', defaultValue: 'client', description: '服务端执行（默认）：由服务端直接采集，无需客户端在线；客户端执行：由客户端本地网络采集，适合需要客户端IP的场景。', options: [{ label: '服务端执行', value: 'server' }, { label: '客户端执行', value: 'client' }] },
     ],
     outputSchema: [
       { field: 'platform', label: '平台标识', type: 'string' },
@@ -882,10 +882,10 @@ export const NODE_MANIFEST_REGISTRY: NodeManifest[] = [
     color: '#ff2442',
     badge: '多端运行',
     description: '采集小红书热门内容。支持服务端执行（默认，稳定可靠）或客户端执行（使用本地网络）。核心逻辑由服务端统一维护，客户端动态拉取。',
-    defaultData: { name: '小红书热门采集', config: { maxCount: 20, executionMode: 'server' } },
+    defaultData: { name: '小红书热门采集', config: { maxCount: 20, executionMode: 'client' } },
     inputSchema: [
       { field: 'maxCount', label: '获取数量', type: 'number', defaultValue: 20 },
-      { field: 'executionMode', label: '执行位置', type: 'select', defaultValue: 'server', description: '服务端执行（默认）：由服务端直接采集，无需客户端在线；客户端执行：由客户端本地网络采集，适合需要客户端IP的场景。', options: [{ label: '服务端执行', value: 'server' }, { label: '客户端执行', value: 'client' }] },
+      { field: 'executionMode', label: '执行位置', type: 'select', defaultValue: 'client', description: '服务端执行（默认）：由服务端直接采集，无需客户端在线；客户端执行：由客户端本地网络采集，适合需要客户端IP的场景。', options: [{ label: '服务端执行', value: 'server' }, { label: '客户端执行', value: 'client' }] },
     ],
     outputSchema: [
       { field: 'platform', label: '平台标识', type: 'string' },
@@ -905,10 +905,10 @@ export const NODE_MANIFEST_REGISTRY: NodeManifest[] = [
     color: '#c8102e',
     badge: '多端运行',
     description: '采集IT之家热门文章。支持服务端执行（默认，稳定可靠）或客户端执行（使用本地网络）。核心逻辑由服务端统一维护，客户端动态拉取。',
-    defaultData: { name: 'IT之家热门采集', config: { maxCount: 20, executionMode: 'server' } },
+    defaultData: { name: 'IT之家热门采集', config: { maxCount: 20, executionMode: 'client' } },
     inputSchema: [
       { field: 'maxCount', label: '获取数量', type: 'number', defaultValue: 20 },
-      { field: 'executionMode', label: '执行位置', type: 'select', defaultValue: 'server', description: '服务端执行（默认）：由服务端直接采集，无需客户端在线；客户端执行：由客户端本地网络采集，适合需要客户端IP的场景。', options: [{ label: '服务端执行', value: 'server' }, { label: '客户端执行', value: 'client' }] },
+      { field: 'executionMode', label: '执行位置', type: 'select', defaultValue: 'client', description: '服务端执行（默认）：由服务端直接采集，无需客户端在线；客户端执行：由客户端本地网络采集，适合需要客户端IP的场景。', options: [{ label: '服务端执行', value: 'server' }, { label: '客户端执行', value: 'client' }] },
     ],
     outputSchema: [
       { field: 'platform', label: '平台标识', type: 'string' },
@@ -928,10 +928,10 @@ export const NODE_MANIFEST_REGISTRY: NodeManifest[] = [
     color: '#e4393c',
     badge: '多端运行',
     description: '采集京东热门搜索词。支持服务端执行（默认，稳定可靠）或客户端执行（使用本地网络）。核心逻辑由服务端统一维护，客户端动态拉取。',
-    defaultData: { name: '京东热搜采集', config: { maxCount: 20, executionMode: 'server' } },
+    defaultData: { name: '京东热搜采集', config: { maxCount: 20, executionMode: 'client' } },
     inputSchema: [
       { field: 'maxCount', label: '获取数量', type: 'number', defaultValue: 20 },
-      { field: 'executionMode', label: '执行位置', type: 'select', defaultValue: 'server', description: '服务端执行（默认）：由服务端直接采集，无需客户端在线；客户端执行：由客户端本地网络采集，适合需要客户端IP的场景。', options: [{ label: '服务端执行', value: 'server' }, { label: '客户端执行', value: 'client' }] },
+      { field: 'executionMode', label: '执行位置', type: 'select', defaultValue: 'client', description: '服务端执行（默认）：由服务端直接采集，无需客户端在线；客户端执行：由客户端本地网络采集，适合需要客户端IP的场景。', options: [{ label: '服务端执行', value: 'server' }, { label: '客户端执行', value: 'client' }] },
     ],
     outputSchema: [
       { field: 'platform', label: '平台标识', type: 'string' },
@@ -951,10 +951,10 @@ export const NODE_MANIFEST_REGISTRY: NodeManifest[] = [
     color: '#0a0a0a',
     badge: '多端运行',
     description: '采集Dev.to热门开发者文章。支持服务端执行（默认，稳定可靠）或客户端执行（使用本地网络）。核心逻辑由服务端统一维护，客户端动态拉取。',
-    defaultData: { name: 'Dev.to热门采集', config: { maxCount: 20, executionMode: 'server' } },
+    defaultData: { name: 'Dev.to热门采集', config: { maxCount: 20, executionMode: 'client' } },
     inputSchema: [
       { field: 'maxCount', label: '获取数量', type: 'number', defaultValue: 20 },
-      { field: 'executionMode', label: '执行位置', type: 'select', defaultValue: 'server', description: '服务端执行（默认）：由服务端直接采集，无需客户端在线；客户端执行：由客户端本地网络采集，适合需要客户端IP的场景。', options: [{ label: '服务端执行', value: 'server' }, { label: '客户端执行', value: 'client' }] },
+      { field: 'executionMode', label: '执行位置', type: 'select', defaultValue: 'client', description: '服务端执行（默认）：由服务端直接采集，无需客户端在线；客户端执行：由客户端本地网络采集，适合需要客户端IP的场景。', options: [{ label: '服务端执行', value: 'server' }, { label: '客户端执行', value: 'client' }] },
     ],
     outputSchema: [
       { field: 'platform', label: '平台标识', type: 'string' },
@@ -3878,7 +3878,7 @@ export const NODE_MANIFEST_REGISTRY: NodeManifest[] = [
     iconImage: hupuIcon,
     color: '#C01A20',
     badge: '多端运行',
-    defaultData: { name: '虎扑帖子搜索', config: { keyword: '', category: 'all', maxCount: 20, sortby: 'general', executionMode: 'server' } },
+    defaultData: { name: '虎扑帖子搜索', config: { keyword: '', category: 'all', maxCount: 20, sortby: 'general', executionMode: 'client' } },
     inputSchema: [
       {
         field: 'keyword',
@@ -3933,7 +3933,7 @@ export const NODE_MANIFEST_REGISTRY: NodeManifest[] = [
         field: 'executionMode',
         label: '执行位置',
         type: 'select',
-        defaultValue: 'server',
+        defaultValue: 'client',
         description: '服务端执行（默认）：由服务端直接采集，无需客户端在线；客户端执行：由客户端本地网络采集，适合需要客户端IP的场景。',
         options: [
           { label: '服务端执行', value: 'server' },
