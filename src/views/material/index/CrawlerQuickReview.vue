@@ -2,24 +2,44 @@
   <teleport to="body">
     <div v-if="visible" class="qr">
       <!-- 顶栏：窄屏时统计与按钮换到第二行，关闭键始终在第一行右侧 -->
+      <!-- 顶栏：简洁信息与极简计数 -->
       <header class="qr__bar">
         <div class="qr__bar-lead">
           <span class="qr__title">快捷审核</span>
+          <span class="qr__badge">采集素材</span>
           <span class="qr__progress">
-            已处理 {{ processedCount }}<template v-if="total"> / {{ total }}</template>
+            {{ processedCount }}<template v-if="total"> / {{ total }}</template>
           </span>
         </div>
 
         <div class="qr__bar-ops">
-          <span class="qr__stat qr__stat--import">入库 {{ importedCount }}</span>
-          <span class="qr__stat qr__stat--delete">删除 {{ deletedCount }}</span>
-          <span class="qr__stat qr__stat--skip">忽略 {{ skippedCount }}</span>
+          <div class="qr__stats">
+            <span class="qr__stat-item">
+              <i class="qr__stat-dot qr__stat-dot--import"></i>
+              <span class="qr__stat-name">已入库</span>
+              <span class="qr__stat-val">{{ importedCount }}</span>
+            </span>
+            <span class="qr__stat-divider">/</span>
+            <span class="qr__stat-item">
+              <i class="qr__stat-dot qr__stat-dot--delete"></i>
+              <span class="qr__stat-name">已删除</span>
+              <span class="qr__stat-val">{{ deletedCount }}</span>
+            </span>
+            <span class="qr__stat-divider">/</span>
+            <span class="qr__stat-item">
+              <i class="qr__stat-dot qr__stat-dot--skip"></i>
+              <span class="qr__stat-name">已忽略</span>
+              <span class="qr__stat-val">{{ skippedCount }}</span>
+            </span>
+          </div>
+
+          <div class="qr__ops-divider"></div>
 
           <button
             v-if="canUndoDelete"
             type="button"
-            class="qr__ghost"
-            title="撤销最近一次删除（仅对尚未提交的删除有效）"
+            class="qr__text-btn"
+            title="撤销最近一次删除"
             @click="undoLastDelete"
           >
             撤销删除
@@ -27,7 +47,7 @@
           <button
             v-if="skippedCount"
             type="button"
-            class="qr__ghost"
+            class="qr__text-btn"
             title="把本次忽略的素材重新放回队列末尾"
             @click="resetSkipped"
           >
@@ -35,23 +55,23 @@
           </button>
           <button
             type="button"
-            class="qr__ghost"
-            title="重新从第一页加载（用于审核期间有新采集数据）"
+            class="qr__text-btn"
+            title="重新从第一页加载"
             @click="reload"
           >
             重新加载
           </button>
           <button
             type="button"
-            class="qr__ghost"
-            :title="sideCollapsed ? '显示素材信息' : '隐藏素材信息，图片区更大'"
+            class="qr__text-btn"
+            :title="sideCollapsed ? '显示素材信息' : '隐藏信息面板'"
             @click="sideCollapsed = !sideCollapsed"
           >
             {{ sideCollapsed ? "显示信息" : "隐藏信息" }}
           </button>
         </div>
 
-        <button type="button" class="qr__close" title="关闭（Esc）" @click="close">
+        <button type="button" class="qr__close" title="关闭 (Esc)" @click="close">
           <el-icon><Close /></el-icon>
         </button>
       </header>
@@ -82,11 +102,12 @@
         >
           <img :src="current.url" :alt="current.name || '素材图片'" draggable="false" />
 
-          <div class="qr__chips">
-            <span v-if="current.suffix" class="qr__chip">{{ current.suffix }}</span>
-            <span v-if="current.isCutout" class="qr__chip qr__chip--ok">已抠图</span>
-            <span v-if="dimensionText" class="qr__chip">{{ dimensionText }}</span>
-            <span v-if="current.fileSize" class="qr__chip">{{ formatFileSize(current.fileSize) }}</span>
+          <!-- 极简元信息指示（去边框tag化，统一轻量背景） -->
+          <div class="qr__meta-strip">
+            <span v-if="dimensionText" class="qr__meta-item">{{ dimensionText }}</span>
+            <span v-if="current.suffix" class="qr__meta-item">{{ current.suffix.toUpperCase() }}</span>
+            <span v-if="current.fileSize" class="qr__meta-item">{{ formatFileSize(current.fileSize) }}</span>
+            <span v-if="current.isCutout" class="qr__meta-badge is-ok">已抠图</span>
           </div>
 
           <div v-if="swipeHint" class="qr__hint" :class="`qr__hint--${swipeHint}`">
@@ -192,35 +213,49 @@
         </aside>
       </main>
 
-      <!-- 底部动作 -->
-      <footer class="qr__actions">
-        <button
-          type="button"
-          class="qr__action qr__action--skip"
-          :disabled="!current"
-          @click="actSkip"
-        >
-          <span>忽略</span>
-          <kbd class="qr__kbd">←</kbd>
-        </button>
-        <button
-          type="button"
-          class="qr__action qr__action--delete"
-          :disabled="!current"
-          @click="actDelete"
-        >
-          <span>删除</span>
-          <kbd class="qr__kbd">↓</kbd>
-        </button>
-        <button
-          type="button"
-          class="qr__action qr__action--import"
-          :disabled="!current"
-          @click="actImport"
-        >
-          <span>入库</span>
-          <kbd class="qr__kbd">→</kbd>
-        </button>
+      <!-- 底部动作：悬浮毛玻璃胶囊 Dock 风格 -->
+      <footer class="qr__dock">
+        <div class="qr__dock-capsule">
+          <button
+            type="button"
+            class="qr__dock-btn qr__dock-btn--skip"
+            :disabled="!current"
+            title="忽略该素材并看下一张（快捷键：← 或 A）"
+            @click="actSkip"
+          >
+            <span class="qr__dock-arrow">←</span>
+            <span class="qr__dock-text">忽略</span>
+            <kbd class="qr__dock-kbd">A</kbd>
+          </button>
+
+          <div class="qr__dock-sep"></div>
+
+          <button
+            type="button"
+            class="qr__dock-btn qr__dock-btn--delete"
+            :disabled="!current"
+            title="删除该素材（快捷键：↓ 或 S）"
+            @click="actDelete"
+          >
+            <span class="qr__dock-arrow">↓</span>
+            <span class="qr__dock-text">删除</span>
+            <kbd class="qr__dock-kbd">S</kbd>
+          </button>
+
+          <div class="qr__dock-sep"></div>
+
+          <button
+            type="button"
+            class="qr__dock-btn qr__dock-btn--import"
+            :disabled="!current"
+            title="入库该素材（快捷键：→ 或 D）"
+            @click="actImport"
+          >
+            <span class="qr__dock-arrow">→</span>
+            <span class="qr__dock-text">入库</span>
+            <kbd class="qr__dock-kbd">D</kbd>
+          </button>
+        </div>
       </footer>
     </div>
   </teleport>
@@ -743,97 +778,135 @@ onBeforeUnmount(() => {
 });
 </script>
 
-<style scoped>
-/* 全部取项目默认主题变量，明暗模式自动跟随 */
+<style lang="scss" scoped>
 .qr {
   position: fixed;
   inset: 0;
   z-index: 3000;
   display: flex;
   flex-direction: column;
-  background: var(--app-content-bg-color);
+  background: var(--app-content-bg-color, #f7f9fc);
 }
 
-/* ── 顶栏 ── */
+/* ── 顶栏：极简大气 ── */
 .qr__bar {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 8px;
-  min-height: 46px;
-  padding: 6px 12px;
-  background: var(--app-content-surface-color);
-  border-bottom: 1px solid var(--app-content-border-color);
+  gap: 14px;
+  min-height: 48px;
+  padding: 8px 18px;
+  background: var(--app-content-surface-color, #ffffff);
+  border-bottom: 1px solid var(--app-content-border-color, rgba(148, 163, 184, 0.22));
 }
 
 .qr__bar-lead {
   display: flex;
   flex: 0 0 auto;
-  gap: 8px;
+  gap: 10px;
   align-items: center;
-  min-width: 0;
-}
-
-.qr__bar-ops {
-  display: flex;
-  flex: 1 1 auto;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  justify-content: flex-end;
   min-width: 0;
 }
 
 .qr__title {
   font-size: 15px;
   font-weight: 600;
-  color: var(--el-text-color-primary);
+  color: var(--el-text-color-primary, #0f172a);
+  letter-spacing: -0.2px;
+}
+
+.qr__badge {
+  padding: 1px 7px;
+  font-size: 11px;
+  color: var(--el-text-color-secondary, #64748b);
+  background: var(--el-fill-color-light, rgba(0, 0, 0, 0.04));
+  border-radius: 4px;
 }
 
 .qr__progress {
   font-size: 12px;
-  color: var(--el-text-color-secondary);
+  font-variant-numeric: tabular-nums;
+  color: var(--el-text-color-secondary, #64748b);
   white-space: nowrap;
 }
 
-.qr__stat {
-  padding: 3px 9px;
+.qr__bar-ops {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+/* 极简计数行（取代笨重边框tag） */
+.qr__stats {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   font-size: 12px;
-  font-weight: 500;
-  border-radius: 999px;
-  white-space: nowrap;
 }
 
-.qr__stat--import {
-  color: var(--el-color-success);
-  background: var(--el-color-success-light-9);
+.qr__stat-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--el-text-color-secondary, #64748b);
 }
 
-.qr__stat--delete {
-  color: var(--el-color-danger);
-  background: var(--el-color-danger-light-9);
+.qr__stat-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
 }
 
-.qr__stat--skip {
-  color: var(--el-text-color-secondary);
-  background: var(--el-fill-color);
+.qr__stat-dot--import {
+  background: #10b981;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.5);
 }
 
-.qr__ghost {
-  padding: 4px 10px;
+.qr__stat-dot--delete {
+  background: #f87171;
+}
+
+.qr__stat-dot--skip {
+  background: #94a3b8;
+}
+
+.qr__stat-val {
+  font-weight: 600;
+  color: var(--el-text-color-primary, #0f172a);
+}
+
+.qr__stat-divider {
+  color: var(--el-border-color-lighter, rgba(148, 163, 184, 0.4));
+  font-size: 11px;
+}
+
+.qr__ops-divider {
+  width: 1px;
+  height: 14px;
+  background: var(--app-content-border-color, rgba(148, 163, 184, 0.25));
+}
+
+/* 顶栏轻量文字按钮 */
+.qr__text-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
   font-size: 12px;
-  color: var(--el-text-color-regular);
+  color: var(--el-text-color-regular, #475569);
   cursor: pointer;
-  background: var(--el-fill-color-light);
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 6px;
-  transition: color 0.16s, border-color 0.16s, background-color 0.16s;
-}
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  transition: color 0.15s, background-color 0.15s;
 
-.qr__ghost:hover {
-  color: var(--el-color-primary);
-  background: var(--el-color-primary-light-9);
-  border-color: var(--el-color-primary-light-7);
+  &:hover {
+    color: var(--el-color-primary, #3b82f6);
+    background: var(--el-fill-color-light, rgba(0, 0, 0, 0.04));
+  }
 }
 
 .qr__close {
@@ -841,25 +914,26 @@ onBeforeUnmount(() => {
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
-  font-size: 15px;
-  color: var(--el-text-color-regular);
+  width: 32px;
+  height: 32px;
+  font-size: 16px;
+  color: var(--el-text-color-regular, #64748b);
   cursor: pointer;
   background: transparent;
   border: 0;
-  border-radius: 8px;
-}
+  border-radius: 6px;
+  transition: color 0.16s, background-color 0.16s;
 
-.qr__close:hover {
-  color: var(--el-text-color-primary);
-  background: var(--el-fill-color-light);
+  &:hover {
+    color: var(--el-text-color-primary, #0f172a);
+    background: var(--el-fill-color-light, rgba(0, 0, 0, 0.06));
+  }
 }
 
 /* ── 层内轻提示 ── */
 .qr__toasts {
   position: absolute;
-  top: 56px;
+  top: 58px;
   left: 50%;
   z-index: 5;
   display: flex;
@@ -871,49 +945,46 @@ onBeforeUnmount(() => {
 }
 
 .qr__toast {
-  padding: 7px 18px;
-  font-size: 13px;
+  padding: 6px 16px;
+  font-size: 12px;
   font-weight: 500;
-  color: var(--el-text-color-primary);
+  color: #f1f5f9;
   white-space: nowrap;
-  background: var(--el-bg-color-overlay);
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 999px;
-  box-shadow: var(--el-box-shadow-light);
-  animation: qr-toast-in 0.16s ease-out;
-}
+  background: rgba(24, 24, 24, 0.94);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  animation: qr-toast-in 0.15s ease-out;
 
-.qr__toast--success {
-  color: var(--el-color-success);
-  background: var(--el-color-success-light-9);
-  border-color: var(--el-color-success-light-7);
-}
+  &--success {
+    color: #34d399;
+    border-color: rgba(52, 211, 153, 0.25);
+  }
 
-.qr__toast--warning {
-  color: var(--el-color-warning);
-  background: var(--el-color-warning-light-9);
-  border-color: var(--el-color-warning-light-7);
-}
+  &--warning {
+    color: #fbbf24;
+    border-color: rgba(251, 191, 36, 0.25);
+  }
 
-.qr__toast--error {
-  color: var(--el-color-danger);
-  background: var(--el-color-danger-light-9);
-  border-color: var(--el-color-danger-light-7);
+  &--error {
+    color: #f87171;
+    border-color: rgba(248, 113, 113, 0.25);
+  }
 }
 
 @keyframes qr-toast-in {
   from {
     opacity: 0;
-    transform: translateY(-6px);
+    transform: translateY(-4px);
   }
-
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
 
-/* ── 主体：图片居中在上，信息在下 ── */
+/* ── 主体 ── */
 .qr__main {
   display: flex;
   flex: 1 1 auto;
@@ -921,7 +992,7 @@ onBeforeUnmount(() => {
   min-height: 0;
 }
 
-/* 图片区：占满剩余空间，图片居中 */
+/* 图片展示区：透明交替棋盘格背景 */
 .qr__stage {
   position: relative;
   z-index: 0;
@@ -931,93 +1002,69 @@ onBeforeUnmount(() => {
   justify-content: center;
   min-width: 0;
   min-height: 0;
-  padding: 14px;
+  padding: 24px;
   overflow: hidden;
   cursor: grab;
   background: repeating-conic-gradient(
-      var(--el-fill-color-light) 0% 25%,
-      var(--el-bg-color) 0% 50%
+      #edf1f7 0% 25%,
+      #ffffff 0% 50%
     )
     50% / 20px 20px;
-  /* 手势由组件接管：左右滑=忽略/入库，下滑=删除 */
   touch-action: none;
+
+  &:active {
+    cursor: grabbing;
+  }
+
+  &--settle {
+    transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+    user-select: none;
+    filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.35));
+  }
 }
 
-.qr__stage:active {
-  cursor: grabbing;
-}
-
-.qr__stage--settle {
-  transition: transform 0.22s ease-out;
-}
-
-.qr__stage img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-  pointer-events: none;
-  user-select: none;
-}
-
-.qr__chips {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  pointer-events: none;
-}
-
-.qr__chip {
-  padding: 2px 9px;
-  font-size: 11px;
-  color: var(--el-text-color-regular);
-  background: var(--el-bg-color-overlay);
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 999px;
-  box-shadow: var(--el-box-shadow-lighter);
-}
-
-.qr__chip--ok {
-  color: var(--el-color-success);
-  background: var(--el-color-success-light-9);
-  border-color: var(--el-color-success-light-7);
-}
-
+/* 滑动指引浮层 */
 .qr__hint {
   position: absolute;
   top: 50%;
   left: 50%;
-  padding: 8px 22px;
-  font-size: 22px;
-  font-weight: 700;
+  padding: 10px 24px;
+  font-size: 20px;
+  font-weight: 600;
   letter-spacing: 2px;
-  border-radius: 12px;
+  border-radius: 8px;
   transform: translate(-50%, -50%);
+  pointer-events: none;
+  backdrop-filter: blur(12px);
+
+  &--import {
+    color: #34d399;
+    background: rgba(52, 211, 153, 0.2);
+    border: 1px solid #34d399;
+  }
+
+  &--delete {
+    color: #f87171;
+    background: rgba(248, 113, 113, 0.2);
+    border: 1px solid #f87171;
+  }
+
+  &--skip {
+    color: #e2e8f0;
+    background: rgba(30, 34, 45, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
 }
 
-.qr__hint--import {
-  color: var(--el-color-success);
-  background: var(--el-color-success-light-9);
-  border: 2px solid var(--el-color-success-light-5);
-}
-
-.qr__hint--delete {
-  color: var(--el-color-danger);
-  background: var(--el-color-danger-light-9);
-  border: 2px solid var(--el-color-danger-light-5);
-}
-
-.qr__hint--skip {
-  color: var(--el-text-color-primary);
-  background: var(--el-bg-color-overlay);
-  border: 2px solid var(--el-border-color);
-}
-
-/* ── 信息面板：贴在图片下方 ── */
+/* ── 信息面板 ── */
 .qr__side {
-  /* 抬到图片区之上：图片区是 position:relative，滑动时会画在静态元素上面 */
   position: relative;
   z-index: 1;
   display: flex;
@@ -1025,51 +1072,65 @@ onBeforeUnmount(() => {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  max-height: 30%;
-  padding: 12px 16px 14px;
+  max-height: 28%;
+  padding: 12px 20px 14px;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  background: var(--app-content-surface-color);
-  border-top: 1px solid var(--app-content-border-color);
-  border-radius: 18px 18px 0 0;
-  corner-shape: squircle;
+  background: var(--app-content-surface-color, #ffffff);
+  border-top: 1px solid var(--app-content-border-color, rgba(148, 163, 184, 0.22));
+
+  &--expanded {
+    .qr__field--more {
+      display: block;
+    }
+
+    .qr__field dd {
+      overflow: visible;
+      overflow-wrap: anywhere;
+      text-overflow: clip;
+      white-space: normal;
+    }
+  }
 }
 
 .qr__side-head {
   display: flex;
   flex: 0 0 auto;
-  gap: 8px;
+  gap: 12px;
   align-items: center;
   justify-content: space-between;
   width: 100%;
   max-width: 1280px;
-  margin: 0 auto 10px;
+  margin: 0 auto 8px;
 }
 
 .qr__name {
   margin: 0;
   overflow: hidden;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
-  color: var(--el-text-color-primary);
+  color: var(--el-text-color-primary, #0f172a);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* 展开全部字段：紧凑态只露关键信息，点开才显示描述/原始地址/ID */
 .qr__side-toggle {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
-  padding: 3px 10px;
+  padding: 2px 6px;
   font-size: 12px;
-  color: var(--el-color-primary);
+  color: var(--el-color-primary, #3b82f6);
   cursor: pointer;
-  background: var(--el-color-primary-light-9);
-  border: 1px solid var(--el-color-primary-light-7);
-  border-radius: 999px;
-  corner-shape: squircle;
+  background: transparent;
+  border: 0;
+  transition: opacity 0.16s;
+
+  &:hover {
+    opacity: 0.8;
+    text-decoration: underline;
+  }
 }
 
 .qr__fields {
@@ -1083,58 +1144,45 @@ onBeforeUnmount(() => {
 
 .qr__field {
   min-width: 0;
-}
 
-.qr__field--full {
-  grid-column: 1 / -1;
-}
+  &--full {
+    grid-column: 1 / -1;
+  }
 
-/* 紧凑态：默认只露关键字段，其余收进「全部字段」 */
-.qr__field--more {
-  display: none;
-}
+  &--more {
+    display: none;
+  }
 
-.qr__side--expanded .qr__field--more {
-  display: block;
-}
+  dt {
+    margin-bottom: 2px;
+    font-size: 11px;
+    color: var(--el-text-color-secondary, #64748b);
+  }
 
-.qr__field dt {
-  margin-bottom: 3px;
-  font-size: 11px;
-  color: var(--el-text-color-secondary);
-}
+  dd {
+    margin: 0;
+    overflow: hidden;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--el-text-color-regular, #334155);
+    text-overflow: ellipsis;
+    white-space: nowrap;
 
-/* 紧凑态单行省略，保证面板高度稳定；展开后恢复完整多行 */
-.qr__field dd {
-  margin: 0;
-  overflow: hidden;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--el-text-color-regular);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+    a {
+      color: var(--el-color-primary, #3b82f6);
+      text-decoration: none;
 
-.qr__side--expanded .qr__field dd {
-  overflow: visible;
-  overflow-wrap: anywhere;
-  text-overflow: clip;
-  white-space: normal;
-}
-
-.qr__field dd a {
-  color: var(--el-color-primary);
-  text-decoration: none;
-}
-
-.qr__field dd a:hover {
-  text-decoration: underline;
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+  }
 }
 
 .qr__id {
   font-family: var(--el-font-family-mono, monospace);
   font-size: 11px !important;
-  color: var(--el-text-color-secondary) !important;
+  color: var(--el-text-color-secondary, #64748b) !important;
 }
 
 /* ── 空/加载态 ── */
@@ -1142,7 +1190,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
   justify-content: center;
   text-align: center;
@@ -1152,34 +1200,35 @@ onBeforeUnmount(() => {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: var(--el-text-color-primary);
+  color: var(--el-text-color-primary, #0f172a);
 }
 
 .qr__state-desc {
   margin: 0;
   font-size: 13px;
-  color: var(--el-text-color-secondary);
+  color: var(--el-text-color-secondary, #64748b);
 }
 
 .qr__state-btn {
-  padding: 7px 18px;
+  padding: 6px 18px;
   font-size: 13px;
   color: #fff;
   cursor: pointer;
-  background: var(--el-color-primary);
+  background: var(--el-color-primary, #409eff);
   border: 0;
-  border-radius: 8px;
-}
+  border-radius: 6px;
+  transition: opacity 0.16s;
 
-.qr__state-btn:hover {
-  opacity: 0.88;
+  &:hover {
+    opacity: 0.88;
+  }
 }
 
 .qr__spinner {
   width: 26px;
   height: 26px;
-  border: 2px solid var(--el-border-color-lighter);
-  border-top-color: var(--el-color-primary);
+  border: 2px solid var(--el-border-color-lighter, rgba(0, 0, 0, 0.1));
+  border-top-color: var(--el-color-primary, #409eff);
   border-radius: 50%;
   animation: qr-spin 0.7s linear infinite;
 }
@@ -1190,83 +1239,337 @@ onBeforeUnmount(() => {
   }
 }
 
-/* ── 底部动作 ── */
-.qr__actions {
+/* ── 底部动作：悬浮毛玻璃胶囊 Dock ── */
+.qr__dock {
   display: flex;
   flex: 0 0 auto;
-  gap: 12px;
   justify-content: center;
-  padding: 10px 12px max(10px, env(safe-area-inset-bottom));
-  background: var(--app-content-surface-color);
-  border-top: 1px solid var(--app-content-border-color);
+  align-items: center;
+  padding: 14px 20px max(16px, env(safe-area-inset-bottom));
+  background: linear-gradient(to top, rgba(247, 249, 252, 0.96) 0%, rgba(247, 249, 252, 0.45) 60%, transparent 100%);
+  pointer-events: none;
 }
 
-.qr__action {
+.qr__dock-capsule {
+  pointer-events: auto;
   display: inline-flex;
-  gap: 8px;
   align-items: center;
-  justify-content: center;
-  min-width: 150px;
-  padding: 11px 24px;
-  font-size: 15px;
-  font-weight: 600;
+  gap: 4px;
+  padding: 5px 6px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 999px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12), 0 2px 6px rgba(15, 23, 42, 0.04);
+}
+
+.qr__dock-sep {
+  width: 1px;
+  height: 18px;
+  background: rgba(148, 163, 184, 0.28);
+}
+
+.qr__dock-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
   border: 1px solid transparent;
-  border-radius: 10px;
-  transition: opacity 0.16s;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--el-text-color-regular, #475569);
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+
+  &:active:not(:disabled) {
+    transform: scale(0.96);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.35;
+  }
 }
 
-.qr__action:disabled {
-  cursor: not-allowed;
-  opacity: 0.4;
+.qr__dock-arrow {
+  font-size: 13px;
+  opacity: 0.65;
+  transition: transform 0.18s ease;
 }
 
-.qr__action--skip {
-  color: var(--el-text-color-regular);
-  background: var(--el-fill-color-light);
-  border-color: var(--el-border-color);
-}
-
-.qr__action--skip:hover:not(:disabled) {
-  color: var(--el-text-color-primary);
-  background: var(--el-fill-color);
-}
-
-.qr__action--delete {
-  color: #fff;
-  background: var(--el-color-danger);
-}
-
-.qr__action--import {
-  color: #fff;
-  background: var(--el-color-success);
-}
-
-.qr__action--delete:hover:not(:disabled),
-.qr__action--import:hover:not(:disabled) {
-  opacity: 0.86;
-}
-
-.qr__kbd {
-  padding: 1px 6px;
-  font-family: inherit;
-  font-size: 11px;
-  font-weight: 500;
-  color: inherit;
-  background: color-mix(in srgb, currentcolor 12%, transparent);
+.qr__dock-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--el-text-color-secondary, #64748b);
+  background: rgba(15, 23, 42, 0.05);
+  border: 1px solid rgba(148, 163, 184, 0.35);
   border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
-/* ── 窄屏：信息面板移到图片下方 ── */
+/* 忽略按钮交互 (Light mode) */
+.qr__dock-btn--skip:hover:not(:disabled) {
+  color: var(--el-text-color-primary, #0f172a);
+  background: rgba(15, 23, 42, 0.06);
+
+  .qr__dock-arrow {
+    transform: translateX(-2px);
+    opacity: 1;
+  }
+}
+
+/* 删除按钮 (Light mode) */
+.qr__dock-btn--delete {
+  color: #dc2626;
+
+  .qr__dock-kbd {
+    color: #dc2626;
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.22);
+  }
+
+  &:hover:not(:disabled) {
+    color: #ffffff;
+    background: #ef4444;
+    border-color: #ef4444;
+    box-shadow: 0 2px 12px rgba(239, 68, 68, 0.28);
+
+    .qr__dock-arrow {
+      transform: translateY(2px);
+      opacity: 1;
+    }
+
+    .qr__dock-kbd {
+      color: #ffffff;
+      background: rgba(0, 0, 0, 0.2);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+  }
+}
+
+/* 入库按钮 (Light mode) */
+.qr__dock-btn--import {
+  color: #ffffff;
+  background: #10b981;
+  border-color: #10b981;
+  box-shadow: 0 2px 10px rgba(16, 185, 129, 0.25);
+
+  .qr__dock-kbd {
+    color: #ffffff;
+    background: rgba(0, 0, 0, 0.18);
+    border-color: rgba(255, 255, 255, 0.28);
+  }
+
+  &:hover:not(:disabled) {
+    background: #059669;
+    border-color: #059669;
+    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.4);
+
+    .qr__dock-arrow {
+      transform: translateX(2px);
+      opacity: 1;
+    }
+  }
+}
+
+/* ── 黑夜模式 (Dark Mode) 全局自适应（使用系统默认纯正黑底，彻底去除深蓝偏色） ── */
+html.dark,
+html[class*="dark"] {
+  .qr {
+    background: var(--app-content-bg-color, #101010);
+  }
+
+  .qr__bar {
+    background: var(--app-content-surface-color, #151515);
+    border-bottom-color: var(--app-content-border-color, rgba(255, 255, 255, 0.08));
+  }
+
+  .qr__title {
+    color: #f0f2f5;
+  }
+
+  .qr__badge {
+    color: #909399;
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .qr__progress {
+    color: #808695;
+  }
+
+  .qr__stat-item {
+    color: #909399;
+  }
+
+  .qr__stat-val {
+    color: #e2e8f0;
+  }
+
+  .qr__stat-divider {
+    color: rgba(255, 255, 255, 0.15);
+  }
+
+  .qr__ops-divider {
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  .qr__text-btn {
+    color: #9ca3af;
+
+    &:hover {
+      color: #60a5fa;
+      background: rgba(255, 255, 255, 0.06);
+    }
+  }
+
+  .qr__close {
+    color: #c0c4cc;
+
+    &:hover {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.08);
+    }
+  }
+
+  .qr__stage {
+    background: repeating-conic-gradient(
+        #1c1c1c 0% 25%,
+        #121212 0% 50%
+      )
+      50% / 20px 20px;
+  }
+
+  .qr__side {
+    background: var(--app-content-surface-color, #151515);
+    border-top-color: var(--app-content-border-color, rgba(255, 255, 255, 0.08));
+  }
+
+  .qr__name {
+    color: #f0f2f5;
+  }
+
+  .qr__side-toggle {
+    color: #60a5fa;
+  }
+
+  .qr__field dt {
+    color: #94a3b8;
+  }
+
+  .qr__field dd {
+    color: #cbd5e1;
+
+    a {
+      color: #60a5fa;
+    }
+  }
+
+  .qr__id {
+    color: #94a3b8 !important;
+  }
+
+  .qr__state-title {
+    color: #f0f2f5;
+  }
+
+  .qr__state-desc {
+    color: #94a3b8;
+  }
+
+  .qr__spinner {
+    border-color: rgba(255, 255, 255, 0.15);
+    border-top-color: var(--el-color-primary, #409eff);
+  }
+
+  .qr__dock {
+    background: linear-gradient(
+      to top,
+      rgba(16, 16, 16, 0.98) 0%,
+      rgba(16, 16, 16, 0.5) 60%,
+      transparent 100%
+    );
+  }
+
+  .qr__dock-capsule {
+    background: rgba(26, 26, 26, 0.94);
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.35);
+  }
+
+  .qr__dock-sep {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .qr__dock-btn {
+    color: #cbd5e1;
+  }
+
+  .qr__dock-kbd {
+    color: rgba(255, 255, 255, 0.7);
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.14);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  }
+
+  .qr__dock-btn--skip:hover:not(:disabled) {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .qr__dock-btn--delete {
+    color: #fca5a5;
+
+    .qr__dock-kbd {
+      color: #fca5a5;
+      background: rgba(239, 68, 68, 0.12);
+      border-color: rgba(239, 68, 68, 0.25);
+    }
+
+    &:hover:not(:disabled) {
+      color: #ffffff;
+      background: #ef4444;
+      border-color: #ef4444;
+      box-shadow: 0 2px 12px rgba(239, 68, 68, 0.35);
+
+      .qr__dock-kbd {
+        color: #ffffff;
+        background: rgba(0, 0, 0, 0.2);
+        border-color: rgba(255, 255, 255, 0.25);
+      }
+    }
+  }
+
+  .qr__dock-btn--import {
+    box-shadow: 0 2px 10px rgba(16, 185, 129, 0.3);
+
+    &:hover:not(:disabled) {
+      box-shadow: 0 4px 16px rgba(16, 185, 129, 0.45);
+    }
+  }
+}
+
+/* ── 移动端 / 窄屏适配 ── */
 @media (width <= 768px) {
   .qr__bar {
     flex-wrap: wrap;
     row-gap: 6px;
     min-height: 42px;
-    padding: 6px 8px;
+    padding: 6px 12px;
   }
 
-  /* 第一行：标题 + 已处理 + 关闭；统计与按钮整体换到第二行 */
   .qr__bar-lead {
     flex: 1 1 auto;
   }
@@ -1283,26 +1586,20 @@ onBeforeUnmount(() => {
   }
 
   .qr__toasts {
-    top: 88px;
+    top: 86px;
   }
 
   .qr__stage {
-    padding: 8px;
+    padding: 12px;
   }
 
   .qr__side {
-    max-height: 34%;
-    padding: 12px 12px 14px;
-    border-radius: 16px 16px 0 0;
-  }
+    max-height: 35%;
+    padding: 10px 14px 12px;
 
-  /* 展开后接近全屏，一次性读完所有字段 */
-  .qr__side--expanded {
-    max-height: 84%;
-  }
-
-  .qr__name {
-    font-size: 14px;
+    &--expanded {
+      max-height: 85%;
+    }
   }
 
   .qr__fields {
@@ -1310,61 +1607,29 @@ onBeforeUnmount(() => {
     gap: 6px 10px;
   }
 
-  .qr__field dt {
-    margin-bottom: 2px;
-    font-size: 10px;
+  .qr__dock {
+    padding: 10px 12px max(10px, env(safe-area-inset-bottom));
   }
 
-  .qr__field dd {
-    font-size: 12px;
-    line-height: 1.4;
+  .qr__dock-capsule {
+    width: 100%;
+    max-width: 420px;
+    justify-content: space-between;
+    gap: 2px;
+    padding: 4px;
   }
 
-  .qr__actions {
-    gap: 8px;
-    padding: 8px 8px max(8px, env(safe-area-inset-bottom));
-  }
-
-  .qr__action {
-    min-width: 0;
+  .qr__dock-btn {
     flex: 1 1 0;
-    padding: 10px 6px;
-    font-size: 14px;
-  }
-}
-
-@media (width <= 480px) {
-  .qr__bar-ops {
-    gap: 6px;
+    min-width: 0;
+    padding: 0 8px;
+    justify-content: center;
+    gap: 4px;
+    font-size: 12px;
   }
 
-  .qr__stat,
-  .qr__ghost {
-    padding: 3px 7px;
-    font-size: 11px;
-  }
-
-  .qr__progress {
-    font-size: 11px;
-  }
-
-  .qr__kbd {
+  .qr__dock-kbd {
     display: none;
   }
-}
-
-/* ── 圆角统一走超椭圆（不支持的浏览器自动回退为普通圆角）── */
-.qr__side,
-.qr__side-toggle,
-.qr__ghost,
-.qr__close,
-.qr__stat,
-.qr__toast,
-.qr__chip,
-.qr__hint,
-.qr__state-btn,
-.qr__action,
-.qr__kbd {
-  corner-shape: squircle;
 }
 </style>

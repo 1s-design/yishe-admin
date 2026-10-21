@@ -2,7 +2,6 @@
   <ContentWrap :plain="true">
     <ListPageLayout class="crawler-material-page">
       <template #filter>
-        <ResourceStatsBar :stats="stats" />
         <div class="list-page-filter list-page-filter--flat">
           <el-form :model="queryParams" label-position="top" class="list-page-search-form">
             <el-row :gutter="12" class="list-page-search-form__row">
@@ -285,8 +284,8 @@
               <el-button size="small" type="primary" :icon="Search" :loading="loading" @click="getList">搜索</el-button>
               <el-button
                 size="small"
-                type="warning"
-                :icon="View"
+                class="quick-review-btn"
+                :icon="Aim"
                 :disabled="!total"
                 title="全屏逐张审核：入库 / 删除 / 忽略"
                 @click="quickReviewVisible = true"
@@ -580,6 +579,7 @@ import {
   Operation,
   Close,
   View,
+  Aim,
 } from "@element-plus/icons-vue";
 import { useWindowSize } from "@vueuse/core";
 import { downloadImage } from "@/common/download";
@@ -599,8 +599,6 @@ import Pagination from '@/components/Pagination/index.vue'
 import DateRangePicker from '@/components/DateRangePicker.vue'
 import ImageSizeFilter, { type ImageSizeFilterValue } from '@/components/ImageSizeFilter.vue'
 import CrawlerQuickReview from './CrawlerQuickReview.vue'
-import ResourceStatsBar from '@/components/ResourceStatsBar/index.vue'
-import type { ResourceStats } from '@/api/crawler-material'
 import {
   markCrawlerMaterialVisited,
   refreshCrawlerMaterialState,
@@ -836,18 +834,7 @@ function getList() {
     });
 }
 
-// ── 采集统计（顶部极简统计条 + 迷你折线）──────────────────
-const stats = ref<ResourceStats | null>(null);
 
-function loadStats() {
-  CrawlerMaterialApi.getStats({ days: 30 })
-    .then((res) => {
-      stats.value = res as unknown as ResourceStats;
-    })
-    .catch(() => {
-      // 统计失败不影响列表主流程
-    });
-}
 
 
 
@@ -940,7 +927,6 @@ function handleDelete(row?) {
         ElNotification.success("删除成功");
         clearSelection();
         getList();
-        loadStats();
         void refreshCrawlerMaterialState();
       } catch (error) {
         console.error("删除失败:", error); // 添加调试信息
@@ -1092,7 +1078,6 @@ function handleOperationCommand(command: string, row: any) {
 }
 
 getList();
-loadStats();
 // 进入本页即视为已查看，消除左侧菜单的「新」提示
 markCrawlerMaterialVisited();
 </script>

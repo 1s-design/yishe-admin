@@ -365,6 +365,25 @@ html.light {
   &--info, &--default { background: #94a3b8; }
 }
 
+/* 表格单元格内 el-tag 组件对齐与防折行优化 */
+.vxe-table,
+.vxe-grid {
+  .el-tag {
+    vertical-align: middle;
+    user-select: none;
+    max-width: 100%;
+
+    .el-tag__content {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      line-height: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+}
+
 /* 6. Pager / Pagination Bar */
 .vxe-pager {
   background-color: transparent !important;
