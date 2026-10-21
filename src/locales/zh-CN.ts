@@ -1440,6 +1440,8 @@ export default {
       galleryStatsDesc: "图库素材每日新增曲线",
       crawlerMaterial: "采集素材",
       crawlerMaterialDesc: "采集素材新增数量与近期趋势",
+      last24Hours: "近24小时",
+      customSticker: "自定义贴纸",
       todayCreated: "今日新增",
       periodCreated: "{days} 天新增",
       connStatus: "连接状态",

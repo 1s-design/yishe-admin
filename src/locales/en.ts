@@ -1440,6 +1440,8 @@ export default {
       galleryStatsDesc: "Daily new image curve for gallery materials",
       crawlerMaterial: "Crawler Materials",
       crawlerMaterialDesc: "Crawler material counts and recent trend",
+      last24Hours: "Last 24h",
+      customSticker: "Custom Stickers",
       todayCreated: "New Today",
       periodCreated: "New in {days} days",
       connStatus: "Connection Status",
