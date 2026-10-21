@@ -367,6 +367,66 @@ const remainingRouter: AppRouteRecordRaw[] = [
       noTagsView: true,
     },
   },
+  // ── 1. 工作台 ──────────────────────────────────────────────────
+  {
+    path: "/home",
+    component: Layout,
+    name: "Home",
+    redirect: "/home/index",
+    meta: {
+      title: "router.workplace",
+      icon: "lucide:layout-dashboard",
+      order: 1,
+      alwaysShow: true,
+    },
+    children: [
+      {
+        path: "index",
+        component: () => import("@/views/Home/Index.vue"),
+        name: "Index",
+        meta: {
+          title: "router.home",
+          noCache: false,
+          affix: true,
+        },
+      },
+      {
+        path: "hot-search",
+        component: () => import("@/views/Home/HotSearch.vue"),
+        name: "HotSearch",
+        meta: {
+          title: "router.hotSearch",
+          noAppViewPadding: true,
+        },
+      },
+      {
+        path: "tools/index",
+        component: () => import("@/views/Home/Tools/Index.vue"),
+        name: "ToolsIndex",
+        meta: {
+          title: "router.tools",
+        },
+      },
+      {
+        path: "statistics",
+        component: () => import("@/views/Home/Statistics/index.vue"),
+        name: "Statistics",
+        meta: {
+          title: "router.statistics",
+        },
+      },
+      {
+        path: "vector-search",
+        component: () => import("@/views/vector-search/Index.vue"),
+        name: "VectorSearch",
+        meta: {
+          title: "router.vectorSearch",
+          menuKey: "home.vector-search",
+        },
+      },
+
+    ],
+  },
   {
     path: "/login",
     component: () => import("@/views/Login/Login.vue"),
