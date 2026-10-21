@@ -43,6 +43,16 @@
               <el-button size="small" :disabled="loading" @click="handleReset">重置</el-button>
               <el-button
                 size="small"
+                class="quick-review-btn"
+                :icon="Aim"
+                :disabled="loading || !total"
+                title="全屏逐张快速审核：复制到素材库 / 忽略 / 彻底删除"
+                @click="quickReviewVisible = true"
+              >
+                快捷审核
+              </el-button>
+              <el-button
+                size="small"
                 type="danger"
                 :icon="Delete"
                 :disabled="loading || !selectedIds.length"
@@ -158,12 +168,33 @@
                 <template #folderSlot="{ row }"><span>{{ row.folder || '未分组' }}</span></template>
                 <template #importSlot="{ row }">
                   <div class="import-cell">
-                    <el-tag :type="row.imported ? 'success' : 'info'" size="small" effect="plain">
-                      {{ row.imported ? '已复制' : '未复制' }}
+                    <template v-if="row.imported">
+                      <el-tooltip
+                        v-if="row.importedSticker?.code"
+                        :content="`已复制到素材库，编码：${row.importedSticker.code}（点击复制）`"
+                        placement="top"
+                        :show-after="200"
+                      >
+                        <el-tag
+                          type="success"
+                          size="small"
+                          effect="plain"
+                          class="import-code-tag copyable"
+                          @click.stop="copyText(row.importedSticker.code, '素材库编码')"
+                        >
+                          <span class="import-code-tag__status">已复制</span>
+                          <span class="import-code-tag__sep">·</span>
+                          <span class="import-code-tag__code mono">{{ row.importedSticker.code }}</span>
+                          <el-icon class="import-code-tag__icon"><CopyDocument /></el-icon>
+                        </el-tag>
+                      </el-tooltip>
+                      <el-tag v-else type="success" size="small" effect="plain">
+                        已复制
+                      </el-tag>
+                    </template>
+                    <el-tag v-else type="info" size="small" effect="plain">
+                      未复制
                     </el-tag>
-                    <div v-if="row.imported && row.importedSticker?.code" class="import-cell__code mono" :title="`素材库编码: ${row.importedSticker.code}`">
-                      {{ row.importedSticker.code }}
-                    </div>
                   </div>
                 </template>
                 <template #shareSlot="{ row }">
@@ -208,53 +239,68 @@
       </template>
     </ListPageLayout>
 
-    <!-- 极简全屏详情（左侧展示图片与元数据信息，右侧大空间展示核心设计数据） -->
+    <!-- 极简全屏设计数据弹窗（极简纯粹：左侧核心信息与预览，右侧AI提示词/完整演进/纯JSON规范） -->
     <el-dialog
       v-model="detailVisible"
       fullscreen
       :show-close="false"
-      class="cs-info-dialog"
+      class="cs-fullscreen-dialog"
       destroy-on-close
     >
       <template #header>
-        <div class="cs-info-nav">
-          <button type="button" class="cs-info-back" @click="detailVisible = false">
+        <div class="cs-dlg-nav">
+          <button type="button" class="cs-dlg-back-btn" @click="detailVisible = false">
             <el-icon :size="16"><Back /></el-icon>
             <span>返回列表</span>
           </button>
-          <span class="cs-info-nav-title">{{ activeSticker?.name || '自定义贴纸详情' }}</span>
-          <button type="button" class="cs-info-close" @click="detailVisible = false" title="关闭 (Esc)">
-            <el-icon :size="18"><Close /></el-icon>
-          </button>
+          <div class="cs-dlg-nav-center">
+            <span class="cs-dlg-nav-title">{{ activeSticker?.name || '自定义贴纸设计数据' }}</span>
+            <span v-if="activeSticker?.width && activeSticker?.height" class="cs-nav-badge">
+              {{ activeSticker.width }} × {{ activeSticker.height }} px
+            </span>
+          </div>
+          <div class="cs-dlg-nav-right">
+            <el-button
+              size="small"
+              type="primary"
+              plain
+              @click="copyText(JSON.stringify(activeSticker?.meta || {}, null, 2), '完整设计 JSON')"
+            >
+              <el-icon :size="14" style="margin-right: 4px;"><CopyDocument /></el-icon>
+              复制全部 JSON
+            </el-button>
+            <button type="button" class="cs-dlg-close-btn" @click="detailVisible = false" title="关闭 (Esc)">
+              <el-icon :size="18"><Close /></el-icon>
+            </button>
+          </div>
         </div>
       </template>
 
-      <div v-if="activeSticker" class="cs-info-layout">
-        <!-- 左侧：图片 + 名称 + 状态 + 描述 + 关键词 + 属性 -->
-        <div class="cs-sidebar-panel">
+      <div v-if="activeSticker" class="cs-layout" v-loading="detailLoading">
+        <!-- 左侧栏：大图预览与核心信息 (380px) -->
+        <div class="cs-sidebar">
           <!-- 贴纸大图预览 -->
-          <div class="cs-sidebar-img-box">
+          <div class="cs-img-container">
             <el-image
               :src="activeSticker.url"
               :preview-src-list="activeSticker.url ? [activeSticker.url] : []"
               preview-teleported
               fit="contain"
-              class="cs-sidebar-img"
+              class="cs-img-preview"
             />
           </div>
 
-          <div class="cs-sidebar-specs">
-            <span>{{ activeSticker.width || '-' }} × {{ activeSticker.height || '-' }} px</span>
-            <span>·</span>
-            <span>{{ (activeSticker.suffix || 'png').toUpperCase() }}</span>
-            <span>·</span>
-            <span>比例 {{ activeSticker.aspectRatio ? activeSticker.aspectRatio.toFixed(2) : '1:1' }}</span>
+          <!-- 尺寸与格式参数 -->
+          <div class="cs-specs-row">
+            <span class="cs-spec-tag">{{ activeSticker.width || '-' }} × {{ activeSticker.height || '-' }} px</span>
+            <span class="cs-spec-tag">{{ (activeSticker.suffix || 'png').toUpperCase() }}</span>
+            <span class="cs-spec-tag">比例 {{ activeSticker.aspectRatio ? activeSticker.aspectRatio.toFixed(2) : '1:1' }}</span>
           </div>
 
-          <!-- 贴纸标题与状态标签 -->
-          <div class="cs-sidebar-meta-block">
-            <h2 class="cs-sidebar-title">{{ activeSticker.name || '未命名贴纸' }}</h2>
-            <div class="cs-sidebar-tags">
+          <!-- 标题与状态标签 -->
+          <div class="cs-meta-header">
+            <h3 class="cs-title">{{ activeSticker.name || '未命名贴纸' }}</h3>
+            <div class="cs-tag-group">
               <el-tag size="small" :type="activeSticker.isShared ? 'success' : 'info'" effect="plain">
                 {{ activeSticker.isShared ? '素材中心已发布' : '素材中心未发布' }}
               </el-tag>
@@ -267,98 +313,104 @@
             </div>
           </div>
 
-          <!-- 描述 -->
-          <div v-if="activeSticker.description" class="cs-sidebar-desc">
+          <!-- 描述（如有） -->
+          <div v-if="activeSticker.description" class="cs-desc">
             {{ activeSticker.description }}
           </div>
 
-          <!-- 关键词（极简纯文本微胶囊） -->
-          <div v-if="keywordList.length" class="cs-sidebar-keywords">
-            <span v-for="kw in keywordList" :key="kw" class="cs-sidebar-kw">{{ kw }}</span>
+          <!-- 关键词（如有） -->
+          <div v-if="keywordList.length" class="cs-keywords">
+            <span v-for="kw in keywordList" :key="kw" class="cs-keyword">{{ kw }}</span>
           </div>
 
-          <!-- 属性表格 -->
-          <div class="cs-sidebar-table">
-            <div class="cs-sidebar-row">
+          <!-- 极简属性列表 -->
+          <div class="cs-prop-list">
+            <div class="cs-prop-row">
               <span class="label">作品 ID</span>
               <span class="value mono copyable" @click="copyText(activeSticker.id, '作品 ID')">
                 {{ activeSticker.id }}
                 <el-icon><CopyDocument /></el-icon>
               </span>
             </div>
-            <div class="cs-sidebar-row">
+            <div class="cs-prop-row">
               <span class="label">所属用户</span>
               <span class="value">{{ formatUserName(activeSticker.user, activeSticker.userId) }}</span>
             </div>
-            <div class="cs-sidebar-row">
+            <div class="cs-prop-row">
               <span class="label">所属文件夹</span>
               <span class="value">{{ activeSticker.folder || '未分组' }}</span>
             </div>
-            <div class="cs-sidebar-row">
+            <div class="cs-prop-row">
               <span class="label">创建时间</span>
               <span class="value">{{ formatTime(activeSticker.createTime) }}</span>
             </div>
-            <div class="cs-sidebar-row">
+            <div class="cs-prop-row">
               <span class="label">更新时间</span>
               <span class="value">{{ formatTime(activeSticker.updateTime) }}</span>
             </div>
-            <div v-if="activeSticker.importedSticker?.code" class="cs-sidebar-row">
+            <div v-if="activeSticker.importedSticker?.code" class="cs-prop-row">
               <span class="label">素材库编码</span>
-              <span class="value mono font-bold text-primary" style="display: flex; align-items: center; gap: 6px;">
+              <span class="value mono copyable text-primary" @click="copyText(activeSticker.importedSticker.code, '素材库编码')">
                 {{ activeSticker.importedSticker.code }}
-                <el-button link type="primary" size="small" @click="copyText(activeSticker.importedSticker.code, '素材库编码')">复制</el-button>
+                <el-icon><CopyDocument /></el-icon>
               </span>
             </div>
-            <div v-if="activeSticker.importedStickerId" class="cs-sidebar-row">
+            <div v-if="activeSticker.importedStickerId" class="cs-prop-row">
               <span class="label">素材库副本 ID</span>
               <span class="value mono">{{ activeSticker.importedStickerId }}</span>
             </div>
-            <div v-if="activeSticker.sourceCustomStickerId" class="cs-sidebar-row">
+            <div v-if="activeSticker.sourceCustomStickerId" class="cs-prop-row">
               <span class="label">来源副本</span>
               <span class="value mono">用户 #{{ activeSticker.sourceUserId }} ({{ activeSticker.sourceCustomStickerId }})</span>
             </div>
           </div>
         </div>
 
-        <!-- 右侧：大空间展示核心数据（AI 提示词、演进历史、完整 JSON） -->
-        <div class="cs-main-panel">
+        <!-- 右侧主区：核心提示词 + 完整展示的历史演进 + 纯 JSON (复杂数据) -->
+        <div class="cs-content">
           <!-- AI 提示词 -->
-          <div v-if="activeSticker.meta?.prompt" class="cs-main-section">
-            <div class="cs-main-head">
-              <span class="cs-main-heading">AI 生成提示词 (Prompt)</span>
-              <el-button link type="primary" size="small" @click="copyText(activeSticker.meta?.prompt, '提示词')">
+          <div v-if="activeSticker.meta?.prompt" class="cs-section">
+            <div class="cs-section-header">
+              <span class="cs-section-title">AI 生成提示词 (Prompt)</span>
+              <el-button link type="primary" size="small" @click="copyText(activeSticker.meta.prompt, '提示词')">
                 复制提示词
               </el-button>
             </div>
-            <div class="cs-prompt-content">
+            <!-- 完整展示，绝无截断 -->
+            <div class="cs-prompt-box">
               {{ activeSticker.meta.prompt }}
             </div>
           </div>
 
-          <!-- 提示词迭代记录 -->
-          <div v-if="activeSticker.meta?.promptHistory?.length" class="cs-main-section">
-            <div class="cs-main-head">
-              <span class="cs-main-heading">提示词迭代记录 ({{ activeSticker.meta.promptHistory.length }})</span>
+          <!-- 提示词迭代记录（重点：自动换行完整展示，彻底解决原先被截断的问题） -->
+          <div v-if="activeSticker.meta?.promptHistory?.length" class="cs-section">
+            <div class="cs-section-header">
+              <span class="cs-section-title">
+                提示词迭代记录 (共 {{ activeSticker.meta.promptHistory.length }} 轮)
+              </span>
             </div>
-            <div class="cs-history-box">
+            <div class="cs-history-list">
               <div
                 v-for="(hPrompt, idx) in activeSticker.meta.promptHistory"
                 :key="idx"
-                class="cs-history-row"
+                class="cs-history-card"
               >
-                <span class="cs-history-tag">步骤 #{{ idx + 1 }}</span>
-                <span class="cs-history-val">{{ hPrompt }}</span>
-                <el-button link size="small" @click="copyText(hPrompt, `步骤 #${idx + 1} 提示词`)">
-                  复制
-                </el-button>
+                <div class="cs-history-head">
+                  <span class="cs-history-step-tag">步骤 #{{ idx + 1 }}</span>
+                  <el-button link size="small" @click="copyText(hPrompt, `步骤 #${idx + 1} 提示词`)">
+                    复制
+                  </el-button>
+                </div>
+                <!-- 彻底去除 ellipsis 与 nowrap，全部自动换行完全展示 -->
+                <div class="cs-history-text">{{ hPrompt }}</div>
               </div>
             </div>
           </div>
 
-          <!-- 设计数据规范 JSON -->
-          <div class="cs-main-section flex-fill-section">
-            <div class="cs-main-head">
-              <span class="cs-main-heading">完整设计数据规范 (JSON)</span>
+          <!-- 复杂数据：按用户要求，直接纯 JSON 规范呈现 -->
+          <div class="cs-section cs-json-section">
+            <div class="cs-section-header">
+              <span class="cs-section-title">完整设计数据规范 (纯 JSON)</span>
               <el-button
                 link
                 type="primary"
@@ -368,7 +420,7 @@
                 复制全部 JSON
               </el-button>
             </div>
-            <pre class="cs-full-json-pre"><code>{{ JSON.stringify(activeSticker.meta || {}, null, 2) }}</code></pre>
+            <pre class="cs-pure-json-box"><code>{{ JSON.stringify(activeSticker.meta || {}, null, 2) }}</code></pre>
           </div>
         </div>
       </div>
@@ -455,6 +507,13 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <!-- 快速审核（全屏逐张：复制到素材库 / 彻底删除 / 忽略） -->
+    <CustomStickerQuickReview
+      v-model:visible="quickReviewVisible"
+      :query="quickReviewQuery"
+      @reviewed="loadData"
+    />
   </ContentWrap>
 </template>
 
@@ -474,6 +533,7 @@ import {
   Share,
   Upload,
   View,
+  Aim,
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox, ElNotification } from 'element-plus'
 import ContentWrap from '@/components/ContentWrap/src/ContentWrap.vue'
@@ -488,6 +548,7 @@ import { FOLDER_FILTER, convertFolderIdToApiParam } from '@/constants/folder'
 import { useLocalStorage, useWindowSize } from '@vueuse/core'
 import { CustomStickerApi, type CustomSticker, type CustomStickerTransferAction } from '@/api/custom-sticker'
 import { getUserList } from '@/api/user'
+import CustomStickerQuickReview from './CustomStickerQuickReview.vue'
 
 const folderTreeCollapsed = useLocalStorage('custom_sticker_folder_collapsed', false)
 const selectedFolderId = ref<string | null>(FOLDER_FILTER.ALL)
@@ -500,6 +561,8 @@ const activeSticker = ref<CustomSticker | null>(null)
 const publishTargetIds = ref<string[]>([])
 
 const detailVisible = ref(false)
+const detailLoading = ref(false)
+const quickReviewVisible = ref(false)
 const publishVisible = ref(false)
 const publishing = ref(false)
 const copyingToLibrary = ref(false)
@@ -523,6 +586,13 @@ const queryParams = reactive({
   shareState: 'all',
   importState: 'all',
 })
+
+const quickReviewQuery = computed(() => ({
+  folderId: convertFolderIdToApiParam(queryParams.folderId),
+  searchText: queryParams.searchText || undefined,
+  shareState: queryParams.shareState !== 'all' ? queryParams.shareState : undefined,
+  importState: queryParams.importState !== 'all' ? queryParams.importState : undefined,
+}))
 
 const keywordList = computed(() => {
   const kw = activeSticker.value?.keywords || ''
@@ -579,20 +649,14 @@ const gridOptions = computed(() => ({
     { title: '名称', minWidth: 180, slots: { default: 'nameSlot' } },
     { title: '文件夹', minWidth: 130, slots: { default: 'folderSlot' } },
     { title: '所属用户', width: 150, slots: { default: 'ownerSlot' } },
-    { title: '素材库', width: 120, align: 'center', slots: { default: 'importSlot' } },
+    { title: '素材库', width: 140, align: 'center', slots: { default: 'importSlot' } },
     { title: '素材中心', width: 100, align: 'center', slots: { default: 'shareSlot' } },
     { title: '最近更新', width: 164, slots: { default: 'timeSlot' } },
     buildOperationColumn('operationSlot'),
   ],
 } as any))
 
-const filteredRows = computed(() => rows.value.filter((row) => {
-  if (queryParams.shareState === 'shared' && !row.isShared) return false
-  if (queryParams.shareState === 'unshared' && row.isShared) return false
-  if (queryParams.importState === 'imported' && !row.imported) return false
-  if (queryParams.importState === 'not-imported' && row.imported) return false
-  return true
-}))
+const filteredRows = computed(() => rows.value)
 
 const {
   dragState,
@@ -616,6 +680,8 @@ async function loadData() {
       pageSize: queryParams.pageSize,
       searchText: queryParams.searchText || undefined,
       folderId: convertFolderIdToApiParam(queryParams.folderId),
+      shareState: queryParams.shareState !== 'all' ? queryParams.shareState : undefined,
+      importState: queryParams.importState !== 'all' ? queryParams.importState : undefined,
     })
     rows.value = result?.items || []
     total.value = result?.total || 0
@@ -746,9 +812,20 @@ async function handleFolderDrop(payload: { data: any }) {
   }
 }
 
-function openDetail(item: CustomSticker) {
+async function openDetail(item: CustomSticker) {
   activeSticker.value = item
   detailVisible.value = true
+  detailLoading.value = true
+  try {
+    const detail = await CustomStickerApi.getDetail(item.id)
+    if (detail && activeSticker.value?.id === item.id) {
+      activeSticker.value = { ...activeSticker.value, ...detail }
+    }
+  } catch (error: any) {
+    ElMessage.error(error?.message || '获取设计数据详情失败')
+  } finally {
+    detailLoading.value = false
+  }
 }
 
 function openPublish(item: CustomSticker) {
@@ -1001,19 +1078,57 @@ loadData()
 }
 
 .import-cell {
-  display: flex;
-  flex-direction: column;
+  display: inline-flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  width: 100%;
+}
+
+.import-code-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  user-select: none;
+
+  &__status {
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  &__sep {
+    opacity: 0.55;
+    font-weight: 600;
+    margin: 0 1px;
+  }
 
   &__code {
+    font-family: var(--el-font-family-monospace, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
     font-size: 11px;
-    line-height: 1.2;
-    color: var(--el-color-primary);
-    background: var(--el-color-primary-light-9);
-    padding: 1px 4px;
-    border-radius: 4px;
-    letter-spacing: 0.5px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+
+  &__icon {
+    font-size: 11px;
+    opacity: 0.65;
+    margin-left: 2px;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+  }
+
+  &:hover {
+    filter: brightness(1.06);
+    border-color: var(--el-color-success);
+
+    .import-code-tag__icon {
+      opacity: 1;
+      transform: scale(1.15);
+    }
+  }
+
+  &:active {
+    transform: scale(0.98);
   }
 }
 
@@ -1066,11 +1181,12 @@ loadData()
   line-height: 24px;
 }
 
-/* ================== 极简纯信息全屏详情 ================== */
-:deep(.cs-info-dialog.el-dialog.is-fullscreen) {
+/* ================== 极简全屏设计数据弹窗 ================== */
+:deep(.cs-fullscreen-dialog.el-dialog.is-fullscreen) {
   display: flex;
   flex-direction: column;
   padding: 0;
+  margin: 0;
   background: var(--el-bg-color);
   overflow: hidden;
 
@@ -1078,25 +1194,30 @@ loadData()
     padding: 0;
     margin: 0;
     border-bottom: 1px solid var(--el-border-color-lighter);
+    background: var(--el-bg-color);
   }
 
   .el-dialog__body {
     flex: 1;
     padding: 0;
+    margin: 0;
     overflow: hidden;
+    height: calc(100vh - 48px);
+    background: var(--el-bg-color);
   }
 }
 
-.cs-info-nav {
+.cs-dlg-nav {
   display: flex;
   align-items: center;
   justify-content: space-between;
   height: 48px;
   padding: 0 20px;
   background: var(--el-bg-color);
+  gap: 16px;
 }
 
-.cs-info-back {
+.cs-dlg-back-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -1105,21 +1226,49 @@ loadData()
   color: var(--el-text-color-regular);
   font-size: 13px;
   cursor: pointer;
-  padding: 4px 6px;
+  padding: 5px 8px;
   border-radius: 4px;
+  transition: all 0.15s ease;
 
   &:hover {
     color: var(--el-color-primary);
+    background: var(--el-fill-color-light);
   }
 }
 
-.cs-info-nav-title {
+.cs-dlg-nav-center {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.cs-dlg-nav-title {
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 450px;
+}
+
+.cs-nav-badge {
+  font-size: 11px;
+  font-family: monospace;
+  padding: 1px 7px;
+  border-radius: 4px;
+  background: var(--el-fill-color);
   color: var(--el-text-color-secondary);
 }
 
-.cs-info-close {
+.cs-dlg-nav-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cs-dlg-close-btn {
   width: 32px;
   height: 32px;
   border: none;
@@ -1130,6 +1279,7 @@ loadData()
   justify-content: center;
   border-radius: 4px;
   cursor: pointer;
+  transition: all 0.15s ease;
 
   &:hover {
     background: var(--el-fill-color-light);
@@ -1137,17 +1287,17 @@ loadData()
   }
 }
 
-/* 双栏布局：左侧信息栏 (400px)，右侧核心数据区 (自适应撑满) */
-.cs-info-layout {
+/* 双栏全屏布局 */
+.cs-layout {
   display: grid;
-  grid-template-columns: 400px 1fr;
+  grid-template-columns: 380px 1fr;
   height: 100%;
   overflow: hidden;
   background: var(--el-bg-color);
 }
 
-/* 左侧：图片 + 元数据面板 */
-.cs-sidebar-panel {
+/* 左侧栏：图片与属性 */
+.cs-sidebar {
   padding: 24px;
   border-right: 1px solid var(--el-border-color-lighter);
   overflow-y: auto;
@@ -1157,83 +1307,95 @@ loadData()
   background: var(--el-bg-color);
 }
 
-.cs-sidebar-img-box {
+.cs-img-container {
   width: 100%;
-  height: 260px;
+  height: 250px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--el-fill-color-light);
   border-radius: 8px;
-  padding: 16px;
+  border: 1px solid var(--el-border-color-extra-light);
+  padding: 14px;
 }
 
-.cs-sidebar-img {
+.cs-img-preview {
   max-width: 100%;
   max-height: 100%;
 }
 
-.cs-sidebar-specs {
+.cs-specs-row {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
-.cs-sidebar-meta-block {
+.cs-spec-tag {
+  font-size: 11.5px;
+  color: var(--el-text-color-secondary);
+  background: var(--el-fill-color);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+.cs-meta-header {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.cs-sidebar-title {
-  font-size: 18px;
+.cs-title {
+  font-size: 16px;
   font-weight: 600;
   color: var(--el-text-color-primary);
   margin: 0;
   line-height: 1.4;
+  word-break: break-word;
 }
 
-.cs-sidebar-tags {
+.cs-tag-group {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
 }
 
-.cs-sidebar-desc {
+.cs-desc {
   font-size: 13px;
   color: var(--el-text-color-regular);
   line-height: 1.6;
+  word-break: break-word;
+  background: var(--el-fill-color-light);
+  padding: 10px 12px;
+  border-radius: 6px;
 }
 
-.cs-sidebar-keywords {
+.cs-keywords {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
 
-.cs-sidebar-kw {
-  font-size: 12px;
+.cs-keyword {
+  font-size: 11.5px;
   color: var(--el-text-color-secondary);
   background: var(--el-fill-color-light);
-  padding: 2px 8px;
+  padding: 2px 7px;
   border-radius: 4px;
-  line-height: 1.4;
-  user-select: none;
 }
 
-/* 扁平属性表格 */
-.cs-sidebar-table {
+/* 属性键值列表 */
+.cs-prop-list {
   display: flex;
   flex-direction: column;
   border-top: 1px solid var(--el-border-color-lighter);
-  padding-top: 6px;
+  padding-top: 4px;
 }
 
-.cs-sidebar-row {
+.cs-prop-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1251,10 +1413,11 @@ loadData()
   }
 
   .value {
-    font-size: 13px;
+    font-size: 12.5px;
     color: var(--el-text-color-primary);
     font-weight: 500;
     text-align: right;
+    word-break: break-all;
 
     &.mono {
       font-family: monospace;
@@ -1274,36 +1437,37 @@ loadData()
   }
 }
 
-/* 右侧：核心数据区 */
-.cs-main-panel {
-  padding: 28px 36px;
+/* 右侧核心数据区 */
+.cs-content {
+  padding: 24px 32px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 22px;
   background: var(--el-bg-color);
+  height: 100%;
 }
 
-.cs-main-section {
+.cs-section {
   display: flex;
   flex-direction: column;
   gap: 10px;
 
-  &.flex-fill-section {
+  &.cs-json-section {
     flex: 1;
+    min-height: 300px;
     display: flex;
     flex-direction: column;
-    min-height: 300px;
   }
 }
 
-.cs-main-head {
+.cs-section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
-.cs-main-heading {
+.cs-section-title {
   font-size: 13px;
   font-weight: 600;
   color: var(--el-text-color-regular);
@@ -1311,77 +1475,89 @@ loadData()
   letter-spacing: 0.3px;
 }
 
-.cs-prompt-content {
+.cs-prompt-box {
   background: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color-lighter);
   padding: 14px 18px;
   border-radius: 6px;
   font-size: 13px;
-  line-height: 1.6;
+  line-height: 1.65;
   color: var(--el-text-color-primary);
   white-space: pre-wrap;
   word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
-.cs-history-box {
+/* 历史步骤：完全展示，无单行截断 */
+.cs-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cs-history-card {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color-lighter);
+  padding: 12px 16px;
+  border-radius: 6px;
 }
 
-.cs-history-row {
+.cs-history-head {
   display: flex;
   align-items: center;
-  gap: 10px;
-  background: var(--el-fill-color-light);
-  padding: 8px 12px;
-  border-radius: 4px;
+  justify-content: space-between;
 }
 
-.cs-history-tag {
+.cs-history-step-tag {
   font-size: 11px;
   font-weight: 600;
   color: var(--el-color-primary);
   background: var(--el-color-primary-light-8);
-  padding: 1px 5px;
+  padding: 1px 6px;
   border-radius: 3px;
-  flex-shrink: 0;
 }
 
-.cs-history-val {
-  flex: 1;
-  font-size: 12px;
+.cs-history-text {
+  font-size: 12.5px;
+  line-height: 1.6;
   color: var(--el-text-color-regular);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
-.cs-full-json-pre {
+/* 纯 JSON 展示 */
+.cs-pure-json-box {
   margin: 0;
   padding: 16px 20px;
   border-radius: 6px;
-  font-family: monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 12px;
-  line-height: 1.5;
+  line-height: 1.55;
   background: #18181b;
   color: #a7f3d0;
   overflow: auto;
   flex: 1;
   max-height: calc(100vh - 280px);
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 @media (max-width: 900px) {
-  .cs-info-layout {
+  .cs-layout {
     grid-template-columns: 1fr;
     overflow-y: auto;
   }
 
-  .cs-sidebar-panel {
+  .cs-sidebar {
     border-right: none;
     border-bottom: 1px solid var(--el-border-color-lighter);
   }
 
-  .cs-main-panel {
+  .cs-content {
     padding: 20px;
   }
 }

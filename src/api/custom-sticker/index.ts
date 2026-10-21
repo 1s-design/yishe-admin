@@ -44,6 +44,8 @@ export interface CustomStickerPageParams {
   pageSize?: number
   folderId?: string | null
   searchText?: string
+  shareState?: string
+  importState?: string
 }
 
 export interface CustomStickerPageResult {
@@ -94,6 +96,9 @@ export const CustomStickerApi = {
 
   batchCopyToStickerLibrary: (data: { ids: string[]; folderId?: string | null }) =>
     request.post<CustomStickerTransferResult>({ url: '/custom-sticker/batch-import-to-sticker', data }),
+
+  getDetail: (id: string) =>
+    request.get<CustomSticker>({ url: `/custom-sticker/${id}` }),
 
   delete: (id: string) =>
     request.delete({ url: `/custom-sticker/${id}` }),

@@ -747,21 +747,33 @@ html.dark .el-alert {
 }
 
 .el-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
   border-radius: 999px;
   padding: 0 9px;
-  height: 22px;
-  line-height: 20px;
-  font-size: var(--ep-cover-font-size-xs);
+  height: 24px;
+  line-height: 1;
+  font-size: 12px;
   font-weight: 500;
   border-width: 1px;
   border-style: solid;
   border-color: transparent;
   box-sizing: border-box;
+  white-space: nowrap;
   transition:
     background-color var(--ep-cover-motion-fast),
     border-color var(--ep-cover-motion-fast),
     color var(--ep-cover-motion-fast),
     transform var(--ep-cover-motion-fast);
+
+  .el-tag__content {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    line-height: 1;
+  }
 
   &.el-tag--primary {
     background-color: color-mix(in srgb, var(--el-color-primary) 10%, transparent);
@@ -820,8 +832,8 @@ html.dark .el-alert {
 
   &.el-tag--plain {
     // 由标签自身文字色派生淡色底，避免纯白底在表格里显得空洞
-    background-color: color-mix(in srgb, currentColor 6%, transparent);
-    border-color: color-mix(in srgb, currentColor 22%, transparent);
+    background-color: color-mix(in srgb, currentColor 8%, transparent);
+    border-color: color-mix(in srgb, currentColor 26%, transparent);
   }
 
   .el-tag__close {
@@ -837,16 +849,21 @@ html.dark .el-alert {
 
 .el-tag--small {
   height: 22px;
-  line-height: 20px;
+  line-height: 1;
   padding: 0 8px;
-  font-size: var(--ep-cover-font-size-xs);
+  font-size: 11px;
+
+  .el-tag__content {
+    gap: 3px;
+    line-height: 1;
+  }
 }
 
 .el-tag--large {
-  height: 26px;
-  line-height: 24px;
-  padding: 0 11px;
-  font-size: var(--ep-cover-font-size-sm);
+  height: 28px;
+  line-height: 1;
+  padding: 0 12px;
+  font-size: 13px;
 }
 
 html.dark {
@@ -1733,3 +1750,61 @@ html.dark .el-input-number .el-input-number__increase:active {
   padding: 8px 20px;
   font-size: var(--ep-cover-font-size-lg);
 }
+
+/* ─────────────────────────────────────────────────────────────
+   快捷审核专属按钮：去油腻、极简现代质感
+   ───────────────────────────────────────────────────────────── */
+.quick-review-btn.el-button {
+  --qr-accent-rgb: 99, 102, 241;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(var(--qr-accent-rgb), 0.08);
+  border: 1px solid rgba(var(--qr-accent-rgb), 0.28);
+  color: rgb(79, 70, 229);
+  font-weight: 500;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+
+  .el-icon {
+    font-size: 14px;
+    color: currentColor;
+    transition: transform 0.18s ease;
+  }
+
+  &:hover:not(:disabled) {
+    background: rgba(var(--qr-accent-rgb), 0.15);
+    border-color: rgba(var(--qr-accent-rgb), 0.6);
+    color: rgb(67, 56, 202);
+    box-shadow: 0 2px 10px rgba(var(--qr-accent-rgb), 0.18);
+
+    .el-icon {
+      transform: scale(1.1);
+    }
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    background: var(--el-fill-color-light);
+    border-color: var(--el-border-color-lighter);
+    color: var(--el-text-color-placeholder);
+    box-shadow: none;
+  }
+}
+
+html.dark .quick-review-btn.el-button {
+  background: rgba(129, 140, 248, 0.12);
+  border-color: rgba(129, 140, 248, 0.32);
+  color: #a5b4fc;
+
+  &:hover:not(:disabled) {
+    background: rgba(129, 140, 248, 0.2);
+    border-color: rgba(129, 140, 248, 0.65);
+    color: #c7d2fe;
+    box-shadow: 0 2px 12px rgba(99, 102, 241, 0.28);
+  }
+}
+
