@@ -22,6 +22,7 @@ export const ADMIN_ONLY_MENU_KEYS = new Set([
   "system.operatelog",
   "system.file-log",
   "system.service-status",
+  "system.vector-search",
 ]);
 
 export const ROUTE_MENU_KEY_MAP: Record<string, string> = {
@@ -29,7 +30,7 @@ export const ROUTE_MENU_KEY_MAP: Record<string, string> = {
   HotSearch: "home.hot-search",
   ToolsIndex: "home.tools",
   Statistics: "home.statistics",
-  VectorSearch: "home.vector-search",
+  VectorSearch: "system.vector-search",
   DesignKnowledge: "home.design-knowledge",
   DesignPrompt: "home.design-prompt",
   CrawlerMaterial: "resource.crawler-material",
@@ -118,6 +119,7 @@ export const ROUTE_MENU_KEY_MAP: Record<string, string> = {
 };
 
 export const ROUTE_MENU_LEGACY_KEY_MAP: Record<string, string[]> = {
+  VectorSearch: ["home.vector-search"],
   CustomSticker: ["resource.material"],
   OperationToolkitTemu: ["external.toolkit"],
   OperationToolkitDoudian: ["external.toolkit"],

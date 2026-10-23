@@ -54,8 +54,25 @@
             <div v-for="param in operation.paramEntries" :key="`${operation.key}-${param.name}`" class="create-task-param-card">
               <div class="create-task-param-card__label">{{ param.name }}</div>
               <div class="create-task-param-card__input-wrap">
+                <!-- 枚举下拉 -->
+                <template v-if="param.options && param.options.length">
+                  <el-select
+                    size="small"
+                    class="w-full"
+                    :model-value="param.rawVal"
+                    @change="$emit('update-param', index, param.name, $event)"
+                  >
+                    <el-option
+                      v-for="option in param.options"
+                      :key="`${operation.key}-${param.name}-${option}`"
+                      :label="String(option)"
+                      :value="option"
+                    />
+                  </el-select>
+                </template>
+
                 <!-- 颜色选择器 -->
-                <template v-if="param.isColor">
+                <template v-else-if="param.isColor">
                   <div class="flex items-center gap-2 w-full">
                     <el-color-picker
                       size="small"

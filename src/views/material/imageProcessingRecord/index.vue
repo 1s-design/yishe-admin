@@ -652,6 +652,7 @@ const form = reactive<Record<string, any>>({
 });
 
 const DEFAULT_FALLBACK_OPERATIONS = [
+  { type: "ai_upscale", apiType: "ai_upscale", category: "basic", description: "AI 智能超分辨率放大（无损放大图片，最高 4x），适合照片/动漫/插画放大", params: { modelId: { type: "string", description: "超分模型 ID", default: "realesr-general-x4v3", enum: ["realesr-general-x4v3", "real-esrgan-x4plus", "real-esrgan-animevideov3", "real-esrgan-x4plus-anime", "real-esrgan-x4plus-anime-4b32f", "real-cugan-2x", "swin2sr-lightweight-x2", "swin2sr-classical-x4", "swin2sr-realworld-x4", "swin2sr-compressed-x4"] }, scale: { type: "number", description: "放大倍数（由模型决定，可选 2 或 4）", enum: [2, 4] } }, requiredParams: [] },
   { type: "resize", apiType: "resize", category: "basic", description: "调整图像尺寸与宽高比", params: { width: { type: "number", description: "目标宽度 (px)", required: true }, height: { type: "number", description: "目标高度 (px)", required: true }, maintainAspectRatio: { type: "boolean", description: "保持原宽高比", default: true } }, requiredParams: ["width", "height"] },
   { type: "crop", apiType: "crop", category: "basic", description: "按指定坐标和大小裁剪图像", params: { x: { type: "number", description: "起点 X 坐标 (px)" }, y: { type: "number", description: "起点 Y 坐标 (px)" }, width: { type: "number", description: "裁剪宽度 (px)", required: true }, height: { type: "number", description: "裁剪高度 (px)", required: true } }, requiredParams: ["width", "height"] },
   { type: "shapeCrop", apiType: "shapeCrop", category: "basic", description: "圆形 / 椭圆 / 多边形形状裁剪", params: { shape: { type: "string", description: "形状 (circle/ellipse/polygon)", default: "circle" }, width: { type: "number", description: "宽度 (px)", default: 200 }, height: { type: "number", description: "高度 (px)", default: 200 } }, requiredParams: [] },
@@ -714,6 +715,7 @@ const DEFAULT_FALLBACK_OPERATIONS = [
 ];
 
 const DEFAULT_FALLBACK_VARIATIONS = [
+  { id: "ai_upscale_hd", name: "AI 智能高清放大 (4x)", description: "AI 超分辨率无损放大 4 倍，照片/动漫/插画通用", operations: [{ type: "ai_upscale", params: { modelId: "realesr-general-x4v3" } }] },
   { id: "tile_collage", name: "组图相册 (2列画廊)", description: "将多张图片组合排版为 2 列精美组图照片墙", operations: [{ type: "tile", params: { columns: 2, tileWidth: 400, tileHeight: 400, gap: 15, backgroundColor: "#FFFFFF" } }] },
   { id: "append_long", name: "多图无缝拼接长图", description: "将多张图片水平或垂直无缝拼接为长图", operations: [{ type: "append", params: { direction: "horizontal" } }] },
   { id: "square_hd", name: "正方形高清图 (1080x1080)", description: "输出 1080x1080 标准电商商品展示主图", operations: [{ type: "resize", params: { width: 1080, height: 1080, maintainAspectRatio: true } }] },
@@ -1537,6 +1539,7 @@ function getCurrentOperationParamEntries(operation: any) {
       isColor,
       type: schema.type || typeof rawVal,
       description: schema.description || "",
+      options: Array.isArray(schema.enum) ? schema.enum : [],
       value: formatOperationParamValue(rawVal),
     };
   });
@@ -1903,17 +1906,52 @@ async function loadMeta(silent = false) {
     metaLoading.value = true;
   }
 
+  // 操作目录缓存：客户端是唯一真源，服务端会持久化客户端上报的目录；
+  // 管理端这里再缓存一份最近一次拉取结果，服务端不可达时兜底使用，
+  // 保证三端定义始终一致，新增操作只需改客户端。
+  const META_CACHE_KEY = "yishe_img_processing_meta_cache";
+  const loadCachedMeta = (): any | null => {
+    try {
+      const raw = localStorage.getItem(META_CACHE_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      return parsed && typeof parsed === "object" ? parsed : null;
+    } catch {
+      return null;
+    }
+  };
+  const resolveFallbackOperations = () => {
+    const cached = loadCachedMeta();
+    return Array.isArray(cached?.operations) && cached.operations.length > 0
+      ? cached.operations
+      : DEFAULT_FALLBACK_OPERATIONS;
+  };
+  const resolveFallbackVariations = () => {
+    const cached = loadCachedMeta();
+    return Array.isArray(cached?.variations) && cached.variations.length > 0
+      ? cached.variations
+      : DEFAULT_FALLBACK_VARIATIONS;
+  };
+
   try {
     const result: any = await getImageProcessingMeta();
     catalog.value = result?.catalog || null;
     operations.value =
       Array.isArray(result?.operations) && result.operations.length > 0
         ? result.operations
-        : DEFAULT_FALLBACK_OPERATIONS;
+        : resolveFallbackOperations();
     variations.value =
       Array.isArray(result?.variations) && result.variations.length > 0
         ? result.variations
-        : DEFAULT_FALLBACK_VARIATIONS;
+        : resolveFallbackVariations();
+    try {
+      localStorage.setItem(META_CACHE_KEY, JSON.stringify({
+        operations: operations.value,
+        variations: variations.value,
+        updatedAt: new Date().toISOString(),
+      }));
+    } catch {
+      // 缓存失败不影响主流程
+    }
     if (
       !activeCatalogOperationKey.value ||
       !operations.value.some((operation) => getOperationIdentity(operation) === activeCatalogOperationKey.value)
@@ -1925,9 +1963,9 @@ async function loadMeta(silent = false) {
     syncDefaultOperationsJson();
   } catch (error: any) {
     catalog.value = null;
-    operations.value = DEFAULT_FALLBACK_OPERATIONS;
-    variations.value = DEFAULT_FALLBACK_VARIATIONS;
-    console.warn("获取图片服务元数据警告，使用本地内置处理方式目录:", error);
+    operations.value = resolveFallbackOperations();
+    variations.value = resolveFallbackVariations();
+    console.warn("获取图片服务元数据警告，使用缓存/本地内置处理方式目录:", error);
   } finally {
     metaLoading.value = false;
   }

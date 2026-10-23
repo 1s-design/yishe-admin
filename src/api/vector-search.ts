@@ -327,3 +327,26 @@ export const reindexContentVectors = (data: {
     data,
   });
 };
+
+// ============ 通用覆盖率/缺口统计（provider 驱动，所有集合） ============
+export interface VectorCollectionCoverage {
+  collection: string;
+  label: string | null;
+  total: number;
+  indexedAlive: number;
+  missing: number;
+  coverage: number | null;
+  lastIndexedAt: string | null;
+}
+
+export interface VectorCoverageStatistics {
+  generatedAt: string;
+  collections: VectorCollectionCoverage[];
+  summary: string;
+}
+
+export const getVectorCoverageStatistics = () => {
+  return request.get<VectorCoverageStatistics>({
+    url: "/vector-search/collections/statistics",
+  });
+};

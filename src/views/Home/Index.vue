@@ -902,7 +902,7 @@ onUnmounted(() => {
   justify-content: space-between;
   gap: 6px;
   padding: 10px 12px;
-  background: var(--el-fill-color-lighter);
+  background: var(--el-bg-color);
   border-radius: 9px;
   box-shadow: none;
   transition:
@@ -913,8 +913,8 @@ onUnmounted(() => {
     transform: translateY(-1px);
     background: color-mix(
       in srgb,
-      var(--el-color-primary) 8%,
-      var(--el-fill-color-lighter)
+      var(--el-color-primary) 6%,
+      var(--el-bg-color)
     );
   }
 
@@ -1014,7 +1014,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 7px;
   padding: 7px 9px;
-  background: var(--el-fill-color-lighter);
+  background: var(--el-bg-color);
   border-radius: 7px;
   cursor: pointer;
   min-width: 0;
@@ -1024,7 +1024,7 @@ onUnmounted(() => {
 
   &:hover {
     transform: translateY(-1px);
-    background: color-mix(in srgb, var(--el-color-primary) 10%, var(--el-fill-color-lighter));
+    background: color-mix(in srgb, var(--el-color-primary) 8%, var(--el-bg-color));
 
     .shortcut-item__icon-box {
       color: var(--el-color-primary);
@@ -1095,7 +1095,7 @@ onUnmounted(() => {
   /* 撑满列高，保证左右两张面板底部对齐 */
   flex: 1;
   padding: 12px 10px 10px;
-  background: var(--el-fill-color-lighter);
+  background: var(--el-bg-color);
   border-radius: 12px;
 }
 

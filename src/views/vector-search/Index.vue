@@ -57,7 +57,7 @@
                 查询
               </el-button>
               <el-button size="small" type="success" @click="openCreateDialog">新增</el-button>
-              <el-button size="small" type="primary" plain @click="openBuildBaseDialog">构建控制台</el-button>
+
               <el-button
                 size="small"
                 type="danger"
@@ -99,11 +99,33 @@
                   :stroke-width="4"
                 />
               </div>
-              <div class="vector-build-overview__actions">
-                <el-button size="small" link type="primary" @click="openBuildBaseDialog">
-                  任务详情
-                </el-button>
-              </div>
+            </div>
+
+            <div v-if="coverageStats" class="vector-coverage-overview">
+              <span class="vector-coverage-overview__title">向量覆盖率</span>
+              <span
+                v-for="item in coverageStats.collections"
+                :key="item.collection"
+                class="vector-coverage-overview__item"
+                :title="`${item.label || item.collection}：已索引 ${item.indexedAlive} / 总量 ${item.total}，缺口 ${item.missing}，最近入库 ${item.lastIndexedAt || '暂无'}（点击筛选该集合）`"
+                @click="handleCoverageClick(item)"
+              >
+                <span class="vector-coverage-overview__label">
+                  {{ item.label || item.collection }}
+                </span>
+                <el-tag size="small" effect="plain" :type="coverageTagType(item)">
+                  {{ item.coverage ?? "—" }}%
+                </el-tag>
+                <span class="vector-coverage-overview__count">
+                  {{ item.indexedAlive }}/{{ item.total }}
+                </span>
+                <span v-if="item.missing > 0" class="vector-coverage-overview__missing">
+                  缺 {{ item.missing }}
+                </span>
+              </span>
+              <span class="vector-coverage-overview__time">
+                统计于 {{ formatLastBuildTime(coverageStats.generatedAt) }}
+              </span>
             </div>
           </el-form>
         </div>
@@ -250,183 +272,6 @@
       </template>
     </el-dialog>
 
-    <el-dialog
-      v-model="buildBaseVisible"
-      title="向量构建控制台"
-      fullscreen
-      destroy-on-close
-    >
-      <div class="vector-console">
-        <!-- 1. 当前活动任务状态 (若无活动任务，则显示空闲提示) -->
-        <div v-if="buildJob && ['pending', 'running', 'paused'].includes(buildJob.status)" class="vector-console-active-job">
-          <div class="active-job-header">
-            <div class="active-job-title">
-              <span class="pulse-indicator"></span>
-              <strong>当前正在执行构建任务</strong>
-              <el-tag size="small" :type="getBuildJobTagType(currentBuildStatus)" effect="dark" style="margin-left: 10px;">
-                {{ getBuildJobStatusText(currentBuildStatus) }}
-              </el-tag>
-            </div>
-            <div class="active-job-actions">
-              <el-button
-                v-if="buildJob.status === 'running'"
-                size="small"
-                type="warning"
-                :loading="buildBaseLoading"
-                @click="handlePauseBuildJob"
-              >
-                暂停
-              </el-button>
-              <el-button
-                v-if="buildJob.status === 'paused' || currentBuildStatus === 'stale'"
-                size="small"
-                type="success"
-                :loading="buildBaseLoading"
-                @click="handleResumeBuildJob"
-              >
-                继续
-              </el-button>
-              <el-button
-                size="small"
-                type="danger"
-                plain
-                :loading="buildBaseLoading"
-                @click="handleCancelBuildJob"
-              >
-                取消任务
-              </el-button>
-            </div>
-          </div>
-
-          <div class="active-job-body">
-            <div class="progress-wrapper">
-              <el-progress
-                :percentage="buildJob.progress || 0"
-                :stroke-width="12"
-                :status="buildJob.status === 'failed' ? 'exception' : buildJob.status === 'completed' ? 'success' : undefined"
-                striped
-                striped-flow
-              />
-              <div class="progress-details">
-                <span>总进度: {{ buildJob.processed }}/{{ buildJob.total || 0 }}</span>
-                <span>新增: {{ buildJob.indexed }}</span>
-                <span>跳过: {{ buildJob.skipped }}</span>
-                <span>失败: {{ buildJob.failed }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div v-else class="vector-console-idle">
-          <div class="idle-message">
-            <span class="idle-icon">✨</span>
-            <span>向量数据库当前处于空闲状态。请在下方选择需要的分类进行数据同步与索引构建。</span>
-          </div>
-        </div>
-
-        <!-- 2. 分类构建控制列表 -->
-        <div class="vector-collections-section">
-          <h3 class="section-title">可用向量分类列表</h3>
-          <div class="vector-collections-list">
-            <div
-              v-for="item in buildableCollections"
-              :key="item.name"
-              class="vector-collection-row"
-              :class="{ 'is-building': buildJob?.items?.find(i => i.collection === item.name)?.status === 'running' }"
-            >
-              <div class="row-info-col">
-                <div class="row-title">
-                  <span class="row-label">{{ item.label }}</span>
-                  <span class="row-name">{{ item.name }}</span>
-                </div>
-                <div class="row-meta">
-                  <span class="meta-item">上次完成: {{ formatLastBuildTime(collectionLastFinished[item.name]) }}</span>
-                </div>
-              </div>
-
-              <!-- 单分类构建进度展示 -->
-              <div class="row-progress-col">
-                <template v-if="buildJob && ['pending', 'running', 'paused'].includes(buildJob.status) && buildJob?.items?.find(i => i.collection === item.name)">
-                  <div class="mini-progress-info">
-                    <span>进度: {{ getJobItemProgress(item.name) }}</span>
-                    <el-tag size="small" :type="getJobItemTagType(item.name)" effect="plain">
-                      {{ getJobItemStatusText(item.name) }}
-                    </el-tag>
-                  </div>
-                </template>
-                <span v-else class="text-gray-400">就绪 / 空闲</span>
-              </div>
-
-              <div class="row-actions-col">
-                <el-checkbox
-                  v-model="collectionForceStates[item.name]"
-                  size="small"
-                  label="强制重建"
-                  class="force-checkbox"
-                  :disabled="isBuildJobActive()"
-                />
-                <el-button
-                  size="small"
-                  type="primary"
-                  :loading="buildingCollection === item.name"
-                  :disabled="isBuildJobActive()"
-                  @click="handleBuildCollectionDirectly(item.name)"
-                >
-                  一键构建
-                </el-button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 3. 高级全局配置与批量构建 -->
-        <div class="advanced-settings-section">
-          <h3 class="section-title">高级全局配置与批量构建</h3>
-          <el-form :model="buildBaseForm" label-width="96px" class="build-sticker-vector-form">
-            <el-form-item label="单批次大小">
-              <el-input-number
-                v-model="buildBaseForm.batchSize"
-                :min="10"
-                :max="300"
-                :step="10"
-                controls-position="right"
-              />
-            </el-form-item>
-            <el-form-item label="过滤条件">
-              <el-checkbox v-model="buildBaseForm.onlyCustom">贴纸图片只处理自定义贴纸</el-checkbox>
-            </el-form-item>
-            <el-form-item label="批量操作">
-              <el-checkbox-group v-model="buildBaseForm.collections">
-                <el-checkbox label="sticker-images">贴纸图片</el-checkbox>
-                <el-checkbox label="fonts">字体模板</el-checkbox>
-                <el-checkbox label="sentences">文案句子</el-checkbox>
-                <el-checkbox label="psd-templates">PSD 模板</el-checkbox>
-                <el-checkbox label="text-documents">文本文档</el-checkbox>
-                <el-checkbox label="design-knowledge">设计知识库</el-checkbox>
-              </el-checkbox-group>
-            </el-form-item>
-            <el-form-item label="重建选项">
-              <el-checkbox v-model="buildBaseForm.force">强制重建全部已构建向量</el-checkbox>
-            </el-form-item>
-            <el-form-item>
-              <el-button
-                type="primary"
-                size="small"
-                :disabled="isBuildJobActive()"
-                :loading="buildBaseLoading"
-                @click="handleBuildBaseVectors"
-              >
-                批量开始构建
-              </el-button>
-            </el-form-item>
-          </el-form>
-        </div>
-      </div>
-
-      <template #footer>
-        <el-button @click="buildBaseVisible = false">关闭</el-button>
-      </template>
-    </el-dialog>
 
     <!-- 新增弹窗 -->
     <el-dialog
@@ -508,17 +353,15 @@ import {
   getVectorRecord,
   deleteVectorRecord,
   indexVectorRecord,
-  createBaseVectorBuildJob,
   getLatestBaseVectorBuildJob,
-  pauseBaseVectorBuildJob,
-  resumeBaseVectorBuildJob,
-  cancelBaseVectorBuildJob,
   getVectorBuildSchedulerStatus,
   getCollectionLastFinishedTimes,
+  getVectorCoverageStatistics,
   type BaseVectorBuildJob,
   type BaseVectorBuildJobStatus,
   type CollectionDefinition,
   type VectorBuildSchedulerStatus,
+  type VectorCollectionCoverage,
   type VectorRecord,
 } from "@/api/vector-search";
 
@@ -728,6 +571,34 @@ async function loadSchedulerStatus() {
 
 const collectionLastFinished = ref<Record<string, string>>({});
 
+// ============ 覆盖率/缺口统计（全集合） ============
+const coverageStats = ref<{
+  generatedAt: string;
+  collections: VectorCollectionCoverage[];
+  summary: string;
+} | null>(null);
+
+async function loadCoverageStatistics() {
+  try {
+    coverageStats.value = await getVectorCoverageStatistics();
+  } catch {
+    coverageStats.value = null;
+  }
+}
+
+function coverageTagType(item: VectorCollectionCoverage) {
+  if (item.total <= 0) return "info";
+  if ((item.coverage || 0) >= 99.9) return "success";
+  if ((item.coverage || 0) >= 60) return "warning";
+  return "danger";
+}
+
+function handleCoverageClick(item: VectorCollectionCoverage) {
+  queryParams.collection = item.collection;
+  handleSearch();
+}
+
+
 const latestBuildFinishedAt = computed(() => {
   const times = Object.values(collectionLastFinished.value);
   if (!times.length) {
@@ -749,46 +620,9 @@ function formatLastBuildTime(val?: string | null) {
   return formatTime(val);
 }
 
-// ============ 构建基础向量索引 ============
-const buildBaseVisible = ref(false);
-const buildBaseLoading = ref(false);
-const buildingCollection = ref("");
+// ============ 构建基础向量索引（仅监控：任务状态在顶部信息条实时展示） ============
 const buildJob = ref<BaseVectorBuildJob | null>(null);
 let buildJobPollTimer: number | undefined;
-
-const buildableCollections = [
-  { name: "sticker-images", label: "贴纸图片" },
-  { name: "fonts", label: "字体模板" },
-  { name: "sentences", label: "文案句子" },
-  { name: "psd-templates", label: "PSD 模板" },
-  { name: "text-documents", label: "文本文档" },
-  { name: "design-knowledge", label: "设计知识库" },
-];
-
-const buildBaseForm = reactive({
-  collections: ["design-knowledge"] as string[],
-  batchSize: 50,
-  force: false,
-  onlyCustom: false,
-});
-
-const collectionForceStates = reactive<Record<string, boolean>>({
-  "sticker-images": false,
-  fonts: false,
-  sentences: false,
-  "psd-templates": false,
-  "text-documents": false,
-  "design-knowledge": false,
-});
-
-const baseVectorLabels: Record<string, string> = {
-  "sticker-images": "贴纸图片",
-  fonts: "字体模板",
-  sentences: "文案句子",
-  "psd-templates": "PSD 模板",
-  "text-documents": "文本文档",
-  "design-knowledge": "设计知识库",
-};
 
 const buildJobStaleMs = 2 * 60 * 1000;
 
@@ -797,56 +631,6 @@ const currentBuildStatus = computed<BaseVectorBuildJobStatus>(() => {
   if (buildJob.value.status === "running" && isBuildJobStale(buildJob.value)) return "stale";
   return buildJob.value.status;
 });
-
-
-
-function openBuildBaseDialog() {
-  buildBaseVisible.value = true;
-  void loadLatestBuildJob();
-  void loadSchedulerStatus();
-  void loadCollectionLastFinished();
-  startBuildJobPolling();
-}
-
-async function createBuildJob(collections: string[], options?: { force?: boolean }) {
-  if (!collections.length) {
-    ElMessage.warning("请选择至少一个构建范围");
-    return false;
-  }
-
-  const result = await createBaseVectorBuildJob({
-    batchSize: buildBaseForm.batchSize,
-    dryRun: false,
-    force: options?.force ?? buildBaseForm.force,
-    collections,
-    filters: buildBaseForm.onlyCustom ? { isCustom: true } : {},
-  });
-
-  buildJob.value = result.job;
-  if (result.accepted) {
-    startBuildJobPolling();
-    return true;
-  }
-
-  ElMessage.warning(result.message || "已有构建任务在运行");
-  return false;
-}
-
-async function handleBuildCollectionDirectly(collection: string) {
-  const label = baseVectorLabels[collection] || collection;
-  const force = !!collectionForceStates[collection];
-  buildingCollection.value = collection;
-  try {
-    const ok = await createBuildJob([collection], { force });
-    if (ok) {
-      ElMessage.success(`已开始构建：${label}`);
-    }
-  } catch (error: any) {
-    ElMessage.error(error?.message || "创建构建任务失败");
-  } finally {
-    buildingCollection.value = "";
-  }
-}
 
 function getJobItem(collectionName: string) {
   return buildJob.value?.items?.find((i) => i.collection === collectionName);
@@ -929,73 +713,6 @@ function stopBuildJobPolling() {
     buildJobPollTimer = undefined;
   }
 }
-
-async function handleBuildBaseVectors() {
-  if (!buildBaseForm.collections.length) {
-    ElMessage.warning("请选择至少一个构建范围");
-    return;
-  }
-
-  try {
-    await ElMessageBox.confirm(
-      buildBaseForm.force
-        ? "强制重建会重新生成已存在的向量，确认开始？"
-        : buildBaseForm.collections.length === 1
-          ? `确认构建「${baseVectorLabels[buildBaseForm.collections[0]] || buildBaseForm.collections[0]}」？`
-          : "确认开始批量构建？建议优先按分类单独构建以节省时间。",
-      "向量索引构建",
-      {
-        confirmButtonText: "开始",
-        cancelButtonText: "取消",
-        type: buildBaseForm.force ? "warning" : "info",
-      },
-    );
-  } catch {
-    return;
-  }
-
-  buildBaseLoading.value = true;
-  try {
-    await createBuildJob(buildBaseForm.collections);
-  } catch (error: any) {
-    ElMessage.error(error?.message || "创建构建任务失败");
-  } finally {
-    buildBaseLoading.value = false;
-  }
-}
-
-async function handlePauseBuildJob() {
-  if (!buildJob.value) return;
-  buildBaseLoading.value = true;
-  try {
-    buildJob.value = await pauseBaseVectorBuildJob(buildJob.value.id);
-  } finally {
-    buildBaseLoading.value = false;
-  }
-}
-
-async function handleResumeBuildJob() {
-  if (!buildJob.value) return;
-  buildBaseLoading.value = true;
-  try {
-    buildJob.value = await resumeBaseVectorBuildJob(buildJob.value.id);
-    startBuildJobPolling();
-  } finally {
-    buildBaseLoading.value = false;
-  }
-}
-
-async function handleCancelBuildJob() {
-  if (!buildJob.value) return;
-  buildBaseLoading.value = true;
-  try {
-    buildJob.value = await cancelBaseVectorBuildJob(buildJob.value.id);
-    stopBuildJobPolling();
-  } finally {
-    buildBaseLoading.value = false;
-  }
-}
-
 
 // ============ 新增弹窗 ============
 const createVisible = ref(false);
@@ -1088,7 +805,9 @@ onMounted(async () => {
     loadLatestBuildJob(),
     loadSchedulerStatus(),
     loadCollectionLastFinished(),
+    loadCoverageStatistics(),
   ]);
+  startBuildJobPolling();
 });
 
 onUnmounted(() => {
@@ -1179,6 +898,63 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.vector-coverage-overview {
+  display: flex;
+  padding: 8px 10px;
+  margin-top: 6px;
+  background: var(--el-color-success-light-9);
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.vector-coverage-overview__title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  flex: 0 0 auto;
+}
+
+.vector-coverage-overview__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 0 4px;
+  transition: background-color 0.15s;
+
+  &:hover {
+    background: var(--el-fill-color);
+  }
+}
+
+.vector-coverage-overview__label {
+  font-size: 12px;
+  color: var(--el-text-color-primary);
+}
+
+.vector-coverage-overview__count {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--el-text-color-secondary);
+}
+
+.vector-coverage-overview__missing {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--el-color-danger);
+}
+
+.vector-coverage-overview__time {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--el-text-color-placeholder);
+  flex: 0 0 auto;
 }
 
 .vector-build-overview__main {
@@ -1351,17 +1127,6 @@ onUnmounted(() => {
   }
 }
 
-.build-sticker-vector-form {
-  :deep(.el-checkbox-group) {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px 14px;
-  }
-
-  :deep(.el-checkbox) {
-    margin-right: 0;
-  }
-}
 
 .build-sticker-vector-tip {
   margin-top: 4px;
@@ -1475,50 +1240,9 @@ onUnmounted(() => {
   overflow-wrap: anywhere;
 }
 
-.vector-console {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 4px;
-}
 
-.vector-console-active-job {
-  padding: 16px;
-  background: linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--el-color-primary) 8%, transparent) 0%,
-      color-mix(in srgb, var(--el-color-primary) 2%, transparent) 100%
-    );
-  border: 1px solid color-mix(in srgb, var(--el-color-primary) 15%, transparent);
-  border-radius: 8px;
-}
 
-.active-job-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-  flex-wrap: wrap;
-  gap: 10px;
-}
 
-.active-job-title {
-  display: flex;
-  align-items: center;
-  font-size: 14px;
-  color: var(--el-text-color-primary);
-
-  .pulse-indicator {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    margin-right: 8px;
-    background-color: var(--el-color-success);
-    border-radius: 50%;
-    box-shadow: 0 0 0 0 rgb(103 194 58 / 70%);
-    animation: pulse 1.6s infinite;
-  }
-}
 
 @keyframes pulse {
   0% {
@@ -1547,24 +1271,6 @@ onUnmounted(() => {
   }
 }
 
-.vector-console-idle {
-  display: flex;
-  padding: 12px 16px;
-  background: var(--el-fill-color-lighter);
-  border: 1px dashed var(--el-border-color-darker);
-  border-radius: 8px;
-  align-items: center;
-  
-  .idle-icon {
-    margin-right: 8px;
-    font-size: 16px;
-  }
-  
-  span {
-    font-size: 13px;
-    color: var(--el-text-color-regular);
-  }
-}
 
 .vector-collections-section {
   .section-title {
@@ -1651,28 +1357,7 @@ onUnmounted(() => {
   }
 }
 
-.row-actions-col {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  justify-content: flex-end;
-  
-  .force-checkbox {
-    margin-right: 0;
-  }
-}
 
-.advanced-settings-section {
-  padding-top: 8px;
-  border-top: 1px solid var(--el-border-color-lighter);
-
-  .section-title {
-    margin: 8px 0 12px;
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--el-text-color-primary);
-  }
-}
 
 @media (width <= 720px) {
   .record-detail__grid {

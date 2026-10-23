@@ -70,15 +70,6 @@ const remainingRouter: AppRouteRecordRaw[] = [
           noAppViewPadding: true,
         },
       },
-      {
-        path: "vector-search",
-        component: () => import("@/views/vector-search/Index.vue"),
-        name: "VectorSearch",
-        meta: {
-          title: "router.vectorSearch",
-          menuKey: "home.vector-search",
-        },
-      },
 
     ],
   },
@@ -413,15 +404,6 @@ const remainingRouter: AppRouteRecordRaw[] = [
         name: "Statistics",
         meta: {
           title: "router.statistics",
-        },
-      },
-      {
-        path: "vector-search",
-        component: () => import("@/views/vector-search/Index.vue"),
-        name: "VectorSearch",
-        meta: {
-          title: "router.vectorSearch",
-          menuKey: "home.vector-search",
         },
       },
 
@@ -1690,6 +1672,16 @@ const remainingRouter: AppRouteRecordRaw[] = [
           title: "router.serviceStatus",
           requiresAdmin: true,
           order: 9,
+        },
+      },
+      {
+        path: "vector-search",
+        component: () => import("@/views/vector-search/Index.vue"),
+        name: "VectorSearch",
+        meta: {
+          title: "router.vectorSearch",
+          requiresAdmin: true,
+          order: 10,
         },
       },
       // {
