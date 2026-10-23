@@ -82,7 +82,9 @@
       </div>
 
       <div v-else class="showcase-empty">
-        <span>未找到匹配方式</span>
+        <span v-if="metaLoading">加载处理预设中...</span>
+        <span v-else-if="showcaseKeyword || activeShowcaseCategory !== 'all'">未找到匹配方式</span>
+        <span v-else>暂无可用处理预设，请检查客户端连线后刷新</span>
       </div>
     </div>
 
@@ -651,82 +653,6 @@ const form = reactive<Record<string, any>>({
   sourceImageOwned: true,
 });
 
-const DEFAULT_FALLBACK_OPERATIONS = [
-  { type: "ai_upscale", apiType: "ai_upscale", category: "basic", description: "AI 智能超分辨率放大（无损放大图片，最高 4x），适合照片/动漫/插画放大", params: { modelId: { type: "string", description: "超分模型 ID", default: "realesr-general-x4v3", enum: ["realesr-general-x4v3", "real-esrgan-x4plus", "real-esrgan-animevideov3", "real-esrgan-x4plus-anime", "real-esrgan-x4plus-anime-4b32f", "real-cugan-2x", "swin2sr-lightweight-x2", "swin2sr-classical-x4", "swin2sr-realworld-x4", "swin2sr-compressed-x4"] }, scale: { type: "number", description: "放大倍数（由模型决定，可选 2 或 4）", enum: [2, 4] } }, requiredParams: [] },
-  { type: "resize", apiType: "resize", category: "basic", description: "调整图像尺寸与宽高比", params: { width: { type: "number", description: "目标宽度 (px)", required: true }, height: { type: "number", description: "目标高度 (px)", required: true }, maintainAspectRatio: { type: "boolean", description: "保持原宽高比", default: true } }, requiredParams: ["width", "height"] },
-  { type: "crop", apiType: "crop", category: "basic", description: "按指定坐标和大小裁剪图像", params: { x: { type: "number", description: "起点 X 坐标 (px)" }, y: { type: "number", description: "起点 Y 坐标 (px)" }, width: { type: "number", description: "裁剪宽度 (px)", required: true }, height: { type: "number", description: "裁剪高度 (px)", required: true } }, requiredParams: ["width", "height"] },
-  { type: "shapeCrop", apiType: "shapeCrop", category: "basic", description: "圆形 / 椭圆 / 多边形形状裁剪", params: { shape: { type: "string", description: "形状 (circle/ellipse/polygon)", default: "circle" }, width: { type: "number", description: "宽度 (px)", default: 200 }, height: { type: "number", description: "高度 (px)", default: 200 } }, requiredParams: [] },
-  { type: "rotate", apiType: "rotate", category: "basic", description: "旋转图像指定角度", params: { degrees: { type: "number", description: "旋转角度 (度)", default: 90 }, backgroundColor: { type: "string", description: "空白填充颜色", default: "#000000" } }, requiredParams: ["degrees"] },
-  { type: "convert", apiType: "convert", category: "basic", description: "转换图像文件格式 (JPG/PNG/WEBP/GIF)", params: { format: { type: "string", description: "目标格式 (jpg/png/webp/gif)", default: "jpg" }, quality: { type: "number", description: "压缩质量 (1-100)", default: 90 } }, requiredParams: ["format"] },
-  { type: "watermark", apiType: "watermark", category: "basic", description: "添加文字或图片水印", params: { type: { type: "string", description: "水印类型 (text/image)", default: "text" }, text: { type: "string", description: "文字内容", default: "衣设 Yishe" }, fontSize: { type: "number", description: "字号大小 (px)", default: 24 }, color: { type: "string", description: "文字颜色", default: "#FFFFFF" }, position: { type: "string", description: "位置 (top-left/center/bottom-right 等)", default: "bottom-right" } }, requiredParams: [] },
-  { type: "adjust", apiType: "adjust", category: "basic", description: "基础图像调整（亮度/对比度/饱和度）", params: { brightness: { type: "number", description: "亮度 (-100 到 100)", default: 0 }, contrast: { type: "number", description: "对比度 (-100 到 100)", default: 0 }, saturation: { type: "number", description: "饱和度 (-100 到 100)", default: 0 } }, requiredParams: [] },
-  { type: "lowpoly", apiType: "effects-lowpoly", category: "effect", description: "晶格低多边形 Lowpoly 艺术效果", params: { pointCount: { type: "number", description: "采样点数量", default: 900 }, edgeBias: { type: "number", description: "边缘权重", default: 0.65 } }, requiredParams: [] },
-  { type: "blur", apiType: "effects-blur", category: "effect", description: "高斯模糊效果", params: { radius: { type: "number", description: "模糊半径", default: 5 }, sigma: { type: "number", description: "模糊 Sigma", default: 5 } }, requiredParams: [] },
-  { type: "sharpen", apiType: "effects-sharpen", category: "effect", description: "图像锐化清晰增强", params: { radius: { type: "number", description: "锐化半径", default: 1 }, amount: { type: "number", description: "锐化程度", default: 1 } }, requiredParams: [] },
-  { type: "grayscale", apiType: "effects-grayscale", category: "effect", description: "黑白灰度效果", params: { intensity: { type: "number", description: "强度", default: 100 } }, requiredParams: [] },
-  { type: "sepia", apiType: "effects-sepia", category: "effect", description: "复古暖调棕褐色", params: { intensity: { type: "number", description: "强度", default: 80 } }, requiredParams: [] },
-  { type: "charcoal", apiType: "effects-charcoal", category: "effect", description: "木炭素描画效果", params: { radius: { type: "number", description: "素描半径", default: 1 } }, requiredParams: [] },
-  { type: "oil-painting", apiType: "effects-oil-painting", category: "effect", description: "油画艺术画笔效果", params: { radius: { type: "number", description: "笔触大小", default: 3 } }, requiredParams: [] },
-  { type: "pixelate", apiType: "effects-pixelate", category: "effect", description: "像素马赛克效果", params: { size: { type: "number", description: "像素块大小", default: 10 } }, requiredParams: [] },
-  { type: "vignette", apiType: "effects-vignette", category: "effect", description: "四周暗角效果", params: { radius: { type: "number", description: "晕影半径", default: 100 } }, requiredParams: [] },
-  // === 新增：边框/描边 ===
-  { type: "border", apiType: "border", category: "basic", description: "添加边框/描边", params: { width: { type: "number", description: "边框宽度 (px)", default: 10 }, color: { type: "string", description: "边框颜色", default: "#000000" } }, requiredParams: ["width"] },
-  // === 新增：背景替换 ===
-  { type: "backgroundReplace", apiType: "backgroundReplace", category: "basic", description: "替换指定背景颜色为新颜色", params: { targetColor: { type: "string", description: "要替换的目标颜色", required: true }, newColor: { type: "string", description: "替换后的颜色", required: true }, fuzz: { type: "number", description: "颜色容差 (%)", default: 15 } }, requiredParams: ["targetColor", "newColor"] },
-  // === 新增：去EXIF元数据 ===
-  { type: "strip", apiType: "strip", category: "basic", description: "去除EXIF元数据", params: {}, requiredParams: [] },
-  // === 新增：社交媒体预设尺寸 ===
-  { type: "socialPreset", apiType: "socialPreset", category: "basic", description: "社交媒体预设尺寸裁剪", params: { platform: { type: "string", description: "平台预设 (wechat-moments/wechat-avatar/instagram-square/instagram-story/weibo-cover/xiaohongshu/douyin-cover/bilibili-cover)", required: true } }, requiredParams: ["platform"] },
-  // === 新增：漩涡扭曲 ===
-  { type: "swirl", apiType: "effects-swirl", category: "effect", description: "漩涡扭曲效果", params: { degrees: { type: "number", description: "旋转角度", default: 60 } }, requiredParams: [] },
-  // === 新增：波浪变形 ===
-  { type: "wave", apiType: "effects-wave", category: "effect", description: "波浪变形效果", params: { amplitude: { type: "number", description: "振幅 (px)", default: 10 }, wavelength: { type: "number", description: "波长 (px)", default: 100 } }, requiredParams: [] },
-  // === 新增：内缩扭曲 ===
-  { type: "implode", apiType: "effects-implode", category: "effect", description: "内缩扭曲效果（负值为外爆）", params: { amount: { type: "number", description: "内缩程度 (-1到1)", default: 0.5 } }, requiredParams: [] },
-  // === 新增：曝光过度 ===
-  { type: "solarize", apiType: "effects-solarize", category: "effect", description: "曝光过度效果", params: { threshold: { type: "number", description: "阈值 (0-100%)", default: 50 } }, requiredParams: [] },
-  // === 新增：像素扩散 ===
-  { type: "spread", apiType: "effects-spread", category: "effect", description: "像素扩散/抖动效果", params: { amount: { type: "number", description: "扩散距离 (px)", default: 5 } }, requiredParams: [] },
-  // === 新增：双色调 ===
-  { type: "duotone", apiType: "effects-duotone", category: "effect", description: "双色调效果（黑白照片着两种颜色）", params: { color1: { type: "string", description: "暗部颜色", default: "#000066" }, color2: { type: "string", description: "亮部颜色", default: "#FFD700" } }, requiredParams: [] },
-  // === 新增：渐变叠加 ===
-  { type: "gradientOverlay", apiType: "effects-gradientOverlay", category: "effect", description: "渐变叠加效果", params: { direction: { type: "string", description: "方向 (top/bottom/left/right)", default: "bottom" }, color1: { type: "string", description: "起始颜色", default: "#000000" }, color2: { type: "string", description: "结束颜色", default: "#FFFFFF" }, opacity: { type: "number", description: "不透明度 (0-1)", default: 0.5 } }, requiredParams: [] },
-  // === 新增：通用图片处理工具 ===
-  { type: "compress", apiType: "compress", category: "basic", description: "图片压缩优化（减小文件体积，适用于Web）", params: { quality: { type: "number", description: "压缩质量 (1-100)", default: 80 }, format: { type: "string", description: "输出格式 (original/webp/jpg/png)", default: "original" }, strip: { type: "boolean", description: "去除元数据", default: true }, progressive: { type: "boolean", description: "渐进式JPEG", default: false } }, requiredParams: [] },
-  { type: "extractExif", apiType: "extractExif", category: "basic", description: "提取图片EXIF元数据信息", params: {}, requiredParams: [] },
-  { type: "colorPalette", apiType: "colorPalette", category: "basic", description: "提取图片主色调（返回颜色数组）", params: { count: { type: "number", description: "提取颜色数量", default: 6 } }, requiredParams: [] },
-  { type: "compare", apiType: "compare", category: "basic", description: "对比两张图片差异", params: { imageUrl2: { type: "string", description: "第二张图片URL", required: true }, metric: { type: "string", description: "对比指标 (AE/MAE/MSE/PSNR/SSIM/NCC)", default: "AE" } }, requiredParams: ["imageUrl2"] },
-  { type: "liquidRescale", apiType: "liquidRescale", category: "basic", description: "智能内容感知缩放（保护重要内容不变形）", params: { width: { type: "number", description: "目标宽度 (px)", required: true }, height: { type: "number", description: "目标高度 (px)", required: true }, preserveFeatures: { type: "boolean", description: "保护重要内容", default: true } }, requiredParams: ["width", "height"] },
-  { type: "autoColor", apiType: "effects-autoColor", category: "effect", description: "自动色彩校正/白平衡", params: {}, requiredParams: [] },
-  // === 新增：通用快捷处理特效 ===
-  { type: "modulate", apiType: "effects-modulate", category: "effect", description: "色相/饱和度/亮度组合调整", params: { hue: { type: "number", description: "色相偏移 (100=不变)", default: 100 }, saturation: { type: "number", description: "饱和度 (100=不变)", default: 100 }, brightness: { type: "number", description: "亮度 (100=不变)", default: 100 } }, requiredParams: [] },
-  { type: "opacity", apiType: "opacity", category: "basic", description: "调整图片整体透明度", params: { value: { type: "number", description: "透明度 (0=全透明，100=不透明)", default: 100 } }, requiredParams: [] },
-  { type: "shadow", apiType: "shadow", category: "basic", description: "添加投影阴影", params: { offsetX: { type: "number", description: "X偏移 (px)", default: 4 }, offsetY: { type: "number", description: "Y偏移 (px)", default: 4 }, blur: { type: "number", description: "模糊半径", default: 8 }, color: { type: "string", description: "阴影颜色", default: "#000000" }, opacity: { type: "number", description: "不透明度 (0-100)", default: 80 } }, requiredParams: [] },
-  { type: "append", apiType: "append", category: "basic", description: "图片拼接（水平或垂直）", params: { images: { type: "array", description: "图片URL数组", required: true }, direction: { type: "string", description: "拼接方向 (horizontal/vertical)", default: "horizontal" } }, requiredParams: ["images"] },
-  { type: "composite", apiType: "composite", category: "basic", description: "图片合成（将前景图叠加到背景图）", params: { foregroundUrl: { type: "string", description: "前景图片URL", required: true }, position: { type: "string", description: "位置", default: "center" }, offsetX: { type: "number", description: "X偏移 (px)", default: 0 }, offsetY: { type: "number", description: "Y偏移 (px)", default: 0 } }, requiredParams: ["foregroundUrl"] },
-  { type: "opaque", apiType: "opaque", category: "basic", description: "颜色替换（将图片中某颜色替换为新颜色）", params: { targetColor: { type: "string", description: "要替换的颜色", required: true }, newColor: { type: "string", description: "替换后的颜色", required: true }, fuzz: { type: "number", description: "颜色容差 (%)", default: 10 } }, requiredParams: ["targetColor", "newColor"] },
-  { type: "gradient", apiType: "gradient", category: "basic", description: "生成渐变背景图片", params: { width: { type: "number", description: "宽度 (px)", default: 800 }, height: { type: "number", description: "高度 (px)", default: 800 }, color1: { type: "string", description: "起始颜色", default: "#000000" }, color2: { type: "string", description: "结束颜色", default: "#FFFFFF" }, direction: { type: "string", description: "方向 (horizontal/vertical/diagonal)", default: "vertical" } }, requiredParams: [] },
-  { type: "alpha", apiType: "alpha", category: "basic", description: "去除背景使其透明（适合产品图）", params: { targetColor: { type: "string", description: "要变透明的颜色", default: "#FFFFFF" }, fuzz: { type: "number", description: "颜色容差 (%)", default: 15 } }, requiredParams: [] },
-  { type: "blend", apiType: "blend", category: "basic", description: "图片混合（将两张图按比例融合）", params: { imageUrl2: { type: "string", description: "第二张图片URL", required: true }, ratio: { type: "number", description: "混合比例 (0=全第一张，100=全第二张)", default: 50 } }, requiredParams: ["imageUrl2"] },
-  { type: "filter-grayscale", apiType: "filter-grayscale", category: "filter", description: "黑白灰度滤镜", params: { intensity: { type: "number", description: "滤镜强度 (0-1)", default: 1 } }, requiredParams: [] },
-  { type: "filter-sepia", apiType: "filter-sepia", category: "filter", description: "复古老照片滤镜", params: { intensity: { type: "number", description: "滤镜强度 (0-1)", default: 1 } }, requiredParams: [] },
-  { type: "filter-invert", apiType: "filter-invert", category: "filter", description: "底片反色滤镜", params: { intensity: { type: "number", description: "滤镜强度 (0-1)", default: 1 } }, requiredParams: [] },
-  { type: "filter-blur", apiType: "filter-blur", category: "filter", description: "柔和模糊滤镜", params: { intensity: { type: "number", description: "滤镜强度 (0-1)", default: 1 } }, requiredParams: [] },
-];
-
-const DEFAULT_FALLBACK_VARIATIONS = [
-  { id: "ai_upscale_hd", name: "AI 智能高清放大 (4x)", description: "AI 超分辨率无损放大 4 倍，照片/动漫/插画通用", operations: [{ type: "ai_upscale", params: { modelId: "realesr-general-x4v3" } }] },
-  { id: "tile_collage", name: "组图相册 (2列画廊)", description: "将多张图片组合排版为 2 列精美组图照片墙", operations: [{ type: "tile", params: { columns: 2, tileWidth: 400, tileHeight: 400, gap: 15, backgroundColor: "#FFFFFF" } }] },
-  { id: "append_long", name: "多图无缝拼接长图", description: "将多张图片水平或垂直无缝拼接为长图", operations: [{ type: "append", params: { direction: "horizontal" } }] },
-  { id: "square_hd", name: "正方形高清图 (1080x1080)", description: "输出 1080x1080 标准电商商品展示主图", operations: [{ type: "resize", params: { width: 1080, height: 1080, maintainAspectRatio: true } }] },
-  { id: "portrait_mobile", name: "竖屏手机海报 (1080x1920)", description: "输出 9:16 竖屏手机端海报规格", operations: [{ type: "resize", params: { width: 1080, height: 1920, maintainAspectRatio: true } }] },
-  { id: "vintage_bw", name: "复古黑白风", description: "转换为高对比度复古黑白老照片效果", operations: [{ type: "effects", params: { effectType: "grayscale" } }] },
-  { id: "sepia_warm", name: "暖调棕褐怀旧", description: "添加经典暖色调 Sepia 怀旧风格滤镜", operations: [{ type: "effects", params: { effectType: "sepia", intensity: 80 } }] },
-  { id: "art_lowpoly", name: "晶格低多边形艺术风", description: "将图片转换为现代 Lowpoly 几何晶格艺术图形", operations: [{ type: "effects", params: { effectType: "lowpoly", pointCount: 900, edgeBias: 0.65 } }] },
-  { id: "watermark_brand", name: "品牌保护水印图", description: "在右下角自动添加品牌文字水印", operations: [{ type: "watermark", params: { type: "text", text: "衣设 Yishe", position: "bottom-right", fontSize: 24, color: "#FFFFFF" } }] },
-  { id: "web_optimized_png", name: "Web 优化无损 PNG", description: "转换为 PNG 高清格式并优化质量", operations: [{ type: "convert", params: { format: "png", quality: 95 } }] },
-  { id: "circle_avatar", name: "圆形头像标贴", description: "裁剪为透明背景圆形贴图", operations: [{ type: "shapeCrop", params: { shape: "circle", width: 400, height: 400 } }] },
-];
 
 const categoryLabelMap: Record<string, string> = {
   all: "全部",
@@ -760,7 +686,9 @@ function getCategoryLabel(cat?: string): string {
 }
 
 const unifiedShowcaseItems = computed(() => {
-  const opList = (operations.value.length ? operations.value : DEFAULT_FALLBACK_OPERATIONS).map((op: any) => ({
+  // 数据唯一来源：服务端 operations/variations（loadMeta 已负责写入 localStorage 缓存兜底），
+  // 不再在前端写死任何操作定义，避免与客户端真源漂移
+  const opList = operations.value.map((op: any) => ({
     key: `op-${op.apiType || op.type}`,
     kind: "operation",
     title: op.description || op.type,
@@ -770,7 +698,7 @@ const unifiedShowcaseItems = computed(() => {
     raw: op,
   }));
 
-  const varList = (variations.value.length ? variations.value : DEFAULT_FALLBACK_VARIATIONS).map((v: any) => ({
+  const varList = variations.value.map((v: any) => ({
     key: `var-${v.id || v.name}`,
     kind: "variation",
     title: v.name || v.id,
@@ -941,8 +869,8 @@ const operationUsageCountMap = computed(() => {
 });
 
 const allCatalogOperations = computed(() => {
-  const opList = operations.value.length ? operations.value : DEFAULT_FALLBACK_OPERATIONS;
-  const varList = (variations.value.length ? variations.value : DEFAULT_FALLBACK_VARIATIONS).map((v: any) => ({
+  const opList = operations.value;
+  const varList = variations.value.map((v: any) => ({
     type: v.id || v.name,
     apiType: v.id || v.name,
     category: "variation",
@@ -1529,6 +1457,15 @@ function getCurrentOperationParamEntries(operation: any) {
 
   return allKeys.map((name) => {
     const schema = paramsSchema[name] || {};
+    // jsonSchemaParams.properties[name] 里带有 enumLabels: [{ value, label, description }]
+    const jsonSchema = meta?.schema?.properties?.[name] || {};
+    const enumLabels = (
+      Array.isArray(jsonSchema.enumLabels) && jsonSchema.enumLabels.length
+        ? jsonSchema.enumLabels
+        : Array.isArray(schema.enumLabels)
+          ? schema.enumLabels
+          : []
+    ).filter((item: any) => item && item.value !== undefined);
     const rawVal = params[name] !== undefined ? params[name] : schema.default;
     const nameLower = name.toLowerCase();
     const isColor = nameLower.includes("color") || nameLower.includes("bg") || (typeof rawVal === "string" && rawVal.startsWith("#"));
@@ -1539,7 +1476,15 @@ function getCurrentOperationParamEntries(operation: any) {
       isColor,
       type: schema.type || typeof rawVal,
       description: schema.description || "",
-      options: Array.isArray(schema.enum) ? schema.enum : [],
+      options: enumLabels.length
+        ? enumLabels.map((item: any) => ({
+            value: item.value,
+            label: item.label || String(item.value),
+            description: item.description || "",
+          }))
+        : Array.isArray(schema.enum)
+          ? schema.enum
+          : [],
       value: formatOperationParamValue(rawVal),
     };
   });
@@ -1919,18 +1864,28 @@ async function loadMeta(silent = false) {
       return null;
     }
   };
-  const resolveFallbackOperations = () => {
+  const resolveFallbackOperations = (): any[] => {
     const cached = loadCachedMeta();
     return Array.isArray(cached?.operations) && cached.operations.length > 0
       ? cached.operations
-      : DEFAULT_FALLBACK_OPERATIONS;
+      : [];
   };
-  const resolveFallbackVariations = () => {
+  const resolveFallbackVariations = (): any[] => {
     const cached = loadCachedMeta();
     return Array.isArray(cached?.variations) && cached.variations.length > 0
       ? cached.variations
-      : DEFAULT_FALLBACK_VARIATIONS;
+      : [];
   };
+
+  // 首屏先用 localStorage 缓存同步填充（避免二次进入也闪 loading），
+  // 随后 await 拉到服务端真源后再平滑覆盖；缓存来自上次服务端响应，并非前端写死
+  if (!operations.value.length) {
+    const cached = loadCachedMeta();
+    if (cached?.operations?.length) {
+      operations.value = cached.operations;
+      variations.value = Array.isArray(cached?.variations) ? cached.variations : [];
+    }
+  }
 
   try {
     const result: any = await getImageProcessingMeta();

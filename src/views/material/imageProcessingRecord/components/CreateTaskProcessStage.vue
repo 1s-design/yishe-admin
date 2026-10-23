@@ -59,15 +59,24 @@
                   <el-select
                     size="small"
                     class="w-full"
+                    popper-class="create-task-param-select-popper"
                     :model-value="param.rawVal"
                     @change="$emit('update-param', index, param.name, $event)"
                   >
                     <el-option
                       v-for="option in param.options"
-                      :key="`${operation.key}-${param.name}-${option}`"
-                      :label="String(option)"
-                      :value="option"
-                    />
+                      :key="`${operation.key}-${param.name}-${typeof option === 'object' ? option.value : option}`"
+                      :label="typeof option === 'object' ? option.label : String(option)"
+                      :value="typeof option === 'object' ? option.value : option"
+                    >
+                      <template v-if="typeof option === 'object'">
+                        <div class="create-task-param-option">
+                          <div class="create-task-param-option__label">{{ option.label }}</div>
+                          <div class="create-task-param-option__value">{{ option.value }}</div>
+                          <div v-if="option.description" class="create-task-param-option__desc">{{ option.description }}</div>
+                        </div>
+                      </template>
+                    </el-option>
                   </el-select>
                 </template>
 
@@ -453,6 +462,31 @@ function appendQuickPreset(presetType: string) {
   color: var(--el-text-color-placeholder);
 }
 
+.create-task-param-option {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px 0;
+  line-height: 1.4;
+}
+
+.create-task-param-option__label {
+  font-size: 13px;
+  color: var(--el-text-color-primary);
+}
+
+.create-task-param-option__value {
+  font-size: 12px;
+  font-family: var(--el-font-family-monospace, ui-monospace, SFMono-Regular, Menlo, monospace);
+  color: var(--el-text-color-secondary);
+}
+
+.create-task-param-option__desc {
+  font-size: 12px;
+  color: var(--el-text-color-placeholder);
+  white-space: normal;
+}
+
 .create-task-block {
   padding: 0;
   background: transparent;
@@ -665,5 +699,17 @@ function appendQuickPreset(presetType: string) {
   .create-task-toolbar__actions {
     justify-content: flex-start;
   }
+}
+</style>
+
+<!-- 下拉弹层挂载到 body，需要非 scoped 覆盖固定行高以容纳 label + description 两行 -->
+<style>
+.create-task-param-select-popper .el-select-dropdown__item {
+  height: auto;
+  min-height: 34px;
+  line-height: 1.4;
+  padding-top: 6px;
+  padding-bottom: 6px;
+  white-space: normal;
 }
 </style>
