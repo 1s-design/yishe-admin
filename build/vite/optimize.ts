@@ -28,7 +28,6 @@ const include = [
   '@wangeditor/editor',
   '@wangeditor/editor-for-vue',
   '@microsoft/fetch-event-source',
-  'markdown-it',
   'markmap-view',
   'markmap-lib',
   'markmap-toolbar',

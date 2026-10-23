@@ -81,17 +81,20 @@
 
     <!-- 详情弹窗 -->
     <el-dialog v-model="detailVisible" :title="detailTitle" width="800px" destroy-on-close>
-      <vxe-table :data="detailItems" :max-height="500" size="small" border>
-        <vxe-column field="rank" title="排名" width="60" />
-        <vxe-column field="title" title="标题" min-width="300">
-          <template #default="{ row }">
-            <a v-if="row.url" :href="row.url" target="_blank" class="item-link">{{ row.title }}</a>
-            <span v-else>{{ row.title }}</span>
-          </template>
-        </vxe-column>
-        <vxe-column field="heat" title="热度" width="120" />
-        <vxe-column field="extra" title="备注" min-width="120" show-overflow />
-      </vxe-table>
+      <div class="detail-list">
+        <div v-for="(item, idx) in detailItems" :key="idx" class="detail-item">
+          <div class="detail-item__rank">{{ idx + 1 }}</div>
+          <div class="detail-item__content">
+            <div class="detail-item__title">
+              <a v-if="item.url" :href="item.url" target="_blank" class="item-link">{{ item.title }}</a>
+              <span v-else>{{ item.title }}</span>
+            </div>
+            <div v-if="item.extra" class="detail-item__extra">{{ item.extra }}</div>
+            <div v-if="item.heat" class="detail-item__heat">热度: {{ item.heat }}</div>
+          </div>
+        </div>
+        <el-empty v-if="!detailItems.length" description="暂无数据" />
+      </div>
     </el-dialog>
   </ContentWrap>
 </template>
