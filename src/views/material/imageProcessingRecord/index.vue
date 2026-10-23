@@ -63,9 +63,9 @@
           <div class="showcase-card__header">
             <div
               class="showcase-card__icon-box"
-              :class="{ 'showcase-card__icon-box--var': item.kind === 'variation' }"
+              :class="`showcase-card__icon-box--${item.category}`"
             >
-              <Icon :icon="item.kind === 'variation' ? 'ep:picture-filled' : 'ep:operation'" />
+              <Icon :icon="item.icon" />
             </div>
             <div class="showcase-card__title-wrap">
               <div class="showcase-card__title">{{ item.title }}</div>
@@ -128,12 +128,12 @@
                     placeholder="全部状态"
                     @change="getList"
                   >
-                    <el-option label="等待客户端" value="pending_client" />
-                    <el-option label="已派发" value="assigned" />
-                    <el-option label="待处理" value="pending" />
+                    <el-option label="排队中 · 等待客户端" value="pending_client" />
+                    <el-option label="排队中 · 已派发" value="assigned" />
+                    <el-option label="排队中 · 待处理" value="pending" />
                     <el-option label="处理中" value="processing" />
-                    <el-option label="成功" value="success" />
-                    <el-option label="部分成功" value="partial" />
+                    <el-option label="已完成" value="success" />
+                    <el-option label="部分完成" value="partial" />
                     <el-option label="失败" value="failed" />
                   </el-select>
                 </el-form-item>
@@ -242,7 +242,7 @@
                   </div>
                 </template>
                 <template #statusSlot="{ row }">
-                  <el-tag :type="getStatusTagType(row.status)" effect="plain">
+                  <el-tag :type="getStatusTagType(row.status)" effect="light" :title="`原始状态：${row.status || '-'}`">
                     {{ getStatusLabel(row.status) }}
                   </el-tag>
                 </template>
@@ -284,6 +284,12 @@
                       <template #dropdown>
                         <el-dropdown-menu>
                           <el-dropdown-item command="detail">查看详情</el-dropdown-item>
+                          <el-dropdown-item
+                            v-if="row.status === 'failed' || row.status === 'partial'"
+                            command="retry"
+                          >
+                            重新提交
+                          </el-dropdown-item>
                           <el-dropdown-item
                             v-if="row.status === 'success'"
                             command="import"
@@ -681,22 +687,90 @@ const showcaseCategories = [
   { label: "裂变预设", value: "variation" },
 ];
 
+/** 操作类型 → Element Plus 图标（按 apiType 精确匹配，没命中走 category 兜底） */
+const OPERATION_ICON_MAP: Record<string, string> = {
+  ai_upscale: "ep:magic-stick",
+  resize: "ep:zoom-in",
+  crop: "ep:crop",
+  shapeCrop: "ep:crop",
+  rotate: "ep:refresh-right",
+  convert: "ep:files",
+  watermark: "ep:document",
+  adjust: "ep:sunny",
+  lowpoly: "ep:operation",
+  blur: "ep:view",
+  sharpen: "ep:aim",
+  grayscale: "ep:moon",
+  sepia: "ep:coffee",
+  charcoal: "ep:brush",
+  "oil-painting": "ep:brush",
+  pixelate: "ep:grid",
+  vignette: "ep:view",
+  border: "ep:grid",
+  backgroundReplace: "ep:picture",
+  strip: "ep:delete",
+  socialPreset: "ep:mobile-phone",
+  swirl: "ep:refresh",
+  wave: "ep:data-line",
+  implode: "ep:zoom-in",
+  solarize: "ep:sunny",
+  spread: "ep:operation",
+  duotone: "ep:brush",
+  gradientOverlay: "ep:magic-stick",
+  compress: "ep:box",
+  extractExif: "ep:document",
+  colorPalette: "ep:color-picker",
+  compare: "ep:document-copy",
+  liquidRescale: "ep:zoom-in",
+  autoColor: "ep:magic-stick",
+  modulate: "ep:sunny",
+  opacity: "ep:view",
+  shadow: "ep:box",
+  append: "ep:document-add",
+  composite: "ep:copy-document",
+  opaque: "ep:picture",
+  gradient: "ep:magic-stick",
+  alpha: "ep:view",
+  blend: "ep:copy-document",
+  "filter-grayscale": "ep:moon",
+  "filter-sepia": "ep:coffee",
+  "filter-invert": "ep:refresh",
+  "filter-blur": "ep:view",
+};
+
+/** 类别兜底图标 */
+const CATEGORY_ICON_MAP: Record<string, string> = {
+  basic: "ep:setting",
+  effect: "ep:magic-stick",
+  filter: "ep:brush",
+  variation: "ep:picture-filled",
+};
+
 function getCategoryLabel(cat?: string): string {
   return categoryLabelMap[cat || ""] || categoryLabelMap.default || "常用操作";
+}
+
+function getOperationIcon(type: string, category: string, kind: string): string {
+  if (kind === "variation") return CATEGORY_ICON_MAP.variation;
+  return OPERATION_ICON_MAP[type] || CATEGORY_ICON_MAP[category] || "ep:operation";
 }
 
 const unifiedShowcaseItems = computed(() => {
   // 数据唯一来源：服务端 operations/variations（loadMeta 已负责写入 localStorage 缓存兜底），
   // 不再在前端写死任何操作定义，避免与客户端真源漂移
-  const opList = operations.value.map((op: any) => ({
-    key: `op-${op.apiType || op.type}`,
-    kind: "operation",
-    title: op.description || op.type,
-    subtitle: op.apiType || op.type,
-    category: op.category || "basic",
-    categoryLabel: getCategoryLabel(op.category),
-    raw: op,
-  }));
+  const opList = operations.value.map((op: any) => {
+    const type = op.apiType || op.type;
+    return {
+      key: `op-${type}`,
+      kind: "operation",
+      title: op.description || type,
+      subtitle: type,
+      category: op.category || "basic",
+      categoryLabel: getCategoryLabel(op.category),
+      icon: getOperationIcon(type, op.category, "operation"),
+      raw: op,
+    };
+  });
 
   const varList = variations.value.map((v: any) => ({
     key: `var-${v.id || v.name}`,
@@ -705,6 +779,7 @@ const unifiedShowcaseItems = computed(() => {
     subtitle: v.description || "自动生成多组衍生结果",
     category: "variation",
     categoryLabel: "多图裂变",
+    icon: getOperationIcon(v.id || v.name, "variation", "variation"),
     raw: v,
   }));
 
@@ -1067,12 +1142,12 @@ function handleCheckboxAll({ records }: any) {
 
 function getStatusLabel(status?: string) {
   const labelMap: Record<string, string> = {
-    pending_client: "等待客户端",
-    assigned: "已派发",
-    pending: "待处理",
+    pending_client: "排队中",
+    assigned: "排队中",
+    pending: "排队中",
     processing: "处理中",
-    success: "成功",
-    partial: "部分成功",
+    success: "已完成",
+    partial: "部分完成",
     failed: "失败",
   };
   return labelMap[status || ""] || status || "-";
@@ -1080,8 +1155,8 @@ function getStatusLabel(status?: string) {
 
 function getStatusTagType(status?: string) {
   if (status === "success") return "success";
-  if (status === "pending_client" || status === "assigned") return "primary";
-  if (status === "partial" || status === "processing") return "warning";
+  if (status === "processing") return "primary";
+  if (status === "partial") return "warning";
   if (status === "failed") return "danger";
   return "info";
 }
@@ -2219,8 +2294,49 @@ function handleOperationCommand(command: string, row: any) {
     handleImportResults(row);
     return;
   }
+  if (command === "retry") {
+    handleRetryRecord(row);
+    return;
+  }
   if (command === "delete") {
     handleDelete(row);
+  }
+}
+
+/** 失败/部分完成的任务按原参数重新提交，省去用户手动重建处理链 */
+async function handleRetryRecord(row: any) {
+  if (!row?.id) return;
+  try {
+    const detail: any = (await getImageProcessingRecordDetail(row.id)) || row;
+    const operationsJson =
+      typeof detail.operationsJson === "string"
+        ? detail.operationsJson
+        : JSON.stringify(detail.operationsJson || []);
+    let parsed: any = null;
+    try {
+      parsed = JSON.parse(operationsJson);
+    } catch {}
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      ElMessage.warning("该任务没有可复用的处理参数，请手动新建任务");
+      return;
+    }
+    const imageUrl = String(detail.sourceOriginalUrl || detail.sourceImageUrl || "").trim();
+    if (!imageUrl) {
+      ElMessage.warning("未找到原图地址，无法重新提交");
+      return;
+    }
+    const payload: Record<string, string> = {
+      taskType: detail.taskType || "process",
+      imageUrl,
+      operationsJson,
+    };
+    if (detail.processorId) payload.processorId = String(detail.processorId);
+    if (detail.title) payload.title = `${detail.title}（重试）`;
+    await createImageProcessingRecord(payload);
+    ElMessage.success("已按原参数重新提交");
+    await getList();
+  } catch (error: any) {
+    ElMessage.error(error?.message || "重新提交失败");
   }
 }
 
@@ -2929,7 +3045,7 @@ onBeforeUnmount(() => {
 }
 
 .image-processing-result-card.is-failed {
-  border-color: rgb(245 108 108 / 35%);
+  border-color: var(--el-color-danger-light-5);
 }
 
 .image-processing-result-card__thumb {
@@ -3091,13 +3207,13 @@ onBeforeUnmount(() => {
   gap: 6px;
 
   &.is-connected {
-    color: #67c23a;
-    background: rgb(103 194 58 / 9%);
+    color: var(--el-color-success);
+    background: var(--el-color-success-light-9);
   }
 
   &.is-processing {
-    color: #e6a23c;
-    background: rgb(230 162 60 / 10%);
+    color: var(--el-color-warning-dark-2);
+    background: var(--el-color-warning-light-9);
   }
 }
 
@@ -3140,14 +3256,14 @@ onBeforeUnmount(() => {
 
   &:hover {
     color: var(--el-text-color-primary);
-    background: rgb(255 255 255 / 60%);
+    background: var(--el-fill-color-light);
   }
 
   &.is-active {
     font-weight: 600;
     color: var(--el-color-primary);
     background: var(--el-bg-color);
-    box-shadow: 0 2px 8px rgb(0 0 0 / 6%);
+    box-shadow: var(--el-box-shadow-lighter);
   }
 }
 
@@ -3177,14 +3293,14 @@ onBeforeUnmount(() => {
 
 .showcase-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(182px, 1fr));
+  gap: 8px;
   overflow: visible;
 }
 
 .showcase-card {
   display: flex;
-  padding: 10px 12px;
+  padding: 8px 10px;
   cursor: pointer;
   background: var(--el-bg-color);
   border: 1px solid var(--el-border-color-extra-light);
@@ -3196,32 +3312,53 @@ onBeforeUnmount(() => {
 
   &:hover {
     border-color: var(--el-color-primary-light-5);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgb(0 0 0 / 4%);
+    background: var(--el-fill-color-blank);
+    transform: translateY(-1px);
+    box-shadow: var(--el-box-shadow-light);
+  }
+
+  &:active {
+    transform: translateY(0);
   }
 }
 
 .showcase-card__header {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: 8px;
 }
 
 .showcase-card__icon-box {
   display: flex;
-  width: 30px;
-  height: 30px;
-  font-size: 15px;
+  width: 28px;
+  height: 28px;
+  font-size: 14px;
   color: var(--el-color-primary);
   background: var(--el-color-primary-light-9);
-  border-radius: 8px;
+  border-radius: 7px;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 
-  &--var {
-    color: #67c23a;
-    background: rgb(103 194 58 / 10%);
+  /* 按类别配色：基础编辑=蓝、艺术效果=橙、风格滤镜=绿、裂变预设=红 */
+  &--basic {
+    color: var(--el-color-primary);
+    background: var(--el-color-primary-light-9);
+  }
+
+  &--effect {
+    color: var(--el-color-warning);
+    background: var(--el-color-warning-light-9);
+  }
+
+  &--filter {
+    color: var(--el-color-success);
+    background: var(--el-color-success-light-9);
+  }
+
+  &--variation {
+    color: var(--el-color-danger);
+    background: var(--el-color-danger-light-9);
   }
 }
 
@@ -3259,7 +3396,7 @@ onBeforeUnmount(() => {
 
   &--var {
     font-weight: 500;
-    color: #67c23a;
+    color: var(--el-color-danger-dark-2);
   }
 }
 
@@ -3278,12 +3415,12 @@ onBeforeUnmount(() => {
   border-radius: 50%;
 
   &.is-active {
-    background: #67c23a;
-    box-shadow: 0 0 0 2px rgb(103 194 58 / 25%);
+    background: var(--el-color-success);
+    box-shadow: 0 0 0 2px var(--el-color-success-light-7);
   }
 
   &.is-processing {
-    background: #e6a23c;
+    background: var(--el-color-warning);
     animation: pulse-breathing 1.2s infinite ease-in-out;
   }
 }
@@ -3291,17 +3428,17 @@ onBeforeUnmount(() => {
 @keyframes pulse-breathing {
   0% {
     transform: scale(0.9);
-    box-shadow: 0 0 0 0 rgb(230 162 60 / 60%);
+    box-shadow: 0 0 0 0 var(--el-color-warning-light-3);
   }
 
   70% {
     transform: scale(1.1);
-    box-shadow: 0 0 0 4px rgb(230 162 60 / 0%);
+    box-shadow: 0 0 0 4px transparent;
   }
 
   100% {
     transform: scale(0.9);
-    box-shadow: 0 0 0 0 rgb(230 162 60 / 0%);
+    box-shadow: 0 0 0 0 transparent;
   }
 }
 </style>
