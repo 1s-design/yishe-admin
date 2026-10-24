@@ -357,25 +357,20 @@
                           {{ t('queue.agentCreated') }}
                         </span>
                       </div>
-                      <div v-if="row.error" class="queue-task-cell__error">{{ row.error }}</div>
                     </div>
                   </template>
 
                   <template #executionInfoDefaultSlot="{ row }">
                     <el-popover
+                      v-if="hasQueueExecution(row)"
                       placement="left-start"
                       :width="360"
                       trigger="hover"
-                      :teleported="false"
                       popper-class="queue-exec-popover"
                     >
                       <template #reference>
                         <div class="queue-exec-cell">
-                          <div class="queue-exec-cell__line">
-                            <span class="queue-exec-cell__label">{{ t('queue.creator') }}</span>
-                            <span class="queue-exec-cell__value">{{ getQueueCreatorText(row) || "-" }}</span>
-                          </div>
-                          <div class="queue-exec-cell__line">
+                          <div v-if="getQueueDurationText(row)" class="queue-exec-cell__line">
                             <span class="queue-exec-cell__label">{{ t('queue.duration') }}</span>
                             <span class="queue-exec-cell__value">{{ getQueueDurationText(row) }}</span>
                           </div>
@@ -396,22 +391,27 @@
                   </template>
 
                   <template #conclusionDefaultSlot="{ row }">
-                    <el-tooltip
-                      :disabled="!getQueueConclusion(row).reason"
-                      :content="getQueueConclusion(row).reason"
-                      placement="top"
-                    >
-                      <span
-                        class="queue-conclusion"
-                        :class="[
-                          `queue-conclusion--${getQueueConclusion(row).key}`,
-                          { 'is-running': getQueueConclusion(row).running },
-                        ]"
+                    <div class="queue-conclusion-cell">
+                      <el-tooltip
+                        :disabled="!getQueueConclusion(row).reason"
+                        :content="getQueueConclusion(row).reason"
+                        placement="top"
                       >
-                        <i class="queue-conclusion__dot"></i>
-                        <span class="queue-conclusion__text">{{ getQueueConclusion(row).text }}</span>
-                      </span>
-                    </el-tooltip>
+                        <span
+                          class="queue-conclusion"
+                          :class="[
+                            `queue-conclusion--${getQueueConclusion(row).key}`,
+                            { 'is-running': getQueueConclusion(row).running },
+                          ]"
+                        >
+                          <i class="queue-conclusion__dot"></i>
+                          <span class="queue-conclusion__text">{{ getQueueConclusion(row).text }}</span>
+                        </span>
+                      </el-tooltip>
+                      <el-tooltip v-if="row.error" :content="row.error" placement="top">
+                        <span class="queue-conclusion__error">{{ row.error }}</span>
+                      </el-tooltip>
+                    </div>
                   </template>
 
                   <template #statusDetailDefaultSlot="{ row }">
@@ -853,16 +853,16 @@
     <el-dialog
       v-model="publishDispatchDialogVisible"
       :title="t('queue.startPublishTask')"
-      width="1220px"
+      width="860px"
       :center="false"
       align-center
-      class="start-publish-dialog"
+      class="dispatch-dialog"
       @open="handleOpenPublishDispatchDialog"
     >
       <div
         v-loading="publishDispatchDialogLoading"
         :element-loading-text="DISPATCH_DIALOG_LOADING_TEXT"
-        class="start-publish-dialog__body"
+        class="dispatch-dialog__body"
       >
           <PublishDispatchTargetTable
             v-if="!publishDispatchDialogLoading && dispatchAvailableRows.length"
@@ -872,13 +872,13 @@
         />
         <div
           v-if="!publishDispatchDialogLoading && !dispatchAvailableRows.length"
-          class="start-publish-dialog__empty"
+          class="dispatch-dialog__empty"
         >
           {{ t('queue.noExecutableNode') }}
         </div>
       </div>
       <template #footer>
-        <div class="start-publish-dialog__footer">
+        <div class="dispatch-dialog__footer">
           <el-button
             :disabled="publishDispatchSubmitting"
             @click="publishDispatchDialogVisible = false"
@@ -1302,7 +1302,8 @@ const gridOptions = ref({
     {
       title: t('queue.status'),
       field: "status",
-      width: 118,
+      width: 190,
+      showOverflow: false,
       slots: {
         default: "conclusionDefaultSlot",
       },
@@ -1993,7 +1994,7 @@ function resolveClientDispatchProfileOptions(
     const connected = instance?.connected === true || instance?.hasInstance === true;
     const pageCount = typeof instance?.pageCount === "number" ? Number(instance.pageCount) : null;
 
-    let description = t('queue.browserWillLaunch');
+    let description = "";
     if (busy) {
       description = instance?.currentTaskId
         ? t('queue.currentlyExecutingTask', { id: instance.currentTaskId })
@@ -2228,7 +2229,7 @@ function getTitleStatusInfo(row: QueueMessage) {
     },
     generating: {
       text: t('queue.titleGenerating'),
-      type: "warning",
+      type: "primary",
       reason: t('queue.titleGeneratingReason'),
     },
     generated: {
@@ -2280,7 +2281,7 @@ function getPsdSetStatusInfo(row: QueueMessage) {
     },
     processing: {
       text: t('queue.psdSetProcessing'),
-      type: "warning",
+      type: "primary",
       reason: t('queue.psdSetProcessingReason'),
     },
     completed: {
@@ -2349,14 +2350,28 @@ function formatQueueDuration(ms: number): string {
 /** 耗时计算锚定的快照时间：每次列表加载时更新，保证渲染期间文本稳定 */
 let listSnapshotTime = Date.now();
 
-/** 耗时：已结束看 processedAt/updatedAt，未结束锚定到列表快照时刻（不实时跳动） */
+/** 是否已进入执行：派发/开始/结束任一动作发生过，或已进入处理及终态 */
+function hasQueueExecution(row?: QueueMessage | null): boolean {
+  const meta = getPublishDispatchMeta(row);
+  if (meta?.assignedAt || meta?.startedAt || meta?.finishedAt) return true;
+  const status = String(row?.status || "");
+  if (status === "processing" || status === "completed" || status === "failed") {
+    return true;
+  }
+  return parseQueueTimestamp(row?.processedAt) !== null;
+}
+
+/** 耗时：从真实开始执行（publishDispatch.startedAt）算起；未开始执行的保持空白 */
 function getQueueDurationText(row?: QueueMessage | null): string {
-  const startedAt = parseQueueTimestamp(row?.createdAt);
-  if (startedAt === null) return "-";
+  const meta = getPublishDispatchMeta(row);
+  const startedAt = parseQueueTimestamp(meta?.startedAt);
+  if (startedAt === null) return "";
   const status = String(row?.status || "");
   const finished = status === "completed" || status === "failed";
   const endedAt = finished
-    ? parseQueueTimestamp(row?.processedAt) ?? parseQueueTimestamp(row?.updatedAt)
+    ? parseQueueTimestamp(meta?.finishedAt) ??
+      parseQueueTimestamp(row?.processedAt) ??
+      parseQueueTimestamp(row?.updatedAt)
     : null;
   return formatQueueDuration((endedAt ?? listSnapshotTime) - startedAt);
 }
@@ -4277,7 +4292,7 @@ onUnmounted(() => {
 }
 
 .queue-stats-pill--processing .queue-stats-pill__value {
-  color: var(--el-color-warning);
+  color: var(--queue-status-running, #409eff);
 }
 
 .queue-stats-pill--completed .queue-stats-pill__value {
@@ -4604,10 +4619,6 @@ onUnmounted(() => {
   line-height: 1.6;
 }
 
-.publish-dispatch-dialog__table {
-  overflow: hidden;
-}
-
 .publish-dispatch-filter-panel {
   min-height: 0;
 }
@@ -4627,74 +4638,6 @@ onUnmounted(() => {
 .publish-dispatch-filter-form .el-input,
 .publish-dispatch-filter-form__date {
   width: 100%;
-}
-
-.publish-dispatch-dialog__table :deep(.el-table) {
-  --el-table-row-hover-bg-color: transparent;
-  --el-table-current-row-bg-color: transparent;
-  font-size: 12px;
-}
-
-.publish-dispatch-dialog__table :deep(.el-table td),
-.publish-dispatch-dialog__table :deep(.el-table th) {
-  padding-top: 7px;
-  padding-bottom: 7px;
-}
-
-.publish-dispatch-dialog__table :deep(.el-table .cell) {
-  padding-left: 8px;
-  padding-right: 8px;
-  line-height: 1.35;
-}
-
-.publish-dispatch-dialog__table :deep(.el-table__row) {
-  cursor: pointer;
-}
-
-.publish-dispatch-dialog__table :deep(.el-table__row.is-disabled) {
-  cursor: not-allowed;
-}
-
-.publish-dispatch-dialog__table :deep(.el-table__row.is-disabled td) {
-  color: var(--el-text-color-placeholder);
-}
-
-.publish-dispatch-dialog__table :deep(.el-radio) {
-  pointer-events: none;
-  margin-right: 0;
-}
-
-.publish-dispatch-dialog__primary {
-  color: var(--el-text-color-primary);
-  font-weight: 600;
-  font-size: 12px;
-  line-height: 1.35;
-}
-
-.publish-dispatch-dialog__state-text {
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.2;
-}
-
-.publish-dispatch-dialog__state-text.is-success {
-  color: #1f8f46;
-}
-
-.publish-dispatch-dialog__state-text.is-warning {
-  color: #b26a00;
-}
-
-.publish-dispatch-dialog__state-text.is-danger {
-  color: #d5485a;
-}
-
-.publish-dispatch-dialog__state-text.is-info {
-  color: #356dd1;
-}
-
-.publish-dispatch-dialog__state-text.is-muted {
-  color: var(--el-text-color-secondary);
 }
 
 .publish-dispatch-dialog__footer {
@@ -5114,11 +5057,23 @@ onUnmounted(() => {
 .queue-page :deep(.queue-platform-chip--taobao) { background: #ff4400; }
 .queue-page :deep(.queue-platform-chip--pdd) { background: #e02e24; }
 
-.queue-page :deep(.queue-task-cell__error) {
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--el-color-danger);
-  word-break: break-word;
+.queue-page :deep(.queue-conclusion-cell) {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+
+.queue-page :deep(.queue-conclusion__error) {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--el-text-color-secondary);
+  font-size: 11px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ── 列表：状态胶囊（结论 / 套图 / 标题 统一圆角样式） ── */
@@ -5215,9 +5170,19 @@ onUnmounted(() => {
   word-break: break-all;
 }
 
+.queue-page {
+  /* 语义「进行中」用 Element 默认蓝，不跟随可配置的品牌主色，避免与成功/品牌色混淆 */
+  --queue-status-running: #409eff;
+}
+
 .queue-page :deep(.queue-status-pill--success) {
   color: var(--el-color-success);
   background: color-mix(in srgb, var(--el-color-success) 12%, transparent);
+}
+
+.queue-page :deep(.queue-status-pill--primary) {
+  color: var(--queue-status-running, #409eff);
+  background: color-mix(in srgb, var(--queue-status-running, #409eff) 12%, transparent);
 }
 
 .queue-page :deep(.queue-status-pill--warning) {
@@ -5230,9 +5195,8 @@ onUnmounted(() => {
   background: color-mix(in srgb, var(--el-color-danger) 12%, transparent);
 }
 
-.queue-page :deep(.queue-status-pill--info),
-.queue-page :deep(.queue-status-pill--primary) {
-  color: var(--el-color-info);
+.queue-page :deep(.queue-status-pill--info) {
+  color: var(--el-text-color-regular);
   background: var(--el-fill-color-light);
 }
 
@@ -5249,16 +5213,19 @@ onUnmounted(() => {
 }
 
 .queue-page :deep(.queue-conclusion--processing) {
-  color: var(--el-color-primary);
+  color: var(--queue-status-running, #409eff);
 }
 
 .queue-page :deep(.queue-conclusion--pending-ready) {
-  color: var(--el-color-warning);
+  color: var(--el-text-color-regular);
 }
 
-.queue-page :deep(.queue-conclusion--waiting),
-.queue-page :deep(.queue-conclusion--pending-blocked) {
+.queue-page :deep(.queue-conclusion--waiting) {
   color: var(--el-text-color-secondary);
+}
+
+.queue-page :deep(.queue-conclusion--pending-blocked) {
+  color: var(--el-color-warning);
 }
 
 .queue-page :deep(.queue-conclusion.is-running .queue-conclusion__dot) {
@@ -5828,10 +5795,6 @@ onUnmounted(() => {
 }
 
 @media (max-width: 767px) {
-  .publish-dispatch-dialog__table :deep(.el-table) {
-    font-size: 12px;
-  }
-
   .publish-dispatch-dialog__client-list,
   .publish-dispatch-dialog__profile-grid {
     grid-template-columns: 1fr;
@@ -5883,66 +5846,4 @@ onUnmounted(() => {
     opacity: 1;
   }
 }
-</style>
-
-<style lang="less">
-.start-publish-dialog {
-  border-radius: 8px;
-  overflow: hidden;
-
-  .el-dialog__header {
-    margin-right: 0;
-    padding: 16px 20px 12px;
-    border-bottom: 1px solid var(--el-border-color-lighter);
-  }
-
-  .el-dialog__title {
-    font-size: 15px;
-    font-weight: 600;
-  }
-
-  .el-dialog__body {
-    padding: 12px 16px;
-  }
-
-  .el-dialog__footer {
-    padding: 12px 20px 16px;
-    border-top: 1px solid var(--el-border-color-lighter);
-  }
-
-  &__body {
-    min-height: 120px;
-    max-height: 480px;
-    overflow-y: auto;
-  }
-
-  &__empty {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 140px;
-    color: var(--el-text-color-secondary);
-    font-size: 13px;
-  }
-
-  &__footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-  }
-}
-
-// 暗色模式样式
-html.dark {
-  .start-publish-dialog {
-    .el-dialog__header {
-      border-bottom-color: rgba(255, 255, 255, 0.08);
-    }
-    .el-dialog__footer {
-      border-top-color: rgba(255, 255, 255, 0.08);
-    }
-  }
-
-}
-
 </style>

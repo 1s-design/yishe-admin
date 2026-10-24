@@ -1044,10 +1044,10 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="productionDispatchDialogVisible" width="960px" :title="productionDispatchDialogTitle"
-      align-center append-to-body destroy-on-close class="production-dispatch-dialog" @open="handleOpenProductionDispatchDialog"
+    <el-dialog v-model="productionDispatchDialogVisible" width="860px" :title="productionDispatchDialogTitle"
+      align-center append-to-body destroy-on-close class="dispatch-dialog production-dispatch-dialog" @open="handleOpenProductionDispatchDialog"
       @closed="handleCloseProductionDispatchDialog">
-      <div class="production-dispatch-dialog__body">
+      <div class="dispatch-dialog__body production-dispatch-dialog__body">
         <div v-if="productionDispatchMode === 'auto'" class="production-dispatch-dialog__filters">
           <div class="production-dispatch-dialog__panel-title">{{ t('psdSet.autoClaimConditions') }}</div>
           <el-form label-position="top" class="production-dispatch-dialog__filter-form">
@@ -1091,84 +1091,78 @@
             </el-row>
           </el-form>
         </div>
-        <div v-loading="productionDispatchLoading" :element-loading-text="DISPATCH_DIALOG_LOADING_TEXT"
-          class="production-dispatch-dialog__panel">
-          <div class="production-dispatch-dialog__panel-title">{{ t('psdSet.clientNode') }}</div>
-          <div v-if="!productionDispatchLoading && dispatchClientRows.length" class="production-dispatch-dialog__table">
-            <el-table :data="dispatchClientRows" border size="small" row-key="id" :max-height="420"
-              class="production-dispatch-dialog__table-main" :row-class-name="resolveDispatchClientRowClassName"
+        <div v-loading="productionDispatchLoading" :element-loading-text="DISPATCH_DIALOG_LOADING_TEXT">
+          <div v-if="!productionDispatchLoading && dispatchClientRows.length" class="dispatch-target-table">
+            <el-table :data="dispatchClientRows" size="small" row-key="id"
+              :row-class-name="resolveDispatchClientRowClassName"
               @row-click="handleDispatchClientRowClick">
-              <el-table-column label="" width="46" align="center">
+              <el-table-column label="" width="52" align="center">
                 <template #default="{ row }">
                   <el-radio v-model="selectedDispatchClientId" :value="row.id" :disabled="!row.selectable"
                     @click.stop />
                 </template>
               </el-table-column>
-              <el-table-column prop="clientLabel" :label="t('psdSet.clientNode')" min-width="190" show-overflow-tooltip />
-              <el-table-column prop="connectedAtLabel" :label="t('psdSet.connectedAt')" min-width="170" show-overflow-tooltip />
-              <el-table-column :label="t('psdSet.currentPsdSet')" min-width="260" show-overflow-tooltip>
+              <el-table-column :label="t('psdSet.clientNode')" min-width="190">
                 <template #default="{ row }">
-                  <div class="production-dispatch-dialog__task">
-                    <span>{{ row.activeTaskLabel }}</span>
-                    <small v-if="row.activeTaskStep">{{ row.activeTaskStep }}</small>
+                  <div class="dispatch-target-table__primary" :title="row.clientLabel">
+                    {{ row.clientLabel }}
                   </div>
-                </template>
-              </el-table-column>
-              <el-table-column :label="t('psdSet.online')" width="76" align="center">
-                <template #default="{ row }">
-                  <span class="production-dispatch-dialog__state-text" :class="`is-${row.onlineStatusTone}`">
-                    {{ row.onlineStatusText }}
-                  </span>
+                  <div class="dispatch-target-table__secondary">
+                    <span>{{ t('psdSet.connectedAt') }} {{ row.connectedAtLabel }}</span>
+                  </div>
                 </template>
               </el-table-column>
               <el-table-column label="PS" min-width="190">
                 <template #default="{ row }">
-                  <div class="production-dispatch-dialog__ps-status">
-                    <span class="production-dispatch-dialog__state-text" :class="`is-${row.psStatusTone}`">
-                      {{ row.psStatusText }}
-                    </span>
-                    <el-tooltip
-                      v-if="row.psStatusReason"
-                      :content="row.psStatusReason"
-                      placement="top"
-                      :show-after="200"
-                    >
-                      <span class="production-dispatch-dialog__ps-reason">{{ row.psStatusReason }}</span>
-                    </el-tooltip>
+                  <div class="dispatch-target-table__primary" :class="`is-${row.psStatusTone}`">
+                    {{ row.psStatusText }}
                   </div>
+                  <el-tooltip
+                    v-if="row.psStatusReason"
+                    :content="row.psStatusReason"
+                    placement="top"
+                    :show-after="200"
+                  >
+                    <div class="dispatch-target-table__secondary">
+                      <span class="dispatch-target-table__desc">{{ row.psStatusReason }}</span>
+                    </div>
+                  </el-tooltip>
                 </template>
               </el-table-column>
               <el-table-column :label="t('psdSet.memory')" min-width="150">
                 <template #default="{ row }">
+                  <div class="dispatch-target-table__primary" :class="`is-${row.memoryStatusTone}`">
+                    {{ row.memoryStatusText }}
+                  </div>
                   <el-tooltip
                     v-if="row.memoryStatusReason"
                     :content="row.memoryStatusReason"
                     placement="top"
                     :show-after="200"
                   >
-                    <span class="production-dispatch-dialog__state-text" :class="`is-${row.memoryStatusTone}`">
-                      {{ row.memoryStatusText }}
-                    </span>
+                    <div class="dispatch-target-table__secondary">
+                      <span class="dispatch-target-table__desc">{{ row.memoryStatusReason }}</span>
+                    </div>
                   </el-tooltip>
-                  <span v-else class="production-dispatch-dialog__state-text" :class="`is-${row.memoryStatusTone}`">
-                    {{ row.memoryStatusText }}
-                  </span>
                 </template>
               </el-table-column>
-              <el-table-column :label="t('psdSet.production')" width="82" align="center">
+              <el-table-column :label="t('psdSet.currentPsdSet')" min-width="260">
                 <template #default="{ row }">
-                  <span class="production-dispatch-dialog__state-text" :class="`is-${row.productionStatusTone}`">
-                    {{ row.productionStatusText }}
-                  </span>
+                  <div class="production-dispatch-dialog__task" :title="row.activeTaskLabel">
+                    <span class="dispatch-target-table__primary">{{ row.activeTaskLabel }}</span>
+                    <small v-if="row.activeTaskStep" class="dispatch-target-table__secondary">
+                      {{ row.activeTaskStep }}
+                    </small>
+                  </div>
                 </template>
               </el-table-column>
             </el-table>
           </div>
-          <div v-else class="production-dispatch-dialog__empty">{{ t('psdSet.noClientNodes') }}</div>
+          <div v-else class="dispatch-dialog__empty">{{ t('psdSet.noClientNodes') }}</div>
         </div>
       </div>
       <template #footer>
-        <div class="production-dispatch-dialog__footer">
+        <div class="dispatch-dialog__footer">
           <el-button @click="productionDispatchDialogVisible = false">{{ t('common.cancel') }}</el-button>
           <el-button type="primary" :loading="productionDispatchSubmitting"
             :disabled="!selectedDispatchClientId || !selectedDispatchClient"
@@ -2994,12 +2988,6 @@ function isDispatchClientExecutable(client: any) {
   return !getDispatchClientUnavailableReason(client);
 }
 
-function getDispatchClientOnlineStatus(client: any) {
-  return client?.isOnline
-    ? { text: t("psdSet.online"), tone: "success" }
-    : { text: t("psdSet.offline"), tone: "danger" };
-}
-
 function getDispatchClientPsStatus(client: any) {
   const service = getClientPhotoshopService(client);
   if (!client?.isOnline) {
@@ -3072,23 +3060,6 @@ function getDispatchClientMemoryStatus(client: any) {
   };
 }
 
-function getDispatchClientProductionStatus(client: any) {
-  const activeItems = getDispatchClientActivePsdSets(client);
-  if (activeItems.length > 0) {
-    return {
-      text:
-        activeItems.length > 1
-          ? `${t("psdSet.making")}(${activeItems.length})`
-          : t("psdSet.making"),
-      tone: "warning",
-    };
-  }
-  if (getClientRuntimePsdSet(client)) {
-    return { text: t("psdSet.busy"), tone: "warning" };
-  }
-  return { text: t("psdSet.idle"), tone: isDispatchClientExecutable(client) ? "success" : "muted" };
-}
-
 const dispatchCandidateClients = computed(() =>
   clientNodes.value.filter((client) => {
     if (!client?.isOnline) {
@@ -3102,25 +3073,19 @@ const dispatchCandidateClients = computed(() =>
 const dispatchClientRows = computed(() =>
   dispatchCandidateClients.value
     .map((client) => {
-      const onlineStatus = getDispatchClientOnlineStatus(client);
       const psStatus = getDispatchClientPsStatus(client);
-      const productionStatus = getDispatchClientProductionStatus(client);
       const memoryStatus = getDispatchClientMemoryStatus(client);
       return {
         id: client.id,
         client,
         clientLabel: getClientDisplayName(client),
         connectedAtLabel: formatTimestamp(client.connectedAt) || "-",
-        onlineStatusText: onlineStatus.text,
-        onlineStatusTone: onlineStatus.tone,
         psStatusText: psStatus.text,
         psStatusTone: psStatus.tone,
         psStatusReason: psStatus.reason,
         memoryStatusText: memoryStatus.text,
         memoryStatusTone: memoryStatus.tone,
         memoryStatusReason: memoryStatus.reason,
-        productionStatusText: productionStatus.text,
-        productionStatusTone: productionStatus.tone,
         activeTaskLabel: getDispatchClientTaskLabel(client),
         activeTaskStep: getDispatchClientTaskStep(client),
         selectable: isDispatchClientExecutable(client),
@@ -5143,10 +5108,6 @@ getList();
 }
 
 @media (width <= 768px) {
-  .production-dispatch-dialog__table :deep(.el-table) {
-    font-size: 12px;
-  }
-
   .publish-task-list-dialog :deep(.el-dialog) {
     display: flex;
     flex-direction: column;
@@ -6771,23 +6732,11 @@ getList();
 .production-dispatch-dialog__body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  min-height: 204px;
-}
-
-.production-dispatch-dialog__panel {
-  min-height: 206px;
-  padding: 10px;
-  background: color-mix(in srgb, var(--el-bg-color) 94%, var(--el-fill-color-light) 6%);
-  border: 1px solid color-mix(in srgb, var(--el-border-color) 62%, transparent 38%);
-  border-radius: 12px;
+  gap: 8px;
 }
 
 .production-dispatch-dialog__filters {
-  padding: 10px;
-  background: var(--el-bg-color);
-  border: 1px solid color-mix(in srgb, var(--el-border-color) 62%, transparent 38%);
-  border-radius: 12px;
+  padding: 0 0 4px;
 }
 
 .production-dispatch-dialog__filter-form :deep(.el-form-item) {
@@ -6795,101 +6744,10 @@ getList();
 }
 
 .production-dispatch-dialog__panel-title {
+  margin-bottom: 10px;
   font-size: 13px;
   font-weight: 700;
   color: var(--el-text-color-primary);
-}
-
-.production-dispatch-dialog__panel-title {
-  margin-bottom: 10px;
-}
-
-.production-dispatch-dialog__empty {
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--el-text-color-secondary);
-}
-
-.production-dispatch-dialog__table {
-  overflow: hidden;
-}
-
-.production-dispatch-dialog__table :deep(.el-table) {
-  --el-table-row-hover-bg-color: transparent;
-  --el-table-current-row-bg-color: transparent;
-
-  font-size: 12px;
-}
-
-.production-dispatch-dialog__table :deep(.el-table td),
-.production-dispatch-dialog__table :deep(.el-table th) {
-  padding-top: 7px;
-  padding-bottom: 7px;
-}
-
-.production-dispatch-dialog__table :deep(.el-table .cell) {
-  padding-right: 8px;
-  padding-left: 8px;
-  line-height: 1.35;
-}
-
-.production-dispatch-dialog__table :deep(.el-table__row) {
-  cursor: pointer;
-}
-
-.production-dispatch-dialog__table :deep(.el-table__row.is-disabled) {
-  cursor: not-allowed;
-}
-
-.production-dispatch-dialog__table :deep(.el-table__row.is-disabled td) {
-  color: var(--el-text-color-placeholder);
-}
-
-.production-dispatch-dialog__table :deep(.el-radio) {
-  pointer-events: none;
-}
-
-.production-dispatch-dialog__ps-status {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.production-dispatch-dialog__ps-reason {
-  display: block;
-  overflow: hidden;
-  font-size: 11px;
-  line-height: 1.35;
-  color: var(--el-text-color-secondary);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.production-dispatch-dialog__state-text {
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.2;
-}
-
-.production-dispatch-dialog__state-text.is-success {
-  color: #1f8f46;
-}
-
-.production-dispatch-dialog__state-text.is-warning {
-  color: #b26a00;
-}
-
-.production-dispatch-dialog__state-text.is-danger {
-  color: #d5485a;
-}
-
-.production-dispatch-dialog__state-text.is-info {
-  color: #356dd1;
-}
-
-.production-dispatch-dialog__state-text.is-muted {
-  color: var(--el-text-color-secondary);
 }
 
 .production-dispatch-dialog__task {
@@ -6900,30 +6758,11 @@ getList();
   line-height: 1.25;
 }
 
-.production-dispatch-dialog__task span,
-.production-dispatch-dialog__task small {
+.production-dispatch-dialog__task > * {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.production-dispatch-dialog__task span {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--el-text-color-primary);
-}
-
-.production-dispatch-dialog__task small {
-  font-size: 11px;
-  color: var(--el-text-color-secondary);
-}
-
-.production-dispatch-dialog__footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  width: 100%;
 }
 
 .publish-usage-image {
