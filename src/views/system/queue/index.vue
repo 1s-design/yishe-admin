@@ -336,17 +336,7 @@
                         >
                           {{ getQueuePlatformLabel(row) }}
                         </span>
-                        <el-popover
-                          placement="top-start"
-                          width="480"
-                          trigger="hover"
-                          :teleported="false"
-                        >
-                          <template #reference>
-                            <span class="queue-task-cell__title">{{ row.description || "-" }}</span>
-                          </template>
-                          <div class="queue-task-cell__full">{{ row.description || "-" }}</div>
-                        </el-popover>
+                        <span class="queue-task-cell__title" :title="row.description || '-'">{{ row.description || "-" }}</span>
                       </div>
                       <div
                         v-if="(isPublishMediaTaskRow(row) && row?.data?.meta?.variantLabel) || isAgentCreatedTaskRow(row)"
@@ -378,9 +368,9 @@
                     >
                       <template #reference>
                         <div class="queue-exec-cell">
-                          <div v-if="getQueueDurationText(row)" class="queue-exec-cell__line">
+                          <div v-if="row._ui?.durationText" class="queue-exec-cell__line">
                             <span class="queue-exec-cell__label">{{ t('queue.duration') }}</span>
-                            <span class="queue-exec-cell__value">{{ getQueueDurationText(row) }}</span>
+                            <span class="queue-exec-cell__value">{{ row._ui.durationText }}</span>
                           </div>
                         </div>
                       </template>
@@ -400,56 +390,68 @@
 
                   <template #conclusionDefaultSlot="{ row }">
                     <div class="queue-conclusion-cell">
-                      <el-tooltip
-                        :disabled="!getQueueConclusion(row).reason"
-                        :content="getQueueConclusion(row).reason"
+                      <el-popover
+                        v-if="row.error"
                         placement="top"
+                        :width="420"
+                        trigger="hover"
+                        popper-class="queue-error-popover"
                       >
-                        <span
-                          class="queue-conclusion"
-                          :class="[
-                            `queue-conclusion--${getQueueConclusion(row).key}`,
-                            { 'is-running': getQueueConclusion(row).running },
-                          ]"
-                        >
-                          <i class="queue-conclusion__dot"></i>
-                          <span class="queue-conclusion__text">{{ getQueueConclusion(row).text }}</span>
-                        </span>
-                      </el-tooltip>
-                      <el-tooltip v-if="row.error" :content="row.error" placement="top">
-                        <span class="queue-conclusion__error">{{ row.error }}</span>
-                      </el-tooltip>
+                        <template #reference>
+                          <span
+                            class="queue-conclusion"
+                            :class="[
+                              `queue-conclusion--${row._ui?.conclusionKey || 'pending'}`,
+                              { 'is-running': row._ui?.conclusionRunning },
+                            ]"
+                          >
+                            <i class="queue-conclusion__dot"></i>
+                            <span class="queue-conclusion__text">{{ row._ui?.conclusionText || "-" }}</span>
+                          </span>
+                        </template>
+                        <div class="queue-error-popover__text">{{ row.error }}</div>
+                      </el-popover>
+                      <span
+                        v-else
+                        class="queue-conclusion"
+                        :class="[
+                          `queue-conclusion--${row._ui?.conclusionKey || 'pending'}`,
+                          { 'is-running': row._ui?.conclusionRunning },
+                        ]"
+                        :title="row._ui?.conclusionReason || ''"
+                      >
+                        <i class="queue-conclusion__dot"></i>
+                        <span class="queue-conclusion__text">{{ row._ui?.conclusionText || "-" }}</span>
+                      </span>
                     </div>
                   </template>
 
                   <template #statusDetailDefaultSlot="{ row }">
                     <div v-if="isPublishProductTaskRow(row)" class="queue-status-detail-cell">
-                      <el-tooltip :content="getPsdSetStatusInfo(row).reason" placement="top">
-                        <span
-                          class="queue-status-pill"
-                          :class="`queue-status-pill--${getPsdSetStatusInfo(row).type}`"
-                        >
-                          <i class="queue-status-pill__dot"></i>
-                          {{ getPsdSetStatusInfo(row).text }}
-                        </span>
-                      </el-tooltip>
-                      <el-tooltip :content="getTitleStatusInfo(row).reason" placement="top">
-                        <span
-                          class="queue-status-pill"
-                          :class="`queue-status-pill--${getTitleStatusInfo(row).type}`"
-                        >
-                          <i class="queue-status-pill__dot"></i>
-                          {{ getTitleStatusInfo(row).text }}
-                        </span>
-                      </el-tooltip>
+                      <span
+                        class="queue-status-pill"
+                        :class="`queue-status-pill--${row._ui?.psdStatus.type || 'pending'}`"
+                        :title="row._ui?.psdStatus.reason || ''"
+                      >
+                        <i class="queue-status-pill__dot"></i>
+                        {{ row._ui?.psdStatus.text || "-" }}
+                      </span>
+                      <span
+                        class="queue-status-pill"
+                        :class="`queue-status-pill--${row._ui?.titleStatus.type || 'pending'}`"
+                        :title="row._ui?.titleStatus.reason || ''"
+                      >
+                        <i class="queue-status-pill__dot"></i>
+                        {{ row._ui?.titleStatus.text || "-" }}
+                      </span>
                     </div>
                     <span v-else class="text-secondary">-</span>
                   </template>
 
                   <template #createdAtDefaultSlot="{ row }">
-                    <el-tooltip :content="formatQueueFullTime(row.createdAt)" placement="top">
-                      <span class="queue-time-cell">{{ formatQueueDateTime(row.createdAt) }}</span>
-                    </el-tooltip>
+                    <span class="queue-time-cell" :title="row._ui?.createdAtFull || ''">
+                      {{ row._ui?.createdAtText || "-" }}
+                    </span>
                   </template>
 
                   <template #operationDefaultSlot="{ row }">
@@ -980,7 +982,7 @@
 </template>
 
 <script setup lang="tsx">
-import { ref, reactive, watchEffect, onMounted, onUnmounted, watch, computed } from "vue";
+import { ref, reactive, watchEffect, onMounted, onUnmounted, watch, computed, markRaw } from "vue";
 import { buildOperationColumn, commonGridOptions } from "@/common/table";
 import { useLocalStorage, useWindowSize } from "@vueuse/core";
 import { ElMessage, ElMessageBox } from "element-plus";
@@ -1248,7 +1250,10 @@ const gridOptions = ref({
   rowClassName: ({ row }) => getQueueRowClassName(row),
   rowConfig: {
     keyField: "id",
+    // 固定行高：避免含 meta / 状态副行的行高度不一致
+    height: 64,
   },
+  showOverlap: false,
   checkboxConfig: {
     reserve: true,
   },
@@ -1306,6 +1311,30 @@ const gridOptions = ref({
     buildOperationColumn("operationDefaultSlot"),
   ],
 });
+
+/**
+ * 行渲染预处理：把单元格里要反复调用的状态/耗时计算结果一次性算出并挂到行上，
+ * 模板直接读普通字段，避免虚拟滚动时每个可视行重复做时间解析与状态推导。
+ * 同时 markRaw，阻止 Vue 对 metadata/publishDispatch/data 做深层响应式代理。
+ */
+function decorateQueueRow(row: QueueMessage): QueueMessage {
+  if (!row) {
+    return row;
+  }
+  const conclusion = getQueueConclusion(row);
+  (row as any)._ui = {
+    conclusionKey: conclusion.key,
+    conclusionText: conclusion.text,
+    conclusionReason: conclusion.reason,
+    conclusionRunning: conclusion.running,
+    durationText: getQueueDurationText(row),
+    psdStatus: getPsdSetStatusInfo(row),
+    titleStatus: getTitleStatusInfo(row),
+    createdAtText: formatQueueDateTime(row.createdAt),
+    createdAtFull: formatQueueFullTime(row.createdAt),
+  };
+  return markRaw(row);
+}
 
 const dataSource = ref<QueueMessage[]>([]);
 const loading = ref(false);
@@ -2737,7 +2766,7 @@ async function getList(options?: unknown) {
 
         // 列表快照时间：耗时计算统一锚定到此刻，避免未完成任务每次重渲染秒数跳动
         listSnapshotTime = Date.now();
-        dataSource.value = Array.isArray(messages) ? messages : [];
+        dataSource.value = Array.isArray(messages) ? messages.map(decorateQueueRow) : [];
         if (!silent || responseData.total !== undefined) {
           total.value = totalCount;
         }
@@ -3494,7 +3523,7 @@ function applyPublishTaskRuntimeEvent(event: PublishTaskRuntimeEvent) {
       },
     };
 
-    dataSource.value.splice(taskIndex, 1, nextRow);
+    dataSource.value.splice(taskIndex, 1, decorateQueueRow(nextRow));
   }
 
   if (
@@ -3553,7 +3582,7 @@ function applyPublishTaskCommandResultEvent(event: ServiceCommandResultEvent) {
     if (taskIndex >= 0) {
       const row = dataSource.value[taskIndex];
       const currentDispatchMeta: any = getPublishDispatchMeta(row);
-      dataSource.value.splice(taskIndex, 1, {
+      dataSource.value.splice(taskIndex, 1, decorateQueueRow({
         ...row,
         status: "completed",
         error: undefined,
@@ -3571,7 +3600,7 @@ function applyPublishTaskCommandResultEvent(event: ServiceCommandResultEvent) {
             lastError: null,
           },
         },
-      });
+      }));
     }
   }
 
@@ -4920,18 +4949,33 @@ onUnmounted(() => {
     linear-gradient(0deg, transparent, transparent);
 }
 
-/* ── 列表：任务描述两行式单元格（描述全文 + 关键元信息） ── */
+/* ── 虚拟滚动：强制 DOM 行高与 rowConfig.height 一致，否则滚动偏移累积会出现空白 ── */
+.queue-page :deep(.vxe-body--row) {
+  height: 64px !important;
+}
+
+.queue-page :deep(.vxe-body--row > .vxe-body--column) {
+  height: 64px !important;
+  max-height: 64px;
+  overflow: hidden;
+}
+
+.queue-page :deep(.vxe-body--row .vxe-cell) {
+  max-height: 100%;
+  overflow: hidden;
+}
+
 .queue-page :deep(.queue-desc-column .vxe-cell) {
   white-space: normal;
   word-break: break-word;
-  overflow: visible;
 }
 
+/* ── 列表：任务描述两行式单元格（描述 + 关键元信息） ── */
 .queue-page :deep(.queue-task-cell) {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  padding: 6px 0;
+  gap: 4px;
+  padding: 0;
   white-space: normal;
   word-break: break-word;
   line-height: 1.55;
@@ -4975,7 +5019,8 @@ onUnmounted(() => {
 
 .queue-page :deep(.queue-task-cell__meta) {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow: hidden;
   align-items: center;
   gap: 6px 10px;
   font-size: 12px;
@@ -5043,15 +5088,15 @@ onUnmounted(() => {
   min-width: 0;
 }
 
-.queue-page :deep(.queue-conclusion__error) {
-  display: block;
-  max-width: 100%;
-  overflow: hidden;
-  color: var(--el-text-color-secondary);
-  font-size: 11px;
-  line-height: 1.4;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+/* 错误信息浮层：hover 失败状态胶囊时展示完整错误 */
+.queue-error-popover__text {
+  max-height: 220px;
+  overflow-y: auto;
+  color: var(--el-color-danger);
+  font-size: 12px;
+  line-height: 1.6;
+  word-break: break-word;
+  white-space: pre-wrap;
 }
 
 /* ── 列表：状态胶囊（结论 / 套图 / 标题 统一圆角样式） ── */
@@ -5088,7 +5133,8 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow: hidden;
 }
 
 .queue-page :deep(.queue-exec-cell) {
