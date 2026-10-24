@@ -219,6 +219,14 @@
               >
                 {{ t('queue.taskStats') }}
               </el-button>
+              <el-button
+                size="small"
+                :icon="Document"
+                plain
+                @click="mediaSchemaVisible = true"
+              >
+                {{ t('mediaSchema.entry') }}
+              </el-button>
             </div>
           </el-form>
         </div>
@@ -678,122 +686,87 @@
 
     <el-dialog
       v-model="runtimeLogDialogVisible"
-      fullscreen
-      :center="false"
+      :title="t('queue.runtimeLogWindow')"
+      width="860px"
       align-center
       class="queue-runtime-dialog"
     >
-      <div v-loading="runtimeLogDialogLoading" class="queue-runtime-window">
-        <div class="queue-runtime-window__summary">
-          <div class="queue-runtime-window__summary-item">
-            <span class="queue-runtime-window__summary-label">{{ t('queue.taskId') }}</span>
-            <span class="queue-runtime-window__summary-value">{{ currentTaskId || "-" }}</span>
-          </div>
-          <div class="queue-runtime-window__summary-item">
-            <span class="queue-runtime-window__summary-label">{{ t('queue.platform') }}</span>
-            <span class="queue-runtime-window__summary-value">{{
-              currentTaskRuntime?.platform || "-"
-            }}</span>
-          </div>
-          <div class="queue-runtime-window__summary-item">
-            <span class="queue-runtime-window__summary-label">{{ t('queue.logCount') }}</span>
-            <span class="queue-runtime-window__summary-value">{{
+      <div v-loading="runtimeLogDialogLoading" class="queue-runtime-dialog__body">
+        <div class="queue-runtime-meta">
+          <span class="queue-runtime-meta__item">
+            <span class="queue-runtime-meta__label">{{ t('queue.taskId') }}</span>
+            <span class="queue-runtime-meta__value">{{ currentTaskId || "-" }}</span>
+          </span>
+          <span class="queue-runtime-meta__item">
+            <span class="queue-runtime-meta__label">{{ t('queue.platform') }}</span>
+            <span class="queue-runtime-meta__value">{{ currentTaskRuntime?.platform || "-" }}</span>
+          </span>
+          <span class="queue-runtime-meta__item">
+            <span class="queue-runtime-meta__label">{{ t('queue.logCount') }}</span>
+            <span class="queue-runtime-meta__value">{{
               currentTaskRuntime?.logCount ?? currentTaskLogs.length
             }}</span>
-          </div>
-          <div class="queue-runtime-window__summary-item">
-            <span class="queue-runtime-window__summary-label">{{ t('queue.lastUpdated') }}</span>
-            <span class="queue-runtime-window__summary-value">{{
+          </span>
+          <span class="queue-runtime-meta__item">
+            <span class="queue-runtime-meta__label">{{ t('queue.lastUpdated') }}</span>
+            <span class="queue-runtime-meta__value">{{
               formatLogTimestamp(currentTaskRuntime?.updatedAt || currentTaskRuntime?.lastLogTime)
             }}</span>
-          </div>
+          </span>
         </div>
 
-        <div class="queue-runtime-window__body">
-          <div v-if="currentTaskLogs.length" class="queue-runtime-console">
-            <div
-              v-for="(log, index) in currentTaskLogs"
-              :key="log.id || `${log.timestamp}-${index}`"
-              class="queue-runtime-console__line"
-              :data-level="normalizeLogLevel(log.level)"
+        <div v-if="currentTaskLogs.length" class="queue-runtime-list">
+          <div
+            v-for="(log, index) in currentTaskLogs"
+            :key="log.id || `${log.timestamp}-${index}`"
+            class="queue-runtime-list__line"
+            :data-level="normalizeLogLevel(log.level)"
+          >
+            <span class="queue-runtime-list__time">{{
+              formatLogTimestamp(log.time || log.timestamp)
+            }}</span>
+            <span class="queue-runtime-list__message">{{ log.message || "-" }}</span>
+            <el-button
+              v-if="hasLogData(log)"
+              link
+              type="primary"
+              size="small"
+              @click="openRuntimeLogData(log, index)"
             >
-              <div class="queue-runtime-console__prompt">
-                <span class="queue-runtime-console__user">yishe@admin:</span>
-                <span class="queue-runtime-console__location">~</span>
-                <span class="queue-runtime-console__time">{{
-                  formatLogTimestamp(log.time || log.timestamp)
-                }}</span>
-              </div>
-              <div class="queue-runtime-console__content">
-                <div class="queue-runtime-console__message">{{ log.message || "-" }}</div>
-                <div v-if="hasLogData(log)" class="queue-runtime-console__actions">
-                  <el-button
-                    type="primary"
-                    link
-                    size="small"
-                    class="queue-runtime-console__detail-trigger"
-                    @click="openRuntimeLogData(log, index)"
-                  >
-                    {{ t('queue.viewDetailData') }}
-                  </el-button>
-                </div>
-              </div>
-            </div>
-            <div class="queue-runtime-console__cursor-row">
-              <span class="queue-runtime-console__user">yishe@admin:</span>
-              <span class="queue-runtime-console__location">~</span>
-              <span class="queue-runtime-console__cursor" />
-            </div>
-          </div>
-          <div v-else class="queue-runtime-console queue-runtime-console--empty">
-            <div class="queue-runtime-console__empty">
-              <span class="queue-runtime-console__user">yishe@admin:</span>
-              <span class="queue-runtime-console__location">~</span>
-              <span class="queue-runtime-console__message">{{ t('queue.noMatchingLogs') }}</span>
-              <span class="queue-runtime-console__cursor" />
-            </div>
+              {{ t('queue.viewDetailData') }}
+            </el-button>
           </div>
         </div>
+        <div v-else class="queue-runtime-list__empty">{{ t('queue.noMatchingLogs') }}</div>
       </div>
 
       <template #footer>
-        <div class="queue-runtime-dialog__footer">
-          <div class="queue-runtime-dialog__footer-meta">
-            <span>{{ t('queue.runtimeLogWindow') }}</span>
-            <span>{{ t('queue.recordCount', { count: currentTaskRuntime?.logCount ?? currentTaskLogs.length }) }}</span>
-          </div>
-          <div class="queue-runtime-dialog__footer-actions">
-            <el-button @click="refreshRuntimeLogDialogDetail()">{{ t('queue.refreshLogs') }}</el-button>
-            <el-button @click="runtimeLogDialogVisible = false">{{ t('queue.close') }}</el-button>
-          </div>
+        <div class="dispatch-dialog__footer">
+          <el-button @click="refreshRuntimeLogDialogDetail()">{{ t('queue.refreshLogs') }}</el-button>
+          <el-button @click="runtimeLogDialogVisible = false">{{ t('queue.close') }}</el-button>
         </div>
       </template>
     </el-dialog>
 
     <el-dialog
       v-model="runtimeLogDataDialogVisible"
-      width="860px"
-      :center="false"
+      :title="t('queue.logDetailData')"
+      width="760px"
       align-center
       class="queue-runtime-data-dialog"
     >
-      <template #header>
-        <div class="queue-runtime-data-dialog__header">
-          <div class="queue-runtime-data-dialog__title">{{ t('queue.logDetailData') }}</div>
-          <div class="queue-runtime-data-dialog__meta">
-            <span>{{ runtimeLogDataDialogMeta.time || "-" }}</span>
-            <span>{{ runtimeLogDataDialogMeta.level }}</span>
-          </div>
-          <div class="queue-runtime-data-dialog__message">
-            {{ runtimeLogDataDialogMeta.message || "-" }}
-          </div>
-        </div>
-      </template>
       <div class="queue-runtime-data-dialog__body">
+        <div class="queue-runtime-data-dialog__meta">
+          <span>{{ runtimeLogDataDialogMeta.time || "-" }}</span>
+          <span>{{ runtimeLogDataDialogMeta.level }}</span>
+        </div>
+        <div class="queue-runtime-data-dialog__message">
+          {{ runtimeLogDataDialogMeta.message || "-" }}
+        </div>
         <pre class="queue-runtime-data-dialog__raw">{{ runtimeLogDataDialogText }}</pre>
       </div>
       <template #footer>
-        <div class="dialog-footer">
+        <div class="dispatch-dialog__footer">
           <el-button @click="runtimeLogDataDialogVisible = false">{{ t('queue.close') }}</el-button>
         </div>
       </template>
@@ -1000,6 +973,9 @@
       v-model="statsDialogVisible"
       :task-type-options="publishTaskTypeOptions"
     />
+
+    <!-- 媒体发布数据规范弹窗 -->
+    <MediaSchemaDialog v-model="mediaSchemaVisible" />
   </ContentWrap>
 </template>
 
@@ -1009,7 +985,7 @@ import { buildOperationColumn, commonGridOptions } from "@/common/table";
 import { useLocalStorage, useWindowSize } from "@vueuse/core";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { useI18n } from '@/hooks/web/useI18n';
-import { Search, Delete, Plus, Loading, DataAnalysis } from "@element-plus/icons-vue";
+import { Search, Delete, Plus, Loading, DataAnalysis, Document } from "@element-plus/icons-vue";
 import {
   getTaskList,
   createTask,
@@ -1060,6 +1036,7 @@ import {
 import { getClientServiceRuntime } from "@/store/modules/clientNode";
 import PublishDispatchTargetTable from "./components/PublishDispatchTargetTable.vue";
 import TaskStatsDialog from "./components/TaskStatsDialog.vue";
+import MediaSchemaDialog from "./components/MediaSchemaDialog.vue";
 import {
   PLATFORM_LABEL_MAP,
   isPublishFamily,
@@ -1349,6 +1326,7 @@ const autoDispatchTargetDialogVisible = ref(false);
 const autoDispatchTargetDialogLoading = ref(false);
 const autoDispatchTargetSubmitting = ref(false);
 const statsDialogVisible = ref(false);
+const mediaSchemaVisible = ref(false);
 const dispatchTargetTask = ref<QueueMessage | null>(null);
 const selectedDispatchClientId = ref("");
 const selectedDispatchProfileId = ref("");
@@ -5331,307 +5309,107 @@ onUnmounted(() => {
   padding: 14px;
 }
 
-.queue-runtime-dialog :deep(.el-dialog) {
-  height: 100vh;
-  margin: 0;
+.queue-runtime-dialog__body {
   display: flex;
   flex-direction: column;
-  border-radius: 0;
-  overflow: hidden;
-  background: rgba(33, 33, 33, 0.78);
-  backdrop-filter: blur(8px);
+  gap: 12px;
+  max-height: min(64vh, 640px);
+  overflow: auto;
 }
 
-.queue-runtime-dialog :deep(.el-dialog__header) {
-  flex-shrink: 0;
-  padding: 0;
-  margin: 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.queue-runtime-dialog :deep(.el-dialog__headerbtn) {
-  top: 10px;
-  right: 12px;
-  z-index: 3;
-}
-
-.queue-runtime-dialog :deep(.el-dialog__headerbtn .el-dialog__close) {
-  color: rgba(255, 255, 255, 0.72);
-}
-
-.queue-runtime-dialog :deep(.el-dialog__body) {
-  flex: 1;
-  min-height: 0;
-  padding: 0;
-  overflow: hidden;
-  background:
-    radial-gradient(circle at top left, rgba(61, 157, 246, 0.08), transparent 28%),
-    linear-gradient(180deg, rgba(0, 0, 0, 0.46) 0%, rgba(8, 8, 8, 0.72) 100%);
-}
-
-.queue-runtime-dialog :deep(.el-dialog__footer) {
-  flex-shrink: 0;
-  padding: 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  background: linear-gradient(145deg, #1d1d1d, #121212);
-}
-
-.queue-runtime-window {
+.queue-runtime-meta {
   display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-height: 0;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.queue-runtime-meta__item {
+  display: inline-flex;
+  gap: 6px;
+  min-width: 0;
+}
+
+.queue-runtime-meta__label {
+  color: var(--el-text-color-secondary);
+}
+
+.queue-runtime-meta__value {
+  color: var(--el-text-color-primary);
+  font-weight: 500;
+  word-break: break-all;
+}
+
+.queue-runtime-list {
   font-family:
-    "Fira Code", "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.6;
 }
 
-.queue-runtime-window__chrome-btn--red {
-  background: radial-gradient(circle at 30% 30%, #ff5f56, #bf2e2e);
+.queue-runtime-list__line {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 4px 0;
 }
 
-.queue-runtime-window__chrome-btn--yellow {
-  background: radial-gradient(circle at 30% 30%, #ffbd2e, #b4820e);
+.queue-runtime-list__line + .queue-runtime-list__line {
+  border-top: 1px solid var(--el-border-color-extra-light);
 }
 
-.queue-runtime-window__chrome-btn--green {
-  background: radial-gradient(circle at 30% 30%, #27c93f, #199f2c);
+.queue-runtime-list__time {
+  flex: 0 0 136px;
+  color: var(--el-text-color-secondary);
+  font-variant-numeric: tabular-nums;
 }
 
-.queue-runtime-window__toolbar-user {
+.queue-runtime-list__message {
   flex: 1;
   min-width: 0;
-  color: #d5d0ce;
-  font-size: 14px;
-  line-height: 1.4;
+  color: var(--el-text-color-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.queue-runtime-list__line[data-level="warning"] .queue-runtime-list__message {
+  color: var(--el-color-warning);
+}
+
+.queue-runtime-list__line[data-level="error"] .queue-runtime-list__message {
+  color: var(--el-color-danger);
+}
+
+.queue-runtime-list__line[data-level="success"] .queue-runtime-list__message {
+  color: var(--el-color-success);
+}
+
+.queue-runtime-list__line[data-level="debug"] .queue-runtime-list__message {
+  color: var(--el-text-color-secondary);
+}
+
+.queue-runtime-list__empty {
+  padding: 24px 0;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
   text-align: center;
 }
 
-.queue-runtime-window__toolbar-tab {
-  padding: 0 8px;
-  border: 1px solid rgba(255, 255, 255, 0.72);
-  border-bottom: none;
-  border-radius: 4px 4px 0 0;
-  color: #fff;
-  background-color: rgba(255, 255, 255, 0.05);
-  font-size: 13px;
-  line-height: 1.4;
-}
-
-.queue-runtime-window__summary {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  padding: 14px 18px 8px;
-}
-
-.queue-runtime-window__summary-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 30px;
-  padding: 0 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.queue-runtime-window__summary-label {
-  color: #94a3b8;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.queue-runtime-window__summary-value {
-  color: #f8fafc;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.queue-runtime-window__body {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  padding: 10px 18px 18px;
-}
-
-.queue-runtime-console {
-  min-height: 100%;
-  padding: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 14px;
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, rgba(17, 24, 39, 0.99) 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 18px 48px rgba(15, 23, 42, 0.16);
-}
-
-.queue-runtime-console--empty {
-  display: flex;
-  align-items: center;
-}
-
-.queue-runtime-console__line + .queue-runtime-console__line {
-  margin-top: 8px;
-}
-
-.queue-runtime-console__line {
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.52) 0%, rgba(15, 23, 42, 0.68) 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.02),
-    0 4px 10px rgba(2, 6, 23, 0.16);
-  transition:
-    transform 0.18s ease,
-    box-shadow 0.18s ease;
-}
-
-.queue-runtime-console__line:hover {
-  transform: translateY(-1px);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.03),
-    0 8px 16px rgba(2, 6, 23, 0.2);
-}
-
-.queue-runtime-console__prompt,
-.queue-runtime-console__empty {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  font-size: 12px;
-  line-height: 1.35;
-}
-
-.queue-runtime-console__user {
-  color: #00ffae;
-  text-shadow: 0 0 4px rgba(0, 255, 174, 0.45);
-}
-
-.queue-runtime-console__location {
-  color: #3d9df6;
-  text-shadow: 0 0 4px rgba(61, 157, 246, 0.42);
-}
-
-.queue-runtime-console__time {
-  color: #94a3b8;
-  font-size: 12px;
-  letter-spacing: 0.01em;
-}
-
-.queue-runtime-console__content {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 8px;
-}
-
-.queue-runtime-console__message {
-  flex: 1;
-  min-width: 0;
-  color: #e5edf7;
-  font-size: 13px;
-  line-height: 1.55;
-  white-space: pre-wrap;
-  word-break: break-word;
-  text-shadow: 0 0 3px rgba(255, 255, 255, 0.12);
-}
-
-.queue-runtime-console__line[data-level="warn"] .queue-runtime-console__message,
-.queue-runtime-console__line[data-level="warning"] .queue-runtime-console__message {
-  color: #fde68a;
-}
-
-.queue-runtime-console__line[data-level="error"] .queue-runtime-console__message {
-  color: #fecaca;
-}
-
-.queue-runtime-console__line[data-level="success"] .queue-runtime-console__message {
-  color: #dcfce7;
-}
-
-.queue-runtime-console__actions {
-  flex: 0 0 auto;
-  padding-top: 1px;
-}
-
-.queue-runtime-console__detail-trigger {
-  min-height: 24px;
-  padding: 0 9px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.03);
-  color: #a5d8ff;
-  font-size: 12px;
-  line-height: 1;
-  border: 1px solid rgba(148, 163, 184, 0.12);
-}
-
-.queue-runtime-console__detail-trigger:hover {
-  color: #d7ecff;
-  background: color-mix(in srgb, var(--el-color-primary) 8%, transparent);
-  border-color: color-mix(in srgb, var(--el-color-primary) 18%, transparent);
-}
-
-.queue-runtime-console__detail-trigger:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--el-color-primary) 30%, transparent);
-  outline-offset: 1px;
-}
-
-.queue-runtime-console__cursor-row {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 12px;
-  flex-wrap: wrap;
-}
-
-.queue-runtime-console__cursor {
-  display: inline-block;
-  width: 6px;
-  height: 14px;
-  border-radius: 2px;
-  background: #ffffff;
-  animation: queue-runtime-cursor-blink 800ms steps(2) infinite;
-}
-
-.queue-runtime-dialog__footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 18px;
-  color: #cbd5e1;
-}
-
-.queue-runtime-dialog__footer-meta {
-  display: inline-flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-  font-size: 12px;
-}
-
-.queue-runtime-dialog__footer-actions {
-  margin-left: auto;
-}
-
-.queue-runtime-data-dialog__header {
+.queue-runtime-data-dialog__body {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-}
-
-.queue-runtime-data-dialog__title {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--el-text-color-primary);
+  gap: 10px;
+  max-height: min(64vh, 640px);
+  overflow: auto;
 }
 
 .queue-runtime-data-dialog__meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 4px 16px;
   color: var(--el-text-color-secondary);
   font-size: 12px;
   line-height: 1.4;
@@ -5643,28 +5421,19 @@ onUnmounted(() => {
   line-height: 1.6;
 }
 
-.queue-runtime-data-dialog__body {
-  max-height: min(60vh, 720px);
-  overflow: auto;
-  padding: 6px 2px 2px;
-}
-
 .queue-runtime-data-dialog__raw {
   margin: 0;
-  padding: 14px 16px;
-  overflow: auto;
-  border: 1px solid rgb(15 23 42 / 12%);
-  border-radius: 12px;
-  background: linear-gradient(180deg, #0f172a 0%, #111827 100%);
-  color: #e5edf7;
-  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  padding: 12px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 6px;
+  background: var(--el-fill-color-light);
+  color: var(--el-text-color-primary);
+  font-family:
+    "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   font-size: 12px;
-  line-height: 1.7;
+  line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 3%),
-    0 12px 26px rgb(15 23 42 / 10%);
 }
 
 .queue-json-textarea {
@@ -5728,30 +5497,6 @@ onUnmounted(() => {
   .queue-json-editor-layout {
     grid-template-columns: 1fr;
   }
-
-  .queue-runtime-window__toolbar {
-    padding-right: 44px;
-  }
-
-  .queue-runtime-window__toolbar-user {
-    text-align: left;
-  }
-
-  .queue-runtime-window__summary,
-  .queue-runtime-window__body,
-  .queue-runtime-dialog__footer {
-    padding-left: 14px;
-    padding-right: 14px;
-  }
-
-  .queue-runtime-console__content {
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .queue-runtime-console__actions {
-    padding-top: 0;
-  }
 }
 
 @media (min-width: 768px) and (max-width: 1180px) {
@@ -5783,10 +5528,6 @@ onUnmounted(() => {
 
   .publish-dispatch-dialog__profile-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .queue-runtime-console {
-    padding: 14px 16px;
   }
 
   .publish-dispatch-dialog :deep(.el-dialog__body) {
@@ -5828,22 +5569,6 @@ onUnmounted(() => {
   50% {
     box-shadow: 0 0 0 6px rgb(249 115 22 / 0%);
     transform: scale(1.04);
-  }
-}
-
-@keyframes queue-runtime-cursor-blink {
-  0%,
-  49% {
-    opacity: 1;
-  }
-
-  50%,
-  99% {
-    opacity: 0;
-  }
-
-  100% {
-    opacity: 1;
   }
 }
 </style>
