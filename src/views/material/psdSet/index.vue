@@ -1044,7 +1044,7 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="productionDispatchDialogVisible" width="860px" :title="productionDispatchDialogTitle"
+    <el-dialog v-model="productionDispatchDialogVisible" width="960px" :title="productionDispatchDialogTitle"
       align-center append-to-body destroy-on-close class="dispatch-dialog production-dispatch-dialog" @open="handleOpenProductionDispatchDialog"
       @closed="handleCloseProductionDispatchDialog">
       <div class="dispatch-dialog__body production-dispatch-dialog__body">
@@ -1125,6 +1125,23 @@
                   >
                     <div class="dispatch-target-table__secondary">
                       <span class="dispatch-target-table__desc">{{ row.psStatusReason }}</span>
+                    </div>
+                  </el-tooltip>
+                </template>
+              </el-table-column>
+              <el-table-column :label="t('psdSet.memory')" min-width="150">
+                <template #default="{ row }">
+                  <div class="dispatch-target-table__primary" :class="`is-${row.memoryStatusTone}`">
+                    {{ row.memoryStatusText }}
+                  </div>
+                  <el-tooltip
+                    v-if="row.memoryStatusReason"
+                    :content="row.memoryStatusReason"
+                    placement="top"
+                    :show-after="200"
+                  >
+                    <div class="dispatch-target-table__secondary">
+                      <span class="dispatch-target-table__desc">{{ row.memoryStatusReason }}</span>
                     </div>
                   </el-tooltip>
                 </template>
@@ -2996,6 +3013,53 @@ function getDispatchClientPsStatus(client: any) {
   return { text: t("psdSet.notEnabled"), tone: "muted", reason: issue.reason };
 }
 
+const PS_MEMORY_COMMIT_WARN_GB = 6;
+const SYSTEM_COMMIT_WARN_PCT = 90;
+
+function getDispatchClientMemoryStatus(client: any) {
+  const memory = client?.clientInfo?.psAutomation?.memory;
+  if (!client?.isOnline) {
+    return { text: "-", tone: "muted", reason: t("psdSet.clientOffline") };
+  }
+  if (!memory || memory.available !== true) {
+    return {
+      text: t("psdSet.memoryUnknown"),
+      tone: "muted",
+      reason: t("psdSet.memoryReporterOffline"),
+    };
+  }
+  const psCommitGb =
+    typeof memory.psCommitGb === "number" ? memory.psCommitGb : null;
+  const systemCommit = memory.systemCommit || {};
+  const systemPct =
+    typeof systemCommit.pct === "number" ? systemCommit.pct : null;
+  const parts: string[] = [];
+  if (psCommitGb !== null) {
+    parts.push(`PS ${psCommitGb.toFixed(1)}GB`);
+  }
+  if (systemPct !== null) {
+    parts.push(`${t("psdSet.memorySystem")} ${systemPct.toFixed(0)}%`);
+  }
+  const text = parts.length ? parts.join(" / ") : t("psdSet.memoryUnknown");
+  const psDanger = psCommitGb !== null && psCommitGb >= PS_MEMORY_COMMIT_WARN_GB;
+  const sysDanger = systemPct !== null && systemPct >= SYSTEM_COMMIT_WARN_PCT;
+  const reasonBits: string[] = [];
+  if (psDanger) {
+    reasonBits.push(t("psdSet.memoryPsHigh"));
+  }
+  if (sysDanger) {
+    reasonBits.push(t("psdSet.memorySystemHigh"));
+  }
+  if ((psDanger || sysDanger) && memory.watchdogEnabled === false) {
+    reasonBits.push(t("psdSet.memoryWatchdogOff"));
+  }
+  return {
+    text,
+    tone: psDanger || sysDanger ? "danger" : "success",
+    reason: reasonBits.join("；") || t("psdSet.memoryNormal"),
+  };
+}
+
 const dispatchCandidateClients = computed(() =>
   clientNodes.value.filter((client) => {
     if (!client?.isOnline) {
@@ -3010,6 +3074,7 @@ const dispatchClientRows = computed(() =>
   dispatchCandidateClients.value
     .map((client) => {
       const psStatus = getDispatchClientPsStatus(client);
+      const memoryStatus = getDispatchClientMemoryStatus(client);
       return {
         id: client.id,
         client,
@@ -3018,6 +3083,9 @@ const dispatchClientRows = computed(() =>
         psStatusText: psStatus.text,
         psStatusTone: psStatus.tone,
         psStatusReason: psStatus.reason,
+        memoryStatusText: memoryStatus.text,
+        memoryStatusTone: memoryStatus.tone,
+        memoryStatusReason: memoryStatus.reason,
         activeTaskLabel: getDispatchClientTaskLabel(client),
         activeTaskStep: getDispatchClientTaskStep(client),
         selectable: isDispatchClientExecutable(client),

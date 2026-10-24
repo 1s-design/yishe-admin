@@ -224,7 +224,21 @@ export interface WebsocketClientInfo {
     lastError?: string | null;
     lastHeartbeatAt?: string | null;
     updatedAt?: string | null;
+    memory?: PsMemorySnapshot | null;
   };
+}
+
+export interface PsMemorySnapshot {
+  available?: boolean | null;
+  psCommitGb?: number | null;
+  systemCommit?: {
+    used_gb?: number | null;
+    limit_gb?: number | null;
+    free_gb?: number | null;
+    pct?: number | null;
+  } | null;
+  watchdogEnabled?: boolean | null;
+  capturedAt?: string | null;
 }
 
 export interface WebsocketConnectionVO {
