@@ -1044,7 +1044,7 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="productionDispatchDialogVisible" width="860px" :title="productionDispatchDialogTitle"
+    <el-dialog v-model="productionDispatchDialogVisible" width="960px" :title="productionDispatchDialogTitle"
       align-center append-to-body destroy-on-close class="dispatch-dialog production-dispatch-dialog" @open="handleOpenProductionDispatchDialog"
       @closed="handleCloseProductionDispatchDialog">
       <div class="dispatch-dialog__body production-dispatch-dialog__body">
