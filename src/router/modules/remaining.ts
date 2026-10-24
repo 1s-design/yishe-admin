@@ -1298,14 +1298,14 @@ const remainingRouter: AppRouteRecordRaw[] = [
       },
     ],
   },
-  // ── 9. 商品发布 ────────────────────────────────────────────────────
+  // ── 9. 发布中心 ────────────────────────────────────────────────────
   {
-    path: "/product-publish",
+    path: "/publish-center",
     component: Layout,
-    name: "ProductPublishGroup",
-    redirect: "/product-publish/psd-set",
+    name: "PublishCenterGroup",
+    redirect: "/publish-center/psd-set",
     meta: {
-      title: "router.productPublish",
+      title: "router.publishCenter",
       icon: "lucide:shopping-bag",
       order: 9,
       alwaysShow: true,

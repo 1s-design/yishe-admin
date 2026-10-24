@@ -268,7 +268,7 @@ export default defineComponent({
             pluginKey as keyof typeof clientNodeStore.pluginStatusMap
           ] || "offline";
       });
-      result["/product-publish/queue"] = publishTaskMenuStatusTone.value;
+      result["/publish-center/queue"] = publishTaskMenuStatusTone.value;
       return result;
     });
 
@@ -286,7 +286,7 @@ export default defineComponent({
           return isClientServiceRuntimeBusy(serviceRuntime);
         });
       });
-      result["/product-publish/queue"] = isAnyPublishTaskRunning.value;
+      result["/publish-center/queue"] = isAnyPublishTaskRunning.value;
 
       return result;
     });
@@ -448,14 +448,14 @@ export default defineComponent({
           available: t("layout.menu.videoTemplateAvailable"),
           offline: t("layout.menu.videoTemplateUnavailable"),
         },
-        "/product-publish/queue": {
+        "/publish-center/queue": {
           available: t("layout.menu.publishTaskAvailable"),
           offline: t("layout.menu.publishTaskUnavailable"),
         },
       };
 
       const title =
-        routePath === "/product-publish/queue"
+        routePath === "/publish-center/queue"
           ? publishTaskTooltipText.value
           : routePath === "/external/browser-automation" ||
               routePath === "/operation/toolkit" ||
@@ -470,7 +470,7 @@ export default defineComponent({
       if (running) {
         return renderRunningStatusDot(
           title || t("layout.menu.taskRunning"),
-          routePath === "/product-publish/queue"
+          routePath === "/publish-center/queue"
             ? "queue"
             : isRemotionRoute(routePath)
               ? "video"
@@ -509,8 +509,8 @@ export default defineComponent({
       );
     };
 
-    const isPsdSetRoute = (routePath: string) => routePath === "/product-publish/psd-set";
-    const isQueueRoute = (routePath: string) => routePath === "/product-publish/queue";
+    const isPsdSetRoute = (routePath: string) => routePath === "/publish-center/psd-set";
+    const isQueueRoute = (routePath: string) => routePath === "/publish-center/queue";
     const isImageProcessingRoute = (routePath: string) =>
       routePath === "/content/image-processing-record";
     const isRemotionRoute = (routePath: string) => routePath === "/content/remotion-video-record";
@@ -1294,6 +1294,14 @@ $prefix-cls: #{$namespace}-menu;
 }
 
 .#{$prefix-cls} {
+  height: 100%;
+  overflow: hidden scroll;
+  background: var(--left-menu-bg-color, #141414);
+  border-right: 1px solid var(--left-menu-border-color, #2f3542);
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--app-scrollbar-thumb-color) transparent;
+
   @keyframes status-count-breathe {
     0%,
     100% {
@@ -1319,14 +1327,6 @@ $prefix-cls: #{$namespace}-menu;
       transform: scale(1.15);
     }
   }
-
-  height: 100%;
-  overflow: hidden scroll;
-  background: var(--left-menu-bg-color, #141414);
-  border-right: 1px solid var(--left-menu-border-color, #2f3542);
-  scrollbar-gutter: stable;
-  scrollbar-width: thin;
-  scrollbar-color: var(--app-scrollbar-thumb-color) transparent;
 
   @media (width >= 768px) and (width <= 1180px),
     (width >= 1181px) and (width <= 1366px) and (any-pointer: coarse) {

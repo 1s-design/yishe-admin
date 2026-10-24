@@ -58,6 +58,27 @@
                 :xs="24"
                 :sm="12"
                 :md="8"
+                :lg="6"
+                :xl="6"
+              >
+                <el-form-item :label="t('queue.publishCategory')">
+                  <el-select
+                    v-model="queryParams.family"
+                    size="small"
+                    clearable
+                    :placeholder="t('queue.familyAll')"
+                    @change="handleQueryChange"
+                  >
+                    <el-option :label="t('queue.familyProduct')" value="product" />
+                    <el-option :label="t('queue.familyMedia')" value="media" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col
+                class="list-page-search-form__col--narrow"
+                :xs="24"
+                :sm="12"
+                :md="8"
                 :lg="5"
                 :xl="4"
               >
@@ -299,26 +320,79 @@
                 >
                   <template #taskDescriptionDefaultSlot="{ row }">
                     <div class="queue-task-cell">
-                      <div class="queue-task-cell__title">{{ row.description || "-" }}</div>
-                      <div class="queue-task-cell__meta">
-                        <span v-if="getQueuePlatformLabel(row)" class="queue-task-cell__chip">
+                      <div class="queue-task-cell__title-line">
+                        <span
+                          v-if="getQueuePlatformKey(row)"
+                          class="queue-platform-chip"
+                          :class="`queue-platform-chip--${getQueuePlatformKey(row)}`"
+                        >
                           {{ getQueuePlatformLabel(row) }}
                         </span>
-                        <span>
-                          {{ t('queue.creator') }}
-                          {{ row?.uploader?.account || row?.uploader?.name || row?.userId || "-" }}
+                        <el-popover
+                          placement="top-start"
+                          width="480"
+                          trigger="hover"
+                          :teleported="false"
+                        >
+                          <template #reference>
+                            <span class="queue-task-cell__title">{{ row.description || "-" }}</span>
+                          </template>
+                          <div class="queue-task-cell__full">{{ row.description || "-" }}</div>
+                        </el-popover>
+                      </div>
+                      <div
+                        v-if="(isPublishMediaTaskRow(row) && row?.data?.meta?.variantLabel) || isAgentCreatedTaskRow(row)"
+                        class="queue-task-cell__meta"
+                      >
+                        <span
+                          v-if="isPublishMediaTaskRow(row) && row?.data?.meta?.variantLabel"
+                          class="queue-task-cell__chip"
+                        >
+                          {{ row.data.meta.variantLabel }}
                         </span>
-                        <span>{{ t('queue.duration') }} {{ getQueueDurationText(row) }}</span>
-                        <span v-if="getQueueCurrentStepText(row)">
-                          {{ getQueueCurrentStepText(row) }}
+                        <span
+                          v-if="isAgentCreatedTaskRow(row)"
+                          class="queue-task-cell__chip queue-task-cell__chip--agent"
+                        >
+                          {{ t('queue.agentCreated') }}
                         </span>
-                        <span v-if="getQueueTaskDispatchTargetText(row) !== '-'">
-                          {{ t('queue.node') }} {{ getQueueTaskDispatchTargetText(row) }}
-                        </span>
-                        <span>{{ t('queue.retryCount') }} {{ getQueueRetryText(row) }}</span>
                       </div>
                       <div v-if="row.error" class="queue-task-cell__error">{{ row.error }}</div>
                     </div>
+                  </template>
+
+                  <template #executionInfoDefaultSlot="{ row }">
+                    <el-popover
+                      placement="left-start"
+                      :width="360"
+                      trigger="hover"
+                      :teleported="false"
+                      popper-class="queue-exec-popover"
+                    >
+                      <template #reference>
+                        <div class="queue-exec-cell">
+                          <div class="queue-exec-cell__line">
+                            <span class="queue-exec-cell__label">{{ t('queue.creator') }}</span>
+                            <span class="queue-exec-cell__value">{{ getQueueCreatorText(row) || "-" }}</span>
+                          </div>
+                          <div class="queue-exec-cell__line">
+                            <span class="queue-exec-cell__label">{{ t('queue.duration') }}</span>
+                            <span class="queue-exec-cell__value">{{ getQueueDurationText(row) }}</span>
+                          </div>
+                        </div>
+                      </template>
+                      <div class="queue-exec-detail">
+                        <div class="queue-exec-detail__title">{{ t('queue.execDetail') }}</div>
+                        <div
+                          v-for="item in getQueueExecutionDetailRows(row)"
+                          :key="item.label"
+                          class="queue-exec-detail__row"
+                        >
+                          <span class="queue-exec-detail__label">{{ item.label }}</span>
+                          <span class="queue-exec-detail__value">{{ item.value }}</span>
+                        </div>
+                      </div>
+                    </el-popover>
                   </template>
 
                   <template #conclusionDefaultSlot="{ row }">
@@ -340,47 +414,28 @@
                     </el-tooltip>
                   </template>
 
-                  <template #titleStatusDefaultSlot="{ row }">
-                    <el-tooltip
-                      v-if="isPublishTaskRow(row)"
-                      :content="getTitleStatusInfo(row).reason"
-                      placement="top"
-                    >
-                      <span
-                        class="queue-status-pill"
-                        :class="`queue-status-pill--${getTitleStatusInfo(row).type}`"
-                      >
-                        <i class="queue-status-pill__dot"></i>
-                        {{ getTitleStatusInfo(row).text }}
-                      </span>
-                    </el-tooltip>
-                    <span v-else class="text-secondary">-</span>
-                  </template>
-
-                  <template #psdSetStatusDefaultSlot="{ row }">
-                    <el-tooltip
-                      v-if="isPublishTaskRow(row)"
-                      :content="getPsdSetStatusInfo(row).reason"
-                      placement="top"
-                    >
-                      <span
-                        class="queue-status-pill"
-                        :class="`queue-status-pill--${getPsdSetStatusInfo(row).type}`"
-                      >
-                        <i class="queue-status-pill__dot"></i>
-                        {{ getPsdSetStatusInfo(row).text }}
-                      </span>
-                    </el-tooltip>
-                    <span v-else class="text-secondary">-</span>
-                  </template>
-
-                  <template #uploaderDefaultSlot="{ row }">
-                    <div class="queue-creator-cell">
-                      <el-tag v-if="getQueueCreatorText(row)" size="small" effect="plain" type="info">
-                        {{ getQueueCreatorText(row) }}
-                      </el-tag>
-                      <span v-else class="text-secondary">-</span>
+                  <template #statusDetailDefaultSlot="{ row }">
+                    <div v-if="isPublishProductTaskRow(row)" class="queue-status-detail-cell">
+                      <el-tooltip :content="getPsdSetStatusInfo(row).reason" placement="top">
+                        <span
+                          class="queue-status-pill"
+                          :class="`queue-status-pill--${getPsdSetStatusInfo(row).type}`"
+                        >
+                          <i class="queue-status-pill__dot"></i>
+                          {{ getPsdSetStatusInfo(row).text }}
+                        </span>
+                      </el-tooltip>
+                      <el-tooltip :content="getTitleStatusInfo(row).reason" placement="top">
+                        <span
+                          class="queue-status-pill"
+                          :class="`queue-status-pill--${getTitleStatusInfo(row).type}`"
+                        >
+                          <i class="queue-status-pill__dot"></i>
+                          {{ getTitleStatusInfo(row).text }}
+                        </span>
+                      </el-tooltip>
                     </div>
+                    <span v-else class="text-secondary">-</span>
                   </template>
 
                   <template #createdAtDefaultSlot="{ row }">
@@ -419,7 +474,7 @@
                               {{ t('queue.startExecution') }}
                             </el-dropdown-item>
                             <el-dropdown-item
-                              v-if="String(row.type || '').startsWith('publish-product-')"
+                              v-if="isPublishProductTaskRow(row)"
                               :command="'regenerate'"
                               :disabled="row.status === 'processing' || regeneratingTaskIds.has(row.id)"
                             >
@@ -1005,7 +1060,13 @@ import {
 import { getClientServiceRuntime } from "@/store/modules/clientNode";
 import PublishDispatchTargetTable from "./components/PublishDispatchTargetTable.vue";
 import TaskStatsDialog from "./components/TaskStatsDialog.vue";
-import { PLATFORM_LABEL_MAP, resolveTaskTypePlatform } from "@/config/task-types";
+import {
+  PLATFORM_LABEL_MAP,
+  isPublishFamily,
+  isPublishMediaFamily,
+  isPublishProductFamily,
+  resolveTaskTypePlatform,
+} from "@/config/task-types";
 
 type QueueTagType = "success" | "warning" | "info" | "primary" | "danger";
 
@@ -1096,6 +1157,7 @@ const defaultQueueQueryFilters = {
   status: undefined as QueueMessage["status"] | undefined,
   executionReadinessStatus: undefined as QueueExecutionReadinessStatusFilter | undefined,
   types: [] as string[],
+  family: "" as "" | "product" | "media",
   id: "",
   sortType: "createdAt_DESC",
   createdDateRange: null as [string, string] | null,
@@ -1113,6 +1175,11 @@ const queryParams = reactive({
   types: Array.isArray(queueQueryFilterStorage.value.types)
     ? [...queueQueryFilterStorage.value.types]
     : [],
+  family:
+    queueQueryFilterStorage.value.family === "product" ||
+    queueQueryFilterStorage.value.family === "media"
+      ? queueQueryFilterStorage.value.family
+      : "",
   id: String(queueQueryFilterStorage.value.id || ""),
   sortType: queueQueryFilterStorage.value.sortType || defaultQueueQueryFilters.sortType,
   createdDateRange: queueQueryFilterStorage.value.createdDateRange || null,
@@ -1222,21 +1289,14 @@ const gridOptions = ref({
       },
     },
     {
-      title: t('queue.psdSetStatus'),
-      field: "psdSetStatus",
-      width: 118,
-      showOverflow: true,
+      // 通用「状态明细」列：列本身对所有任务生效，单元格内容按任务家族渲染——
+      // 商品发布行显示 套图状态+标题状态 两个徽标，其他家族暂无专属状态则显示 -
+      title: t('queue.statusDetail'),
+      field: "statusDetail",
+      width: 210,
+      showOverflow: false,
       slots: {
-        default: "psdSetStatusDefaultSlot",
-      },
-    },
-    {
-      title: t('queue.titleStatus'),
-      field: "titleStatus",
-      width: 118,
-      showOverflow: true,
-      slots: {
-        default: "titleStatusDefaultSlot",
+        default: "statusDetailDefaultSlot",
       },
     },
     {
@@ -1248,11 +1308,13 @@ const gridOptions = ref({
       },
     },
     {
-      title: t('queue.creator'),
-      field: "uploader",
-      width: 130,
+      // 通用「执行信息」列：创建人 / 重试 / 耗时 / 当前步骤 / 执行节点环境集中展示
+      title: t('queue.executionInfo'),
+      field: "executionInfo",
+      width: 200,
+      showOverflow: false,
       slots: {
-        default: "uploaderDefaultSlot",
+        default: "executionInfoDefaultSlot",
       },
     },
     {
@@ -1401,7 +1463,9 @@ const showPublishDispatchPanel = computed(() => {
   const selectedTypes = getSelectedQueryTypes();
   return (
     selectedTypes.length === 0 ||
-    selectedTypes.some((type) => type.startsWith("publish-product-")) ||
+    selectedTypes.some((type) => isPublishFamily(type)) ||
+    queryParams.family === "product" ||
+    queryParams.family === "media" ||
     dataSource.value.some((row) => isPublishTaskRow(row))
   );
 });
@@ -1710,7 +1774,22 @@ watchEffect(() => {
 });
 
 function isPublishTaskRow(row?: QueueMessage | null) {
-  return String(row?.type || "").startsWith("publish-product-");
+  return isPublishFamily(row?.type);
+}
+
+/** 商品发布家族（发布配置驱动，有套图/标题状态与重新生成能力） */
+function isPublishProductTaskRow(row?: QueueMessage | null) {
+  return isPublishProductFamily(row?.type);
+}
+
+/** 媒体发布家族（Agent 直投） */
+function isPublishMediaTaskRow(row?: QueueMessage | null) {
+  return isPublishMediaFamily(row?.type);
+}
+
+/** 是否 Agent 直投创建的媒体发布任务 */
+function isAgentCreatedTaskRow(row?: QueueMessage | null) {
+  return String(row?.metadata?.source || "").trim() === "agent";
 }
 
 const PUBLISH_DISPATCH_STALE_MS = 45_000;
@@ -2235,6 +2314,12 @@ function getPsdSetStatusInfo(row: QueueMessage) {
 }
 
 /** 平台短标签：publish-product-doudian -> 抖店 */
+function getQueuePlatformKey(row?: QueueMessage | null): string {
+  const type = String(row?.type || row?.queue || "").trim();
+  if (!type) return "";
+  return resolveTaskTypePlatform(type) || "";
+}
+
 function getQueuePlatformLabel(row?: QueueMessage | null): string {
   const type = String(row?.type || row?.queue || "").trim();
   if (!type) return "";
@@ -2261,7 +2346,10 @@ function formatQueueDuration(ms: number): string {
   return restMinutes ? `${hours}h${restMinutes}m` : `${hours}h`;
 }
 
-/** 耗时：已结束看 processedAt/updatedAt，未结束看「至今」 */
+/** 耗时计算锚定的快照时间：每次列表加载时更新，保证渲染期间文本稳定 */
+let listSnapshotTime = Date.now();
+
+/** 耗时：已结束看 processedAt/updatedAt，未结束锚定到列表快照时刻（不实时跳动） */
 function getQueueDurationText(row?: QueueMessage | null): string {
   const startedAt = parseQueueTimestamp(row?.createdAt);
   if (startedAt === null) return "-";
@@ -2270,11 +2358,52 @@ function getQueueDurationText(row?: QueueMessage | null): string {
   const endedAt = finished
     ? parseQueueTimestamp(row?.processedAt) ?? parseQueueTimestamp(row?.updatedAt)
     : null;
-  return formatQueueDuration((endedAt ?? Date.now()) - startedAt);
+  return formatQueueDuration((endedAt ?? listSnapshotTime) - startedAt);
 }
 
 function getQueueRetryText(row?: QueueMessage | null): string {
   return `${row?.attempts ?? 0}/${row?.maxAttempts ?? 0}`;
+}
+
+/** 悬停详情面板：全部执行明细行（有值才显示） */
+function getQueueExecutionDetailRows(row?: QueueMessage | null): { label: string; value: string }[] {
+  const meta = getPublishDispatchMeta(row) || {};
+  const target = getQueueTaskDispatchTarget(row);
+  const status = String(row?.status || "");
+  const finished = status === "completed" || status === "failed";
+  const progress = Number(meta?.progress);
+
+  const rows: { label: string; value: string }[] = [];
+  const push = (label: string, value?: string | null) => {
+    const v = String(value || "").trim();
+    // 过滤空值以及上游序列化产生的字面量 "null"/"undefined"
+    if (v && v !== "-" && v !== "null" && v !== "undefined") {
+      rows.push({ label, value: v });
+    }
+  };
+
+  push(t('queue.creator'), getQueueCreatorText(row));
+  push(t('queue.createdAt'), formatQueueFullTime(row?.createdAt));
+  push(t('queue.dispatchedAt'), formatQueueFullTime(meta?.assignedAt));
+  push(t('queue.startedAt'), formatQueueFullTime(meta?.startedAt));
+  push(
+    t('queue.finishedAt'),
+    formatQueueFullTime(meta?.finishedAt || (finished ? row?.processedAt || row?.updatedAt : null)),
+  );
+  push(t('queue.duration'), getQueueDurationText(row));
+  push(t('queue.retryCount'), getQueueRetryText(row));
+  if (Number.isFinite(progress) && progress > 0) {
+    push(t('queue.progress'), `${progress}%`);
+  }
+  push(t('queue.client'), target.clientId);
+  push(t('queue.machineCode'), target.machineCode);
+  push(t('queue.environment'), target.profileId);
+  push(t('queue.dispatchMode'), meta?.dispatchMode);
+  push(t('queue.lastHeartbeat'), formatQueueFullTime(meta?.lastHeartbeatAt));
+  if (meta?.lastError) {
+    push(t('queue.lastError'), meta.lastError);
+  }
+  return rows;
 }
 
 function getQueueCurrentStepText(row?: QueueMessage | null): string {
@@ -2316,32 +2445,24 @@ function getExecutionStatusInfo(row: QueueMessage): ExecutionStatusInfo {
 function getQueueTaskDispatchTarget(row?: QueueMessage | null) {
   const meta = getPublishDispatchMeta(row);
   const runtime = extractTaskRuntime(normalizeTaskDataRecord(row?.data), row?.taskRuntimeLog);
-  const clientId = String(meta?.assignedClientId || runtime?.assignedClientId || "").trim() || null;
-  const machineCode =
-    String(meta?.assignedMachineCode || runtime?.assignedMachineCode || "").trim() || null;
+  // 上游可能把 null 序列化成字符串 "null"，统一剔除
+  const clean = (v: any) => {
+    const s = String(v || "").trim();
+    return s && s !== "null" && s !== "undefined" ? s : null;
+  };
+  const clientId = clean(meta?.assignedClientId) || clean(runtime?.assignedClientId);
+  const machineCode = clean(meta?.assignedMachineCode) || clean(runtime?.assignedMachineCode);
   const profileId =
-    String(
-      meta?.profileId ||
-        row?.metadata?.profileId ||
-        row?.metadata?.browserAutomationProfileId ||
-        runtime?.assignedProfileId ||
-        "",
-    ).trim() || null;
+    clean(meta?.profileId) ||
+    clean(row?.metadata?.profileId) ||
+    clean(row?.metadata?.browserAutomationProfileId) ||
+    clean(runtime?.assignedProfileId);
 
   return {
     clientId,
     machineCode,
     profileId,
   };
-}
-
-function getQueueTaskDispatchTargetText(row?: QueueMessage | null) {
-  const target = getQueueTaskDispatchTarget(row);
-  if (!target.clientId && !target.machineCode) {
-    return "-";
-  }
-
-  return target.machineCode || target.clientId || t('queue.unknownClient');
 }
 
 function canStartPublishExecution(row: QueueMessage) {
@@ -2576,6 +2697,7 @@ async function getList(options?: unknown) {
       status: queryParams.status,
       executionReadinessStatus: queryParams.executionReadinessStatus,
       types: getSelectedQueryTypes().length > 0 ? getSelectedQueryTypes() : undefined,
+      family: (queryParams.family as "product" | "media" | "") || undefined,
       id: queryParams.id?.trim() || undefined,
       sortField: sortField as "createdAt" | "updatedAt" | "processedAt",
       sortOrder: sortOrder as "ASC" | "DESC",
@@ -2620,6 +2742,8 @@ async function getList(options?: unknown) {
               ? messages.length
               : 0;
 
+        // 列表快照时间：耗时计算统一锚定到此刻，避免未完成任务每次重渲染秒数跳动
+        listSnapshotTime = Date.now();
         dataSource.value = Array.isArray(messages) ? messages : [];
         if (!silent || responseData.total !== undefined) {
           total.value = totalCount;
@@ -2670,6 +2794,7 @@ function handleResetQuery() {
   queryParams.status = undefined;
   queryParams.executionReadinessStatus = undefined;
   queryParams.types = [];
+  queryParams.family = "";
   queryParams.id = "";
   queryParams.sortType = defaultQueueQueryFilters.sortType;
   queryParams.createdDateRange = null;
@@ -3559,9 +3684,7 @@ async function handleBatchRegeneratePublishTasks() {
     return ElMessage.warning(t('queue.selectTaskToRegenerate'));
   }
 
-  const publishRows = selectedRows.filter((row) =>
-    String(row?.type || "").startsWith("publish-product-"),
-  );
+  const publishRows = selectedRows.filter((row) => isPublishProductTaskRow(row));
   const ignoredNonPublishCount = selectedRows.length - publishRows.length;
   if (!publishRows.length) {
     return ElMessage.warning(t('queue.noRegenerableTask'));
@@ -4009,6 +4132,7 @@ watch(
   () => ({
     id: queryParams.id,
     types: [...queryParams.types],
+    family: queryParams.family,
     status: queryParams.status,
     executionReadinessStatus: queryParams.executionReadinessStatus,
     sortType: queryParams.sortType,
@@ -4019,6 +4143,7 @@ watch(
     queueQueryFilterStorage.value = {
       id: newValue.id || "",
       types: newValue.types,
+      family: newValue.family as "" | "product" | "media",
       status: newValue.status,
       executionReadinessStatus: newValue.executionReadinessStatus,
       sortType: newValue.sortType,
@@ -4891,12 +5016,40 @@ onUnmounted(() => {
   line-height: 1.55;
 }
 
+.queue-page :deep(.queue-task-cell__title-line) {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.queue-page :deep(.queue-task-cell__title-line > *) {
+  min-width: 0;
+}
+
+.queue-page :deep(.queue-task-cell__title-line .queue-platform-chip) {
+  flex: none;
+}
+
 .queue-page :deep(.queue-task-cell__title) {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
   font-size: 13px;
   font-weight: 500;
   color: var(--el-text-color-primary);
-  white-space: normal;
-  word-break: break-word;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.queue-page :deep(.queue-task-cell__full) {
+  max-height: 240px;
+  overflow-y: auto;
+  color: var(--el-text-color-regular);
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 .queue-page :deep(.queue-task-cell__meta) {
@@ -4921,6 +5074,45 @@ onUnmounted(() => {
   line-height: 1;
   letter-spacing: 0.2px;
 }
+
+/* Agent 直投标记：warning 色，与普通 chip 区分 */
+.queue-page :deep(.queue-task-cell__chip--agent) {
+  border-color: color-mix(in srgb, var(--el-color-warning) 35%, transparent);
+  background: color-mix(in srgb, var(--el-color-warning) 9%, transparent);
+  color: var(--el-color-warning);
+}
+
+/* 平台 chip：实心品牌色底 + 白字，保证对比度和辨识度 */
+.queue-page :deep(.queue-platform-chip) {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 10px;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  color: #ffffff;
+  background: var(--el-color-info);
+}
+
+/* 媒体平台 */
+.queue-page :deep(.queue-platform-chip--weibo) { background: #e6162d; }
+.queue-page :deep(.queue-platform-chip--douyin) { background: #161823; }
+.queue-page :deep(.queue-platform-chip--xiaohongshu) { background: #ff2442; }
+.queue-page :deep(.queue-platform-chip--kuaishou) { background: #ff4906; }
+.queue-page :deep(.queue-platform-chip--tiktok) { background: #111111; }
+.queue-page :deep(.queue-platform-chip--youtube) { background: #ff0000; }
+
+/* 电商平台 */
+.queue-page :deep(.queue-platform-chip--doudian) { background: #6a5cff; }
+.queue-page :deep(.queue-platform-chip--kuaishou_shop) { background: #ff4906; }
+.queue-page :deep(.queue-platform-chip--xianyu) { background: #ffd414; color: #4a3b00; }
+.queue-page :deep(.queue-platform-chip--temu) { background: #fb7701; }
+.queue-page :deep(.queue-platform-chip--taobao) { background: #ff4400; }
+.queue-page :deep(.queue-platform-chip--pdd) { background: #e02e24; }
 
 .queue-page :deep(.queue-task-cell__error) {
   font-size: 12px;
@@ -4957,6 +5149,70 @@ onUnmounted(() => {
 .queue-page :deep(.queue-status-pill) {
   background: var(--el-fill-color-light);
   color: var(--el-text-color-regular);
+}
+
+.queue-page :deep(.queue-status-detail-cell) {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.queue-page :deep(.queue-exec-cell) {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.6;
+  font-size: 11px;
+}
+
+.queue-page :deep(.queue-exec-cell__line) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.queue-page :deep(.queue-exec-cell__label) {
+  flex: none;
+  width: 36px;
+  color: var(--el-text-color-secondary);
+}
+
+.queue-page :deep(.queue-exec-cell__value) {
+  color: var(--el-text-color-regular);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.queue-exec-detail__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  margin-bottom: 8px;
+}
+
+.queue-exec-detail__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 3px 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.queue-exec-detail__label {
+  flex: none;
+  width: 64px;
+  color: var(--el-text-color-secondary);
+}
+
+.queue-exec-detail__value {
+  flex: 1;
+  min-width: 0;
+  color: var(--el-text-color-primary);
+  word-break: break-all;
 }
 
 .queue-page :deep(.queue-status-pill--success) {

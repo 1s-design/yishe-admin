@@ -5,6 +5,7 @@ import {
 } from "@/api/system/queue";
 import {
   TASK_TYPE_OPTIONS,
+  isPublishMediaFamily,
   resolveTaskTypePlatform,
   getTaskTypeLabel,
 } from "@/config/task-types";
@@ -14,7 +15,7 @@ export interface PublishTaskTypeOption {
   value: string;
   platform: string;
   platformLabel?: string | null;
-  taskKind: "publish-product";
+  taskKind: "publish-product" | "publish-media";
 }
 
 function normalizeResponseData(response: any): any {
@@ -33,7 +34,7 @@ function normalizeTaskTypeOption(
     label: String(item?.label || getTaskTypeLabel(value, platform) || value).trim(),
     platform,
     platformLabel: item?.platformLabel ?? null,
-    taskKind: "publish-product",
+    taskKind: isPublishMediaFamily(value) ? "publish-media" : "publish-product",
   };
 }
 

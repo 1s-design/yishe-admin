@@ -155,6 +155,8 @@ export const getTaskList = (params: {
   status?: "pending" | "waiting" | "processing" | "completed" | "failed";
   type?: string;
   types?: string[];
+  /** 发布任务家族：product=商品发布，media=媒体发布 */
+  family?: "product" | "media";
   id?: string;
   executionReadinessStatus?: QueueExecutionReadinessStatusFilter;
   sortField?: "createdAt" | "updatedAt" | "processedAt";
@@ -183,6 +185,9 @@ export const getTaskList = (params: {
   }
   if (!queryParams.executionReadinessStatus) {
     delete queryParams.executionReadinessStatus;
+  }
+  if (!queryParams.family) {
+    delete queryParams.family;
   }
   if (!queryParams.createdAfter) {
     delete queryParams.createdAfter;
