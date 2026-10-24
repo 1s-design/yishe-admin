@@ -366,7 +366,6 @@
                       placement="left-start"
                       :width="360"
                       trigger="hover"
-                      :teleported="false"
                       popper-class="queue-exec-popover"
                     >
                       <template #reference>
