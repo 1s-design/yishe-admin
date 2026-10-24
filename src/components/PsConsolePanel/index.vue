@@ -71,6 +71,35 @@
                 </span>
               </div>
               <div class="compact-info__item">
+                <span class="compact-info__label">{{ t('psConsole.memoryPs') }}</span>
+                <span class="compact-info__value">
+                  <el-tooltip
+                    v-if="selectedClientMemory.reason"
+                    :content="selectedClientMemory.reason"
+                    placement="top"
+                    :show-after="200"
+                  >
+                    <span class="status-chip" :class="`is-${selectedClientMemory.psTone}`">
+                      <span class="status-chip__dot" />
+                      <span>{{ selectedClientMemory.psText }}</span>
+                    </span>
+                  </el-tooltip>
+                  <span v-else class="status-chip" :class="`is-${selectedClientMemory.psTone}`">
+                    <span class="status-chip__dot" />
+                    <span>{{ selectedClientMemory.psText }}</span>
+                  </span>
+                </span>
+              </div>
+              <div class="compact-info__item">
+                <span class="compact-info__label">{{ t('psConsole.memorySystemCommit') }}</span>
+                <span class="compact-info__value">
+                  <span class="status-chip" :class="`is-${selectedClientMemory.sysTone}`">
+                    <span class="status-chip__dot" />
+                    <span>{{ selectedClientMemory.sysText }}</span>
+                  </span>
+                </span>
+              </div>
+              <div class="compact-info__item">
                 <span class="compact-info__label">{{ t('psConsole.runningState') }}</span>
                 <span class="compact-info__value">{{
                   resolvePsStateText(selectedPsBridgeService?.state)
@@ -1143,6 +1172,74 @@ const selectedClient = computed(() => {
 const selectedClientDisplayName = computed(
   () => selectedClient.value?.clientInfo?.machine?.code || selectedClient.value?.id || "-",
 );
+
+// ---- 选中节点的内存状态（数据来自客户端上报的 psAutomation.memory） ----
+const PS_MEMORY_COMMIT_WARN_GB = 6;
+const SYSTEM_COMMIT_WARN_PCT = 90;
+
+const selectedClientMemory = computed(() => {
+  const client = selectedClient.value;
+  const memory = client?.clientInfo?.psAutomation?.memory;
+  if (!client?.isOnline) {
+    return {
+      available: false,
+      psTone: "info",
+      psText: "-",
+      sysTone: "info",
+      sysText: "-",
+      reason: t("psConsole.clientOffline"),
+    };
+  }
+  if (!memory || memory.available !== true) {
+    return {
+      available: false,
+      psTone: "info",
+      psText: t("psConsole.memoryUnknown"),
+      sysTone: "info",
+      sysText: t("psConsole.memoryUnknown"),
+      reason: t("psConsole.memoryReporterOffline"),
+    };
+  }
+  const psCommitGb = typeof memory.psCommitGb === "number" ? memory.psCommitGb : null;
+  const systemCommit = memory.systemCommit || {};
+  const systemPct =
+    typeof systemCommit.pct === "number" ? systemCommit.pct : null;
+  const usedGb =
+    typeof systemCommit.used_gb === "number" ? systemCommit.used_gb : null;
+  const limitGb =
+    typeof systemCommit.limit_gb === "number" ? systemCommit.limit_gb : null;
+  const psDanger =
+    psCommitGb !== null && psCommitGb >= PS_MEMORY_COMMIT_WARN_GB;
+  const sysDanger = systemPct !== null && systemPct >= SYSTEM_COMMIT_WARN_PCT;
+  const psText =
+    psCommitGb !== null ? `${psCommitGb.toFixed(1)} GB` : t("psConsole.memoryUnknown");
+  const sysDetail =
+    usedGb !== null && limitGb !== null
+      ? ` (${usedGb.toFixed(1)}/${limitGb.toFixed(1)}GB)`
+      : "";
+  const sysText =
+    systemPct !== null
+      ? `${systemPct.toFixed(0)}%${sysDetail}`
+      : t("psConsole.memoryUnknown");
+  const reasons: string[] = [];
+  if (psDanger) {
+    reasons.push(t("psConsole.memoryPsHigh"));
+  }
+  if (sysDanger) {
+    reasons.push(t("psConsole.memorySystemHigh"));
+  }
+  if ((psDanger || sysDanger) && memory.watchdogEnabled === false) {
+    reasons.push(t("psConsole.memoryWatchdogOff"));
+  }
+  return {
+    available: true,
+    psTone: psDanger ? "danger" : "success",
+    psText,
+    sysTone: sysDanger ? "danger" : "success",
+    sysText,
+    reason: reasons.join("；") || t("psConsole.memoryNormal"),
+  };
+});
 const operationDialogTitle = computed(
   () => `${t('psConsole.operationTitlePrefix')} · ${selectedClientDisplayName.value}`,
 );

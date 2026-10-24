@@ -1138,6 +1138,23 @@
                   </div>
                 </template>
               </el-table-column>
+              <el-table-column :label="t('psdSet.memory')" min-width="150">
+                <template #default="{ row }">
+                  <el-tooltip
+                    v-if="row.memoryStatusReason"
+                    :content="row.memoryStatusReason"
+                    placement="top"
+                    :show-after="200"
+                  >
+                    <span class="production-dispatch-dialog__state-text" :class="`is-${row.memoryStatusTone}`">
+                      {{ row.memoryStatusText }}
+                    </span>
+                  </el-tooltip>
+                  <span v-else class="production-dispatch-dialog__state-text" :class="`is-${row.memoryStatusTone}`">
+                    {{ row.memoryStatusText }}
+                  </span>
+                </template>
+              </el-table-column>
               <el-table-column :label="t('psdSet.production')" width="82" align="center">
                 <template #default="{ row }">
                   <span class="production-dispatch-dialog__state-text" :class="`is-${row.productionStatusTone}`">
@@ -3008,6 +3025,53 @@ function getDispatchClientPsStatus(client: any) {
   return { text: t("psdSet.notEnabled"), tone: "muted", reason: issue.reason };
 }
 
+const PS_MEMORY_COMMIT_WARN_GB = 6;
+const SYSTEM_COMMIT_WARN_PCT = 90;
+
+function getDispatchClientMemoryStatus(client: any) {
+  const memory = client?.clientInfo?.psAutomation?.memory;
+  if (!client?.isOnline) {
+    return { text: "-", tone: "muted", reason: t("psdSet.clientOffline") };
+  }
+  if (!memory || memory.available !== true) {
+    return {
+      text: t("psdSet.memoryUnknown"),
+      tone: "muted",
+      reason: t("psdSet.memoryReporterOffline"),
+    };
+  }
+  const psCommitGb =
+    typeof memory.psCommitGb === "number" ? memory.psCommitGb : null;
+  const systemCommit = memory.systemCommit || {};
+  const systemPct =
+    typeof systemCommit.pct === "number" ? systemCommit.pct : null;
+  const parts: string[] = [];
+  if (psCommitGb !== null) {
+    parts.push(`PS ${psCommitGb.toFixed(1)}GB`);
+  }
+  if (systemPct !== null) {
+    parts.push(`${t("psdSet.memorySystem")} ${systemPct.toFixed(0)}%`);
+  }
+  const text = parts.length ? parts.join(" / ") : t("psdSet.memoryUnknown");
+  const psDanger = psCommitGb !== null && psCommitGb >= PS_MEMORY_COMMIT_WARN_GB;
+  const sysDanger = systemPct !== null && systemPct >= SYSTEM_COMMIT_WARN_PCT;
+  const reasonBits: string[] = [];
+  if (psDanger) {
+    reasonBits.push(t("psdSet.memoryPsHigh"));
+  }
+  if (sysDanger) {
+    reasonBits.push(t("psdSet.memorySystemHigh"));
+  }
+  if ((psDanger || sysDanger) && memory.watchdogEnabled === false) {
+    reasonBits.push(t("psdSet.memoryWatchdogOff"));
+  }
+  return {
+    text,
+    tone: psDanger || sysDanger ? "danger" : "success",
+    reason: reasonBits.join("；") || t("psdSet.memoryNormal"),
+  };
+}
+
 function getDispatchClientProductionStatus(client: any) {
   const activeItems = getDispatchClientActivePsdSets(client);
   if (activeItems.length > 0) {
@@ -3041,6 +3105,7 @@ const dispatchClientRows = computed(() =>
       const onlineStatus = getDispatchClientOnlineStatus(client);
       const psStatus = getDispatchClientPsStatus(client);
       const productionStatus = getDispatchClientProductionStatus(client);
+      const memoryStatus = getDispatchClientMemoryStatus(client);
       return {
         id: client.id,
         client,
@@ -3051,6 +3116,9 @@ const dispatchClientRows = computed(() =>
         psStatusText: psStatus.text,
         psStatusTone: psStatus.tone,
         psStatusReason: psStatus.reason,
+        memoryStatusText: memoryStatus.text,
+        memoryStatusTone: memoryStatus.tone,
+        memoryStatusReason: memoryStatus.reason,
         productionStatusText: productionStatus.text,
         productionStatusTone: productionStatus.tone,
         activeTaskLabel: getDispatchClientTaskLabel(client),
