@@ -13,12 +13,12 @@
                 :lg="6"
                 :xl="6"
               >
-                <el-form-item :label="t('remotionVideoRecord.keyword')">
+                <el-form-item :label="t('videoRecord.keyword')">
                   <el-input
                     v-model="queryParams.keyword"
                     size="small"
                     clearable
-                    :placeholder="t('remotionVideoRecord.titlePlaceholder')"
+                    :placeholder="t('videoRecord.titlePlaceholder')"
                     @keyup.enter="getList"
                     @change="handleKeywordChange"
                   />
@@ -37,16 +37,16 @@
                     v-model="queryParams.status"
                     size="small"
                     clearable
-                    :placeholder="t('remotionVideoRecord.allStatus')"
+                    :placeholder="t('videoRecord.allStatus')"
                     @change="getList"
                   >
-                    <el-option :label="t('remotionVideoRecord.statusPending')" value="pending" />
-                    <el-option :label="t('remotionVideoRecord.statusPendingClient')" value="pending_client" />
-                    <el-option :label="t('remotionVideoRecord.statusAssigned')" value="assigned" />
-                    <el-option :label="t('remotionVideoRecord.statusQueued')" value="queued" />
-                    <el-option :label="t('remotionVideoRecord.statusProcessing')" value="processing" />
+                    <el-option :label="t('videoRecord.statusPending')" value="pending" />
+                    <el-option :label="t('videoRecord.statusPendingClient')" value="pending_client" />
+                    <el-option :label="t('videoRecord.statusAssigned')" value="assigned" />
+                    <el-option :label="t('videoRecord.statusQueued')" value="queued" />
+                    <el-option :label="t('videoRecord.statusProcessing')" value="processing" />
                     <el-option :label="t('common.success')" value="success" />
-                    <el-option :label="t('remotionVideoRecord.statusFailed')" value="failed" />
+                    <el-option :label="t('videoRecord.statusFailed')" value="failed" />
                   </el-select>
                 </el-form-item>
               </el-col>
@@ -63,7 +63,7 @@
               <el-button size="small" type="primary" @click="openCreateDialog()">{{ t('common.add') }}</el-button>
               <el-button size="small" type="success" @click="openAiGenerateDialog()">
                 <el-icon><MagicStick /></el-icon>
-                {{ t('remotionVideoRecord.aiGenerate') }}
+                {{ t('videoRecord.aiGenerate') }}
               </el-button>
               <el-button size="small" type="primary" plain @click="router.push('/content/remotion-skill')">
                 视频模版skill
@@ -75,7 +75,7 @@
                 :disabled="loading"
                 @click="handleBatchDelete"
               >
-                {{ t('remotionVideoRecord.batchDelete', { count: selectedRows.length }) }}
+                {{ t('videoRecord.batchDelete', { count: selectedRows.length }) }}
               </el-button>
             </div>
           </el-form>
@@ -200,12 +200,12 @@
                       >
                       <template #dropdown>
                         <el-dropdown-menu class="operation-menu-compact">
-                          <el-dropdown-item command="detail">{{ t('remotionVideoRecord.viewDetail') }}</el-dropdown-item>
+                          <el-dropdown-item command="detail">{{ t('videoRecord.viewDetail') }}</el-dropdown-item>
                           <el-dropdown-item
                             v-if="hasPlayableVideo(row)"
                             command="preview"
                           >
-                            {{ t('remotionVideoRecord.videoPreview') }}
+                            {{ t('videoRecord.videoPreview') }}
                           </el-dropdown-item>
                           <el-dropdown-item
                             v-if="row.responseData?.prompt || row.inputProps?.prompt"
@@ -253,7 +253,7 @@
 
   <el-dialog
     v-model="createVisible"
-    :title="t('remotionVideoRecord.createVideoProduction')"
+    :title="t('videoRecord.createVideoProduction')"
     fullscreen
     destroy-on-close
     class="remotion-create-dialog"
@@ -298,7 +298,7 @@
           :disabled="!canSubmitGenerate"
           @click="submitGenerate"
         >
-          {{ t('remotionVideoRecord.startProduction') }}
+          {{ t('videoRecord.startProduction') }}
         </el-button>
       </div>
     </div>
@@ -312,7 +312,7 @@
             <el-input
               v-model="templateSearchKeyword"
               clearable
-              :placeholder="t('remotionVideoRecord.searchTemplatePlaceholder')"
+              :placeholder="t('videoRecord.searchTemplatePlaceholder')"
               class="filter-search"
               @input="handleTemplateFilterChange"
             >
@@ -323,7 +323,7 @@
             <el-select
               v-model="templateFilters.category"
               clearable
-              :placeholder="t('remotionVideoRecord.contentCategory')"
+              :placeholder="t('videoRecord.contentCategory')"
               class="filter-select"
               @change="handleTemplateFilterChange"
             >
@@ -337,18 +337,18 @@
             <el-select
               v-model="templateFilters.orientation"
               clearable
-              :placeholder="t('remotionVideoRecord.orientation')"
+              :placeholder="t('videoRecord.orientation')"
               class="filter-select filter-select--compact"
               @change="handleTemplateFilterChange"
             >
-              <el-option :label="t('remotionVideoRecord.portrait')" value="portrait" />
-              <el-option :label="t('remotionVideoRecord.landscape')" value="landscape" />
-              <el-option :label="t('remotionVideoRecord.square')" value="square" />
+              <el-option :label="t('videoRecord.portrait')" value="portrait" />
+              <el-option :label="t('videoRecord.landscape')" value="landscape" />
+              <el-option :label="t('videoRecord.square')" value="square" />
             </el-select>
             <el-select
               v-model="templateFilters.durationLabel"
               clearable
-              :placeholder="t('remotionVideoRecord.durationType')"
+              :placeholder="t('videoRecord.durationType')"
               class="filter-select"
               @change="handleTemplateFilterChange"
             >
@@ -363,7 +363,7 @@
               v-model="templateFilters.tag"
               clearable
               filterable
-              :placeholder="t('remotionVideoRecord.tag')"
+              :placeholder="t('videoRecord.tag')"
               class="filter-select"
               @change="handleTemplateFilterChange"
             >
@@ -378,7 +378,7 @@
               v-model="templateFilters.style"
               clearable
               filterable
-              :placeholder="t('remotionVideoRecord.style')"
+              :placeholder="t('videoRecord.style')"
               class="filter-select filter-select--wide"
               @change="handleTemplateFilterChange"
             >
@@ -394,13 +394,13 @@
             </el-button>
           </div>
           <div class="template-filter-summary">
-            <span>{{ t('remotionVideoRecord.currentCount', { count: templateMeta.total || filteredTemplateOptions.length }) }}</span>
-            <span v-if="templateMeta.allTotal">{{ t('remotionVideoRecord.allCount', { count: templateMeta.allTotal }) }}</span>
+            <span>{{ t('videoRecord.currentCount', { count: templateMeta.total || filteredTemplateOptions.length }) }}</span>
+            <span v-if="templateMeta.allTotal">{{ t('videoRecord.allCount', { count: templateMeta.allTotal }) }}</span>
           </div>
         </div>
 
         <div v-if="categorizedTemplates.length === 0" class="template-grid-empty">
-          <el-empty :description="t('remotionVideoRecord.noMatchingTemplates')" />
+          <el-empty :description="t('videoRecord.noMatchingTemplates')" />
         </div>
         <div v-else class="template-categories">
           <div
@@ -410,7 +410,7 @@
           >
             <div class="template-category-header">
               <span class="template-category-name">{{ group.category }}</span>
-              <span class="template-category-count">{{ t('remotionVideoRecord.templateCount', { count: group.templates.length }) }}</span>
+              <span class="template-category-count">{{ t('videoRecord.templateCount', { count: group.templates.length }) }}</span>
             </div>
             <div class="template-grid">
               <div
@@ -450,7 +450,7 @@
               <span class="params-template-id">ID: {{ selectedTemplate.id }}</span>
             </div>
             <el-button type="primary" link @click="currentStep = 0">
-              {{ t('remotionVideoRecord.reselect') }}
+              {{ t('videoRecord.reselect') }}
             </el-button>
           </div>
 
@@ -477,7 +477,7 @@
             </div>
           </div>
         </div>
-        <el-empty v-else :description="t('remotionVideoRecord.selectTemplateFirst')" />
+        <el-empty v-else :description="t('videoRecord.selectTemplateFirst')" />
       </div>
 
       <!-- 步骤3: 确认提交 -->
@@ -486,23 +486,23 @@
           <div class="confirm-section">
             <div class="confirm-title">
               <span class="confirm-title-indicator"></span>
-              <span>{{ t('remotionVideoRecord.templateInfo') }}</span>
+              <span>{{ t('videoRecord.templateInfo') }}</span>
             </div>
             <div class="confirm-grid">
               <div class="confirm-item">
-                <span class="confirm-label">{{ t('remotionVideoRecord.templateName') }}</span>
+                <span class="confirm-label">{{ t('videoRecord.templateName') }}</span>
                 <span class="confirm-value">{{ selectedTemplate.name }}</span>
               </div>
               <div class="confirm-item">
-                <span class="confirm-label">{{ t('remotionVideoRecord.resolution') }}</span>
+                <span class="confirm-label">{{ t('videoRecord.resolution') }}</span>
                 <span class="confirm-value">{{ selectedTemplate.width }} × {{ selectedTemplate.height }}</span>
               </div>
               <div class="confirm-item">
-                <span class="confirm-label">{{ t('remotionVideoRecord.duration') }}</span>
+                <span class="confirm-label">{{ t('videoRecord.duration') }}</span>
                 <span class="confirm-value">{{ selectedTemplate.durationLabel || '-' }}</span>
               </div>
               <div class="confirm-item">
-                <span class="confirm-label">{{ t('remotionVideoRecord.fps') }}</span>
+                <span class="confirm-label">{{ t('videoRecord.fps') }}</span>
                 <span class="confirm-value">{{ selectedTemplate.fps }} fps</span>
               </div>
             </div>
@@ -511,7 +511,7 @@
           <div class="confirm-section">
             <div class="confirm-title">
               <span class="confirm-title-indicator"></span>
-              <span>{{ t('remotionVideoRecord.inputParams') }}</span>
+              <span>{{ t('videoRecord.inputParams') }}</span>
             </div>
             <div class="confirm-params">
               <pre>{{ displayParamsJson }}</pre>
@@ -521,17 +521,17 @@
           <div class="confirm-section">
             <div class="confirm-title">
               <span class="confirm-title-indicator"></span>
-              <span>{{ t('remotionVideoRecord.taskSettings') }}</span>
+              <span>{{ t('videoRecord.taskSettings') }}</span>
             </div>
             <el-form label-position="top" class="confirm-form">
               <el-row :gutter="16">
                 <el-col :xs="24" :sm="14">
-                  <el-form-item :label="t('remotionVideoRecord.recordTitleOptional')">
-                    <el-input v-model="form.title" :placeholder="t('remotionVideoRecord.titlePlaceholderDetail')" clearable />
+                  <el-form-item :label="t('videoRecord.recordTitleOptional')">
+                    <el-input v-model="form.title" :placeholder="t('videoRecord.titlePlaceholderDetail')" clearable />
                   </el-form-item>
                 </el-col>
                 <el-col :xs="24" :sm="10">
-                  <el-form-item :label="t('remotionVideoRecord.timeoutMs')">
+                  <el-form-item :label="t('videoRecord.timeoutMs')">
                     <el-input-number
                       v-model="form.timeoutMs"
                       :min="1000"
@@ -550,8 +550,8 @@
             type="error"
             :closable="false"
             show-icon
-            :title="t('remotionVideoRecord.clientNotDetected')"
-            :description="remotionStatus.message || t('remotionVideoRecord.clientLoginTip')"
+            :title="t('videoRecord.clientNotDetected')"
+            :description="remotionStatus.message || t('videoRecord.clientLoginTip')"
             class="confirm-alert"
           />
         </div>
@@ -562,7 +562,7 @@
 
   <el-dialog
     v-model="detailVisible"
-    :title="t('remotionVideoRecord.videoDetail')"
+    :title="t('videoRecord.videoDetail')"
     fullscreen
     destroy-on-close
     class="remotion-detail-dialog"
@@ -576,7 +576,7 @@
           controls
           class="detail-video"
         ></video>
-        <el-empty v-else :description="t('remotionVideoRecord.noVideoResult')" :image-size="96" />
+        <el-empty v-else :description="t('videoRecord.noVideoResult')" :image-size="96" />
       </div>
 
       <!-- 右侧：信息面板 (可滚动) -->
@@ -715,7 +715,7 @@
   >
     <template #header>
       <div class="preview-simple-header">
-        <span class="preview-simple-title">{{ previewRow?.title || t('remotionVideoRecord.videoPreview') }}</span>
+        <span class="preview-simple-title">{{ previewRow?.title || t('videoRecord.videoPreview') }}</span>
         <div class="preview-simple-actions">
           <el-button size="small" @click="copyPreviewUrl">复制地址</el-button>
           <el-button size="small" @click="openPreviewInNewTab">新窗口打开</el-button>
@@ -1414,14 +1414,14 @@ import { useWindowSize } from "@vueuse/core";
 import { formatTimestamp } from "@/common/date";
 import { buildOperationColumn, buildTimeColumn, commonGridOptions } from "@/common/table";
 import {
-  deleteRemotionVideoRecord,
-  batchDeleteRemotionVideoRecord,
-  generateRemotionVideoRecord,
-  getRemotionVideoRecordDetail,
-  getRemotionVideoRecordPage,
-  aiGenerateRemotionVideoRecord,
-  retryRemotionVideoRecord,
-} from "@/api/remotion-video-record";
+  deleteVideoRecord,
+  batchDeleteVideoRecord,
+  generateVideoRecord,
+  getVideoRecordDetail,
+  getVideoRecordPage,
+  aiGenerateVideoRecord,
+  retryVideoRecord,
+} from "@/api/video-record";
 import {
   getRemotionSkillList,
   createRemotionSkill,
@@ -1436,7 +1436,7 @@ import ContentWrap from "@/components/ContentWrap/src/ContentWrap.vue";
 import ListPageLayout from "@/components/ListPageLayout/index.vue";
 import Pagination from "@/components/Pagination/index.vue";
 import { refreshServiceHealth, useServiceHealthState } from "@/services/serviceHealthState";
-import { websocketClient, type RemotionVideoRecordStatusEvent } from "@/services/websocketClient";
+import { websocketClient, type VideoRecordStatusEvent } from "@/services/websocketClient";
 
 const { t } = useI18n();
 
@@ -2156,9 +2156,9 @@ const jsonEditError = ref("");
 let syncingJsonFromForm = false;
 
 const steps = computed(() => [
-  { label: t("remotionVideoRecord.stepSelectTemplate") },
-  { label: t("remotionVideoRecord.stepFillParams") },
-  { label: t("remotionVideoRecord.stepConfirmSubmit") },
+  { label: t("videoRecord.stepSelectTemplate") },
+  { label: t("videoRecord.stepFillParams") },
+  { label: t("videoRecord.stepConfirmSubmit") },
 ]);
 
 const queryParams = reactive({
@@ -2303,40 +2303,40 @@ const filteredTemplateOptions = computed(() => templateOptions.value);
 /** 模板中文名映射（ID → 名称/描述） */
 const templateNameMap = computed<Record<string, { name: string; desc: string }>>(() => ({
   // 过渡效果
-  'fade': { name: t('remotionVideoRecord.tplFade'), desc: t('remotionVideoRecord.tplFadeDesc') },
-  'fade-in': { name: t('remotionVideoRecord.tplFadeIn'), desc: t('remotionVideoRecord.tplFadeInDesc') },
-  'fade-out': { name: t('remotionVideoRecord.tplFadeOut'), desc: t('remotionVideoRecord.tplFadeOutDesc') },
-  'crossfade': { name: t('remotionVideoRecord.tplCrossfade'), desc: t('remotionVideoRecord.tplCrossfadeDesc') },
-  'dissolve': { name: t('remotionVideoRecord.tplDissolve'), desc: t('remotionVideoRecord.tplDissolveDesc') },
-  'wipe': { name: t('remotionVideoRecord.tplWipe'), desc: t('remotionVideoRecord.tplWipeDesc') },
+  'fade': { name: t('videoRecord.tplFade'), desc: t('videoRecord.tplFadeDesc') },
+  'fade-in': { name: t('videoRecord.tplFadeIn'), desc: t('videoRecord.tplFadeInDesc') },
+  'fade-out': { name: t('videoRecord.tplFadeOut'), desc: t('videoRecord.tplFadeOutDesc') },
+  'crossfade': { name: t('videoRecord.tplCrossfade'), desc: t('videoRecord.tplCrossfadeDesc') },
+  'dissolve': { name: t('videoRecord.tplDissolve'), desc: t('videoRecord.tplDissolveDesc') },
+  'wipe': { name: t('videoRecord.tplWipe'), desc: t('videoRecord.tplWipeDesc') },
   // 滑动
-  'slide': { name: t('remotionVideoRecord.tplSlide'), desc: t('remotionVideoRecord.tplSlideDesc') },
-  'slide-left': { name: t('remotionVideoRecord.tplSlideLeft'), desc: t('remotionVideoRecord.tplSlideLeftDesc') },
-  'slide-right': { name: t('remotionVideoRecord.tplSlideRight'), desc: t('remotionVideoRecord.tplSlideRightDesc') },
-  'slide-up': { name: t('remotionVideoRecord.tplSlideUp'), desc: t('remotionVideoRecord.tplSlideUpDesc') },
-  'slide-down': { name: t('remotionVideoRecord.tplSlideDown'), desc: t('remotionVideoRecord.tplSlideDownDesc') },
+  'slide': { name: t('videoRecord.tplSlide'), desc: t('videoRecord.tplSlideDesc') },
+  'slide-left': { name: t('videoRecord.tplSlideLeft'), desc: t('videoRecord.tplSlideLeftDesc') },
+  'slide-right': { name: t('videoRecord.tplSlideRight'), desc: t('videoRecord.tplSlideRightDesc') },
+  'slide-up': { name: t('videoRecord.tplSlideUp'), desc: t('videoRecord.tplSlideUpDesc') },
+  'slide-down': { name: t('videoRecord.tplSlideDown'), desc: t('videoRecord.tplSlideDownDesc') },
   // 缩放
-  'zoom': { name: t('remotionVideoRecord.tplZoom'), desc: t('remotionVideoRecord.tplZoomDesc') },
-  'zoom-in': { name: t('remotionVideoRecord.tplZoomIn'), desc: t('remotionVideoRecord.tplZoomInDesc') },
-  'zoom-out': { name: t('remotionVideoRecord.tplZoomOut'), desc: t('remotionVideoRecord.tplZoomOutDesc') },
-  'scale': { name: t('remotionVideoRecord.tplScale'), desc: t('remotionVideoRecord.tplScaleDesc') },
+  'zoom': { name: t('videoRecord.tplZoom'), desc: t('videoRecord.tplZoomDesc') },
+  'zoom-in': { name: t('videoRecord.tplZoomIn'), desc: t('videoRecord.tplZoomInDesc') },
+  'zoom-out': { name: t('videoRecord.tplZoomOut'), desc: t('videoRecord.tplZoomOutDesc') },
+  'scale': { name: t('videoRecord.tplScale'), desc: t('videoRecord.tplScaleDesc') },
   // 旋转
-  'rotate': { name: t('remotionVideoRecord.tplRotate'), desc: t('remotionVideoRecord.tplRotateDesc') },
-  'spin': { name: t('remotionVideoRecord.tplSpin'), desc: t('remotionVideoRecord.tplSpinDesc') },
+  'rotate': { name: t('videoRecord.tplRotate'), desc: t('videoRecord.tplRotateDesc') },
+  'spin': { name: t('videoRecord.tplSpin'), desc: t('videoRecord.tplSpinDesc') },
   // 翻转
-  'flip': { name: t('remotionVideoRecord.tplFlip'), desc: t('remotionVideoRecord.tplFlipDesc') },
-  'flip-horizontal': { name: t('remotionVideoRecord.tplFlipHorizontal'), desc: t('remotionVideoRecord.tplFlipHorizontalDesc') },
-  'flip-vertical': { name: t('remotionVideoRecord.tplFlipVertical'), desc: t('remotionVideoRecord.tplFlipVerticalDesc') },
+  'flip': { name: t('videoRecord.tplFlip'), desc: t('videoRecord.tplFlipDesc') },
+  'flip-horizontal': { name: t('videoRecord.tplFlipHorizontal'), desc: t('videoRecord.tplFlipHorizontalDesc') },
+  'flip-vertical': { name: t('videoRecord.tplFlipVertical'), desc: t('videoRecord.tplFlipVerticalDesc') },
   // 其他基础效果
-  'blur': { name: t('remotionVideoRecord.tplBlur'), desc: t('remotionVideoRecord.tplBlurDesc') },
-  'ken-burns': { name: t('remotionVideoRecord.tplKenBurns'), desc: t('remotionVideoRecord.tplKenBurnsDesc') },
-  'parallax': { name: t('remotionVideoRecord.tplParallax'), desc: t('remotionVideoRecord.tplParallaxDesc') },
-  'push': { name: t('remotionVideoRecord.tplPush'), desc: t('remotionVideoRecord.tplPushDesc') },
-  'none': { name: t('remotionVideoRecord.tplNone'), desc: t('remotionVideoRecord.tplNoneDesc') },
+  'blur': { name: t('videoRecord.tplBlur'), desc: t('videoRecord.tplBlurDesc') },
+  'ken-burns': { name: t('videoRecord.tplKenBurns'), desc: t('videoRecord.tplKenBurnsDesc') },
+  'parallax': { name: t('videoRecord.tplParallax'), desc: t('videoRecord.tplParallaxDesc') },
+  'push': { name: t('videoRecord.tplPush'), desc: t('videoRecord.tplPushDesc') },
+  'none': { name: t('videoRecord.tplNone'), desc: t('videoRecord.tplNoneDesc') },
   // 合成
-  'slideshow': { name: t('remotionVideoRecord.tplSlideshow'), desc: t('remotionVideoRecord.tplSlideshowDesc') },
-  'collage': { name: t('remotionVideoRecord.tplCollage'), desc: t('remotionVideoRecord.tplCollageDesc') },
-  'grid': { name: t('remotionVideoRecord.tplGrid'), desc: t('remotionVideoRecord.tplGridDesc') },
+  'slideshow': { name: t('videoRecord.tplSlideshow'), desc: t('videoRecord.tplSlideshowDesc') },
+  'collage': { name: t('videoRecord.tplCollage'), desc: t('videoRecord.tplCollageDesc') },
+  'grid': { name: t('videoRecord.tplGrid'), desc: t('videoRecord.tplGridDesc') },
 }));
 
 function getTemplateLocalName(template: any): string {
@@ -2344,7 +2344,7 @@ function getTemplateLocalName(template: any): string {
 }
 
 function getTemplateLocalDesc(template: any): string {
-  return templateNameMap.value[template.id]?.desc || template.description || t('remotionVideoRecord.noDescription');
+  return templateNameMap.value[template.id]?.desc || template.description || t('videoRecord.noDescription');
 }
 
 const categorizedTemplates = computed(() => {
@@ -2400,18 +2400,18 @@ const gridOptions = computed(() => ({
   rowConfig: { keyField: "id" },
   columns: [
     { type: "checkbox", width: 50 },
-    { title: t("remotionVideoRecord.video"), field: "url", minWidth: 200, slots: { default: "videoSlot" } },
-    { title: t("remotionVideoRecord.title"), field: "title", minWidth: 260, slots: { default: "titleSlot" } },
-    { title: t("remotionVideoRecord.template"), field: "templateName", minWidth: 220, slots: { default: "templateSlot" } },
+    { title: t("videoRecord.video"), field: "url", minWidth: 200, slots: { default: "videoSlot" } },
+    { title: t("videoRecord.title"), field: "title", minWidth: 260, slots: { default: "titleSlot" } },
+    { title: t("videoRecord.template"), field: "templateName", minWidth: 220, slots: { default: "templateSlot" } },
     { title: t("common.status"), field: "status", width: 120, slots: { default: "statusSlot" } },
     {
-      title: t("remotionVideoRecord.progress"),
+      title: t("videoRecord.progress"),
       field: "responseData.progress",
       minWidth: 260,
       slots: { default: "progressSlot" },
     },
     {
-      title: t("remotionVideoRecord.uploader"),
+      title: t("videoRecord.uploader"),
       field: "uploader",
       width: 140,
       formatter: ({ row }: any) =>
@@ -2459,7 +2459,7 @@ async function handleBatchDelete() {
 
     loading.value = true;
     const ids = selectedRows.value.map((r: any) => r.id);
-    const res: any = await batchDeleteRemotionVideoRecord(ids);
+    const res: any = await batchDeleteVideoRecord(ids);
     const payload = res?.data ?? res;
     if (payload && payload.failed && payload.failed.length) {
       ElMessage.warning(`部分删除失败：${payload.failed.length} 条`);
@@ -3016,7 +3016,7 @@ function mergeRecordRow(nextRow: any) {
   }
 }
 
-function applyRemotionVideoRecordStatusEvent(event: RemotionVideoRecordStatusEvent) {
+function applyVideoRecordStatusEvent(event: VideoRecordStatusEvent) {
   const recordId = String(event?.recordId || "").trim();
   if (!recordId) {
     return;
@@ -3103,7 +3103,7 @@ async function refreshActiveRows() {
 
   try {
     const resultList = await Promise.allSettled(
-      activeIds.map((recordId) => getRemotionVideoRecordDetail(recordId)),
+      activeIds.map((recordId) => getVideoRecordDetail(recordId)),
     );
 
     resultList.forEach((result) => {
@@ -3462,7 +3462,7 @@ async function submitAiGenerate() {
   ElMessage.success('AI 视频生成任务已提交，后台正在异步处理中...');
 
   // 异步提交，不等待响应
-  aiGenerateRemotionVideoRecord(submitData)
+  aiGenerateVideoRecord(submitData)
     .then((result: any) => {
       if (result?.success) {
         getList();
@@ -3508,7 +3508,7 @@ async function submitGenerate() {
       inputPropsToSend = { ...selectedTemplate.value.defaultInputProps };
     }
 
-    const result: any = await generateRemotionVideoRecord({
+    const result: any = await generateVideoRecord({
       templateId: form.templateId,
       title: form.title || undefined,
       timeoutMs: Number(form.timeoutMs || 300000),
@@ -3559,7 +3559,7 @@ async function getList() {
   stopProcessingPoll();
   loading.value = true;
   try {
-    const result: any = await getRemotionVideoRecordPage({ ...queryParams });
+    const result: any = await getVideoRecordPage({ ...queryParams });
     dataSource.value = result?.list || result?.records || [];
     total.value = result?.total || 0;
   } catch (error: any) {
@@ -3597,7 +3597,7 @@ function copyCurrentDetailJson() {
 
 async function openDetail(row: any) {
   try {
-    const result: any = await getRemotionVideoRecordDetail(row.id);
+    const result: any = await getVideoRecordDetail(row.id);
     const data = result?.data || result || row;
     if (typeof data.inputProps === "string") {
       try { data.inputProps = JSON.parse(data.inputProps); } catch {}
@@ -3762,7 +3762,7 @@ async function handleDelete(row: any) {
     await ElMessageBox.confirm(`确认删除记录「${row.title || row.id}」吗？`, "删除确认", {
       type: "warning",
     });
-    await deleteRemotionVideoRecord(row.id);
+    await deleteVideoRecord(row.id);
     ElMessage.success("删除成功");
     await getList();
   } catch (error: any) {
@@ -3788,7 +3788,7 @@ async function handleRetry(row: any) {
         type: "warning",
       },
     );
-    await retryRemotionVideoRecord(row.id);
+    await retryVideoRecord(row.id);
     ElMessage.success("已重新提交渲染任务");
     await getList();
   } catch (err: any) {
@@ -3821,13 +3821,13 @@ function handleOperationCommand(command: string, row: any) {
 }
 
 onMounted(async () => {
-  websocketClient.events.on("remotionVideoRecordStatus", applyRemotionVideoRecordStatusEvent);
+  websocketClient.events.on("videoRecordStatus", applyVideoRecordStatusEvent);
   resetForm();
   await Promise.allSettled([loadTemplates(), getList(), checkRemotionHealth()]);
 });
 
 onBeforeUnmount(() => {
-  websocketClient.events.off("remotionVideoRecordStatus", applyRemotionVideoRecordStatusEvent);
+  websocketClient.events.off("videoRecordStatus", applyVideoRecordStatusEvent);
   stopProcessingPoll();
   if (templateSearchTimer) {
     clearTimeout(templateSearchTimer);

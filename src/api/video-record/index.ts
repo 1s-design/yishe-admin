@@ -19,13 +19,13 @@ export function getRemotionTemplateList(params?: {
   })
 }
 
-export function getRemotionVideoHealth() {
+export function getVideoTemplateHealth() {
   return request.get({
     url: '/remotion-video-record/health'
   })
 }
 
-export function generateRemotionVideoRecord(data: {
+export function generateVideoRecord(data: {
   templateId: string
   title?: string
   timeoutMs?: number
@@ -37,7 +37,7 @@ export function generateRemotionVideoRecord(data: {
   })
 }
 
-export function getRemotionVideoRecordPage(params: {
+export function getVideoRecordPage(params: {
   currentPage?: number
   pageSize?: number
   keyword?: string
@@ -49,26 +49,26 @@ export function getRemotionVideoRecordPage(params: {
   })
 }
 
-export function getRemotionVideoRecordDetail(id: string) {
+export function getVideoRecordDetail(id: string) {
   return request.get({
     url: `/remotion-video-record/${id}`
   })
 }
 
-export function deleteRemotionVideoRecord(id: string) {
+export function deleteVideoRecord(id: string) {
   return request.delete({
     url: `/remotion-video-record/${id}`
   })
 }
 
-export function batchDeleteRemotionVideoRecord(ids: string[]) {
+export function batchDeleteVideoRecord(ids: string[]) {
   return request.post({
     url: '/remotion-video-record/batch-delete',
     data: { ids }
   })
 }
 
-export function aiGenerateRemotionVideoRecord(data: {
+export function aiGenerateVideoRecord(data: {
   action?: string
   prompt: string
   params?: Record<string, any>
@@ -79,7 +79,7 @@ export function aiGenerateRemotionVideoRecord(data: {
   })
 }
 
-export function retryRemotionVideoRecord(id: string) {
+export function retryVideoRecord(id: string) {
   return request.post({
     url: `/remotion-video-record/${id}/retry`
   })

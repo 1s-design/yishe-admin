@@ -2,7 +2,7 @@ import { reactive } from "vue";
 import { getCodeScriptSandboxHealth } from "@/api/codeScript";
 import { getImageProcessingHealth } from "@/api/image-processing-record";
 import { McpApi } from "@/api/mcp";
-import { getRemotionVideoHealth } from "@/api/remotion-video-record";
+import { getVideoTemplateHealth } from "@/api/video-record";
 import { getModelServiceHealth } from "@/api/vector-search";
 
 export type ServiceHealthKey = "sandbox" | "videoTemplate" | "images" | "modelService" | "mcp";
@@ -135,7 +135,7 @@ const serviceHealthDefinitions: Record<ServiceHealthKey, ServiceHealthDefinition
   },
   videoTemplate: {
     label: "Video Template 服务",
-    request: getRemotionVideoHealth,
+    request: getVideoTemplateHealth,
     mapSuccess: (payload) => {
       const normalized = normalizeStandardSuccess(payload);
       return {

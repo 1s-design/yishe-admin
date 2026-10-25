@@ -253,7 +253,7 @@ export interface ImageProcessingRecordChangedEvent {
   updatedAt?: string;
 }
 
-export interface RemotionVideoRecordStatusEvent {
+export interface VideoRecordStatusEvent {
   clientId: string;
   machineCode?: string | null;
   recordId: string;
@@ -482,7 +482,7 @@ export type WebsocketEvents = {
   clientConnectionChanged: ClientConnectionChangedEvent;
   runtimeConnectionChanged: RuntimeConnectionChangedEvent;
   imageProcessingRecordChanged: ImageProcessingRecordChangedEvent;
-  remotionVideoRecordStatus: RemotionVideoRecordStatusEvent;
+  videoRecordStatus: VideoRecordStatusEvent;
   psAutomationStatus: PsAutomationStatusEvent;
   publishTaskRuntime: PublishTaskRuntimeEvent;
   globalNotification: GlobalNotificationEvent;
@@ -964,8 +964,8 @@ function bindSocketEvents(currentSocket: Socket) {
     emitter.emit("imageProcessingRecordChanged", data);
   });
 
-  currentSocket.on("remotion-video-record-status", (data: RemotionVideoRecordStatusEvent) => {
-    emitter.emit("remotionVideoRecordStatus", data);
+  currentSocket.on("remotion-video-record-status", (data: VideoRecordStatusEvent) => {
+    emitter.emit("videoRecordStatus", data);
   });
 
   currentSocket.on("ps-automation-status", (data: PsAutomationStatusEvent) => {

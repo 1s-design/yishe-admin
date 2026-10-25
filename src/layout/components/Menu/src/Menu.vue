@@ -252,7 +252,7 @@ export default defineComponent({
       "/external/ps-automation": "ps-automation",
       "/external/google-art": "google-art",
       "/content/image-processing-record": "image-processing",
-      "/content/remotion-video-record": "video-template",
+      "/content/video-record": "video-template",
     };
     const busyIndicatorDisabledRoutes = new Set([
       "/operation/toolkit",
@@ -444,7 +444,7 @@ export default defineComponent({
           available: t("layout.menu.imageProcessingAvailable"),
           offline: t("layout.menu.imageProcessingUnavailable"),
         },
-        "/content/remotion-video-record": {
+        "/content/video-record": {
           available: t("layout.menu.videoTemplateAvailable"),
           offline: t("layout.menu.videoTemplateUnavailable"),
         },
@@ -472,7 +472,7 @@ export default defineComponent({
           title || t("layout.menu.taskRunning"),
           routePath === "/publish-center/queue"
             ? "queue"
-            : isRemotionRoute(routePath)
+            : isVideoTemplateRoute(routePath)
               ? "video"
               : undefined,
         );
@@ -513,7 +513,7 @@ export default defineComponent({
     const isQueueRoute = (routePath: string) => routePath === "/publish-center/queue";
     const isImageProcessingRoute = (routePath: string) =>
       routePath === "/content/image-processing-record";
-    const isRemotionRoute = (routePath: string) => routePath === "/content/remotion-video-record";
+    const isVideoTemplateRoute = (routePath: string) => routePath === "/content/video-record";
 
     const renderPsdSetAutoDot = (routePath: string) => {
       if (!isPsdSetRoute(routePath)) {
@@ -759,7 +759,7 @@ export default defineComponent({
       if (isQueueRoute(routePath)) {
         return !!routeRunningMap.value[routePath];
       }
-      if (isRemotionRoute(routePath)) {
+      if (isVideoTemplateRoute(routePath)) {
         return !!routeRunningMap.value[routePath];
       }
       if (isImageProcessingRoute(routePath)) {
@@ -1052,7 +1052,7 @@ export default defineComponent({
                                 [`${prefixCls}__link--running-queue`]:
                                   isQueueRoute(childPath) && !!routeRunningMap.value[childPath],
                                 [`${prefixCls}__link--running-video`]:
-                                  isRemotionRoute(childPath) && !!routeRunningMap.value[childPath],
+                                  isVideoTemplateRoute(childPath) && !!routeRunningMap.value[childPath],
                               },
                             ]}
                             onClick={() => selectMenu(childPath)}

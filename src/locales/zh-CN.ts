@@ -3369,7 +3369,7 @@ export default {
     uploadTime: '上传时间',
   },
 
-  remotionVideoRecord: {
+  videoRecord: {
     aiGenerateVideo: 'AI 生成视频',
     basicInfo: '基本信息',
     clientLoginTip: '请确保已启动客户端并成功登录，以接收视频渲染任务',

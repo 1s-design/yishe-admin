@@ -3375,7 +3375,7 @@ export default {
     uploadTime: 'Upload Time',
   },
 
-  remotionVideoRecord: {
+  videoRecord: {
     aiGenerateVideo: 'AI Generate Video',
     basicInfo: 'Basic Info',
     clientLoginTip: 'Ensure client is running and logged in to receive render tasks',

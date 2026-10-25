@@ -48,7 +48,7 @@ export const ROUTE_MENU_KEY_MAP: Record<string, string> = {
   DesignInspiration: "resource.design-inspiration",
   CodeScript: "content.code-script",
   CodeScriptSchedule: "content.code-script-schedule",
-  RemotionVideoRecord: "content.remotion-video-record",
+  VideoRecord: "content.video-record",
   ImageProcessingRecord: "content.image-processing-record",
   OperationToolkitTemu: "external.toolkit.temu",
   OperationToolkitDoudian: "external.toolkit.doudian",

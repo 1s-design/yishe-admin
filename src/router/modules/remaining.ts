@@ -809,9 +809,9 @@ const remainingRouter: AppRouteRecordRaw[] = [
         },
       },
       {
-        path: "remotion-video-record",
-        component: () => import("@/views/material/remotionVideoRecord/index.vue"),
-        name: "RemotionVideoRecord",
+        path: "video-record",
+        component: () => import("@/views/material/videoRecord/index.vue"),
+        name: "VideoRecord",
         meta: {
           canTo: true,
           hidden: false,
@@ -1823,8 +1823,17 @@ const remainingRouter: AppRouteRecordRaw[] = [
   },
   {
     path: "/content/automation/remotion-video-record",
-    redirect: "/content/remotion-video-record",
+    redirect: "/content/video-record",
     name: "ContentAutomationRemotionVideoRecordCompat",
+    meta: {
+      hidden: true,
+      noTagsView: true,
+    },
+  },
+  {
+    path: "/content/remotion-video-record",
+    redirect: "/content/video-record",
+    name: "ContentRemotionVideoRecordCompat",
     meta: {
       hidden: true,
       noTagsView: true,
