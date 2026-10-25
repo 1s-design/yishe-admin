@@ -269,6 +269,60 @@ export const getPublishTaskRuntimeSummary = () => {
   return request.get({ url: "/queue/publish-summary" });
 };
 
+/** 发布任务趋势统计：单个时间窗口计数 */
+export interface PublishTaskTrendBucket {
+  created: number;
+  completed: number;
+  failed: number;
+  unfinished: number;
+  successRate: number | null;
+  failureRate: number | null;
+}
+
+/** 发布任务趋势统计：时间序列点 */
+export interface PublishTaskTrendSeriesPoint {
+  date: string;
+  created: number;
+  completed: number;
+  failed: number;
+}
+
+/** 发布任务趋势统计：按平台聚合（windows 覆盖各时间窗口，供前端切换） */
+export interface PublishTaskTrendPlatformItem {
+  platform: string;
+  platformLabel: string;
+  windows: {
+    today: PublishTaskTrendBucket;
+    last24Hours: PublishTaskTrendBucket;
+    last7Days: PublishTaskTrendBucket;
+    last30Days: PublishTaskTrendBucket;
+  };
+}
+
+/** 发布任务趋势统计结果 */
+export interface PublishTaskTrendResult {
+  days: number;
+  generatedAt: string;
+  today: PublishTaskTrendBucket;
+  last24Hours: PublishTaskTrendBucket;
+  last7Days: PublishTaskTrendBucket;
+  last30Days: PublishTaskTrendBucket;
+  period: PublishTaskTrendBucket;
+  series: PublishTaskTrendSeriesPoint[];
+  hourlySeries: PublishTaskTrendSeriesPoint[];
+  byPlatform: PublishTaskTrendPlatformItem[];
+}
+
+export const getPublishTaskTrend = (query: { days?: number; platform?: string } = {}) => {
+  const params: any = {};
+  if (query.days) params.days = query.days;
+  if (query.platform) params.platform = query.platform;
+  return request.get<PublishTaskTrendResult>({
+    url: "/queue/publish-trend",
+    params,
+  });
+};
+
 export const getPublishTaskCapabilityCatalog = () => {
   return request.get<PublishTaskCapabilityCatalogResponse>({
     url: "/queue/publish-capabilities",
