@@ -2129,55 +2129,55 @@ onUnmounted(() => {
   height: 26px;
   max-width: 100%;
   min-width: 0;
-  padding: 0 8px;
+  padding: 0 10px;
   overflow: hidden;
   font-size: 11px;
   white-space: nowrap;
-  background: var(--el-bg-color);
-  border: 1px solid var(--el-border-color);
+  background: var(--el-fill-color-lighter);
   border-radius: 999px;
   align-items: center;
   gap: 6px;
 }
 
 .inline-status.is-success {
-  color: #67c23a;
-  border-color: rgb(103 194 58 / 28%);
+  color: var(--el-color-success);
 }
 
 .inline-status.is-warning {
-  color: #f97316;
-  border-color: rgb(249 115 22 / 28%);
+  color: var(--el-color-warning);
 }
 
 .inline-status.is-danger {
-  color: #f56c6c;
-  border-color: rgb(245 108 108 / 28%);
+  color: var(--el-color-danger);
+}
+
+.inline-status.is-info {
+  color: var(--el-color-info);
 }
 
 .inline-status__dot {
   width: 8px;
   height: 8px;
-  background: var(--el-text-color-secondary);
+  background: var(--el-color-info-light-5);
   border-radius: 999px;
 }
 
 .inline-status.is-success .inline-status__dot {
-  background: #67c23a;
-  box-shadow: 0 0 0 0 rgb(103 194 58 / 34%);
-  animation: status-breath-success 1.8s infinite ease-in-out;
+  background: var(--el-color-success);
+  box-shadow: 0 0 0 3px var(--el-color-success-light-8);
+  animation: ps-status-pulse 1.6s ease-in-out infinite;
 }
 
 .inline-status.is-warning .inline-status__dot {
-  background: #f97316;
-  box-shadow: 0 0 0 0 rgb(249 115 22 / 34%);
-  animation: status-breath-warning 1.8s infinite ease-in-out;
+  background: var(--el-color-warning);
+  box-shadow: 0 0 0 3px var(--el-color-warning-light-8);
+  animation: ps-status-pulse 1.6s ease-in-out infinite;
 }
 
 .inline-status.is-danger .inline-status__dot {
-  background: #f56c6c;
-  box-shadow: 0 0 0 0 rgb(245 108 108 / 34%);
-  animation: status-breath-danger 1.8s infinite ease-in-out;
+  background: var(--el-color-danger);
+  box-shadow: 0 0 0 3px var(--el-color-danger-light-8);
+  animation: ps-status-pulse 1.6s ease-in-out infinite;
 }
 
 .inline-status__label {
@@ -2197,8 +2197,7 @@ onUnmounted(() => {
 .compact-info {
   display: flex;
   padding: 12px;
-  background: var(--el-fill-color-light);
-  border: 1px solid var(--el-border-color-lighter);
+  background: var(--el-fill-color-lighter);
   border-radius: 10px;
   flex-direction: column;
   gap: 8px;
@@ -2244,26 +2243,17 @@ onUnmounted(() => {
 }
 
 .ops-panel {
+  display: flex;
+  padding: 16px;
   background: var(--el-bg-color);
-  border: 1px solid var(--el-border-color);
+  border: 0;
   border-radius: 12px;
-}
-
-.ops-panel,
-.ops-sidebar:deep(.external-sidebar) {
-  padding: 10px;
-}
-
-.ops-sidebar:deep(.external-sidebar) {
-  position: sticky;
-  top: 0;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .ops-panel__head {
   display: flex;
-  padding-bottom: 8px;
-  margin-bottom: 10px;
-  border-bottom: 1px solid var(--el-border-color-lighter);
   align-items: flex-start;
   justify-content: space-between;
   flex-wrap: wrap;
@@ -2303,7 +2293,7 @@ onUnmounted(() => {
   font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
-  border: 1px solid var(--el-border-color);
+  background: var(--el-fill-color-lighter);
   border-radius: 999px;
   align-items: center;
   gap: 6px;
@@ -2319,47 +2309,49 @@ onUnmounted(() => {
 .status-chip__dot {
   width: 8px;
   height: 8px;
-  background: #909399;
+  background: var(--el-color-info-light-5);
   border-radius: 999px;
 }
 
 .status-chip.is-success {
-  color: #67c23a;
+  color: var(--el-color-success);
+  background: var(--el-color-success-light-9);
 }
 
 .status-chip.is-warning {
-  color: #f97316;
+  color: var(--el-color-warning);
+  background: var(--el-color-warning-light-9);
 }
 
 .status-chip.is-danger {
-  color: #f56c6c;
+  color: var(--el-color-danger);
+  background: var(--el-color-danger-light-9);
 }
 
 .status-chip.is-info {
-  color: #909399;
+  color: var(--el-color-info);
 }
 
 .status-chip.is-success .status-chip__dot {
-  background: #67c23a;
-  box-shadow: 0 0 0 0 rgb(103 194 58 / 34%);
-  animation: status-breath-success 1.8s infinite ease-in-out;
+  background: var(--el-color-success);
+  box-shadow: 0 0 0 3px var(--el-color-success-light-8);
+  animation: ps-status-pulse 1.6s ease-in-out infinite;
 }
 
 .status-chip.is-warning .status-chip__dot {
-  background: #f97316;
-  box-shadow: 0 0 0 0 rgb(249 115 22 / 34%);
-  animation: status-breath-warning 1.8s infinite ease-in-out;
+  background: var(--el-color-warning);
+  box-shadow: 0 0 0 3px var(--el-color-warning-light-8);
+  animation: ps-status-pulse 1.6s ease-in-out infinite;
 }
 
 .status-chip.is-danger .status-chip__dot {
-  background: #f56c6c;
-  box-shadow: 0 0 0 0 rgb(245 108 108 / 34%);
-  animation: status-breath-danger 1.8s infinite ease-in-out;
+  background: var(--el-color-danger);
+  box-shadow: 0 0 0 3px var(--el-color-danger-light-8);
+  animation: ps-status-pulse 1.6s ease-in-out infinite;
 }
 
 .ps-operation-dialog :deep(.el-dialog__header) {
   padding: 12px 14px 10px;
-  border-bottom: 1px solid var(--el-border-color-lighter);
 }
 
 .ps-operation-dialog :deep(.el-dialog) {
@@ -2433,7 +2425,6 @@ onUnmounted(() => {
 .form-grid--service {
   grid-template-columns: minmax(0, 170px) minmax(0, 1fr);
   gap: 14px 16px;
-  margin-bottom: 14px;
 }
 
 .form-stack {
@@ -2526,7 +2517,6 @@ onUnmounted(() => {
 .smart-object-card {
   padding: 12px;
   background: var(--el-fill-color-lighter);
-  border: 1px solid var(--el-border-color-lighter);
   border-radius: 10px;
 }
 
@@ -2548,13 +2538,12 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 12px;
-  margin-bottom: 12px;
 }
 
 .analysis-preview-card {
   display: flex;
   padding: 10px;
-  border: 1px solid var(--el-border-color-lighter);
+  background: var(--el-fill-color-lighter);
   border-radius: 10px;
   flex-direction: column;
   gap: 10px;
@@ -2661,15 +2650,13 @@ onUnmounted(() => {
   color: var(--el-text-color-primary);
   word-break: break-word;
   white-space: pre-wrap;
-  background: var(--el-fill-color-light);
-  border: 1px solid var(--el-border-color-lighter);
+  background: var(--el-fill-color-lighter);
   border-radius: 10px;
   box-sizing: border-box;
 }
 
 .result--secondary {
   min-height: 160px;
-  margin-top: 12px;
 }
 
 .log-list {
@@ -2685,8 +2672,7 @@ onUnmounted(() => {
   padding: 32px 16px;
   color: var(--el-text-color-secondary);
   text-align: center;
-  background: var(--el-bg-color);
-  border: 1px dashed var(--el-border-color);
+  background: var(--el-fill-color-lighter);
   border-radius: 10px;
 }
 
@@ -2694,18 +2680,17 @@ onUnmounted(() => {
   display: flex;
   padding: 10px 12px;
   background: var(--el-fill-color-lighter);
-  border: 1px solid var(--el-border-color-lighter);
   border-radius: 10px;
   flex-direction: column;
   gap: 6px;
 }
 
 .log-item.is-success {
-  border-color: rgb(103 194 58 / 26%);
+  background: var(--el-color-success-light-9);
 }
 
 .log-item.is-error {
-  border-color: rgb(245 108 108 / 26%);
+  background: var(--el-color-danger-light-9);
 }
 
 .log-item__meta {
@@ -2725,42 +2710,14 @@ onUnmounted(() => {
   white-space: pre-wrap;
 }
 
-@keyframes status-breath-success {
+@keyframes ps-status-pulse {
   0%,
   100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 rgb(103 194 58 / 16%);
+    opacity: 1;
   }
 
   50% {
-    transform: scale(1.04);
-    box-shadow: 0 0 0 6px rgb(103 194 58 / 0%);
-  }
-}
-
-@keyframes status-breath-warning {
-  0%,
-  100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 rgb(249 115 22 / 16%);
-  }
-
-  50% {
-    transform: scale(1.04);
-    box-shadow: 0 0 0 6px rgb(249 115 22 / 0%);
-  }
-}
-
-@keyframes status-breath-danger {
-  0%,
-  100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 rgb(245 108 108 / 16%);
-  }
-
-  50% {
-    transform: scale(1.04);
-    box-shadow: 0 0 0 6px rgb(245 108 108 / 0%);
+    opacity: 0.45;
   }
 }
 
@@ -2770,10 +2727,6 @@ onUnmounted(() => {
   .operation-grid,
   .form-grid {
     grid-template-columns: 1fr;
-  }
-
-  .ops-sidebar:deep(.external-sidebar) {
-    position: static;
   }
 }
 

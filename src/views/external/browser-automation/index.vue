@@ -59,7 +59,7 @@
                 {{ t('browserAutomation.createEnvironment') }}
               </el-button>
             </div>
-            <div class="row wrap browser-profile-banner-row" style="margin-bottom: 12px">
+            <div class="row wrap browser-profile-banner-row">
               <div v-if="activeProfile" class="active-profile-banner">
                 <span class="active-profile-banner__flag">{{ t('browserAutomation.currentEnvironment') }}</span>
                 <span class="active-profile-banner__name">
@@ -69,113 +69,131 @@
               </div>
               <span v-else class="muted">{{ t('browserAutomation.noManagedEnvironmentHint') }}</span>
             </div>
-            <div class="common-table common-table--full">
-              <vxe-grid
-                v-bind="profileGridOptions"
-                :max-height="profileGridOptions.maxHeight"
-                :data="profileTableRows"
-                class="profile-grid"
+            <div v-if="profileTableRows.length" class="env-list">
+              <div
+                v-for="row in profileTableRows"
+                :key="row.id"
+                class="env-item"
+                :class="{ 'is-active': row.isActive }"
+                @click="handleProfileOperationCommand('panel', row)"
               >
-                <template #lastUsedAt_default="{ row }">
-                  {{ dateText(row.lastUsedAt) }}
-                </template>
-
-                <template #instance_default="{ row }">
-                  <div class="table-stack">
-                    <el-tag :type="getProfileInstanceTagType(row.instance)" effect="plain">
+                <span
+                  class="env-item__dot"
+                  :class="`is-${getProfileEnvState(row.instance)}`"
+                ></span>
+                <div class="env-item__main">
+                  <div class="env-item__headline">
+                    <span class="env-item__name">{{ row.name || row.id }}</span>
+                    <span class="env-item__id">#{{ row.id }}</span>
+                    <span v-if="row.isActive" class="env-item__current">
+                      {{ t("browserAutomation.currentEnvironment") }}
+                    </span>
+                  </div>
+                  <div class="env-item__meta">
+                    <span>{{ t("browserAutomation.columnPort") }} {{ row.port ?? "-" }}</span>
+                    <i class="env-item__sep"></i>
+                    <span>
+                      {{ t("browserAutomation.columnPage") }} {{ row.instance?.pageCount ?? 0 }}
+                    </span>
+                    <i class="env-item__sep"></i>
+                    <span>
+                      {{ t("browserAutomation.columnLastUsedAt") }} {{ dateText(row.lastUsedAt) }}
+                    </span>
+                  </div>
+                  <div
+                    v-if="row.userDataDir"
+                    class="env-item__path"
+                    :title="row.userDataDir"
+                    @click.stop
+                  >
+                    {{ row.userDataDir }}
+                  </div>
+                </div>
+                <div class="env-item__status">
+                  <div class="env-item__tags">
+                    <el-tag
+                      size="small"
+                      effect="light"
+                      round
+                      :type="getProfileInstanceTagType(row.instance)"
+                    >
                       {{ getProfileInstanceText(row.instance) }}
                     </el-tag>
-                    <span class="muted">{{ getProfileInstanceHint(row.instance) }}</span>
-                  </div>
-                </template>
-
-                <template #headless_default="{ row }">
-                  <el-tag :type="getProfileHeadlessTagType(row.instance)" effect="plain">
-                    {{ getProfileHeadlessText(row.instance) }}
-                  </el-tag>
-                </template>
-
-                <template #pageCount_default="{ row }">
-                  {{ row.instance?.pageCount ?? 0 }}
-                </template>
-
-                <template #userDataDir_default="{ row }">
-                  <span class="browser-env-path">{{ row.userDataDir || "-" }}</span>
-                </template>
-
-                <template #status_default="{ row }">
-                  <span
-                    class="profile-active-badge"
-                    :class="{ 'is-active': row.isActive, 'is-standby': !row.isActive }"
-                  >
-                    <span class="profile-active-badge__dot"></span>
-                    <span>{{
-                      row.isActive ? t('browserAutomation.currentEnvironment') : t('browserAutomation.standby')
-                    }}</span>
-                  </span>
-                </template>
-
-                <template #profileOperation_default="{ row }">
-                  <div class="flex justify-start">
-                    <el-dropdown
-                      class="operation-dropdown"
-                      placement="bottom-end"
-                      @command="(command) => handleProfileOperationCommand(String(command), row)"
+                    <el-tag
+                      size="small"
+                      effect="light"
+                      round
+                      :type="getProfileHeadlessTagType(row.instance)"
                     >
-                      <el-button type="primary" link size="small" class="operation-trigger-button">
-                        {{ t('common.operation') }}
-                      </el-button>
-                      <template #dropdown>
-                        <el-dropdown-menu class="operation-menu-compact">
-                          <el-dropdown-item command="connectNormal">
-                            <span>{{
-                              row.instance?.connected
-                                ? t('browserAutomation.reopenNormal')
-                                : t('browserAutomation.openNormal')
-                            }}</span>
-                          </el-dropdown-item>
-                          <el-dropdown-item command="connectHeadless">
-                            <span>{{
-                              row.instance?.connected
-                                ? t('browserAutomation.reopenHeadless')
-                                : t('browserAutomation.openHeadless')
-                            }}</span>
-                          </el-dropdown-item>
-                          <el-dropdown-item
-                            command="close"
-                            :disabled="!row.instance?.hasInstance && !row.instance?.connected"
-                          >
-                            <span>{{ t('browserAutomation.closeWindow') }}</span>
-                          </el-dropdown-item>
-                          <el-dropdown-item
-                            command="focus"
-                            :disabled="!row.instance?.hasInstance && !row.instance?.connected"
-                          >
-                            <span>{{ t('browserAutomation.focusWindow') }}</span>
-                          </el-dropdown-item>
-                          <el-dropdown-item command="panel">
-                            <span>{{ t('browserAutomation.enterPanel') }}</span>
-                          </el-dropdown-item>
-                          <el-dropdown-item command="switch" :disabled="row.isActive">
-                            <span>{{ t('browserAutomation.setDefault') }}</span>
-                          </el-dropdown-item>
-                          <el-dropdown-item command="edit" divided>
-                            <span>{{ t('common.edit') }}</span>
-                          </el-dropdown-item>
-                          <el-dropdown-item
-                            command="delete"
-                            divided
-                            class="operation-menu-item--danger"
-                          >
-                            <span>{{ t('common.delete') }}</span>
-                          </el-dropdown-item>
-                        </el-dropdown-menu>
-                      </template>
-                    </el-dropdown>
+                      {{ getProfileHeadlessText(row.instance) }}
+                    </el-tag>
                   </div>
-                </template>
-              </vxe-grid>
+                  <div class="env-item__hint">{{ getProfileInstanceHint(row.instance) }}</div>
+                </div>
+                <div class="env-item__ops" @click.stop>
+                  <el-dropdown
+                    class="operation-dropdown"
+                    placement="bottom-end"
+                    @command="(command) => handleProfileOperationCommand(String(command), row)"
+                  >
+                    <el-button text circle class="env-op-btn">
+                      <Icon icon="ep:more-filled" />
+                    </el-button>
+                    <template #dropdown>
+                      <el-dropdown-menu class="operation-menu-compact">
+                        <el-dropdown-item command="connectNormal">
+                          <span>{{
+                            row.instance?.connected
+                              ? t('browserAutomation.reopenNormal')
+                              : t('browserAutomation.openNormal')
+                          }}</span>
+                        </el-dropdown-item>
+                        <el-dropdown-item command="connectHeadless">
+                          <span>{{
+                            row.instance?.connected
+                              ? t('browserAutomation.reopenHeadless')
+                              : t('browserAutomation.openHeadless')
+                          }}</span>
+                        </el-dropdown-item>
+                        <el-dropdown-item
+                          command="close"
+                          :disabled="!row.instance?.hasInstance && !row.instance?.connected"
+                        >
+                          <span>{{ t('browserAutomation.closeWindow') }}</span>
+                        </el-dropdown-item>
+                        <el-dropdown-item
+                          command="focus"
+                          :disabled="!row.instance?.hasInstance && !row.instance?.connected"
+                        >
+                          <span>{{ t('browserAutomation.focusWindow') }}</span>
+                        </el-dropdown-item>
+                        <el-dropdown-item command="panel">
+                          <span>{{ t('browserAutomation.enterPanel') }}</span>
+                        </el-dropdown-item>
+                        <el-dropdown-item command="switch" :disabled="row.isActive">
+                          <span>{{ t('browserAutomation.setDefault') }}</span>
+                        </el-dropdown-item>
+                        <el-dropdown-item command="edit" divided>
+                          <span>{{ t('common.edit') }}</span>
+                        </el-dropdown-item>
+                        <el-dropdown-item
+                          command="delete"
+                          divided
+                          class="operation-menu-item--danger"
+                        >
+                          <span>{{ t('common.delete') }}</span>
+                        </el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
+                </div>
+              </div>
             </div>
+            <ElEmpty
+              v-else
+              :description="t('browserAutomation.noManagedEnvironmentHint')"
+              :image-size="72"
+            />
           </div>
         </section>
 
@@ -619,11 +637,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch, watchEffect } from "vue";
-import { useWindowSize } from "@vueuse/core";
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import type { FormInstance, FormRules } from "element-plus";
-import type { VxeGridProps } from "vxe-table";
 import {
   checkBrowserAutomationStatus,
   closeBrowserAutomation,
@@ -654,7 +670,6 @@ import {
 import { websocketClient, type ServiceCommandResultEvent } from "@/services/websocketClient";
 import { usePluginClientNodes } from "@/services/clientNodeState";
 import { useI18n } from "@/hooks/web/useI18n";
-import { buildOperationColumn, commonGridOptions } from "@/common/table";
 import { formatDate } from "@/utils/formatTime";
 import ExternalClientSidebar, {
   type ClientNodeItem,
@@ -850,94 +865,6 @@ const profileTableRows = computed(() =>
     };
   }),
 );
-const { height } = useWindowSize();
-
-const profileGridOptions = ref<VxeGridProps<any>>({
-  ...commonGridOptions,
-  maxHeight: Math.max(height.value - 280, 360),
-  rowConfig: {
-    keyField: "id",
-    isHover: true,
-  },
-  columns: [
-    { field: "id", title: t("browserAutomation.columnId"), width: 90, align: "left", headerAlign: "left" },
-    {
-      field: "name",
-      title: t("browserAutomation.columnName"),
-      minWidth: 180,
-      showOverflow: "tooltip",
-      align: "left",
-      headerAlign: "left",
-    },
-    {
-      field: "port",
-      title: t("browserAutomation.columnPort"),
-      width: 90,
-      align: "left",
-      headerAlign: "left",
-      formatter: ({ row }) => row?.port ?? "-",
-    },
-    {
-      field: "lastUsedAt",
-      title: t("browserAutomation.columnLastUsedAt"),
-      minWidth: 170,
-      align: "left",
-      headerAlign: "left",
-      slots: { default: "lastUsedAt_default" },
-    },
-    {
-      field: "instance",
-      title: t("browserAutomation.columnBrowserStatus"),
-      minWidth: 200,
-      align: "left",
-      headerAlign: "left",
-      slots: { default: "instance_default" },
-    },
-    {
-      field: "headless",
-      title: t("browserAutomation.columnRunMode"),
-      width: 100,
-      align: "left",
-      headerAlign: "left",
-      slots: { default: "headless_default" },
-    },
-    {
-      field: "pageCount",
-      title: t("browserAutomation.columnPage"),
-      width: 80,
-      align: "left",
-      headerAlign: "left",
-      slots: { default: "pageCount_default" },
-    },
-    {
-      field: "userDataDir",
-      title: t("browserAutomation.userDataDir"),
-      minWidth: 320,
-      showOverflow: "tooltip",
-      align: "left",
-      headerAlign: "left",
-      slots: { default: "userDataDir_default" },
-    },
-    {
-      field: "isActive",
-      title: t("common.status"),
-      width: 100,
-      align: "left",
-      headerAlign: "left",
-      slots: { default: "status_default" },
-    },
-    buildOperationColumn("profileOperation_default", 110, {
-      align: "left",
-      headerAlign: "left",
-    }),
-  ],
-});
-
-watchEffect(() => {
-  if (profileGridOptions.value) {
-    profileGridOptions.value.maxHeight = Math.max(height.value - 280, 360);
-  }
-});
 const activeProfileId = computed(
   () =>
     String(
@@ -1296,6 +1223,12 @@ const handlePageRowClick = (row: Record<string, any>) => {
 };
 const getPageRowClassName = ({ row }: { row: Record<string, any> }) => {
   return row?.index === debugForm.pageIndex ? "page-row-is-active" : "";
+};
+const getProfileEnvState = (instance?: BrowserAutomationProfileInstanceSummary | null) => {
+  if (instance?.busy) return "running";
+  if (instance?.connected) return "open";
+  if (instance?.hasInstance || instance?.connecting) return "connecting";
+  return "idle";
 };
 const getProfileInstanceText = (instance?: BrowserAutomationProfileInstanceSummary | null) => {
   if (!instance) return t("browserAutomation.instanceNotOpened");
@@ -1937,14 +1870,14 @@ onUnmounted(() => {
 
 .card {
   background: var(--el-bg-color);
-  border: 1px solid var(--el-border-color);
+  border: 0;
   border-radius: 12px;
 }
 
 .panel,
 .item,
 .main-empty {
-  padding: 12px;
+  padding: 16px;
 }
 
 .panel,
@@ -1952,13 +1885,6 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 10px;
-}
-
-.table-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  align-items: flex-start;
 }
 
 .browser-profile-banner-row {
@@ -1969,11 +1895,10 @@ onUnmounted(() => {
   display: inline-flex;
   min-width: 0;
   min-height: 34px;
-  padding: 6px 10px;
+  padding: 6px 12px;
   color: var(--el-text-color-primary);
-  background: linear-gradient(135deg, rgb(15 23 42 / 3.5%), rgb(16 185 129 / 5.5%));
-  border: 1px solid rgb(15 23 42 / 8%);
-  border-radius: 14px;
+  background: var(--el-color-success-light-9);
+  border-radius: 999px;
   align-items: center;
   gap: 8px;
 }
@@ -1985,9 +1910,9 @@ onUnmounted(() => {
   font-size: 11px;
   font-weight: 600;
   line-height: 1;
-  color: #047857;
+  color: var(--el-color-success);
   white-space: nowrap;
-  background: rgb(16 185 129 / 12%);
+  background: var(--el-color-success-light-8);
   border-radius: 999px;
   align-items: center;
   justify-content: center;
@@ -2013,66 +1938,197 @@ onUnmounted(() => {
   font-size: 11px;
   font-weight: 500;
   line-height: 1;
-  color: rgb(71 85 105 / 92%);
+  color: var(--el-text-color-secondary);
   text-overflow: ellipsis;
   white-space: nowrap;
-  background: rgb(255 255 255 / 72%);
-  border-radius: 10px;
+  background: var(--el-bg-color);
+  border-radius: 999px;
   align-items: center;
 }
 
-.profile-active-badge {
-  display: inline-flex;
-  min-height: 26px;
-  padding: 0 10px;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1;
+.env-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.env-item {
+  position: relative;
+  display: flex;
+  padding: 14px 16px;
+  cursor: pointer;
+  background: var(--el-fill-color-lighter);
+  border-radius: 12px;
+  align-items: center;
+  gap: 14px;
+  transition: background-color 0.18s ease;
+}
+
+.env-item:hover {
+  background: var(--el-fill-color-light);
+}
+
+.env-item.is-active {
+  background: var(--el-color-success-light-9);
+}
+
+.env-item.is-active:hover {
+  background: var(--el-color-success-light-8);
+}
+
+.env-item.is-active::before {
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 0;
+  width: 3px;
+  content: "";
+  background: var(--el-color-success);
+  border-radius: 3px;
+}
+
+.env-item__dot {
+  width: 8px;
+  height: 8px;
+  background: var(--el-color-info-light-5);
+  border-radius: 50%;
+  flex: none;
+}
+
+.env-item__dot.is-open {
+  background: var(--el-color-success);
+  box-shadow: 0 0 0 3px var(--el-color-success-light-8);
+}
+
+.env-item__dot.is-running {
+  background: var(--el-color-warning);
+  box-shadow: 0 0 0 3px var(--el-color-warning-light-8);
+  animation: env-dot-pulse 1.6s ease-in-out infinite;
+}
+
+.env-item__dot.is-connecting {
+  background: var(--el-color-primary);
+  box-shadow: 0 0 0 3px var(--el-color-primary-light-8);
+  animation: env-dot-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes env-dot-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.env-item__main {
+  min-width: 0;
+  flex: 1;
+}
+
+.env-item__headline {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.env-item__name {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  text-overflow: ellipsis;
   white-space: nowrap;
-  border: 1px solid var(--el-border-color);
+}
+
+.env-item__id {
+  font-family: Consolas, Monaco, "Courier New", monospace;
+  font-size: 11px;
+  color: var(--el-text-color-secondary);
+  flex: none;
+}
+
+.env-item__current {
+  display: inline-flex;
+  height: 20px;
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--el-color-success);
+  white-space: nowrap;
+  background: var(--el-color-success-light-8);
   border-radius: 999px;
   align-items: center;
+  flex: none;
+}
+
+.env-item__meta {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  align-items: center;
+  gap: 8px;
+}
+
+.env-item__sep {
+  width: 3px;
+  height: 3px;
+  background: var(--el-border-color);
+  border-radius: 50%;
+  flex: none;
+}
+
+.env-item__path {
+  margin-top: 4px;
+  overflow: hidden;
+  font-family: Consolas, Monaco, "Courier New", monospace;
+  font-size: 11px;
+  color: var(--el-text-color-placeholder);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: text;
+}
+
+.env-item__status {
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 4px;
+  flex: none;
+}
+
+.env-item__tags {
+  display: flex;
   gap: 6px;
 }
 
-.profile-active-badge__dot {
-  width: 7px;
-  height: 7px;
-  background: currentcolor;
-  border-radius: 999px;
-  flex: 0 0 auto;
-}
-
-.profile-active-badge.is-active {
-  color: #15803d;
-  background: linear-gradient(180deg, rgb(34 197 94 / 14%), rgb(34 197 94 / 6%));
-  border-color: rgb(34 197 94 / 26%);
-  box-shadow: inset 0 0 0 1px rgb(34 197 94 / 8%);
-}
-
-.profile-active-badge.is-standby {
-  color: #64748b;
-  background: rgb(148 163 184 / 8%);
-  border-color: rgb(148 163 184 / 32%);
-}
-
-.common-table {
-  width: 100%;
+.env-item__hint {
+  max-width: 220px;
   overflow: hidden;
-  border-radius: 8px;
+  font-size: 11px;
+  color: var(--el-text-color-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.common-table--full :deep(.vxe-grid),
-.common-table--full :deep(.vxe-table),
-.common-table--full :deep(.vxe-table--render-wrapper),
-.common-table--full :deep(.vxe-table--main-wrapper),
-.profile-grid {
-  width: 100%;
+.env-item__ops {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
 }
 
-.profile-grid :deep(.vxe-header--column),
-.profile-grid :deep(.vxe-body--column) {
-  text-align: left;
+.env-op-btn {
+  color: var(--el-text-color-secondary);
+}
+
+.env-op-btn:hover {
+  color: var(--el-color-primary);
 }
 
 .browser-env-path {
@@ -2161,7 +2217,6 @@ onUnmounted(() => {
   padding: 12px;
   margin-bottom: 12px;
   background: var(--el-fill-color-lighter);
-  border: 1px solid var(--el-border-color);
   border-radius: 10px;
   flex-direction: column;
   gap: 8px;
@@ -2169,7 +2224,6 @@ onUnmounted(() => {
 
 .debug-feedback[data-success="false"] {
   background: var(--el-color-danger-light-9);
-  border-color: var(--el-color-danger-light-5);
 }
 
 .debug-feedback__header,
@@ -2206,7 +2260,6 @@ onUnmounted(() => {
   word-break: break-word;
   white-space: pre-wrap;
   background: var(--el-fill-color-lighter);
-  border: 1px solid var(--el-border-color);
   border-radius: 8px;
 }
 
@@ -2234,7 +2287,6 @@ onUnmounted(() => {
   display: flex;
   padding: 10px 12px;
   background: var(--el-fill-color-lighter);
-  border: 1px solid var(--el-border-color-light);
   border-radius: 10px;
   flex-direction: column;
   gap: 6px;
@@ -2284,6 +2336,19 @@ onUnmounted(() => {
 
   .actions {
     flex-wrap: wrap;
+  }
+
+  .env-item {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .env-item__status {
+    align-items: flex-start;
+  }
+
+  .env-item__hint {
+    max-width: none;
   }
 }
 </style>
