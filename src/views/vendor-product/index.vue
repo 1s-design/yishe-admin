@@ -138,6 +138,10 @@
                   </span>
                 </template>
 
+                <template #uploaderSlot="{ row }">
+                  <span>{{ row.uploader?.name || row.uploader?.account || "-" }}</span>
+                </template>
+
                 <template #statusSlot="{ row }">
                   <el-tag size="small" :type="getProductStatusTagType(row.status)">
                     {{ getProductStatusLabel(row.status) }}
@@ -307,20 +311,21 @@ const gridOptions = ref({
   checkboxConfig: { reserve: true },
   columns: [
     { type: "checkbox", width: 48 },
-    { title: "ID", field: "id", width: 70 },
-    { title: "唯一编码", field: "code", width: 120, slots: { default: "codeSlot" } },
+    { title: "商品名称", field: "name", minWidth: 220 },
+    { title: "供应商", field: "vendorId", minWidth: 180, slots: { default: "vendorSlot" } },
     { title: "产品图", field: "images", width: 130, slots: { default: "imagesSlot" } },
-    { title: "供应商", field: "vendorId", minWidth: 150, slots: { default: "vendorSlot" } },
-    { title: "商品名称", field: "name", minWidth: 150 },
+    { title: "唯一编码", field: "code", width: 120, slots: { default: "codeSlot" } },
+    { title: "ID", field: "id", width: 70 },
     { title: "型号", field: "model", width: 110, showOverflow: "tooltip" },
     { title: "供货状态", field: "status", width: 95, slots: { default: "statusSlot" } },
     { title: "参考单价", field: "price", width: 110, slots: { default: "priceSlot" } },
-    { title: "起订量(MOQ)", field: "moq", width: 100 },
+    { title: "起订量(MOQ)", field: "moq", width: 120 },
     { title: "规格/尺寸", field: "size", width: 120, showOverflow: "tooltip" },
     { title: "扩展属性", minWidth: 160, slots: { default: "customAttributesSlot" } },
     { title: "单位", field: "unit", width: 70 },
     { title: "备注", field: "remark", minWidth: 160, showOverflow: "tooltip" },
     { ...buildTimeColumn("创建时间", "createTime", 170), slots: { default: "createTimeSlot" } },
+    { title: "用户", field: "uploader", minWidth: 130, slots: { default: "uploaderSlot" } },
     buildOperationColumn("operationSlot"),
   ],
 });

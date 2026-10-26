@@ -226,10 +226,14 @@ export const COMMON_ASPECT_RATIOS = [
  * 容差百分比选项
  */
 export const TOLERANCE_OPTIONS = [
+  { label: '0%（精确）', value: 0 },
   { label: '±2%', value: 2 },
   { label: '±5% (推荐)', value: 5 },
   { label: '±10%', value: 10 },
   { label: '±15%', value: 15 },
+  { label: '±20%', value: 20 },
+  { label: '±30%', value: 30 },
+  { label: '±50%', value: 50 },
 ]
 
 /**
@@ -270,7 +274,8 @@ export function calculateAspectRatioRange(
   target: number,
   tolerancePct = 5,
 ): { min: number; max: number } {
-  const safeTol = Math.max(0.1, Math.min(50, Number(tolerancePct) || 5)) / 100
+  const numTol = Number(tolerancePct)
+  const safeTol = Math.max(0, Math.min(100, Number.isFinite(numTol) ? numTol : 5)) / 100
   const min = Number((target * (1 - safeTol)).toFixed(4))
   const max = Number((target * (1 + safeTol)).toFixed(4))
   return { min, max }

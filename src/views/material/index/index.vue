@@ -201,6 +201,9 @@
                             v-model="customRatioTolerance"
                             size="small"
                             class="tolerance-select"
+                            filterable
+                            allow-create
+                            default-first-option
                           >
                             <el-option
                               v-for="opt in TOLERANCE_OPTIONS"
@@ -3683,7 +3686,7 @@ const customAspectRatioBadgeText = computed(() => {
 watch(customRatioPopoverVisible, (visible) => {
   if (visible && !customRatioInput.value && queryParams.targetAspectRatio !== undefined) {
     customRatioInput.value = String(queryParams.targetAspectRatio);
-    if (queryParams.aspectRatioTolerance) {
+    if (queryParams.aspectRatioTolerance !== undefined) {
       customRatioTolerance.value = queryParams.aspectRatioTolerance;
     }
   }
@@ -3699,9 +3702,11 @@ function applyCustomAspectRatio() {
     ElMessage.warning("请输入有效的宽高比例（如 1.2 或 16:9）");
     return;
   }
-  const range = calculateAspectRatioRange(target, customRatioTolerance.value);
+  const tol = Number(customRatioTolerance.value);
+  const safeTol = Number.isFinite(tol) ? tol : 5;
+  const range = calculateAspectRatioRange(target, safeTol);
   queryParams.targetAspectRatio = target;
-  queryParams.aspectRatioTolerance = customRatioTolerance.value;
+  queryParams.aspectRatioTolerance = safeTol;
   queryParams.minAspectRatio = range.min;
   queryParams.maxAspectRatio = range.max;
   customRatioPopoverVisible.value = false;
