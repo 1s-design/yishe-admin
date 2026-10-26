@@ -1,5 +1,9 @@
 import { Layout } from "@/utils/routerHelper";
-import { ROUTE_MENU_KEY_MAP, ROUTE_MENU_LEGACY_KEY_MAP } from "@/constants/access-control";
+import {
+  ROUTE_MENU_KEY_MAP,
+  ROUTE_MENU_LEGACY_KEY_MAP,
+  resolveLegacyMenuKeys,
+} from "@/constants/access-control";
 
 const { t } = useI18n();
 /**
@@ -2130,7 +2134,9 @@ function attachMenuKeys(routes: AppRouteRecordRaw[]): AppRouteRecordRaw[] {
   return routes.map((route) => {
     const routeName = route.name ? String(route.name) : "";
     const mappedKey = routeName ? ROUTE_MENU_KEY_MAP[routeName] : "";
-    const legacyMenuKeys = routeName ? ROUTE_MENU_LEGACY_KEY_MAP[routeName] : [];
+    const legacyMenuKeys = resolveLegacyMenuKeys(
+      routeName ? ROUTE_MENU_LEGACY_KEY_MAP[routeName] : [],
+    );
     const children = route.children ? attachMenuKeys(route.children) : route.children;
 
     // 兜底：可见的叶子菜单如果没有登记 key，自动派生一个。

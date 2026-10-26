@@ -156,7 +156,6 @@ export const ROUTE_MENU_KEY_MAP: Record<string, string> = {
 
 export const ROUTE_MENU_LEGACY_KEY_MAP: Record<string, string[]> = {
   VectorSearch: ["home.vector-search"],
-  CustomSticker: ["resource.material"],
   OperationToolkitTemu: ["external.toolkit"],
   OperationToolkitDoudian: ["external.toolkit"],
   OperationToolkitPdd: ["external.toolkit"],
@@ -175,5 +174,25 @@ export const ROUTE_MENU_LEGACY_KEY_MAP: Record<string, string[]> = {
   EcomSelectionSupplyMatchRunPage: ["operation.ecom-platform-collect"],
   EcomSelectionSupplyMatchItemPage: ["operation.ecom-platform-collect"],
   ExtensionCollectIndex: ["operation.ecom-platform-collect"],
-  VendorProductIndex: ["operation.vendor"],
 };
+
+/**
+ * 现行菜单 key 全集。
+ *
+ * 兼容 key（legacyMenuKeys）的语义是「旧版本存的 key 等价于现在的哪些 key」。
+ * 但有些「旧 key」本身就是现行 key（例如 `resource.material` 同时是「图片素材」
+ * 的现行 key，又被登记成「自定义贴纸」的兼容 key）。这类 key 不能当别名展开：
+ * 否则只要勾了「图片素材」，「自定义贴纸」就会被自动带回来，永远取消不掉。
+ */
+const CURRENT_MENU_KEY_SET = new Set(
+  Object.values(ROUTE_MENU_KEY_MAP)
+    .map((key) => String(key || "").trim())
+    .filter(Boolean),
+);
+
+/** 只保留真正的历史别名，剔除与现行 key 冲突的伪兼容 key */
+export function resolveLegacyMenuKeys(keys: readonly string[] = []): string[] {
+  return keys
+    .map((key) => String(key || "").trim())
+    .filter((key) => key && !CURRENT_MENU_KEY_SET.has(key));
+}

@@ -230,11 +230,9 @@ const roleGrantedKeys = computed(() => {
     if (!activeRoles.has(role.roleKey)) {
       continue;
     }
-    for (const key of role.menuKeys || []) {
-      const normalized = String(key || "").trim();
-      if (normalized) {
-        granted.add(normalized);
-      }
+    // 角色里可能存的是旧版兼容 key，先归一化再比对，标记才对得上勾选框
+    for (const key of normalizeMenuAccessKeys(role.menuKeys || [], selectableMenuKeySet.value)) {
+      granted.add(key);
     }
   }
   return granted;
