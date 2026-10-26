@@ -1441,7 +1441,7 @@
 
                 <div class="psd-template-list-container">
                   <div class="psd-set-template-toolbar">
-                    <el-input v-model="psdSetTemplateSearchText" :placeholder="t('material.search')" clearable
+                    <el-input v-model="psdSetTemplateSearchText" :placeholder="t('material.searchPsdTemplatePlaceholder')" clearable
                       class="psd-set-template-toolbar__search">
                       <template #prefix>
                         <el-icon>
@@ -4715,7 +4715,7 @@ const filteredPsdSetAutomationPublishConfigs = computed(() => {
       item?.taskType || derivePublishTaskTypeByPlatform(item?.platform),
       item?.platform,
     ).toLowerCase();
-    return [item?.name, item?.description, item?.platform]
+    return [item?.id, item?.name, item?.description, item?.platform]
       .map((value) => String(value || "").toLowerCase())
       .some((value) => value.includes(keyword)) || taskTypeLabel.includes(keyword);
   });
