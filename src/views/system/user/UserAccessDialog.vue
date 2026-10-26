@@ -2,8 +2,10 @@
   <el-dialog
     v-model="dialogVisible"
     title="分配权限"
-    fullscreen
+    width="1080px"
+    top="6vh"
     destroy-on-close
+    class="access-dialog-modal"
     @open="handleOpen"
   >
     <el-skeleton :loading="loading" animated>
@@ -43,47 +45,85 @@
                   {{
                     targetUserIsAdmin
                       ? "管理员默认拥有全部菜单权限，这里展示当前生效范围。"
-                      : "管理员专属菜单仅管理员用户可分配；此处勾选为「个人权限」，角色已授予的菜单已计入生效范围。"
+                      : "此处勾选为「个人权限」；带「角色」标记的菜单由所选角色授予，取消角色才会失效。"
                   }}
                 </div>
               </div>
-              <div class="access-dialog__toolbar">
-                <el-button
-                  link
-                  type="primary"
-                  :disabled="loading || submitLoading || !selectableMenuKeys.length"
-                  @click="handleSelectAll"
-                >
-                  全选
-                </el-button>
-                <el-button
-                  link
-                  type="primary"
-                  :disabled="loading || submitLoading || !selectableMenuKeys.length"
-                  @click="handleInvertSelection"
-                >
-                  反选
-                </el-button>
+            </div>
+
+            <div class="access-dialog__toolbar">
+              <el-input
+                v-model="keyword"
+                placeholder="搜索菜单名称或菜单 key"
+                clearable
+                class="access-dialog__search"
+              />
+              <el-switch v-model="onlySelected" active-text="只看已选" />
+              <el-button
+                link
+                type="primary"
+                :disabled="loading || submitLoading || !visibleSelectableKeys.length"
+                @click="handleSelectAll"
+              >
+                全选
+              </el-button>
+              <el-button
+                link
+                type="primary"
+                :disabled="loading || submitLoading || !visibleSelectableKeys.length"
+                @click="handleInvertSelection"
+              >
+                反选
+              </el-button>
+            </div>
+
+            <div class="access-dialog__summary">
+              <span
+                >个人勾选 <b>{{ personalCount }}</b> 项</span
+              >
+              <span class="access-dialog__summary-dot">·</span>
+              <span
+                >角色授予 <b>{{ roleGrantedCount }}</b> 项</span
+              >
+              <span class="access-dialog__summary-dot">·</span>
+              <span
+                >生效合计 <b>{{ effectiveCount }}</b> 项</span
+              >
+            </div>
+
+            <div v-if="filteredGroups.length" class="access-dialog__groups">
+              <div
+                v-for="group in filteredGroups"
+                :key="group.label"
+                class="access-dialog__group"
+              >
+                <div class="access-dialog__group-title">
+                  <span>{{ t(group.label) }}</span>
+                  <span class="access-dialog__group-count">
+                    {{ countCheckedInGroup(group) }}/{{ group.options.length }}
+                  </span>
+                </div>
+                <el-checkbox-group v-model="form.menuKeys" class="access-dialog__checkboxes">
+                  <el-checkbox
+                    v-for="option in group.options"
+                    :key="option.key"
+                    :label="option.key"
+                    :disabled="isOptionDisabled(option)"
+                    border
+                  >
+                    {{ t(option.label) }}<span v-if="option.adminOnly">（仅管理员）</span>
+                    <span v-if="roleGrantedKeys.has(option.key)" class="access-dialog__granted">
+                      角色
+                    </span>
+                  </el-checkbox>
+                </el-checkbox-group>
               </div>
             </div>
-            <div
-              v-for="group in MENU_ACCESS_GROUPS"
-              :key="group.label"
-              class="access-dialog__group"
-            >
-              <div class="access-dialog__group-title">{{ t(group.label) }}</div>
-              <el-checkbox-group v-model="form.menuKeys" class="access-dialog__checkboxes">
-                <el-checkbox
-                  v-for="option in group.options"
-                  :key="option.key"
-                  :label="option.key"
-                  :disabled="isOptionDisabled(option)"
-                  border
-                >
-                  {{ t(option.label) }}<span v-if="option.adminOnly">（仅管理员）</span>
-                </el-checkbox>
-              </el-checkbox-group>
-            </div>
+            <el-empty
+              v-else
+              :image-size="56"
+              :description="onlySelected ? '该用户还没有任何已选或角色授予的菜单' : '没有匹配的菜单'"
+            />
           </div>
 
           <div class="access-dialog__section access-dialog__section--roles">
@@ -135,7 +175,7 @@ import {
   updateUserAccessSetting,
   type UserAccessControlSetting,
 } from "@/api/user";
-import type { MenuAccessOption } from "@/constants/access-control";
+import type { MenuAccessGroup, MenuAccessOption } from "@/constants/access-control";
 import {
   MENU_ACCESS_GROUPS,
   MENU_ACCESS_OPTIONS,
@@ -165,6 +205,8 @@ const loading = ref(false);
 const submitLoading = ref(false);
 const roleLoading = ref(false);
 const roles = ref<RoleItem[]>([]);
+const keyword = ref("");
+const onlySelected = ref(false);
 const form = reactive<UserAccessControlSetting>({
   menuKeys: [],
   roleKeys: [],
@@ -180,6 +222,68 @@ const selectableMenuKeys = computed(() =>
 );
 const selectableMenuKeySet = computed(() => new Set(selectableMenuKeys.value));
 
+/** 当前选中角色授予的菜单 key，用于在列表里打「角色」标记 */
+const roleGrantedKeys = computed(() => {
+  const activeRoles = new Set(form.roleKeys);
+  const granted = new Set<string>();
+  for (const role of roles.value) {
+    if (!activeRoles.has(role.roleKey)) {
+      continue;
+    }
+    for (const key of role.menuKeys || []) {
+      const normalized = String(key || "").trim();
+      if (normalized) {
+        granted.add(normalized);
+      }
+    }
+  }
+  return granted;
+});
+
+const effectiveKeys = computed(() => {
+  const merged = new Set(form.menuKeys);
+  roleGrantedKeys.value.forEach((key) => merged.add(key));
+  return merged;
+});
+
+const personalCount = computed(
+  () => form.menuKeys.filter((key) => selectableMenuKeySet.value.has(key)).length,
+);
+const roleGrantedCount = computed(
+  () => [...roleGrantedKeys.value].filter((key) => selectableMenuKeySet.value.has(key)).length,
+);
+const effectiveCount = computed(() => effectiveKeys.value.size);
+
+const keywordText = computed(() => keyword.value.trim().toLowerCase());
+
+const filteredGroups = computed<MenuAccessGroup[]>(() => {
+  const text = keywordText.value;
+  return MENU_ACCESS_GROUPS.map((group) => {
+    const options = group.options.filter((option) => {
+      if (onlySelected.value && !effectiveKeys.value.has(option.key)) {
+        return false;
+      }
+      if (!text) {
+        return true;
+      }
+      const label = String(t(option.label) || "").toLowerCase();
+      return label.includes(text) || option.key.toLowerCase().includes(text);
+    });
+    return { ...group, options };
+  }).filter((group) => group.options.length > 0);
+});
+
+const visibleSelectableKeys = computed(() =>
+  filteredGroups.value.flatMap((group) =>
+    group.options.filter((option) => !isOptionDisabled(option)).map((option) => option.key),
+  ),
+);
+
+function countCheckedInGroup(group: MenuAccessGroup) {
+  const selected = new Set(form.menuKeys);
+  return group.options.filter((option) => selected.has(option.key)).length;
+}
+
 function sanitizeMenuKeys(menuKeys: string[]) {
   return normalizeMenuAccessKeys(menuKeys, selectableMenuKeySet.value);
 }
@@ -192,15 +296,26 @@ function resetForm() {
   form.menuKeys = [];
   form.roleKeys = [];
   form.aiAccessEnabled = false;
+  keyword.value = "";
+  onlySelected.value = false;
 }
 
 function handleSelectAll() {
-  form.menuKeys = [...selectableMenuKeys.value];
+  const selected = new Set(form.menuKeys);
+  visibleSelectableKeys.value.forEach((key) => selected.add(key));
+  form.menuKeys = [...selected];
 }
 
 function handleInvertSelection() {
-  const selectedSet = new Set(form.menuKeys);
-  form.menuKeys = selectableMenuKeys.value.filter((key) => !selectedSet.has(key));
+  const selected = new Set(form.menuKeys);
+  visibleSelectableKeys.value.forEach((key) => {
+    if (selected.has(key)) {
+      selected.delete(key);
+    } else {
+      selected.add(key);
+    }
+  });
+  form.menuKeys = [...selected];
 }
 
 async function handleOpen() {
@@ -278,6 +393,9 @@ async function handleSubmit() {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  max-height: calc(88vh - 150px);
+  padding-right: 6px;
+  overflow-y: auto;
 }
 
 .access-dialog__section {
@@ -314,7 +432,38 @@ async function handleSubmit() {
 .access-dialog__toolbar {
   display: flex;
   align-items: center;
-  gap: 4px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.access-dialog__search {
+  width: 260px;
+}
+
+.access-dialog__summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--el-text-color-regular);
+  background: var(--el-fill-color-lighter);
+  border-radius: 8px;
+}
+
+.access-dialog__summary b {
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.access-dialog__summary-dot {
+  color: var(--el-text-color-placeholder);
+}
+
+.access-dialog__groups {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
 }
 
 .access-dialog__ai-row {
@@ -344,13 +493,38 @@ async function handleSubmit() {
 }
 
 .access-dialog__group-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 500;
   color: var(--el-text-color-secondary);
+}
+
+.access-dialog__group-count {
+  font-size: 11px;
+  color: var(--el-text-color-placeholder);
+  font-variant-numeric: tabular-nums;
 }
 
 .access-dialog__checkboxes {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.access-dialog__checkboxes :deep(.el-checkbox) {
+  margin-right: 0;
+}
+
+.access-dialog__granted {
+  margin-left: 4px;
+  padding: 0 4px;
+  font-size: 10px;
+  line-height: 15px;
+  color: var(--el-color-primary);
+  background: var(--el-color-primary-light-9);
+  border-radius: 3px;
 }
 
 .access-dialog__section--roles {
@@ -378,14 +552,15 @@ async function handleSubmit() {
   --el-checkbox-height: 28px;
 }
 
-.access-dialog__role-keys {
-  color: var(--el-text-color-secondary);
-  font-size: 11px;
-}
-
 .access-dialog__footer {
   display: flex;
   justify-content: flex-end;
+}
+
+@media (width <= 1200px) {
+  .access-dialog-modal {
+    --el-dialog-width: 94vw !important;
+  }
 }
 
 @media (width <= 768px) {
@@ -395,7 +570,11 @@ async function handleSubmit() {
   }
 
   .access-dialog__toolbar {
-    justify-content: flex-end;
+    justify-content: flex-start;
+  }
+
+  .access-dialog__search {
+    width: 100%;
   }
 
   .access-dialog__ai-row {

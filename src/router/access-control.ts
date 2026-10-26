@@ -42,8 +42,6 @@ const ALWAYS_ALLOW_ROUTE_NAMES = new Set([
   "Error",
   "UserProfileCompat",
   "IndependentSite",
-  "IndependentSiteOpenDocs",
-  "IndependentSiteUserBehaviorLog",
   "PublicUserBehaviorLog",
 ]);
 

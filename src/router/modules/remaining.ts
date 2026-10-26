@@ -358,57 +358,6 @@ const remainingRouter: AppRouteRecordRaw[] = [
       noTagsView: true,
     },
   },
-  // ── 1. 工作台 ──────────────────────────────────────────────────
-  {
-    path: "/home",
-    component: Layout,
-    name: "Home",
-    redirect: "/home/index",
-    meta: {
-      title: "router.workplace",
-      icon: "lucide:layout-dashboard",
-      order: 1,
-      alwaysShow: true,
-    },
-    children: [
-      {
-        path: "index",
-        component: () => import("@/views/Home/Index.vue"),
-        name: "Index",
-        meta: {
-          title: "router.home",
-          noCache: false,
-          affix: true,
-        },
-      },
-      {
-        path: "hot-search",
-        component: () => import("@/views/Home/HotSearch.vue"),
-        name: "HotSearch",
-        meta: {
-          title: "router.hotSearch",
-          noAppViewPadding: true,
-        },
-      },
-      {
-        path: "tools/index",
-        component: () => import("@/views/Home/Tools/Index.vue"),
-        name: "ToolsIndex",
-        meta: {
-          title: "router.tools",
-        },
-      },
-      {
-        path: "statistics",
-        component: () => import("@/views/Home/Statistics/index.vue"),
-        name: "Statistics",
-        meta: {
-          title: "router.statistics",
-        },
-      },
-
-    ],
-  },
   {
     path: "/login",
     component: () => import("@/views/Login/Login.vue"),
@@ -2180,8 +2129,19 @@ const remainingRouter: AppRouteRecordRaw[] = [
 function attachMenuKeys(routes: AppRouteRecordRaw[]): AppRouteRecordRaw[] {
   return routes.map((route) => {
     const routeName = route.name ? String(route.name) : "";
-    const menuKey = routeName ? ROUTE_MENU_KEY_MAP[routeName] : "";
+    const mappedKey = routeName ? ROUTE_MENU_KEY_MAP[routeName] : "";
     const legacyMenuKeys = routeName ? ROUTE_MENU_LEGACY_KEY_MAP[routeName] : [];
+    const children = route.children ? attachMenuKeys(route.children) : route.children;
+
+    // 兜底：可见的叶子菜单如果没有登记 key，自动派生一个。
+    // 否则这类菜单既不会出现在「分配权限」里，又会绕过权限判断（对所有用户永远可见）。
+    const visibleChildren = (children || []).filter((child) => !child.meta?.hidden);
+    const derivedKey =
+      !mappedKey && routeName && !route.meta?.hidden && !visibleChildren.length
+        ? `menu.${routeName.toLowerCase()}`
+        : "";
+    const menuKey = mappedKey || derivedKey;
+
     return {
       ...route,
       meta: menuKey
@@ -2191,7 +2151,7 @@ function attachMenuKeys(routes: AppRouteRecordRaw[]): AppRouteRecordRaw[] {
           ...(legacyMenuKeys?.length ? { legacyMenuKeys } : {}),
         }
         : route.meta,
-      children: route.children ? attachMenuKeys(route.children) : route.children,
+      children,
     };
   });
 }

@@ -72,7 +72,6 @@ import 'vxe-pc-ui/lib/style.css'
 import VxeUITable from 'vxe-table'
 import 'vxe-table/lib/style.css'
 import { GlobalDefine } from './utils/global'
-import { psdTest } from './psd'
 import { initCOS } from '@/api/cos'
 
 // import * as vue3videoPlay from 'vue3-video-play' // 引入组件
@@ -142,7 +141,5 @@ const setupAll = async () => {
 }
 
 setupAll()
-
-// psdTest()
 
 Logger.prettyPrimary(`欢迎使用`, import.meta.env.VITE_APP_TITLE)

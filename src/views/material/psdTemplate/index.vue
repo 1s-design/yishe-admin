@@ -440,6 +440,12 @@
                           </el-dropdown-item>
                           <el-dropdown-item
                             :disabled="!row.url"
+                            @click="handlePreviewPsd(row)"
+                          >
+                            在线预览
+                          </el-dropdown-item>
+                          <el-dropdown-item
+                            :disabled="!row.url"
                             @click="() => downloadFileByElement(row.url, row.name)"
                           >
                             {{ t('psdTemplate.downloadSourceFile') }}
@@ -591,6 +597,17 @@
                       accept=".psd"
                     >
                       <el-button type="primary">{{ t('psdTemplate.selectFile') }}</el-button>
+                      <el-button
+                        v-if="form.file || form.url"
+                        type="success"
+                        plain
+                        size="small"
+                        style="margin-left: 8px"
+                        @click="openPreviewFromForm"
+                      >
+                        <el-icon><View /></el-icon>
+                        在线预览
+                      </el-button>
                       <template #tip>
                         <div class="el-upload__tip">
                           {{ isEdit ? t('psdTemplate.optionalReplace') : t('psdTemplate.optional') }}
@@ -643,7 +660,7 @@
                         @change="handleThumbnailFileSelect"
                       />
                       <div
-                        v-if="!thumbnailPreviewUrl && !form.thumbnail"
+                        v-if="!(thumbnailPreviewUrl || form.thumbnail)"
                         class="thumbnail-upload-placeholder"
                         @click="triggerThumbnailSelect"
                       >
@@ -710,6 +727,14 @@
                           </div>
                         </div>
                       </div>
+                    </div>
+                    <div
+                      v-if="form.file || form.url"
+                      class="thumbnail-gen-from-psd"
+                      @click="openPreviewFromForm"
+                    >
+                      <el-icon><MagicStick /></el-icon>
+                      <span>从 PSD 生成缩略图</span>
                     </div>
                   </div>
                 </el-form-item>
@@ -1029,6 +1054,16 @@
         </el-table>
       </div>
     </el-dialog>
+
+    <!-- PSD 在线预览弹窗 -->
+    <PsdPreviewDialog
+      v-model:visible="psdPreviewVisible"
+      :file="psdPreviewFile"
+      :url="psdPreviewUrl"
+      :name="psdPreviewName"
+      :can-set-thumbnail="psdPreviewCanSetThumbnail"
+      @thumbnail="handlePsdPreviewThumbnail"
+    />
   </ContentWrap>
 
   <el-dialog
@@ -1133,12 +1168,14 @@ import {
   ArrowDown,
   TopRight,
   Connection,
+  View,
+  MagicStick,
 } from "@element-plus/icons-vue";
 import { useWindowSize, useLocalStorage, useClipboard } from "@vueuse/core";
 import type { VxeGridProps } from "vxe-table";
 import { psdTemplateApi } from "@/api/psdTemplate";
 import { ResourceLibraryApi } from "@/api/resource-library";
-import { uploadToCOS } from "@/api/cos";
+import { uploadToCOS, deleteCOSFile } from "@/api/cos";
 import { getUserList } from "@/api/user";
 import ContentWrap from "@/components/ContentWrap/src/ContentWrap.vue";
 import ListPageLayout from "@/components/ListPageLayout/index.vue";
@@ -1159,6 +1196,7 @@ import {
   type GlobalUploadTask,
 } from "@/services/globalUploadTasks";
 import { useI18n } from "@/hooks/web/useI18n";
+import PsdPreviewDialog from "@/components/PsdPreview/PsdPreviewDialog.vue";
 
 const { t } = useI18n();
 
@@ -1906,6 +1944,17 @@ const psdFileInfoDialogVisible = ref(false);
 const currentPsdFileInfoRow = ref<any>(null);
 const psdTemplateConfigGuideVisible = ref(false);
 
+// PSD 在线预览弹窗
+const psdPreviewVisible = ref(false);
+const psdPreviewFile = ref<File | null>(null);
+const psdPreviewUrl = ref<string | null>(null);
+const psdPreviewName = ref("");
+/** 预览来源：form = 上传/编辑弹窗（回写表单）；row = 列表行（上传后直接更新该模板） */
+const psdPreviewSource = ref<"form" | "row">("form");
+const psdPreviewRow = ref<any>(null);
+/** 两种来源都支持「设为缩略图」，故恒为 true */
+const psdPreviewCanSetThumbnail = ref(true);
+
 const rules = {
   name: [{ required: true, message: t('psdTemplate.templateNamePlaceholder'), trigger: "blur" }],
   // 描述和关键词改为非必填
@@ -1929,6 +1978,20 @@ function checkboxAllChange(e) {
   ids.value = e.records.map((item) => item.id);
 }
 
+/**
+ * 尽力删除 COS 对象：失败只告警，不影响主流程。
+ * 生成新缩略图后旧图会成为无引用的孤儿文件，需主动清理。
+ */
+const safeDeleteCos = (keyOrUrl?: string | null) => {
+  const target = String(keyOrUrl || "").trim();
+  if (!target) return;
+  Promise.resolve()
+    .then(() => deleteCOSFile(target))
+    .catch((error: any) => {
+      console.warn("[COS] 旧缩略图删除失败:", error?.message || error);
+    });
+};
+
 const buildPsdTemplateSubmitSnapshot = () => {
   let psdFileInfo = null;
   if (form.value.psdFileInfoText && form.value.psdFileInfoText.trim()) {
@@ -1945,6 +2008,8 @@ const buildPsdTemplateSubmitSnapshot = () => {
     id: form.value.id,
     file: form.value.file as File | null,
     thumbnailFile: form.value.thumbnailFile as File | null,
+    /** 已落库的旧缩略图地址：本次上传新图后用于清理旧对象 */
+    previousThumbnail: (form.value.thumbnail || "") as string,
     name: form.value.name,
     description: form.value.description || "",
     keywords: form.value.keywords || "",
@@ -2039,6 +2104,15 @@ const runPsdTemplateSaveTask = async (
         suitableSizes: snapshot.suitableSizes,
         cutoutModes: snapshot.cutoutModes,
       });
+    }
+
+    // 新缩略图已成功入库，再清理被替换掉的旧 COS 对象（尽力而为，失败不影响保存）
+    if (
+      snapshot.thumbnailFile &&
+      snapshot.previousThumbnail &&
+      snapshot.previousThumbnail !== thumbnail
+    ) {
+      safeDeleteCos(snapshot.previousThumbnail);
     }
 
     updateGlobalUploadTask(task.id, { status: "success", stage: t('psdTemplate.completed'), progress: 100 });
@@ -2539,6 +2613,129 @@ function handleViewPsdFileInfo(row: any) {
   psdFileInfoDialogVisible.value = true;
 }
 
+function handlePreviewPsd(row: any) {
+  if (!row.url) {
+    ElMessage.warning("该模板没有 PSD 源文件，无法预览");
+    return;
+  }
+  psdPreviewFile.value = null;
+  psdPreviewUrl.value = row.url;
+  psdPreviewName.value = row.name || "";
+  psdPreviewSource.value = "row";
+  psdPreviewRow.value = row;
+  psdPreviewCanSetThumbnail.value = true;
+  psdPreviewVisible.value = true;
+}
+
+/**
+ * 上传/编辑弹窗内打开 PSD 预览
+ * 优先使用新选择的本地文件；编辑已有模板且未替换文件时，回退到模板自带的远程 PSD URL
+ */
+function openPreviewFromForm() {
+  const file = (form.value.file || null) as File | null;
+  const url = (form.value.url || null) as string | null;
+  if (!file && !url) {
+    ElMessage.warning("请先选择 PSD 文件");
+    return;
+  }
+  psdPreviewFile.value = file;
+  psdPreviewUrl.value = file ? null : url;
+  psdPreviewName.value = file ? file.name : form.value.name || "";
+  psdPreviewSource.value = "form";
+  psdPreviewRow.value = null;
+  psdPreviewCanSetThumbnail.value = true;
+  psdPreviewVisible.value = true;
+}
+
+/**
+ * 预览弹窗「设为缩略图」
+ * - 上传/编辑弹窗来源：把导出图写入表单缩略图，随保存提交
+ * - 列表行来源：直接上传并调用更新接口，即时生效
+ */
+async function handlePsdPreviewThumbnail(payload: {
+  blob: Blob;
+  width: number;
+  height: number;
+  done: (success: boolean, message?: string) => void;
+}) {
+  // 外层兜底：任何未预料的异常也必须有回执，
+  // 否则子组件的「设为缩略图」会一直卡在 loading 状态。
+  try {
+    await applyPsdPreviewThumbnail(payload);
+  } catch (error: any) {
+    console.error("设置模板缩略图失败:", error);
+    const message = error?.message || "设置缩略图失败";
+    ElMessage.error(message);
+    payload.done(false, message);
+  }
+}
+
+async function applyPsdPreviewThumbnail(payload: {
+  blob: Blob;
+  width: number;
+  height: number;
+  done: (success: boolean, message?: string) => void;
+}) {
+  const baseName = (psdPreviewName.value || "psd").replace(/\.psd$/i, "");
+  const fileName = `${baseName}-thumb.png`;
+  const file = new File([payload.blob], fileName, { type: "image/png" });
+
+  if (psdPreviewSource.value === "form") {
+    clearThumbnailPreviewUrl();
+    thumbnailPreviewUrl.value = URL.createObjectURL(payload.blob);
+    form.value.thumbnailFile = file;
+    thumbnailFileInfo.value = {
+      name: fileName,
+      typeLabel: "PNG",
+      sizeLabel: formatBytes(payload.blob.size),
+      dimensionsLabel: `${payload.width}×${payload.height}px`,
+      modifiedAtLabel: formatDateTime(Date.now()),
+    };
+    ElMessage.success(`缩略图已生成（${payload.width}×${payload.height}），保存后生效`);
+    psdPreviewVisible.value = false;
+    payload.done(true);
+    return;
+  }
+
+  const row = psdPreviewRow.value;
+  if (!row?.id) {
+    ElMessage.warning("无法更新该模板的缩略图");
+    payload.done(false, "无法更新该模板的缩略图");
+    return;
+  }
+  const previousThumbnail = String(row.thumbnail || "");
+
+  try {
+    const cos = await uploadToCOS({
+      file,
+      category: "psd-template",
+      account:
+        (userStore.user as any)?.account ||
+        userStore.user?.shortName ||
+        userStore.user?.name ||
+        "anonymous",
+      userId: (userStore.user as any)?.id || (userStore as any).userInfo?.id,
+      entityId: String(row.id),
+      isThumbnail: true,
+    });
+    await psdTemplateApi.updatePsdTemplate({ ...row, id: row.id, thumbnail: cos.url });
+    // 新图已入库，清理被替换的旧对象（尽力而为）
+    if (previousThumbnail && previousThumbnail !== cos.url) {
+      safeDeleteCos(previousThumbnail);
+    }
+    ElMessage.success("缩略图已更新");
+    psdPreviewVisible.value = false;
+    // 接口确认成功，才通知子组件结束 loading
+    payload.done(true);
+    await getList();
+  } catch (error: any) {
+    console.error("更新模板缩略图失败:", error);
+    const message = error?.message || "更新缩略图失败";
+    ElMessage.error(message);
+    payload.done(false, message);
+  }
+}
+
 async function handleBatchPublishToLibrary() {
   const targetIds = (Array.isArray(ids.value) ? ids.value : []).map(String).filter(Boolean);
   if (!targetIds.length) {
@@ -2801,14 +2998,14 @@ function handleCutoutModesChange(values: string[]) {
 
 .psd-template-dialog-layout {
   height: 100%;
-  padding: 0 20px 16px;
+  padding: 0 12px 10px;
   box-sizing: border-box;
 }
 
 .psd-template-dialog-main {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 8px;
   width: 100%;
   min-width: 0;
   min-height: 0;
@@ -2817,17 +3014,17 @@ function handleCutoutModesChange(values: string[]) {
 }
 
 .dialog-section {
-  border-radius: 8px;
-  padding: 16px 18px;
+  border-radius: 6px;
+  padding: 10px 12px;
   border: 1px solid var(--el-border-color-extra-light);
   min-height: 0;
 }
 
 .dialog-section-title {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--el-text-color-primary);
-  margin-bottom: 12px;
+  margin-bottom: 6px;
   line-height: 1.2;
 }
 
@@ -3013,7 +3210,7 @@ function handleCutoutModesChange(values: string[]) {
 .psd-template-form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 6px;
 
   :deep(.el-form-item__label) {
     color: var(--el-text-color-secondary);
@@ -3034,7 +3231,7 @@ function handleCutoutModesChange(values: string[]) {
   }
 
   :deep(.el-row) {
-    row-gap: 12px;
+    row-gap: 8px;
   }
 }
 
@@ -3042,10 +3239,11 @@ function handleCutoutModesChange(values: string[]) {
   min-width: 0;
 }
 
+/* 文件区：宽度足够时 PSD 文件与缩略图并排，提升信息密度 */
 .asset-form {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 10px 14px;
 }
 
 .asset-form-item {
@@ -3055,13 +3253,18 @@ function handleCutoutModesChange(values: string[]) {
 .asset-block {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   width: 100%;
   min-width: 0;
 
   .asset-file-meta {
     margin-top: 0;
   }
+}
+
+/* 隐藏上传文件列表，只保留自定义元信息，减少纵向占用 */
+.asset-block :deep(.el-upload-list) {
+  display: none;
 }
 
 .size-select {
@@ -3376,6 +3579,27 @@ function handleCutoutModesChange(values: string[]) {
       line-height: 1.4;
       word-break: break-word;
       width: 100%;
+    }
+  }
+
+  .thumbnail-gen-from-psd {
+    width: 120px;
+    height: 36px;
+    margin-top: 8px;
+    border: 1px dashed var(--el-color-primary);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    cursor: pointer;
+    color: var(--el-color-primary);
+    font-size: 12px;
+    background: var(--el-color-primary-light-9);
+    transition: all 0.2s;
+
+    &:hover {
+      background: var(--el-color-primary-light-8);
     }
   }
 

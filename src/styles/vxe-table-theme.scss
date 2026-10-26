@@ -60,6 +60,12 @@ $vxe-loader-color: var(--loader-color, var(--el-color-primary));
   --vxe-ui-font-size-default: 11px;
   --vxe-ui-font-size-mini: 10px;
   --vxe-ui-font-size-small: 11px;
+
+  /* 表头右上角那块占位（原本吃掉纵向滚动条宽度）取的是 vxe 自带变量，
+     不覆盖的话恒为默认的 #f8f8f9 浅灰 —— 夜间模式下就是一块和表头不搭的浅色方块。
+     这里让它直接跟随本项目的表头色变量（真正的「去掉」在下面滚动条那一节）。 */
+  --vxe-ui-table-header-background-color: var(--app-content-surface-muted-color, #1a1c20) !important;
+  --vxe-table-header-background-color: var(--app-content-surface-muted-color, #1a1c20) !important;
 }
 
 :root {
@@ -75,6 +81,8 @@ html.light {
     border: none !important;
     background-color: #ffffff !important;
     box-shadow: none !important;
+    --vxe-ui-table-header-background-color: #f8fafc !important;
+    --vxe-table-header-background-color: #f8fafc !important;
   }
 }
 
@@ -106,6 +114,68 @@ html.light {
     border-bottom: 1px solid rgba(0, 0, 0, 0.025) !important;
   }
 }
+
+/* ── 去掉 vxe 自带的纵向滚动条 UI（.vxe-table--scroll-y-virtual）────────
+ * 背景：
+ *   vxe 的 .vxe-table--body-wrapper 本身是 overflow: hidden + scrollbar-width: none，
+ *   真正能滚的是里面的 .vxe-table--body-inner-wrapper（overflow-y: scroll，只是滚动条被 vxe 藏了）。
+ *   同时 vxe 会在 .vxe-table--layout-wrapper 右侧额外渲染一列：
+ *     .vxe-table--scroll-y-virtual
+ *       ├─ -y-top-corner / -y-bottom-corner   表头 / 表尾高度的占位块
+ *       └─ -y-wrapper > -y-handle             真正的 overflow-y: scroll 容器，浏览器在这上面画滚动条
+ *   updateStyle() 一旦发现内容超过 height / max-height（overflowY = true），
+ *   就把这一列撑到 scrollbarWidth 宽并置为 visible —— 这就是「多出来的那条滚动条 UI」。
+ *
+ * ⚠️ 不能用 VxeUI.setConfig({ table: { scrollbarConfig: { y: { visible: false } } } }) 去关：
+ *   在 vxe 里 visible: false 的语义是「禁用纵向滚动」，它会把表格彻底锁死 ——
+ *     1) main-wrapper 被加上 sy--hidden，CSS 随即把 body-inner-wrapper 的 overflow-y 改成 hidden；
+ *     2) triggerBodyWheelEvent() 里还会 preventDefault 后直接 return，滚轮事件被吃掉。
+ *   正确姿势是下面这样「只藏视觉」，滚动能力（滚轮 / 触控板 / 触摸 / scrollTo）保持原样。
+ * ───────────────────────────────────────────────────────────────── */
+.vxe-table .vxe-table--scroll-y-virtual,
+.vxe-grid .vxe-table--scroll-y-virtual {
+  width: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* 顺带把这列的四个角落占位块一起收掉 —— 上次夜间模式露出的浅色方块就是 y-top-corner，
+ * 现在整列为 0 宽，这些方块留着只会更显眼。 */
+.vxe-table .vxe-table--scroll-y-top-corner,
+.vxe-grid .vxe-table--scroll-y-top-corner,
+.vxe-table .vxe-table--scroll-y-bottom-corner,
+.vxe-grid .vxe-table--scroll-y-bottom-corner,
+.vxe-table--scroll-y-top-corner,
+.vxe-table--scroll-y-bottom-corner,
+.vxe-table--scroll-x-left-corner,
+.vxe-table--scroll-x-right-corner {
+  display: none !important;
+  background-image: none !important;
+  border: none !important;
+}
+
+/* （可选）想要「看得见、能拖拽」的细滚动条，把下面这段放开即可：
+ * 让真正承担滚动的 .vxe-table--body-inner-wrapper 显示成项目统一的 8px 细滚动条，
+ * height: 0 是为了把横向那条压掉 —— 横向仍交给 vxe 自己的 x 滚动条，避免重复两条。
+ * 注意：Windows / Linux 下原生滚动条会占 ~8px 布局宽度，若表格列宽刚好撑满可能多出一条横向滚动。
+ *
+.vxe-table .vxe-table--body-inner-wrapper,
+.vxe-grid .vxe-table--body-inner-wrapper {
+  scrollbar-width: thin !important;
+  scrollbar-color: var(--app-scrollbar-thumb-color, rgba(255, 255, 255, 0.24)) transparent !important;
+}
+.vxe-table .vxe-table--body-inner-wrapper::-webkit-scrollbar,
+.vxe-grid .vxe-table--body-inner-wrapper::-webkit-scrollbar {
+  display: block !important;
+  width: 8px !important;
+  height: 0 !important;
+}
+.vxe-table .vxe-table--body-inner-wrapper::-webkit-scrollbar-thumb,
+.vxe-grid .vxe-table--body-inner-wrapper::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+  background: var(--app-scrollbar-thumb-color, rgba(255, 255, 255, 0.24)) !important;
+}
+*/
 
 .vxe-table .vxe-header--row,
 .vxe-grid .vxe-header--row {

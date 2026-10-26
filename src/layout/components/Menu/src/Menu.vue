@@ -80,8 +80,23 @@ export default defineComponent({
       appStore.setCollapse(true);
     };
 
+    /**
+     * 侧边栏只渲染「有内容」的分组：
+     * 子路由全都不可见（本身 hidden，或被权限过滤掉只剩详情页）时，
+     * 这个父级就是一个点开也没有任何菜单项的空壳，直接不显示。
+     */
+    const hasVisibleChild = (route: AppRouteRecordRaw) => {
+      const children = route.children ?? [];
+      if (!children.length) {
+        return true;
+      }
+      return children.some((child) => !child.meta?.hidden);
+    };
+
     const routers = computed(() =>
-      permissionStore.getRouters.filter((route) => !route.meta?.hidden),
+      permissionStore.getRouters.filter(
+        (route) => !route.meta?.hidden && hasVisibleChild(route),
+      ),
     );
     const normalizeMenuText = (value: unknown) =>
       String(value ?? "")

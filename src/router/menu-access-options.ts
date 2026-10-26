@@ -68,6 +68,10 @@ function dedupeOptions(options: MenuAccessOption[]) {
 export function buildMenuAccessGroups(
   routes: AppRouteRecordRaw[] = remainingRouter,
 ): MenuAccessGroup[] {
+  // 同一个菜单 key 全局只出现一次：路由重复定义、或分组之间复用同一路由时，
+  // 不能在权限面板里生成多个勾选框（勾一个变两个，用户会以为权限被放大了）
+  const usedKeys = new Set<string>();
+
   return routes.flatMap((route) => {
     if (route.meta?.hidden) {
       return [];
@@ -80,14 +84,22 @@ export function buildMenuAccessGroups(
         ? [createMenuOption(route) as MenuAccessOption]
         : [];
 
-    if (!options.length) {
+    const uniqueOptions = dedupeOptions(options).filter((option) => {
+      if (usedKeys.has(option.key)) {
+        return false;
+      }
+      usedKeys.add(option.key);
+      return true;
+    });
+
+    if (!uniqueOptions.length) {
       return [];
     }
 
     return [
       {
         label: String(route.meta?.title || route.name || route.path),
-        options: dedupeOptions(options),
+        options: uniqueOptions,
       },
     ];
   });

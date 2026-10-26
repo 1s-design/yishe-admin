@@ -100,14 +100,14 @@
           @pointerup="onPointerUp"
           @pointercancel="onPointerCancel"
         >
-          <img :src="current.url" :alt="current.name || '素材图片'" draggable="false" />
+          <!-- 渲染的是 displayUrl 而不是 current.url：
+               它只在图片真正解码完成后才更新，避免上屏瞬间在主线程同步解码大图 -->
+          <img v-if="displayUrl" :src="displayUrl" :alt="current.name || '素材图片'" draggable="false" />
 
-          <!-- 极简元信息指示（去边框tag化，统一轻量背景） -->
-          <div class="qr__meta-strip">
-            <span v-if="dimensionText" class="qr__meta-item">{{ dimensionText }}</span>
-            <span v-if="current.suffix" class="qr__meta-item">{{ current.suffix.toUpperCase() }}</span>
-            <span v-if="current.fileSize" class="qr__meta-item">{{ formatFileSize(current.fileSize) }}</span>
-            <span v-if="current.isCutout" class="qr__meta-badge is-ok">已抠图</span>
+          <!-- 新图还在解码：保留旧图 + 轻提示，绝不给一块白画布 -->
+          <div v-if="deckPending" class="qr__deck-pending">
+            <span class="qr__deck-spinner"></span>
+            <span class="qr__deck-text">加载下一张…</span>
           </div>
 
           <div v-if="swipeHint" class="qr__hint" :class="`qr__hint--${swipeHint}`">
@@ -262,12 +262,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, markRaw, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { ElMessage } from "element-plus";
 import { Close } from "@element-plus/icons-vue";
 import { CrawlerMaterialApi } from "@/api/crawler-material";
 import { formatTimestamp } from "@/common/date";
 import { useUserStore } from "@/store/modules/user";
+import { useImageDeck } from "@/composables/useImageDeck";
 
 defineOptions({ name: "CrawlerQuickReview" });
 
@@ -288,15 +289,25 @@ const emit = defineEmits<{
 /** 每次向接口取多少条（一次多拿，避免频繁补货造成断流） */
 const PAGE_SIZE = 50;
 /** 队列剩余多少条就后台补货：留足缓冲，用户感觉不到加载 */
-const PREFETCH_THRESHOLD = 20;
-/** 提前解码后面几张图，滑动时不出白 */
-const PRELOAD_AHEAD = 8;
+const PREFETCH_THRESHOLD = 32;
+/** 空闲帧里最多预热后面几张图（下一张永远走立即通道） */
+const PRELOAD_AHEAD = 6;
+/**
+ * 切换到下一张时，最多愿意等它解码多久。
+ * 超时就照切不误 —— 宁可极偶尔白一下，也不能让用户点了没反应。
+ */
+const DECK_WAIT_TIMEOUT = 900;
+/**
+ * 攒批提交的参数刻意调小了。
+ * 批越大单次接口越慢（后台要处理几十条），返回前会一直占着连接，
+ * 「审核手感」取决于单次提交的往返时间而不是请求数量。
+ */
 /** 入库攒够多少条立刻提交 */
-const IMPORT_BATCH = 20;
+const IMPORT_BATCH = 10;
 /** 删除攒够多少条立刻提交 */
-const DELETE_BATCH = 30;
-const IMPORT_DEBOUNCE = 1500;
-const DELETE_DEBOUNCE = 5000;
+const DELETE_BATCH = 10;
+const IMPORT_DEBOUNCE = 800;
+const DELETE_DEBOUNCE = 1000;
 /** 判定为滑动的位移阈值（px） */
 const SWIPE_THRESHOLD = 70;
 
@@ -320,6 +331,14 @@ const total = ref(0);
  * 删除会整体前移后续行的偏移，因此每次删除提交成功后同步回退。
  */
 const nextOffset = ref(0);
+/**
+ * 已提交删除、但接口还在飞行中的条数。
+ * 删除会让库内数据整体前移，所以取数时必须把它从偏移里扣掉，否则会跳过素材。
+ *
+ * 这里用「计数补偿」而不是原来的 `await inflightDelete`：
+ * await 会把后台补货整个堵住，用户连续删除时补货全部排队 → 队列耗尽 → 卡在「正在加载」。
+ */
+const pendingDeleteOffset = ref(0);
 /** 已取过的 id，防止分页错位时重复出现 */
 const seenIds = ref<Set<string>>(new Set());
 
@@ -416,38 +435,54 @@ async function fetchNext(): Promise<void> {
   inflightFetch = (async () => {
     loading.value = true;
     try {
-      // 删除提交会改变库内偏移，等它落定再取，避免算错位置
-      if (inflightDelete) await inflightDelete;
+      // 删除会让库内数据整体前移，取到的可能全是已审过的旧行。
+      // 这时不能判定「审完了」，要继续往下翻 —— 最多翻 3 页，防止极端情况死循环。
+      // （用循环而非递归，是因为递归时外层 finally 会把内层刚发起的请求标记清掉，
+      //   导致同一时刻能起两个 fetch，反而更乱。）
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        // 扣掉「已删但还没落库」的条数：删除提交期间照样能补货，不会被接口阻塞
+        const offset = Math.max(0, nextOffset.value - pendingDeleteOffset.value);
+        const pageNo = Math.floor(offset / PAGE_SIZE) + 1;
+        const drop = offset % PAGE_SIZE;
 
-      const offset = Math.max(0, nextOffset.value);
-      const pageNo = Math.floor(offset / PAGE_SIZE) + 1;
-      const drop = offset % PAGE_SIZE;
+        const res: any = await CrawlerMaterialApi.getCrawlerMaterialPage({
+          ...props.query,
+          currentPage: pageNo,
+          pageSize: PAGE_SIZE,
+        });
 
-      const res: any = await CrawlerMaterialApi.getCrawlerMaterialPage({
-        ...props.query,
-        currentPage: pageNo,
-        pageSize: PAGE_SIZE,
-      });
+        const list = Array.isArray(res?.list) ? res.list : [];
+        if (res?.total !== undefined) total.value = Number(res.total) || 0;
 
-      const list = Array.isArray(res?.list) ? res.list : [];
-      if (res?.total !== undefined) total.value = Number(res.total) || 0;
+        // drop 掉本次页内属于「已消费区间」的前几行
+        const rows = list.slice(drop);
+        const fresh = rows.filter((item: any) => {
+          const id = String(item?.id ?? "");
+          if (!id || seenIds.value.has(id)) return false;
+          seenIds.value.add(id);
+          return true;
+        });
 
-      // drop 掉本次页内属于「已消费区间」的前几行
-      const rows = list.slice(drop);
-      const fresh = rows.filter((item: any) => {
-        const id = String(item?.id ?? "");
-        if (!id || seenIds.value.has(id)) return false;
-        seenIds.value.add(id);
-        return true;
-      });
+        nextOffset.value = offset + rows.length;
 
-      nextOffset.value = offset + rows.length;
+        if (!rows.length) {
+          // 接口确实没有更多数据了，才是真的审完
+          finished.value = true;
+          break;
+        }
 
-      if (!fresh.length) {
-        finished.value = true;
-      } else {
-        queue.value.push(...fresh);
-        preloadAhead();
+        if (!fresh.length) {
+          // 本页有数据但全被去重过滤掉了 → 偏移落后了，继续往下翻
+          finished.value = false;
+          continue;
+        }
+
+        // markRaw：素材对象是纯展示数据（内含 meta/promptData 等深层字段），
+        // 让它进响应式体系会递归代理几十上百个字段，
+        // 一次补 50 条就能卡出肉眼可见的掉帧。
+        queue.value.push(...fresh.map((item: any) => markRaw(item)));
+        warmAhead();
+        break;
       }
       loadError.value = "";
       autoRetryLeft = 2;
@@ -478,25 +513,62 @@ function scheduleAutoRetry(): void {
   }, 1500);
 }
 
-/** 已预解码过的图片地址，避免每滑一张都重复 new Image() */
-const preloadedUrls = new Set<string>();
+/** 图片预解码调度器：负责「下一张随时可上屏」 */
+const deck = useImageDeck();
 
-function preloadAhead(): void {
-  queue.value.slice(0, PRELOAD_AHEAD + 1).forEach((item: any) => {
-    const url = item?.url;
-    if (!url || preloadedUrls.has(url)) return;
-    preloadedUrls.add(url);
-    const img = new Image();
-    img.decoding = "async";
-    img.src = url;
-  });
+/**
+ * 预热策略：下一张独占立即通道（切过去必须能马上显示），
+ * 更远的丢进空闲帧慢慢来 —— 一次性并发拉 8 张大图会把带宽摊薄，
+ * 反而让紧邻的下一张变慢，这是「越预载越卡」的常见误区。
+ */
+function warmAhead(): void {
+  deck.warmNow(queue.value[1]?.url);
+  deck.warmIdle(queue.value.slice(2, 2 + PRELOAD_AHEAD).map((item: any) => item?.url));
 }
 
-/** 每滑一张都顺手预解码后面几张，并检查是否需要后台补货 */
+/** 数据层推进后的收尾：按需后台补货 + 预热（全异步，不阻塞点击反馈） */
 function afterAdvance(): void {
-  preloadAhead();
   if (queue.value.length <= PREFETCH_THRESHOLD) void fetchNext();
+  warmAhead();
 }
+
+// ── 视觉层：图解码就绪才上屏 ────────────────────────────────
+/**
+ * 真正渲染到画布上的图片地址。
+ * 数据层切牌（queue.shift）是瞬时的，但这里必须等新图解码完成才替换：
+ * 直接把未解码的大图交给 <img>，浏览器会在上屏那一帧同步解码几 MB 像素，
+ * 表现就是「点了之后卡一下、闪一下白」。
+ */
+const displayUrl = ref("");
+/** 新图还在解码：保留旧图 + 轻提示，绝不给用户一块白画布 */
+const deckPending = ref(false);
+let deckSeq = 0;
+
+async function syncDeck(): Promise<void> {
+  const target = current.value?.url || "";
+  const seq = ++deckSeq;
+
+  if (!target) {
+    displayUrl.value = "";
+    deckPending.value = false;
+    return;
+  }
+
+  // 绝大多数情况下下一张早已在后台解码好，这里零延迟直接上屏
+  if (deck.isReady(target)) {
+    displayUrl.value = target;
+    deckPending.value = false;
+    return;
+  }
+
+  deckPending.value = true;
+  await deck.awaitReady(target, DECK_WAIT_TIMEOUT);
+  if (seq !== deckSeq) return; // 期间用户又翻了，丢弃过期结果
+  displayUrl.value = target;
+  deckPending.value = false;
+}
+
+watch(() => current.value?.url, syncDeck, { immediate: true });
 
 function retry(): void {
   loadError.value = "";
@@ -507,7 +579,7 @@ function retry(): void {
 function reload(): void {
   queue.value = [];
   seenIds.value = new Set();
-  preloadedUrls.clear();
+  deck.reset();
   skippedItems.value = [];
   skippedCount.value = 0;
   nextOffset.value = 0;
@@ -619,15 +691,25 @@ async function flushDeletes(): Promise<void> {
   if (!deleteQueue.value.length) return;
 
   const items = deleteQueue.value.splice(0, deleteQueue.value.length);
+  const count = items.length;
+  // 乐观预判：这批删除一旦生效，库内数据会整体前移 count 位，
+  // 后台补货必须立刻按新位置取值，否则会跳过素材。
+  pendingDeleteOffset.value += count;
+
   inflightDelete = (async () => {
     try {
       await CrawlerMaterialApi.deleteCrawlerMaterial({
         ids: items.map((item: any) => String(item.id)),
       });
-      nextOffset.value = Math.max(0, nextOffset.value - items.length);
+      // 删除已落库：把临时预判固化成永久偏移修正，
+      // 之后新发起的补货用不到预判量了，一并释放。
+      pendingDeleteOffset.value = Math.max(0, pendingDeleteOffset.value - count);
+      nextOffset.value = Math.max(0, nextOffset.value - count);
     } catch (error: any) {
-      deletedCount.value = Math.max(0, deletedCount.value - items.length);
+      deletedCount.value = Math.max(0, deletedCount.value - count);
       notify(`删除提交失败：${error?.message || "未知错误"}`, "error");
+      // 删除失败 = 数据还在库里，把预判的偏移还回去，避免跳过素材
+      pendingDeleteOffset.value = Math.max(0, pendingDeleteOffset.value - count);
     }
   })();
 
@@ -1027,6 +1109,43 @@ onBeforeUnmount(() => {
     pointer-events: none;
     user-select: none;
     filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.35));
+  }
+}
+
+/* 等待下一张解码：轻量角标，不遮挡画面 */
+.qr__deck-pending {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: #e2e8f0;
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+  user-select: none;
+}
+
+.qr__deck-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(226, 232, 240, 0.35);
+  border-top-color: #e2e8f0;
+  border-radius: 50%;
+  animation: qr-deck-spin 0.7s linear infinite;
+}
+
+.qr__deck-text {
+  letter-spacing: 0.3px;
+}
+
+@keyframes qr-deck-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 

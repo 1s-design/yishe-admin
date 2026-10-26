@@ -173,17 +173,18 @@
   <el-dialog
     v-model="dialogVisible"
     :title="dialogTitle"
-    width="700px"
+    width="880px"
     :center="false"
     align-center
+    modal-class="user-edit-dialog"
     @close="resetForm"
   >
     <el-form
       ref="formRef"
       :model="formData"
       :rules="formRules"
-      label-width="100px"
-      class="space-y-4 user-dialog-form"
+      label-width="92px"
+      class="user-dialog-form"
     >
       <!-- 基础信息 -->
       <div class="list-page-dialog-section">
@@ -307,8 +308,8 @@
         <div class="list-page-dialog-section__title">角色分配</div>
         <el-row :gutter="12">
           <el-col :span="24">
-            <el-form-item label="角色" prop="roleKeys" class="user-form-item--sm">
-              <el-select v-model="formData.roleKeys" multiple filterable size="small" placeholder="请选择角色（可多选）" class="!w-full">
+            <el-form-item label="角色" prop="roleKeys">
+              <el-select v-model="formData.roleKeys" multiple filterable placeholder="请选择角色（可多选）" class="!w-full">
                 <el-option v-for="role in roleList" :key="role.roleKey" :label="role.roleName" :value="role.roleKey" />
               </el-select>
             </el-form-item>
@@ -415,7 +416,15 @@ import UserAccessDialog from "./UserAccessDialog.vue";
 const { t } = useI18n();
 
 function getErrorMessage(error: any, fallback: string) {
-  return error?.response?.data?.message || error?.response?.data?.msg || error?.message || fallback;
+  const data = error?.response?.data;
+  const raw = data?.message ?? data?.msg ?? error?.message;
+  if (Array.isArray(raw)) {
+    return raw.map((item) => String(item ?? "").trim()).filter(Boolean).join("；") || fallback;
+  }
+  if (raw && typeof raw === "object") {
+    return JSON.stringify(raw);
+  }
+  return typeof raw === "string" && raw.trim() ? raw : fallback;
 }
 
 function resolveUserState(row: any) {
@@ -566,10 +575,31 @@ const formData = reactive<Record<string, any>>({
   roleKeys: [], // 角色标识列表
 });
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_PATTERN = /^1[3-9]\d{9}$/;
+
+// 邮箱 / 手机号在后台建号时是选填的，只有填了才校验格式
+const validateOptionalEmail = (_rule: any, value: any, callback: (error?: Error) => void) => {
+  const email = String(value ?? "").trim();
+  if (!email || EMAIL_PATTERN.test(email)) return callback();
+  callback(new Error(t("systemUser.emailInvalid")));
+};
+
+const validateOptionalPhone = (_rule: any, value: any, callback: (error?: Error) => void) => {
+  const phone = String(value ?? "").trim();
+  if (!phone || PHONE_PATTERN.test(phone)) return callback();
+  callback(new Error(t("systemUser.phoneInvalid")));
+};
+
 const formRules = {
   account: [{ required: true, message: t('systemUser.accountPlaceholder'), trigger: "blur" }],
   name: [{ required: true, message: t('systemUser.namePlaceholder'), trigger: "blur" }],
-  password: [{ required: true, message: t('systemUser.loginPasswordPlaceholder'), trigger: "blur" }],
+  password: [
+    { required: true, message: t('systemUser.loginPasswordPlaceholder'), trigger: "blur" },
+    { min: 6, max: 32, message: t('systemUser.passwordLength'), trigger: "blur" },
+  ],
+  email: [{ validator: validateOptionalEmail, trigger: "blur" }],
+  phone: [{ validator: validateOptionalPhone, trigger: "blur" }],
 };
 
 // 重置密码对话框
@@ -773,7 +803,10 @@ async function handleSubmit() {
     dialogVisible.value = false;
     await getList();
   } catch (error) {
-    ElMessage.error(getErrorMessage(error, t('common.operationFailed')));
+    // 接口错误已由请求层统一提示（包含 400 的字段级报错），这里只在本地校验等场景兜底，
+    // 避免同一个错误弹两条 toast（之前第二条拿到数组 message，会渲染成空提示）
+    if ((error as any)?.response || error === "error") return;
+    ElMessage.error(getErrorMessage(error, t("common.operationFailed")));
   } finally {
     submitLoading.value = false;
   }
@@ -876,19 +909,6 @@ initRoleList();
   align-items: center;
 }
 
-.user-dialog-form :deep(.user-form-item--sm .el-form-item__label) {
-  min-height: 32px;
-  font-size: 13px;
-}
-
-.user-dialog-form :deep(.user-form-item--sm .el-form-item__content) {
-  min-height: 32px;
-}
-
-.user-dialog-form :deep(.user-form-item--sm .el-select__wrapper) {
-  min-height: 32px;
-}
-
 :deep(.user-page) {
   gap: 10px;
   padding: 8px 0 0;
@@ -906,4 +926,72 @@ initRoleList();
 :deep(.user-page .list-page-table-panel__pagination--flat) {
   padding-top: 10px;
 }
+</style>
+
+<!-- 新增/编辑用户弹窗：极简版式，去掉分区卡片底色、描边与装饰条 -->
+<style>
+.user-edit-dialog .el-dialog {
+  max-width: 94vw;
+  border-radius: 16px;
+}
+
+.user-edit-dialog .el-dialog__header {
+  padding: 22px 28px 14px;
+}
+
+.user-edit-dialog .el-dialog__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.user-edit-dialog .el-dialog__headerbtn {
+  top: 18px;
+  right: 20px;
+}
+
+.user-edit-dialog .el-dialog__body {
+  padding: 0 28px;
+}
+
+.user-edit-dialog .el-dialog__footer {
+  margin-top: 4px;
+  padding: 16px 28px 22px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.user-edit-dialog .list-page-dialog-section {
+  margin-bottom: 0;
+  padding: 18px 0 6px;
+  border: 0;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  border-radius: 0;
+  background: transparent;
+}
+
+.user-edit-dialog .list-page-dialog-section:first-child {
+  padding-top: 6px;
+}
+
+.user-edit-dialog .list-page-dialog-section:last-child {
+  padding-bottom: 6px;
+  border-bottom: 0;
+}
+
+.user-edit-dialog .list-page-dialog-section__title {
+  margin-bottom: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--el-text-color-secondary);
+}
+
+.user-edit-dialog .list-page-dialog-section__title::before {
+  display: none;
+}
+
+/*
+ * 表单行间距沿用应用级 token（--app-form-item-margin / --app-form-item-error-space），
+ * 不再局部覆盖 margin，否则校验报错态和其它弹窗的节奏会不一致。
+ */
 </style>

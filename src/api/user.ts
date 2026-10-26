@@ -57,10 +57,10 @@ export function getUserInfo(id: string) {
   });
 }
 
-// 创建用户
+// 创建用户（后台建号：免人机验证，可指定角色/公司/过期时间）
 export function createUser(data: any) {
   return request.post({
-    url: "/user/register",
+    url: "/user/adminCreate",
     data,
   });
 }

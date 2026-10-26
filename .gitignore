@@ -12,3 +12,7 @@ target
 *.map
 *.pid
 *.tsbuildinfo
+
+# PSD 本地测试素材（体积大，不入库）
+public/__psdtest__/
+psd-harness.html
