@@ -128,8 +128,14 @@
             <el-icon><ArrowRight /></el-icon>
           </button>
 
+          <!-- 首次加载中：从素材库独立拉取批次 -->
+          <div v-if="loadingBatch && !current" class="pqr__loading-full">
+            <el-icon class="is-loading" :size="36"><Loading /></el-icon>
+            <p class="pqr__loading-text">正在从素材库加载审核批次...</p>
+          </div>
+
           <div
-            v-if="current"
+            v-else-if="current"
             class="pqr__stage-container"
           >
             <!-- 图片区域 -->
@@ -369,6 +375,7 @@ import {
   Check,
   CircleCheckFilled,
   Close,
+  Loading,
   Refresh,
   Shop,
 } from '@element-plus/icons-vue'
@@ -798,13 +805,14 @@ function initQueue() {
 
   const initialItems = Array.isArray(props.items) ? [...props.items] : []
 
-  // 如果用户未手动勾选，且选择的是最早或随机，直接调用 fetchBatch 获取更准确的全库对应数据
-  if (!props.hasUserSelection && (activeMode.value === 'oldest' || activeMode.value === 'random')) {
-    fetchBatch(activeMode.value, 1)
-  } else {
+  // 如果用户手动勾选了卡片且有数据，按选中的卡片进行审核
+  if (props.hasUserSelection && initialItems.length > 0) {
     queue.value = sortQueueItems(initialItems, activeMode.value)
     currentIndex.value = Math.min(Math.max(props.startIndex || 0, 0), Math.max(queue.value.length - 1, 0))
     syncCurrentMaterial()
+  } else {
+    // 未勾选或全库审核模式：无论何种排序（recent/oldest/random），均直接独立向后端拉取第一批50张素材
+    fetchBatch(activeMode.value, 1)
   }
 }
 
@@ -1546,6 +1554,22 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   &--next {
     right: 20px;
   }
+}
+
+.pqr__loading-full {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: var(--el-text-color-secondary);
+  height: 100%;
+  min-height: 360px;
+}
+
+.pqr__loading-text {
+  font-size: 14px;
+  color: var(--el-text-color-regular);
 }
 
 .pqr__empty {

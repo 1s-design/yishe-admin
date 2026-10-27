@@ -4863,14 +4863,10 @@ function openMaterialPublishQuickReview(mode: 'recent' | 'oldest' | 'random' = '
   quickPublishReviewMode.value = mode;
   if (ids.value && ids.value.length > 0) {
     const selectedList = (dataSource.value || []).filter((row: any) => ids.value.includes(row.id));
-    quickPublishReviewItems.value = selectedList.length > 0 ? selectedList : [...(dataSource.value || [])];
+    quickPublishReviewItems.value = selectedList;
   } else {
-    quickPublishReviewItems.value = [...(dataSource.value || [])];
-  }
-
-  if (!quickPublishReviewItems.value.length) {
-    ElMessage.warning('当前列表没有可审核的素材');
-    return;
+    // 未手动勾选时直接进入全库审核模式，无需依赖表格当前是否加载完成
+    quickPublishReviewItems.value = [];
   }
 
   quickPublishReviewVisible.value = true;
