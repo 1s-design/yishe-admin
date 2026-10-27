@@ -428,22 +428,145 @@
 
                   <template #statusDetailDefaultSlot="{ row }">
                     <div v-if="isPublishProductTaskRow(row)" class="queue-status-detail-cell">
-                      <span
-                        class="queue-status-pill"
-                        :class="`queue-status-pill--${row._ui?.psdStatus.type || 'pending'}`"
-                        :title="row._ui?.psdStatus.reason || ''"
-                      >
-                        <i class="queue-status-pill__dot"></i>
-                        {{ row._ui?.psdStatus.text || "-" }}
-                      </span>
-                      <span
-                        class="queue-status-pill"
-                        :class="`queue-status-pill--${row._ui?.titleStatus.type || 'pending'}`"
-                        :title="row._ui?.titleStatus.reason || ''"
-                      >
-                        <i class="queue-status-pill__dot"></i>
-                        {{ row._ui?.titleStatus.text || "-" }}
-                      </span>
+                      <!-- 套图制作状态行 -->
+                      <div class="queue-status-detail-line">
+                        <el-popover
+                          placement="top"
+                          :width="330"
+                          trigger="hover"
+                          popper-class="queue-status-detail-popover"
+                        >
+                          <template #reference>
+                            <span
+                              class="queue-status-pill"
+                              :class="`queue-status-pill--${row._ui?.psdStatus.type || 'pending'}`"
+                            >
+                              <i class="queue-status-pill__dot"></i>
+                              <span class="queue-status-pill__prefix">套图:</span>
+                              <span class="queue-status-pill__value">{{ row._ui?.psdStatus.text || "-" }}</span>
+                            </span>
+                          </template>
+                          <div class="queue-status-popover-card">
+                            <div class="queue-status-popover-card__header">
+                              <span class="queue-status-popover-card__title">套图制作状态</span>
+                              <span
+                                class="queue-status-pill"
+                                :class="`queue-status-pill--${row._ui?.psdStatus.type || 'pending'}`"
+                              >
+                                {{ row._ui?.psdStatus.text || "-" }}
+                              </span>
+                            </div>
+                            <div v-if="row._ui?.psdStatus.psdSetName" class="queue-status-popover-card__row">
+                              <span class="queue-status-popover-card__label">套图名称</span>
+                              <span class="queue-status-popover-card__value is-highlight">{{ row._ui.psdStatus.psdSetName }}</span>
+                            </div>
+                            <div v-if="row._ui?.psdStatus.psdSetId" class="queue-status-popover-card__row">
+                              <span class="queue-status-popover-card__label">套图编号</span>
+                              <span class="queue-status-popover-card__value text-mono">{{ row._ui.psdStatus.psdSetId }}</span>
+                            </div>
+                            <div class="queue-status-popover-card__row">
+                              <span class="queue-status-popover-card__label">当前说明</span>
+                              <span class="queue-status-popover-card__value">{{ row._ui?.psdStatus.reason }}</span>
+                            </div>
+                            <div v-if="row._ui?.psdStatus.error" class="queue-status-popover-card__error">
+                              <span class="queue-status-popover-card__label">失败原因</span>
+                              <span class="queue-status-popover-card__error-text">{{ row._ui.psdStatus.error }}</span>
+                            </div>
+                            <div class="queue-status-popover-card__tip">
+                              {{ row._ui?.psdStatus.type === 'danger' ? '建议：请在「贴纸PSD套装」模块排查错误或重试出图' : (row._ui?.psdStatus.type === 'warning' ? '提示：出图完成后将自动把成品图灌入发布数据' : '状态说明：套图为商品发布的必要前置素材') }}
+                            </div>
+                          </div>
+                        </el-popover>
+                        <span
+                          v-if="row._ui?.psdStatus.error"
+                          class="queue-status-detail-line__hint is-error"
+                          :title="row._ui.psdStatus.error"
+                        >
+                          ⚠️ {{ row._ui.psdStatus.error }}
+                        </span>
+                        <span
+                          v-else-if="row._ui?.psdStatus.psdSetName"
+                          class="queue-status-detail-line__hint"
+                          :title="row._ui.psdStatus.psdSetName"
+                        >
+                          {{ row._ui.psdStatus.psdSetName }}
+                        </span>
+                        <span
+                          v-else-if="row._ui?.psdStatus.reason"
+                          class="queue-status-detail-line__hint is-dim"
+                          :title="row._ui.psdStatus.reason"
+                        >
+                          {{ row._ui.psdStatus.reason }}
+                        </span>
+                      </div>
+
+                      <!-- 商品标题状态行 -->
+                      <div class="queue-status-detail-line">
+                        <el-popover
+                          placement="top"
+                          :width="350"
+                          trigger="hover"
+                          popper-class="queue-status-detail-popover"
+                        >
+                          <template #reference>
+                            <span
+                              class="queue-status-pill"
+                              :class="`queue-status-pill--${row._ui?.titleStatus.type || 'pending'}`"
+                            >
+                              <i class="queue-status-pill__dot"></i>
+                              <span class="queue-status-pill__prefix">标题:</span>
+                              <span class="queue-status-pill__value">{{ row._ui?.titleStatus.text || "-" }}</span>
+                            </span>
+                          </template>
+                          <div class="queue-status-popover-card">
+                            <div class="queue-status-popover-card__header">
+                              <span class="queue-status-popover-card__title">商品标题状态</span>
+                              <span
+                                class="queue-status-pill"
+                                :class="`queue-status-pill--${row._ui?.titleStatus.type || 'pending'}`"
+                              >
+                                {{ row._ui?.titleStatus.text || "-" }}
+                              </span>
+                            </div>
+                            <div v-if="row._ui?.titleStatus.titleText" class="queue-status-popover-card__row">
+                              <span class="queue-status-popover-card__label">商品标题</span>
+                              <span class="queue-status-popover-card__value is-highlight">{{ row._ui.titleStatus.titleText }}</span>
+                            </div>
+                            <div class="queue-status-popover-card__row">
+                              <span class="queue-status-popover-card__label">当前说明</span>
+                              <span class="queue-status-popover-card__value">{{ row._ui?.titleStatus.reason }}</span>
+                            </div>
+                            <div v-if="row._ui?.titleStatus.error" class="queue-status-popover-card__error">
+                              <span class="queue-status-popover-card__label">失败原因</span>
+                              <span class="queue-status-popover-card__error-text">{{ row._ui.titleStatus.error }}</span>
+                            </div>
+                            <div class="queue-status-popover-card__tip">
+                              {{ row._ui?.titleStatus.type === 'danger' ? '建议：可点击右侧操作栏「重新生成」重新触发 AI 标题生成' : (row._ui?.titleStatus.type === 'info' ? '提示：等待套图出图完成后将自动由 AI 生成标题' : '状态说明：商品标题为各电商平台必须字段') }}
+                            </div>
+                          </div>
+                        </el-popover>
+                        <span
+                          v-if="row._ui?.titleStatus.error"
+                          class="queue-status-detail-line__hint is-error"
+                          :title="row._ui.titleStatus.error"
+                        >
+                          ⚠️ {{ row._ui.titleStatus.error }}
+                        </span>
+                        <span
+                          v-else-if="row._ui?.titleStatus.titleText"
+                          class="queue-status-detail-line__hint is-title"
+                          :title="row._ui.titleStatus.titleText"
+                        >
+                          {{ row._ui.titleStatus.titleText }}
+                        </span>
+                        <span
+                          v-else-if="row._ui?.titleStatus.reason"
+                          class="queue-status-detail-line__hint is-dim"
+                          :title="row._ui.titleStatus.reason"
+                        >
+                          {{ row._ui.titleStatus.reason }}
+                        </span>
+                      </div>
                     </div>
                     <span v-else class="text-secondary">-</span>
                   </template>
@@ -1275,7 +1398,7 @@ const gridOptions = ref({
       // 商品发布行显示 套图状态+标题状态 两个徽标，其他家族暂无专属状态则显示 -
       title: t('queue.statusDetail'),
       field: "statusDetail",
-      width: 210,
+      width: 290,
       showOverflow: false,
       slots: {
         default: "statusDetailDefaultSlot",
@@ -2217,60 +2340,106 @@ function getQueueConclusion(row: QueueMessage): QueueConclusion {
 
 function getPublishMeta(row?: QueueMessage | null) {
   const metadata = (row?.metadata as any) || {};
-  const dataMeta = ((row?.data as any)?.meta) || {};
+  const data = (row?.data as any) || {};
+  const dataMeta = data?.meta || {};
+  const publishData = data?.publishData || {};
+  const rawTitle = String(publishData.title || publishData.name || dataMeta.title || metadata.title || "").trim();
+  const rawPsdSetName = String(metadata.psdSetName || dataMeta.psdSetName || metadata.templateName || dataMeta.templateName || "").trim();
+  const rawPsdSetId = String(metadata.psdSetId || dataMeta.psdSetId || "").trim();
+  const rawPsdSetError = String(metadata.psdSetError || dataMeta.psdSetError || metadata.psdError || dataMeta.psdError || "").trim();
+  const rawTitleError = String(metadata.titleError || dataMeta.titleError || metadata.aiTitleError || dataMeta.aiTitleError || "").trim();
+
   // metadata 与 data.meta 都可能带状态字段，合并取值避免只看一边丢字段
   return {
     ...dataMeta,
     ...metadata,
-    titleStatus: metadata.titleStatus || dataMeta.titleStatus || "",
+    titleStatus: metadata.titleStatus || dataMeta.titleStatus || (rawTitle ? "completed" : ""),
     stage: metadata.stage || dataMeta.stage || "",
-    psdSetId: metadata.psdSetId || dataMeta.psdSetId || "",
-    psdSetName: metadata.psdSetName || dataMeta.psdSetName || "",
+    psdSetId: rawPsdSetId,
+    psdSetName: rawPsdSetName,
     psdSetStatus: metadata.psdSetStatus || dataMeta.psdSetStatus || "",
+    titleError: rawTitleError,
+    psdSetError: rawPsdSetError,
+    titleText: rawTitle,
   };
 }
 
-/** 标题状态：pending / generating / generated / fixed / failed / default */
+/** 标题状态：pending / generating / generated / completed / fixed / failed / default */
 function getTitleStatusInfo(row: QueueMessage) {
   const meta = getPublishMeta(row);
   const raw = String(meta.titleStatus || "").trim().toLowerCase();
-  const map: Record<string, { text: string; type: QueueTagType; reason: string }> = {
+  const rowError = String(row?.error || "").trim();
+  let titleError = String(meta.titleError || "").trim();
+  if (!titleError && raw === "failed" && /title|标题/i.test(rowError)) {
+    titleError = rowError;
+  }
+  const titleText = String(meta.titleText || "").trim();
+
+  const map: Record<string, { text: string; type: QueueTagType; reason: string; error?: string; titleText?: string }> = {
     pending: {
-      text: t('queue.titlePending'),
+      text: "待生成",
       type: "info",
-      reason: t('queue.titlePendingReason'),
+      reason: t('queue.titlePendingReason') || "标题将在套图出图后自动由 AI 生成",
+      titleText,
     },
     generating: {
-      text: t('queue.titleGenerating'),
+      text: "生成中",
       type: "primary",
-      reason: t('queue.titleGeneratingReason'),
+      reason: t('queue.titleGeneratingReason') || "AI 正在根据配置提示词生成商品标题...",
+      titleText,
     },
     generated: {
-      text: t('queue.titleGenerated'),
+      text: "生成成功",
       type: "success",
-      reason: t('queue.titleGeneratedReason'),
+      reason: titleText ? `商品标题：${titleText}` : (t('queue.titleGeneratedReason') || "AI 标题已生成就绪"),
+      titleText,
+    },
+    completed: {
+      text: "生成成功",
+      type: "success",
+      reason: titleText ? `商品标题：${titleText}` : "商品标题已生成就绪",
+      titleText,
     },
     fixed: {
-      text: t('queue.titleFixed'),
+      text: "固定标题",
       type: "success",
-      reason: t('queue.titleFixedReason'),
+      reason: titleText ? `固定标题：${titleText}` : (t('queue.titleFixedReason') || "使用发布配置中的固定标题"),
+      titleText,
     },
     failed: {
-      text: t('queue.titleFailed'),
+      text: "生成未成功",
       type: "danger",
-      reason: t('queue.titleFailedReason'),
+      reason: titleError || t('queue.titleFailedReason') || "标题生成失败，请在操作栏点击「重新生成」",
+      error: titleError || "AI 生成商品标题异常，请检查 AI 接口或提示词配置",
+      titleText,
     },
     default: {
-      text: t('queue.titleDefault'),
+      text: "默认标题",
       type: "info",
-      reason: t('queue.titleDefaultReason'),
+      reason: titleText ? `默认标题：${titleText}` : (t('queue.titleDefaultReason') || "使用素材默认标题"),
+      titleText,
     },
   };
+
+  if (raw && map[raw]) {
+    return map[raw];
+  }
+
+  if (titleText) {
+    return {
+      text: "生成成功",
+      type: "success" as QueueTagType,
+      reason: `商品标题：${titleText}`,
+      titleText,
+    };
+  }
+
   // 发布任务始终展示标题状态，缺省显示「待生成」
-  return map[raw] || {
-    text: raw || t('queue.titlePending'),
-    type: (raw ? "info" : "info") as QueueTagType,
-    reason: raw || t('queue.titlePendingReason'),
+  return {
+    text: raw ? `待生成(${raw})` : (t('queue.titlePending') || "待生成"),
+    type: "info" as QueueTagType,
+    reason: t('queue.titlePendingReason') || "标题将在套图出图后生成",
+    titleText,
   };
 }
 
@@ -2279,51 +2448,78 @@ function getPsdSetStatusInfo(row: QueueMessage) {
   const meta = getPublishMeta(row);
   const stage = String(meta.stage || "").trim().toLowerCase();
   const raw = String(meta.psdSetStatus || "").trim().toLowerCase();
+  const psdSetName = String(meta.psdSetName || "").trim();
+  const psdSetId = String(meta.psdSetId || "").trim();
+  const rowError = String(row?.error || "").trim();
+  let psdSetError = String(meta.psdSetError || "").trim();
+  if (!psdSetError && raw === "failed" && /psd|套图|图片|template/i.test(rowError)) {
+    psdSetError = rowError;
+  }
+
   if (stage === "awaiting-psd-set" && (!raw || raw === "pending" || raw === "processing")) {
     return {
-      text: t('queue.psdSetAwaiting'),
+      text: "未出图(等待中)",
       type: "warning" as QueueTagType,
-      reason: t('queue.psdSetAwaitingReason'),
+      reason: psdSetName
+        ? `套图「${psdSetName}」制作中/排队中，发布任务等待灌入成品图`
+        : "套图尚未出图，发布任务等待灌入成品图",
+      psdSetName,
+      psdSetId,
+      error: psdSetError,
     };
   }
-  const map: Record<string, { text: string; type: QueueTagType; reason: string }> = {
+
+  const map: Record<string, { text: string; type: QueueTagType; reason: string; error?: string; psdSetName?: string; psdSetId?: string }> = {
     pending: {
-      text: t('queue.psdSetPending'),
+      text: "待制作",
       type: "info",
-      reason: t('queue.psdSetPendingReason'),
+      reason: psdSetName ? `套图「${psdSetName}」排队待客户端制作` : (t('queue.psdSetPendingReason') || "套图排队待客户端制作"),
+      psdSetName,
+      psdSetId,
     },
     processing: {
-      text: t('queue.psdSetProcessing'),
+      text: "制作中",
       type: "primary",
-      reason: t('queue.psdSetProcessingReason'),
+      reason: psdSetName ? `套图「${psdSetName}」正在制作导出中...` : (t('queue.psdSetProcessingReason') || "套图正在制作中..."),
+      psdSetName,
+      psdSetId,
     },
     completed: {
-      text: t('queue.psdSetCompleted'),
+      text: "制作成功",
       type: "success",
-      reason: t('queue.psdSetCompletedReason'),
+      reason: psdSetName ? `套图「${psdSetName}」制作成功，成品图已就绪` : (t('queue.psdSetCompletedReason') || "套图制作成功，成品图已就绪"),
+      psdSetName,
+      psdSetId,
     },
     failed: {
-      text: t('queue.psdSetFailed'),
+      text: "制作未成功",
       type: "danger",
-      reason: t('queue.psdSetFailedReason'),
+      reason: psdSetError || (psdSetName ? `套图「${psdSetName}」制作失败，需重新生成` : (t('queue.psdSetFailedReason') || "套图制作未成功，需重新生成")),
+      error: psdSetError || (t('queue.psdSetFailedReason') || "套图制作未成功，请在贴纸PSD套装列表中查看详情并重试"),
+      psdSetName,
+      psdSetId,
     },
-    // 预创建但套图状态未回传时的兜底
     awaiting: {
-      text: t('queue.psdSetAwaiting'),
+      text: "未出图(等待中)",
       type: "warning",
-      reason: t('queue.psdSetAwaitingReason'),
+      reason: psdSetName ? `套图「${psdSetName}」尚未出图，发布任务等待出图` : (t('queue.psdSetAwaitingReason') || "套图尚未出图，发布任务等待灌入成品图"),
+      psdSetName,
+      psdSetId,
     },
   };
+
   if (raw && map[raw]) {
     return map[raw];
   }
-  // 发布任务始终展示套图状态
+
   return {
-    text: raw || t('queue.psdSetAwaiting'),
+    text: raw ? `等待出图(${raw})` : (t('queue.psdSetAwaiting') || "等待出图"),
     type: "warning" as QueueTagType,
-    reason: meta.psdSetName
-      ? `${meta.psdSetName}${raw ? `: ${raw}` : ""}`
-      : raw || t('queue.psdSetAwaitingReason'),
+    reason: psdSetName
+      ? `${psdSetName}${raw ? `: ${raw}` : ""}`
+      : raw || (t('queue.psdSetAwaitingReason') || "套图尚未出图，发布任务等待灌入成品图"),
+    psdSetName,
+    psdSetId,
   };
 }
 
@@ -5140,10 +5336,56 @@ onUnmounted(() => {
 
 .queue-page :deep(.queue-status-detail-cell) {
   display: flex;
+  flex-direction: column;
+  gap: 4px;
+  justify-content: center;
+  min-height: 48px;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.queue-page :deep(.queue-status-detail-line) {
+  display: flex;
   align-items: center;
   gap: 6px;
-  flex-wrap: nowrap;
+  min-width: 0;
+  max-width: 100%;
   overflow: hidden;
+  white-space: nowrap;
+}
+
+.queue-page :deep(.queue-status-pill__prefix) {
+  font-weight: 600;
+  opacity: 0.85;
+  margin-right: 2px;
+}
+
+.queue-page :deep(.queue-status-pill__value) {
+  font-weight: 500;
+}
+
+.queue-page :deep(.queue-status-detail-line__hint) {
+  font-size: 11px;
+  color: var(--el-text-color-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+
+  &.is-title {
+    color: var(--el-text-color-primary);
+    font-weight: 500;
+  }
+
+  &.is-error {
+    color: var(--el-color-danger);
+    font-weight: 500;
+  }
+
+  &.is-dim {
+    color: var(--el-text-color-placeholder);
+  }
 }
 
 .queue-page :deep(.queue-exec-cell) {
@@ -5624,6 +5866,123 @@ onUnmounted(() => {
   50% {
     box-shadow: 0 0 0 6px rgb(249 115 22 / 0%);
     transform: scale(1.04);
+  }
+}
+</style>
+
+<style lang="less">
+.queue-status-detail-popover {
+  padding: 12px 14px !important;
+  border-radius: 8px !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12) !important;
+
+  .queue-status-popover-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 12px;
+    line-height: 1.5;
+
+    &__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--el-border-color-lighter);
+    }
+
+    &__title {
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--el-text-color-primary);
+    }
+
+    &__row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    &__label {
+      flex: none;
+      width: 56px;
+      color: var(--el-text-color-secondary);
+      font-size: 12px;
+    }
+
+    &__value {
+      flex: 1;
+      min-width: 0;
+      color: var(--el-text-color-primary);
+      word-break: break-all;
+
+      &.is-highlight {
+        font-weight: 600;
+        color: var(--el-color-primary);
+      }
+    }
+
+    &__error {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 6px 8px;
+      border-radius: 6px;
+      background: var(--el-color-danger-light-9);
+      border: 1px solid var(--el-color-danger-light-7);
+    }
+
+    &__error-text {
+      flex: 1;
+      min-width: 0;
+      color: var(--el-color-danger);
+      font-size: 12px;
+      word-break: break-all;
+      line-height: 1.4;
+      font-weight: 500;
+    }
+
+    &__tip {
+      font-size: 11px;
+      color: var(--el-text-color-placeholder);
+      padding-top: 2px;
+      line-height: 1.4;
+    }
+  }
+
+  .queue-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 20px;
+    padding: 0 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+
+    &--success {
+      color: var(--el-color-success);
+      background: color-mix(in srgb, var(--el-color-success) 12%, transparent);
+    }
+    &--primary {
+      color: #409eff;
+      background: color-mix(in srgb, #409eff) 12%, transparent);
+    }
+    &--warning {
+      color: var(--el-color-warning);
+      background: color-mix(in srgb, var(--el-color-warning) 12%, transparent);
+    }
+    &--danger {
+      color: var(--el-color-danger);
+      background: color-mix(in srgb, var(--el-color-danger) 12%, transparent);
+    }
+    &--info {
+      color: var(--el-text-color-regular);
+      background: var(--el-fill-color-light);
+    }
   }
 }
 </style>
