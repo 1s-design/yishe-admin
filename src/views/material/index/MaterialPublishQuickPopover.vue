@@ -214,7 +214,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import {
   ArrowRight,
   Check,
@@ -268,6 +268,16 @@ const creating = ref(false)
 const optimisticCreatedConfigIds = ref<Set<string>>(new Set())
 
 let fullDataLoadedStickerId = ''
+
+watch(
+  () => props.row?.id,
+  (newId, oldId) => {
+    if (newId !== oldId) {
+      fullDataLoadedStickerId = ''
+      selectedConfigIds.value = []
+    }
+  }
+)
 
 // ==================== 计算属性 ====================
 const unpublishedMatches = computed<MatchedPublishConfigItem[]>(() => {
@@ -327,12 +337,19 @@ const specTooltip = computed(() => {
 function ensureFastSyncMatches() {
   const sticker = props.row
   if (!sticker) return
+  const stickerId = String(sticker.id || '')
+
+  // 关键修复：如果当前素材已经加载过发布绑定，绝对不能清空原有的 publishedMatches 和 otherBindings！
+  const isSameStickerLoaded = fullDataLoadedStickerId === stickerId && !!matchResult.value
+  const existingPublished = isSameStickerLoaded ? (matchResult.value.publishedMatches || []) : []
+  const existingOther = isSameStickerLoaded ? (matchResult.value.otherBindings || []) : []
+
   const { width, height, targetRatio, ratioLabel } = extractDimensions(sticker)
   const baseMatches = findMatchingConfigsSync(width, height, targetRatio)
 
   // 严格过滤：必须是 isMatched 为 true 的配置，才能作为该尺寸的待制作配置！
   const matchedUnpublished = (Array.isArray(baseMatches) ? baseMatches : []).filter(
-    (item) => item.isMatched
+    (item) => item.isMatched && !existingPublished.some((p) => p.id === item.id)
   )
 
   matchResult.value = {
@@ -341,15 +358,18 @@ function ensureFastSyncMatches() {
     targetRatio,
     ratioLabel,
     unpublishedMatches: matchedUnpublished,
-    publishedMatches: [],
-    otherBindings: [],
-    errors: []
+    publishedMatches: existingPublished,
+    otherBindings: existingOther,
+    errors: matchResult.value?.errors || []
   }
 
-  const unpubList = matchedUnpublished.filter(
-    (item) => !optimisticCreatedConfigIds.value.has(item.id)
-  )
-  selectedConfigIds.value = unpubList.map((item) => item.id)
+  // 仅在当前未手动选择时默认勾选
+  if (!selectedConfigIds.value.length) {
+    const unpubList = matchedUnpublished.filter(
+      (item) => !optimisticCreatedConfigIds.value.has(item.id)
+    )
+    selectedConfigIds.value = unpubList.map((item) => item.id)
+  }
 }
 
 function handleTriggerMouseEnter() {
@@ -360,9 +380,17 @@ async function ensureDataLoaded() {
   ensureFastSyncMatches()
   const stickerId = String(props.row?.id || '')
   if (!stickerId) return
-  if (fullDataLoadedStickerId === stickerId) return
 
-  isCheckingBindings.value = true
+  // 如果已经有当前素材的绑定数据，不再展示转圈小点，后台无缝静默拉取
+  const hasLoadedBefore =
+    fullDataLoadedStickerId === stickerId &&
+    ((matchResult.value.publishedMatches && matchResult.value.publishedMatches.length > 0) ||
+      (matchResult.value.otherBindings && matchResult.value.otherBindings.length > 0))
+
+  if (!hasLoadedBefore) {
+    isCheckingBindings.value = true
+  }
+
   try {
     const res = await evaluatePublishConfigsForSticker(props.row, false)
     if (res && String(props.row?.id || '') === stickerId) {
@@ -381,7 +409,14 @@ async function ensureDataLoaded() {
       const unpubList = (res.unpublishedMatches || []).filter(
         (m) => !optimisticCreatedConfigIds.value.has(m.id)
       )
-      selectedConfigIds.value = unpubList.map((m) => m.id)
+      // 若当前未选择，默认勾选未发布的适配配置；若已有选择，保留合法有效项
+      if (!selectedConfigIds.value.length) {
+        selectedConfigIds.value = unpubList.map((m) => m.id)
+      } else {
+        const validIds = new Set(unpubList.map((m) => m.id))
+        const remaining = selectedConfigIds.value.filter((id) => validIds.has(id))
+        selectedConfigIds.value = remaining.length ? remaining : unpubList.map((m) => m.id)
+      }
     }
   } catch (err) {
     console.warn('获取素材发布配置匹配详情失败:', err)

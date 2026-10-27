@@ -87,7 +87,9 @@ const hasRelated = computed(() => {
 async function load() {
   const id = String(props.row?.id || '')
   if (!id) return
-  loading.value = true
+  if (!relations.value.related?.length) {
+    loading.value = true
+  }
   try {
     relations.value = await loadMaterialRelations(id)
   } finally {
