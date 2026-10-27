@@ -132,7 +132,7 @@
           </div>
         </section>
 
-        <!-- 右侧纯配置面板：包含匹配与不匹配的所有配置，从最匹配向下排序 -->
+        <!-- 右侧纯配置面板：展示所有配置，匹配的排在前并默认勾选，不匹配的按近似比例从上到下排序 -->
         <aside v-if="current" class="pqr__side">
           <div class="pqr__side-header">
             <div class="pqr__side-title-row">
@@ -144,12 +144,13 @@
             </div>
             <div class="pqr__side-actions">
               <button
+                v-if="matchedCount > 0"
                 type="button"
                 class="pqr__action-link"
-                :title="filterOnlyMatched ? '当前仅展示尺寸匹配项，点击展示全部配置' : '当前展示全部配置，点击仅展示尺寸匹配项'"
-                @click="filterOnlyMatched = !filterOnlyMatched"
+                title="一键重置为仅勾选推荐匹配项"
+                @click="selectOnlyMatched"
               >
-                {{ filterOnlyMatched ? '只看匹配' : '全部配置' }}
+                仅选匹配
               </button>
               <button
                 type="button"
@@ -161,49 +162,59 @@
             </div>
           </div>
 
-          <!-- 配置列表：按匹配度从高到低向下排序 -->
+          <!-- 配置列表：按契合度与近似比例从高到低从上到下排序 -->
           <div class="pqr__config-scroll">
-            <div
-              v-for="item in displayConfigs"
-              :key="item.id"
-              class="pqr__config-card"
-              :class="{
-                'is-selected': selectedConfigIds.includes(item.id),
-                'is-published': isItemPublished(item.id),
-                'is-mismatch': !item.isMatched && !isItemPublished(item.id)
-              }"
-              @click="handleCardClick(item)"
-            >
-              <!-- 勾选指示器：未选=空心圈 / 选中=蓝色实心勾 / 已发布=绿色实心勾 -->
-              <span class="pqr__check">
-                <el-icon
-                  v-if="isItemPublished(item.id) || selectedConfigIds.includes(item.id)"
-                  :size="11"
-                >
-                  <Check />
-                </el-icon>
-              </span>
-
-              <div class="pqr__config-main">
-                <span class="pqr__config-name" :title="item.name">
-                  <em v-if="platformPrefix(item)" class="pqr__config-platform">{{ platformPrefix(item) }}</em>
-                  {{ item.name }}
-                </span>
-                <span class="pqr__config-meta">
-                  <span class="pqr__spec-text">{{ item.aspectRatioLabel }}</span>
-                  <i class="pqr__meta-dot"></i>
-                  <span v-if="isItemPublished(item.id)" class="pqr__score-pill pqr__score-pill--published">已发布</span>
-                  <span
-                    v-else
-                    class="pqr__score-pill"
-                    :class="`pqr__score-pill--${item.matchStatus}`"
-                    :title="!item.isMatched && item.mismatchReason ? item.mismatchReason : ''"
-                  >
-                    {{ getMatchStatusBadgeText(item) }}
-                  </span>
-                </span>
+            <template v-for="(item, index) in displayConfigs" :key="item.id">
+              <!-- 当进入不匹配区域时展示分隔提示 -->
+              <div
+                v-if="!item.isMatched && (index === 0 || displayConfigs[index - 1]?.isMatched)"
+                class="pqr__config-divider"
+              >
+                <span class="pqr__config-divider-line"></span>
+                <span class="pqr__config-divider-text">其他配置 · 按近似比例排序</span>
+                <span class="pqr__config-divider-line"></span>
               </div>
-            </div>
+
+              <div
+                class="pqr__config-card"
+                :class="{
+                  'is-selected': selectedConfigIds.includes(item.id),
+                  'is-published': isItemPublished(item.id),
+                  'is-mismatch': !item.isMatched && !isItemPublished(item.id)
+                }"
+                @click="handleCardClick(item)"
+              >
+                <!-- 勾选指示器：未选=空心圈 / 选中=蓝色实心勾 / 已发布=绿色实心勾 -->
+                <span class="pqr__check">
+                  <el-icon
+                    v-if="isItemPublished(item.id) || selectedConfigIds.includes(item.id)"
+                    :size="11"
+                  >
+                    <Check />
+                  </el-icon>
+                </span>
+
+                <div class="pqr__config-main">
+                  <span class="pqr__config-name" :title="item.name">
+                    <em v-if="platformPrefix(item)" class="pqr__config-platform">{{ platformPrefix(item) }}</em>
+                    {{ item.name }}
+                  </span>
+                  <span class="pqr__config-meta">
+                    <span class="pqr__spec-text">{{ item.aspectRatioLabel }}</span>
+                    <i class="pqr__meta-dot"></i>
+                    <span v-if="isItemPublished(item.id)" class="pqr__score-pill pqr__score-pill--published">已发布</span>
+                    <span
+                      v-else
+                      class="pqr__score-pill"
+                      :class="`pqr__score-pill--${item.matchStatus}`"
+                      :title="!item.isMatched && item.mismatchReason ? item.mismatchReason : ''"
+                    >
+                      {{ getMatchStatusBadgeText(item) }}
+                    </span>
+                  </span>
+                </div>
+              </div>
+            </template>
           </div>
 
           <!-- 侧边栏底部提交栏（贴底） -->
@@ -354,16 +365,9 @@ const matchResult = ref<QuickPublishMatchResult>({
   errors: []
 })
 
-/** 是否仅展示尺寸匹配的配置（默认开启严格尺寸过滤） */
-const filterOnlyMatched = ref(true)
-
-/** 展示的配置项：默认严格过滤为仅展示符合当前图片尺寸比例或已发布的配置 */
+/** 展示全部配置项：匹配项排在最前并默认勾选，不匹配项按近似比例从上到下排序（支持随时手动勾选） */
 const displayConfigs = computed<MatchedPublishConfigItem[]>(() => {
-  const all = matchResult.value?.allConfigs || []
-  if (filterOnlyMatched.value) {
-    return all.filter((item) => item.isMatched || isItemPublished(item.id))
-  }
-  return all
+  return matchResult.value?.allConfigs || []
 })
 
 /** 推荐匹配的数量（排除已发布的） */
@@ -689,7 +693,8 @@ function getMatchStatusBadgeText(item: MatchedPublishConfigItem): string {
   if (item.matchStatus === 'qualified') return `${item.score}% 契合`
   if (item.matchStatus === 'warning') return '尺寸偏小'
   if (item.matchStatus === 'generic') return '通用'
-  return '比例不符'
+  const diffPct = Math.round((item.ratioDiff || 0) * 100)
+  return diffPct > 0 ? `偏离 ${diffPct}%` : '比例不符'
 }
 
 function formatPlatform(platform?: string): string {
@@ -1132,6 +1137,29 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   padding: 2px 4px;
 }
 
+/* 分隔提示条：其他配置 · 按近似比例排序 */
+.pqr__config-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 4px 4px;
+  padding: 0 2px;
+}
+
+.pqr__config-divider-line {
+  flex: 1;
+  height: 1px;
+  background: var(--el-border-color-lighter);
+}
+
+.pqr__config-divider-text {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--el-text-color-placeholder);
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
 /* ---------- 配置卡：未选中 ---------- */
 .pqr__config-card {
   position: relative;
@@ -1191,9 +1219,9 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
     }
   }
 
-  /* ---------- 比例不符且未选：整体弱化 ---------- */
+  /* ---------- 比例不符且未选：适度弱化，悬停清晰，支持自由勾选 ---------- */
   &.is-mismatch:not(.is-selected) {
-    opacity: 0.6;
+    opacity: 0.72;
 
     &:hover {
       opacity: 1;

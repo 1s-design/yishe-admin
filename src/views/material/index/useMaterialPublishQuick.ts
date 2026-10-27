@@ -311,16 +311,21 @@ export function findMatchingConfigsSync(
       continue
     }
 
-    // 2. 严格比例校验：必须在配置要求的目标比例 ± 容差范围内
+    // 2. 严格比例校验与对称相对偏差计算
     let ratioDiff = 1
     let ratioPassed = false
 
     if (targetRatio > 0 && cfg.targetAspectRatio > 0) {
-      ratioDiff = Math.abs(targetRatio - cfg.targetAspectRatio) / cfg.targetAspectRatio
+      // 对称相对偏差：0 表示比例完全一致，越大表示差异越远，严格在 [0, 1) 之间
+      const minR = Math.min(targetRatio, cfg.targetAspectRatio)
+      const maxR = Math.max(targetRatio, cfg.targetAspectRatio)
+      ratioDiff = maxR > 0 ? (maxR - minR) / maxR : 1
+
       // 容差判断：小于等于配置指定的容差（默认 0.08 即 ±8%）
-      ratioPassed = ratioDiff <= (cfg.aspectRatioTolerance + 0.0001)
+      const minAllowed = cfg.targetAspectRatio * (1 - cfg.aspectRatioTolerance - 0.0001)
+      const maxAllowed = cfg.targetAspectRatio * (1 + cfg.aspectRatioTolerance + 0.0001)
+      ratioPassed = targetRatio >= minAllowed && targetRatio <= maxAllowed
     } else {
-      // 若素材无有效宽高比或配置限定了比例，坚决不通过
       ratioPassed = false
       ratioDiff = 1
     }
@@ -337,7 +342,8 @@ export function findMatchingConfigsSync(
     if (!ratioPassed) {
       matchStatus = 'mismatch'
       isMatched = false
-      mismatchReason = `比例不符 (需 ${cfg.aspectRatioLabel})`
+      const diffPct = Math.round(ratioDiff * 100)
+      mismatchReason = `比例不符 (偏差 ${diffPct}% · 需 ${cfg.aspectRatioLabel})`
     } else if (!resolutionPassed) {
       matchStatus = 'warning'
       isMatched = true
@@ -355,8 +361,8 @@ export function findMatchingConfigsSync(
       score = Math.max(50, Math.round((1 - ratioDiff) * 100))
       if (!resolutionPassed) score = Math.max(40, score - 20)
     } else {
-      // 不匹配项的分数按比例接近度降序排列
-      score = Math.max(0, Math.round((1 - Math.min(ratioDiff, 1)) * 30))
+      // 不匹配项的分数按比例接近度降序排列 (0 ~ 49 分)
+      score = Math.max(0, Math.round((1 - ratioDiff) * 49))
     }
 
     list.push({
@@ -379,20 +385,32 @@ export function findMatchingConfigsSync(
     })
   }
 
-  // 排序：从最匹配的向下排序
-  // perfect (5) > qualified (4) > generic (3) > warning (2) > mismatch (1)
+  // ⚡ 核心排序：从最匹配到近似匹配从上到下排序
   list.sort((a, b) => {
-    const statusWeight: Record<string, number> = {
-      perfect: 5,
-      qualified: 4,
-      generic: 3,
-      warning: 2,
-      mismatch: 1
+    // 1. 匹配的排在不匹配的前面
+    if (a.isMatched !== b.isMatched) {
+      return a.isMatched ? -1 : 1
     }
-    const wA = statusWeight[a.matchStatus] || 0
-    const wB = statusWeight[b.matchStatus] || 0
-    if (wB !== wA) return wB - wA
-    return b.score - a.score
+
+    // 2. 匹配项内部：按状态权重和契合度排序
+    if (a.isMatched && b.isMatched) {
+      const statusWeight: Record<string, number> = {
+        perfect: 4,
+        qualified: 3,
+        generic: 2,
+        warning: 1
+      }
+      const wA = statusWeight[a.matchStatus] || 0
+      const wB = statusWeight[b.matchStatus] || 0
+      if (wB !== wA) return wB - wA
+      return b.score - a.score
+    }
+
+    // 3. 不匹配项内部：严格按与当前图片比例的近似度从高到低从上到下排序
+    if (b.score !== a.score) {
+      return b.score - a.score
+    }
+    return a.ratioDiff - b.ratioDiff
   })
 
   if (dimensionMatchMemo.size > 200) {
