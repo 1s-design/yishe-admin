@@ -755,60 +755,44 @@ function getStatusIcon(rawStatus?: string) {
 }
 
 .publish-quick-card__spec-badge {
-  padding: 1px 7px;
-  font-size: 11px;
+  padding: 0;
+  font-size: 11.5px;
   font-weight: 600;
-  border-radius: 4px;
-  border: 1px solid transparent;
+  background: transparent;
+  border: none;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 .spec-badge--portrait {
   color: #7c3aed;
-  background: #f5f3ff;
-  border-color: #ddd6fe;
 }
 :global(html.dark) .spec-badge--portrait,
 :global(html[class*="dark"]) .spec-badge--portrait {
   color: #c4b5fd;
-  background: rgba(124, 58, 237, 0.18);
-  border-color: rgba(167, 139, 250, 0.35);
 }
 
 .spec-badge--landscape {
   color: #0d9488;
-  background: #f0fdfa;
-  border-color: #99f6e4;
 }
 :global(html.dark) .spec-badge--landscape,
 :global(html[class*="dark"]) .spec-badge--landscape {
   color: #5eead4;
-  background: rgba(13, 148, 136, 0.18);
-  border-color: rgba(45, 212, 191, 0.35);
 }
 
 .spec-badge--square {
   color: #0284c7;
-  background: #f0f9ff;
-  border-color: #bae6fd;
 }
 :global(html.dark) .spec-badge--square,
 :global(html[class*="dark"]) .spec-badge--square {
   color: #7dd3fc;
-  background: rgba(2, 132, 199, 0.18);
-  border-color: rgba(56, 189, 248, 0.35);
 }
 
 .spec-badge--generic {
-  color: #b45309;
-  background: #fffbeb;
-  border-color: #fde68a;
+  color: #d97706;
 }
 :global(html.dark) .spec-badge--generic,
 :global(html[class*="dark"]) .spec-badge--generic {
   color: #fcd34d;
-  background: rgba(217, 119, 6, 0.18);
-  border-color: rgba(251, 191, 36, 0.35);
 }
 
 .publish-quick-card__checking-badge {
@@ -1028,29 +1012,25 @@ html[class*="dark"] .publish-quick-item.is-selected {
 }
 
 .match-badge {
-  padding: 0 4px;
+  padding: 0;
   font-size: 10px;
-  border-radius: 3px;
+  background: transparent;
 }
 
 .match-badge--perfect {
   color: var(--el-color-success);
-  background: color-mix(in srgb, var(--el-color-success) 14%, transparent);
 }
 
 .match-badge--qualified {
   color: var(--el-color-primary);
-  background: color-mix(in srgb, var(--el-color-primary) 14%, transparent);
 }
 
 .match-badge--warning {
   color: var(--el-color-warning);
-  background: color-mix(in srgb, var(--el-color-warning) 14%, transparent);
 }
 
 .match-badge--generic {
   color: var(--el-text-color-secondary);
-  background: var(--el-fill-color);
 }
 
 .publish-quick-footer {
