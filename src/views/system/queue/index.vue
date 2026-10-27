@@ -5969,7 +5969,7 @@ onUnmounted(() => {
     }
     &--primary {
       color: #409eff;
-      background: color-mix(in srgb, #409eff) 12%, transparent);
+      background: color-mix(in srgb, #409eff 12%, transparent);
     }
     &--warning {
       color: var(--el-color-warning);
