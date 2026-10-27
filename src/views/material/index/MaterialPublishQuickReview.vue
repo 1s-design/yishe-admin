@@ -58,6 +58,26 @@
       <main class="pqr__main">
         <!-- 中央图片舞台 -->
         <section class="pqr__stage-wrap">
+          <!-- 左右翻页按钮：固定在舞台两侧安全区域，绝不超出屏幕，绝不遮挡右侧面板 -->
+          <button
+            v-if="current && currentIndex > 0"
+            type="button"
+            class="pqr__nav-arrow pqr__nav-arrow--prev"
+            title="上一张 (快捷键：W 或 ↑)"
+            @click.stop="actPrev"
+          >
+            <el-icon><ArrowLeft /></el-icon>
+          </button>
+          <button
+            v-if="current && currentIndex < queue.length - 1"
+            type="button"
+            class="pqr__nav-arrow pqr__nav-arrow--next"
+            title="下一张 (快捷键：D 或 →)"
+            @click.stop="actNext"
+          >
+            <el-icon><ArrowRight /></el-icon>
+          </button>
+
           <div
             v-if="current"
             class="pqr__stage-container"
@@ -75,26 +95,6 @@
                 draggable="false"
                 class="pqr__image"
               />
-
-              <!-- 两侧翻页浮动按钮 -->
-              <button
-                v-if="currentIndex > 0"
-                type="button"
-                class="pqr__nav-arrow pqr__nav-arrow--prev"
-                title="上一张 (W 或 ↑)"
-                @click.stop="actPrev"
-              >
-                <el-icon><ArrowLeft /></el-icon>
-              </button>
-              <button
-                v-if="currentIndex < queue.length - 1"
-                type="button"
-                class="pqr__nav-arrow pqr__nav-arrow--next"
-                title="下一张 (D 或 →)"
-                @click.stop="actNext"
-              >
-                <el-icon><ArrowRight /></el-icon>
-              </button>
             </div>
 
             <!-- 图片中间偏下位置：图片规格与素材信息条 -->
@@ -195,14 +195,38 @@
                 </span>
 
                 <div class="pqr__config-main">
-                  <span class="pqr__config-name" :title="item.name">
-                    <em v-if="platformPrefix(item)" class="pqr__config-platform">{{ platformPrefix(item) }}</em>
-                    {{ item.name }}
-                  </span>
-                  <span class="pqr__config-meta">
-                    <span class="pqr__spec-text">{{ item.aspectRatioLabel }}</span>
+                  <!-- 第一行：配置名称 + 醒目的独立比例徽章 -->
+                  <div class="pqr__config-head">
+                    <span class="pqr__config-name" :title="item.name">
+                      <em v-if="platformPrefix(item)" class="pqr__config-platform">{{ platformPrefix(item) }}</em>
+                      {{ item.name }}
+                    </span>
+
+                    <!-- ⚡ 醒目的比例徽章：直观对比，一眼看清所需尺寸比例 -->
+                    <span
+                      class="pqr__ratio-badge"
+                      :class="{
+                        'pqr__ratio-badge--matched': item.isMatched,
+                        'pqr__ratio-badge--mismatch': !item.isMatched
+                      }"
+                      :title="item.targetAspectRatio ? `目标宽高比：${item.targetAspectRatio}:1` : '不限比例'"
+                    >
+                      {{ item.aspectRatioLabel }}
+                    </span>
+                  </div>
+
+                  <!-- 第二行：分辨率要求 + 匹配/发布状态徽标 -->
+                  <div class="pqr__config-meta">
+                    <span v-if="item.minWidth && item.minHeight" class="pqr__spec-text">
+                      ≥{{ item.minWidth }}×{{ item.minHeight }}
+                    </span>
+                    <span v-else class="pqr__spec-text">通用分辨率</span>
+
                     <i class="pqr__meta-dot"></i>
-                    <span v-if="isItemPublished(item.id)" class="pqr__score-pill pqr__score-pill--published">已发布</span>
+
+                    <span v-if="isItemPublished(item.id)" class="pqr__score-pill pqr__score-pill--published">
+                      已发布
+                    </span>
                     <span
                       v-else
                       class="pqr__score-pill"
@@ -211,7 +235,7 @@
                     >
                       {{ getMatchStatusBadgeText(item) }}
                     </span>
-                  </span>
+                  </div>
                 </div>
               </div>
             </template>
@@ -914,7 +938,7 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   justify-content: center;
   position: relative;
   min-width: 0;
-  padding: 20px 32px 75px;
+  padding: 20px 24px 75px;
   background-image: repeating-conic-gradient(
       var(--pqr-checker-color-1, #edf1f7) 0% 25%,
       var(--pqr-checker-color-2, #ffffff) 0% 50%
@@ -922,13 +946,15 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   background-size: 20px 20px;
   background-position: 50% 50%;
   transition: background-image 0.2s ease;
+  overflow: hidden;
 }
 
 .pqr__stage-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  max-width: 100%;
+  /* 严格限制最大宽度，为左右两侧翻页按钮保留至少 140px 安全空间 */
+  max-width: min(calc(100% - 130px), 860px);
   max-height: 100%;
   gap: 12px;
 }
@@ -942,8 +968,9 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
 }
 
 .pqr__image {
-  max-width: calc(100vw - 440px);
-  max-height: calc(100vh - 230px);
+  /* 限制图片宽度，横图不过度拉伸且绝对不挤压翻页按钮 */
+  max-width: min(calc(100vw - 380px - 140px), 820px);
+  max-height: calc(100vh - 220px);
   object-fit: contain;
   border-radius: 6px;
   filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.22));
@@ -1003,36 +1030,39 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   margin-left: 2px;
 }
 
+/* 翻页按钮：固定在舞台左右两侧安全距离，绝不会超出屏幕或侵入右侧面板 */
 .pqr__nav-arrow {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: var(--el-bg-color-overlay, var(--el-bg-color));
   border: 1px solid var(--el-border-color-lighter);
   color: var(--el-text-color-regular);
-  font-size: 18px;
+  font-size: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: var(--el-box-shadow-light);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16);
+  z-index: 15;
   transition: all 0.15s ease;
 
   &:hover {
     color: var(--el-color-primary);
     border-color: var(--el-color-primary);
-    transform: translateY(-50%) scale(1.05);
+    transform: translateY(-50%) scale(1.08);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
   }
 
   &--prev {
-    left: -50px;
+    left: 20px;
   }
 
   &--next {
-    right: -50px;
+    right: 20px;
   }
 }
 
@@ -1194,6 +1224,12 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
       color: var(--el-color-primary);
       font-weight: 600;
     }
+
+    .pqr__ratio-badge--matched {
+      background: var(--el-color-primary);
+      color: #ffffff;
+      border-color: var(--el-color-primary);
+    }
   }
 
   /* ---------- 已发布：不可选，弱化 + 绿勾 ---------- */
@@ -1248,17 +1284,63 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
+}
+
+.pqr__config-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .pqr__config-name {
+  flex: 1;
+  min-width: 0;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 550;
   line-height: 1.4;
   color: var(--el-text-color-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ⚡ 醒目的比例标签：字体清晰、颜色对比强烈、一眼可见 */
+.pqr__ratio-badge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 4px;
+  letter-spacing: 0.2px;
+  line-height: 17px;
+  white-space: nowrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  transition: all 0.12s ease;
+
+  /* 适配推荐：主色高亮背景 + 清晰主色文字 + 精细边框 */
+  &--matched {
+    background: color-mix(in srgb, var(--el-color-primary) 15%, transparent);
+    color: var(--el-color-primary);
+    border: 1px solid color-mix(in srgb, var(--el-color-primary) 32%, transparent);
+  }
+
+  /* 不匹配：高对比灰色胶囊，字号同样大，直观展示比例差异 */
+  &--mismatch {
+    background: var(--el-fill-color);
+    color: var(--el-text-color-regular);
+    border: 1px solid var(--el-border-color);
+  }
+}
+
+:global(html.dark) .pqr__ratio-badge--mismatch,
+:global(html[class*="dark"]) .pqr__ratio-badge--mismatch {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--el-text-color-primary);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .pqr__config-platform {

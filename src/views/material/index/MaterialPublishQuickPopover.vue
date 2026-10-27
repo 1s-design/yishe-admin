@@ -883,8 +883,13 @@ html[class*="dark"] .publish-quick-item.is-selected {
 }
 
 .publish-quick-item__desc {
+  padding: 1px 6px;
   font-size: 11px;
-  color: var(--el-text-color-secondary);
+  font-weight: 600;
+  color: var(--el-text-color-regular);
+  background: var(--el-fill-color);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 4px;
   white-space: nowrap;
 }
 
@@ -995,8 +1000,13 @@ html[class*="dark"] .publish-quick-item.is-selected {
 }
 
 .published-item__desc {
-  font-size: 11px;
-  color: var(--el-text-color-secondary);
+  padding: 1px 5px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--el-text-color-regular);
+  background: var(--el-fill-color);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 3px;
   white-space: nowrap;
 }
 
