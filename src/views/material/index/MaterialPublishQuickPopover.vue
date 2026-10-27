@@ -32,7 +32,12 @@
       <header class="publish-quick-card__header">
         <div class="publish-quick-card__title-wrap">
           <span class="publish-quick-card__title">商品发布</span>
-          <span v-if="specBadge" class="publish-quick-card__spec-badge" :title="specTooltip">
+          <span
+            v-if="specBadge"
+            class="publish-quick-card__spec-badge"
+            :class="`spec-badge--${getRatioBadgeKind(matchResult.targetRatio)}`"
+            :title="specTooltip"
+          >
             {{ specBadge }}
           </span>
           <span v-if="isCheckingBindings" class="publish-quick-card__checking-badge" title="正在核验发布记录...">
@@ -94,7 +99,12 @@
                 <span class="publish-quick-item__name" :title="item.name">{{ item.name }}</span>
               </div>
               <div class="publish-quick-item__right">
-                <span class="publish-quick-item__desc">{{ item.aspectRatioLabel }}</span>
+                <span
+                  class="publish-quick-item__desc"
+                  :class="`ratio-tag--${getRatioBadgeKind(item)}`"
+                >
+                  {{ item.aspectRatioLabel }}
+                </span>
                 <span
                   class="match-badge"
                   :class="`match-badge--${item.matchStatus}`"
@@ -165,7 +175,12 @@
               <span class="published-item__name" :title="item.name">{{ item.name }}</span>
             </div>
             <div class="published-item__right">
-              <span class="published-item__desc">{{ item.aspectRatioLabel }}</span>
+              <span
+                class="published-item__desc"
+                :class="`ratio-tag--${getRatioBadgeKind(item)}`"
+              >
+                {{ item.aspectRatioLabel }}
+              </span>
               <span
                 class="status-badge"
                 :class="`status-badge--${getStatusInfo(item.bindingRecord?.status).key}`"
@@ -230,6 +245,7 @@ import {
   evaluatePublishConfigsForSticker,
   extractDimensions,
   findMatchingConfigsSync,
+  getRatioBadgeKind,
   invalidatePublishBindingsCache,
   type QuickPublishMatchResult,
   type MatchedPublishConfigItem
@@ -739,11 +755,60 @@ function getStatusIcon(rawStatus?: string) {
 }
 
 .publish-quick-card__spec-badge {
-  padding: 1px 6px;
+  padding: 1px 7px;
   font-size: 11px;
-  color: var(--el-color-primary);
-  background: color-mix(in srgb, var(--el-color-primary) 12%, transparent);
+  font-weight: 600;
   border-radius: 4px;
+  border: 1px solid transparent;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.spec-badge--portrait {
+  color: #7c3aed;
+  background: #f5f3ff;
+  border-color: #ddd6fe;
+}
+:global(html.dark) .spec-badge--portrait,
+:global(html[class*="dark"]) .spec-badge--portrait {
+  color: #c4b5fd;
+  background: rgba(124, 58, 237, 0.18);
+  border-color: rgba(167, 139, 250, 0.35);
+}
+
+.spec-badge--landscape {
+  color: #0d9488;
+  background: #f0fdfa;
+  border-color: #99f6e4;
+}
+:global(html.dark) .spec-badge--landscape,
+:global(html[class*="dark"]) .spec-badge--landscape {
+  color: #5eead4;
+  background: rgba(13, 148, 136, 0.18);
+  border-color: rgba(45, 212, 191, 0.35);
+}
+
+.spec-badge--square {
+  color: #0284c7;
+  background: #f0f9ff;
+  border-color: #bae6fd;
+}
+:global(html.dark) .spec-badge--square,
+:global(html[class*="dark"]) .spec-badge--square {
+  color: #7dd3fc;
+  background: rgba(2, 132, 199, 0.18);
+  border-color: rgba(56, 189, 248, 0.35);
+}
+
+.spec-badge--generic {
+  color: #b45309;
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+:global(html.dark) .spec-badge--generic,
+:global(html[class*="dark"]) .spec-badge--generic {
+  color: #fcd34d;
+  background: rgba(217, 119, 6, 0.18);
+  border-color: rgba(251, 191, 36, 0.35);
 }
 
 .publish-quick-card__checking-badge {
@@ -918,14 +983,64 @@ html[class*="dark"] .publish-quick-item.is-selected {
 }
 
 .publish-quick-item__desc {
-  padding: 1px 6px;
+  padding: 1.5px 7px;
   font-size: 11px;
-  font-weight: 600;
-  color: var(--el-text-color-regular);
-  background: var(--el-fill-color);
-  border: 1px solid var(--el-border-color-lighter);
+  font-weight: 700;
   border-radius: 4px;
   white-space: nowrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  letter-spacing: 0.2px;
+  border: 1px solid transparent;
+  transition: all 0.12s ease;
+}
+
+/* 🎨 比例形态高辨识度专属彩色体系 */
+.ratio-tag--portrait {
+  color: #7c3aed;
+  background: #f5f3ff;
+  border-color: #ddd6fe;
+}
+:global(html.dark) .ratio-tag--portrait,
+:global(html[class*="dark"]) .ratio-tag--portrait {
+  color: #c4b5fd;
+  background: rgba(124, 58, 237, 0.18);
+  border-color: rgba(167, 139, 250, 0.35);
+}
+
+.ratio-tag--landscape {
+  color: #0d9488;
+  background: #f0fdfa;
+  border-color: #99f6e4;
+}
+:global(html.dark) .ratio-tag--landscape,
+:global(html[class*="dark"]) .ratio-tag--landscape {
+  color: #5eead4;
+  background: rgba(13, 148, 136, 0.18);
+  border-color: rgba(45, 212, 191, 0.35);
+}
+
+.ratio-tag--square {
+  color: #0284c7;
+  background: #f0f9ff;
+  border-color: #bae6fd;
+}
+:global(html.dark) .ratio-tag--square,
+:global(html[class*="dark"]) .ratio-tag--square {
+  color: #7dd3fc;
+  background: rgba(2, 132, 199, 0.18);
+  border-color: rgba(56, 189, 248, 0.35);
+}
+
+.ratio-tag--generic {
+  color: #b45309;
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+:global(html.dark) .ratio-tag--generic,
+:global(html[class*="dark"]) .ratio-tag--generic {
+  color: #fcd34d;
+  background: rgba(217, 119, 6, 0.18);
+  border-color: rgba(251, 191, 36, 0.35);
 }
 
 .match-badge {
@@ -1035,14 +1150,15 @@ html[class*="dark"] .publish-quick-item.is-selected {
 }
 
 .published-item__desc {
-  padding: 1px 5px;
+  padding: 1.5px 6px;
   font-size: 10.5px;
-  font-weight: 600;
-  color: var(--el-text-color-regular);
-  background: var(--el-fill-color);
-  border: 1px solid var(--el-border-color-lighter);
+  font-weight: 700;
   border-radius: 3px;
   white-space: nowrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  letter-spacing: 0.2px;
+  border: 1px solid transparent;
+  opacity: 0.92;
 }
 
 .published-item__right {

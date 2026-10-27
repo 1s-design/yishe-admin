@@ -526,3 +526,47 @@ export async function evaluatePublishConfigsForSticker(row: any, useFastSyncOnly
     errors: []
   }
 }
+
+export type RatioKind = 'square' | 'portrait' | 'landscape' | 'generic'
+
+/**
+ * 判断比例类型：
+ * - square: 正方形（1:1，天蓝色）
+ * - portrait: 纵向竖版（3:4、9:16、2:3 等，紫罗兰色）
+ * - landscape: 横向横版（4:3、16:9、2:1 等，青碧色）
+ * - generic: 通用/不限比例（暖琥珀色）
+ */
+export function getRatioBadgeKind(itemOrRatio: any): RatioKind {
+  let ratio = 0
+  let label = ''
+
+  if (typeof itemOrRatio === 'number') {
+    ratio = itemOrRatio
+  } else if (itemOrRatio && typeof itemOrRatio === 'object') {
+    ratio = Number(
+      itemOrRatio.targetAspectRatio ??
+      itemOrRatio.targetRatio ??
+      itemOrRatio.aspectRatio ??
+      itemOrRatio.ratio ??
+      0
+    )
+    label = String(
+      itemOrRatio.aspectRatioLabel ??
+      itemOrRatio.ratioLabel ??
+      itemOrRatio.label ??
+      ''
+    ).trim()
+  }
+
+  if (label.includes('通用') || label.includes('不限') || label.includes('自由') || (ratio <= 0 && !label)) {
+    return 'generic'
+  }
+  if (Math.abs(ratio - 1) <= 0.04 || label.includes('1:1') || label.includes('正方') || label.includes('方版')) {
+    return 'square'
+  }
+  if (ratio > 1.04 || label.includes('横') || label.includes('宽')) {
+    return 'landscape'
+  }
+  return 'portrait'
+}
+
