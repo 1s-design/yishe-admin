@@ -361,17 +361,43 @@
               <el-button size="small" @click="handleMultiDownloadByCode">
                 按编码下载
               </el-button>
-              <el-button
+              <el-dropdown
+                split-button
                 size="small"
                 type="primary"
                 plain
-                :icon="Shop"
+                trigger="click"
                 title="全屏逐张快速审核与创建商品发布任务（快捷键：Enter 提交 / A 忽略 / W 上一张）"
-                @click="openMaterialPublishQuickReview"
+                @click="() => openMaterialPublishQuickReview('recent')"
               >
-                商品快速审核
-                <span v-if="ids.length" class="ml-1">({{ ids.length }})</span>
-              </el-button>
+                <span class="inline-flex items-center gap-1">
+                  <el-icon><Shop /></el-icon>
+                  <span>商品快速审核</span>
+                  <span v-if="ids.length" class="ml-0.5">({{ ids.length }})</span>
+                </span>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item @click="() => openMaterialPublishQuickReview('recent')">
+                      <div class="flex items-center gap-2">
+                        <span>🌟</span>
+                        <span>最近的图片 (最新优先)</span>
+                      </div>
+                    </el-dropdown-item>
+                    <el-dropdown-item @click="() => openMaterialPublishQuickReview('oldest')">
+                      <div class="flex items-center gap-2">
+                        <span>⏳</span>
+                        <span>最早的图片 (最早优先)</span>
+                      </div>
+                    </el-dropdown-item>
+                    <el-dropdown-item @click="() => openMaterialPublishQuickReview('random')">
+                      <div class="flex items-center gap-2">
+                        <span>🎲</span>
+                        <span>随机图片 (随机抽检)</span>
+                      </div>
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
               <el-button size="small" type="danger" :loading="deleteLoading" @click="handleDelete(null)">
                 <el-icon>
                   <Delete />
@@ -412,9 +438,17 @@
                 </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item @click="openMaterialPublishQuickReview">
+                    <el-dropdown-item @click="() => openMaterialPublishQuickReview('recent')">
                       <el-icon class="mr-1"><Shop /></el-icon>
-                      <span>商品快速审核</span>
+                      <span>商品快速审核 (最近优先)</span>
+                    </el-dropdown-item>
+                    <el-dropdown-item @click="() => openMaterialPublishQuickReview('oldest')">
+                      <span class="mr-1">⏳</span>
+                      <span>商品快速审核 (最早优先)</span>
+                    </el-dropdown-item>
+                    <el-dropdown-item @click="() => openMaterialPublishQuickReview('random')">
+                      <span class="mr-1">🎲</span>
+                      <span>商品快速审核 (随机图片)</span>
                     </el-dropdown-item>
                     <el-dropdown-item @click="() => openPsdSetDialog(false)">
                       <span>{{ t('material.createPsSet') }}</span>
@@ -3135,6 +3169,9 @@
     <MaterialPublishQuickReview
       v-model:visible="quickPublishReviewVisible"
       :items="quickPublishReviewItems"
+      :initial-mode="quickPublishReviewMode"
+      :has-user-selection="Boolean(ids.length)"
+      :folder-id="queryParams.folderId"
       @reviewed="getList"
     />
     <el-dialog v-model="storyScriptDialogVisible" fullscreen destroy-on-close class="story-script-dialog"
@@ -4819,9 +4856,11 @@ const relatedImageDialogRef = ref<any>(null);
 
 const quickPublishReviewVisible = ref(false);
 const quickPublishReviewItems = ref<any[]>([]);
+const quickPublishReviewMode = ref<'recent' | 'oldest' | 'random'>('recent');
 
 /** 打开商品快速审核（全屏逐张极速创建与审核发布配置） */
-function openMaterialPublishQuickReview() {
+function openMaterialPublishQuickReview(mode: 'recent' | 'oldest' | 'random' = 'recent') {
+  quickPublishReviewMode.value = mode;
   if (ids.value && ids.value.length > 0) {
     const selectedList = (dataSource.value || []).filter((row: any) => ids.value.includes(row.id));
     quickPublishReviewItems.value = selectedList.length > 0 ? selectedList : [...(dataSource.value || [])];

@@ -1,15 +1,65 @@
 <template>
   <teleport to="body">
     <div v-if="visible" class="pqr" :class="{ 'is-dark': isDark }">
-      <!-- 顶栏：标题、进度、统计与退出 -->
+      <!-- 顶栏：标题、模式切换器、统计与退出 -->
       <header class="pqr__bar">
         <div class="pqr__bar-lead">
           <el-icon :size="18" class="pqr__bar-icon"><Shop /></el-icon>
           <span class="pqr__title">商品快速审核</span>
-          <span class="pqr__badge">素材库</span>
+          <span class="pqr__badge">{{ hasUserSelection ? `已选 ${queue.length} 张` : '素材库' }}</span>
           <span v-if="queue.length" class="pqr__progress">
             {{ currentIndex + 1 }} / {{ queue.length }}
           </span>
+        </div>
+
+        <!-- 🌟 模式选择器：最近图片 / 最早图片 / 随机图片 -->
+        <div class="pqr__bar-center">
+          <div class="pqr__mode-segmented">
+            <button
+              type="button"
+              class="pqr__mode-tab"
+              :class="{ 'is-active': activeMode === 'recent' }"
+              title="按创建时间从最新到最旧审核"
+              @click="switchMode('recent')"
+            >
+              <span class="pqr__mode-tab-icon">🌟</span>
+              <span>最近图片</span>
+            </button>
+            <button
+              type="button"
+              class="pqr__mode-tab"
+              :class="{ 'is-active': activeMode === 'oldest' }"
+              title="按创建时间从最早到最新审核"
+              @click="switchMode('oldest')"
+            >
+              <span class="pqr__mode-tab-icon">⏳</span>
+              <span>最早图片</span>
+            </button>
+            <button
+              type="button"
+              class="pqr__mode-tab"
+              :class="{ 'is-active': activeMode === 'random' }"
+              title="随机乱序抽检审核"
+              @click="switchMode('random')"
+            >
+              <span class="pqr__mode-tab-icon">🎲</span>
+              <span>随机图片</span>
+            </button>
+          </div>
+
+          <!-- 非指定勾选模式下，支持随时换一批 -->
+          <button
+            v-if="!hasUserSelection"
+            type="button"
+            class="pqr__refresh-batch-btn"
+            :class="{ 'is-loading': loadingBatch }"
+            :disabled="loadingBatch"
+            :title="activeMode === 'random' ? '随机从素材库换一批50张素材' : '从素材库加载下一批50张素材'"
+            @click="loadNextBatch"
+          >
+            <el-icon :class="{ 'is-loading': loadingBatch }"><Refresh /></el-icon>
+            <span>换一批</span>
+          </button>
         </div>
 
         <div class="pqr__bar-ops">
@@ -317,10 +367,12 @@ import {
   Check,
   CircleCheckFilled,
   Close,
+  Refresh,
   Shop,
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { stickerPsdSetApi } from '@/api/stickerPsdSet'
+import { getMaterialList } from '@/api/material'
 import { useImageDeck } from '@/composables/useImageDeck'
 import { getReviewImageUrl } from '@/utils/image'
 import { useAppStore } from '@/store/modules/app'
@@ -337,6 +389,8 @@ import { invalidateMaterialRelations } from './useMaterialRelations'
 
 defineOptions({ name: 'MaterialPublishQuickReview' })
 
+export type QuickReviewMode = 'recent' | 'oldest' | 'random'
+
 const appStore = useAppStore()
 const isDark = computed(() => appStore.getIsDark)
 
@@ -345,10 +399,16 @@ const props = withDefaults(
     visible: boolean
     items?: any[]
     startIndex?: number
+    initialMode?: QuickReviewMode
+    hasUserSelection?: boolean
+    folderId?: any
   }>(),
   {
     items: () => [],
-    startIndex: 0
+    startIndex: 0,
+    initialMode: 'recent',
+    hasUserSelection: false,
+    folderId: undefined
   }
 )
 
@@ -356,6 +416,123 @@ const emit = defineEmits<{
   (e: 'update:visible', val: boolean): void
   (e: 'reviewed'): void
 }>()
+
+// ==================== 审核模式状态 ====================
+const activeMode = ref<QuickReviewMode>('recent')
+const loadingBatch = ref(false)
+const batchPage = ref(1)
+
+// ==================== 辅助排序与模式调度 ====================
+function getMaterialTimestamp(item: any): number {
+  if (item?.createTime) {
+    const t = new Date(item.createTime).getTime()
+    if (!isNaN(t)) return t
+  }
+  if (item?.created_at) {
+    const t = new Date(item.created_at).getTime()
+    if (!isNaN(t)) return t
+  }
+  const idNum = Number(item?.id)
+  return isNaN(idNum) ? 0 : idNum
+}
+
+function sortQueueItems(items: any[], mode: QuickReviewMode): any[] {
+  const arr = [...items]
+  if (mode === 'recent') {
+    return arr.sort((a, b) => getMaterialTimestamp(b) - getMaterialTimestamp(a))
+  } else if (mode === 'oldest') {
+    return arr.sort((a, b) => getMaterialTimestamp(a) - getMaterialTimestamp(b))
+  } else if (mode === 'random') {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]]
+    }
+    return arr
+  }
+  return arr
+}
+
+function switchMode(mode: QuickReviewMode) {
+  if (activeMode.value === mode && queue.value.length > 0) return
+  activeMode.value = mode
+
+  const labels: Record<QuickReviewMode, string> = {
+    recent: '最近图片 (最新优先)',
+    oldest: '最早图片 (最早优先)',
+    random: '随机图片 (随机抽检)'
+  }
+
+  if (props.hasUserSelection) {
+    queue.value = sortQueueItems(props.items || [], mode)
+    currentIndex.value = 0
+    skippedQueue.value = []
+    syncCurrentMaterial()
+    ElMessage.success(`已切换为：${labels[mode]}`)
+  } else {
+    batchPage.value = 1
+    fetchBatch(mode, 1)
+  }
+}
+
+async function fetchBatch(mode: QuickReviewMode, page = 1) {
+  loadingBatch.value = true
+  try {
+    const params: any = {
+      currentPage: page,
+      pageSize: 50,
+      listMode: 'compact',
+      includeRelations: false
+    }
+    if (props.folderId !== undefined && props.folderId !== null && props.folderId !== '') {
+      params.folderId = props.folderId
+    }
+    if (mode === 'recent') {
+      params.sortOrder = 'DESC'
+    } else if (mode === 'oldest') {
+      params.sortOrder = 'ASC'
+    } else if (mode === 'random') {
+      params.random = true
+      params._t = Date.now()
+    }
+
+    const res: any = await getMaterialList(params)
+    const list = res?.list || []
+    if (list.length > 0) {
+      queue.value = mode === 'random' ? sortQueueItems(list, 'random') : list
+      currentIndex.value = 0
+      skippedQueue.value = []
+      syncCurrentMaterial()
+      const labels: Record<QuickReviewMode, string> = {
+        recent: '最近图片 (最新优先)',
+        oldest: '最早图片 (最早优先)',
+        random: '随机图片 (随机抽检)'
+      }
+      ElMessage.success(`已切换至【${labels[mode]}】，加载了 ${list.length} 张素材`)
+    } else {
+      queue.value = sortQueueItems(props.items || [], mode)
+      currentIndex.value = 0
+      skippedQueue.value = []
+      syncCurrentMaterial()
+    }
+  } catch (err) {
+    console.warn('[MaterialPublishQuickReview] 拉取批次失败，使用本地素材重排:', err)
+    queue.value = sortQueueItems(props.items || [], mode)
+    currentIndex.value = 0
+    skippedQueue.value = []
+    syncCurrentMaterial()
+  } finally {
+    loadingBatch.value = false
+  }
+}
+
+function loadNextBatch() {
+  if (activeMode.value === 'random') {
+    batchPage.value = Math.floor(Math.random() * 20) + 1
+  } else {
+    batchPage.value += 1
+  }
+  fetchBatch(activeMode.value, batchPage.value)
+}
 
 // ==================== 队列与索引状态 ====================
 const queue = ref<any[]>([])
@@ -438,13 +615,23 @@ watch(
 )
 
 function initQueue() {
-  queue.value = Array.isArray(props.items) ? [...props.items] : []
-  currentIndex.value = Math.min(Math.max(props.startIndex || 0, 0), Math.max(queue.value.length - 1, 0))
+  activeMode.value = props.initialMode || 'recent'
+  batchPage.value = 1
   skippedQueue.value = []
   createdMaterialCount.value = 0
   createdTaskCount.value = 0
   skippedCount.value = 0
-  syncCurrentMaterial()
+
+  const initialItems = Array.isArray(props.items) ? [...props.items] : []
+
+  // 如果用户未手动勾选，且选择的是最早或随机，直接调用 fetchBatch 获取更准确的全库对应数据
+  if (!props.hasUserSelection && (activeMode.value === 'oldest' || activeMode.value === 'random')) {
+    fetchBatch(activeMode.value, 1)
+  } else {
+    queue.value = sortQueueItems(initialItems, activeMode.value)
+    currentIndex.value = Math.min(Math.max(props.startIndex || 0, 0), Math.max(queue.value.length - 1, 0))
+    syncCurrentMaterial()
+  }
 }
 
 function syncCurrentMaterial() {
@@ -829,6 +1016,97 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   padding: 2px 10px;
   border-radius: 12px;
   margin-left: 4px;
+}
+
+/* ================= 顶栏中央模式选择器 ================= */
+.pqr__bar-center {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pqr__mode-segmented {
+  display: inline-flex;
+  align-items: center;
+  background: var(--el-fill-color-darker, rgba(0, 0, 0, 0.08));
+  padding: 2.5px;
+  border-radius: 8px;
+  border: 1px solid var(--el-border-color-lighter);
+}
+
+.pqr__mode-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 11px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--el-text-color-regular);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.14s ease;
+  white-space: nowrap;
+  user-select: none;
+
+  &:hover {
+    color: var(--el-text-color-primary);
+  }
+
+  &.is-active {
+    background: var(--el-bg-color, #ffffff);
+    color: var(--el-color-primary);
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+}
+
+:global(html.dark) .pqr__mode-tab.is-active,
+:global(html[class*="dark"]) .pqr__mode-tab.is-active {
+  background: var(--el-bg-color-overlay, #1d1e1f);
+  color: var(--el-color-primary);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+.pqr__mode-tab-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.pqr__refresh-batch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4.5px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--el-text-color-regular);
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.14s ease;
+
+  &:hover:not(:disabled) {
+    color: var(--el-color-primary);
+    border-color: var(--el-color-primary-light-5);
+    background: var(--el-color-primary-light-9);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+@media (max-width: 1024px) {
+  .pqr__mode-tab span:not(.pqr__mode-tab-icon) {
+    display: none;
+  }
+  .pqr__mode-tab {
+    padding: 4px 8px;
+  }
 }
 
 .pqr__bar-ops {
