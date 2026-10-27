@@ -59,7 +59,17 @@
                     (val) => {
                       if (!val) getList();
                     }
-                  " />
+                  " @keyup.enter="getList" />
+                </el-form-item>
+              </el-col>
+
+              <el-col class="list-page-search-form__col--narrow" :xs="24" :sm="12" :md="8" :lg="3" :xl="3">
+                <el-form-item :label="t('material.imageLink')">
+                  <el-input v-model="queryParams.url" size="small" :placeholder="t('material.enterFullImageUrl')" clearable @change="
+                    (val) => {
+                      if (!val) getList();
+                    }
+                  " @keyup.enter="getList" />
                 </el-form-item>
               </el-col>
 
@@ -287,7 +297,7 @@
                   <div class="material-index-phash">
                     <div class="material-index-phash__row">
                       <el-input v-model="queryParams.phash" size="small" :placeholder="t('material.enterPhashOrUrl')" clearable
-                        @blur="onPhashInputBlur" />
+                        @keyup.enter="handlePhashSearch" @blur="onPhashInputBlur" />
                       <div class="material-index-phash__modes">
                         <el-check-tag :checked="queryParams.phashMode === 'range'"
                           @change="() => (queryParams.phashMode = 'range')">
@@ -451,7 +461,12 @@
         <el-dialog v-model="filterDialogVisible" :title="t('material.filter')" width="90%" align-center>
           <el-form :model="queryParams" label-width="80px">
             <el-form-item :label="t('common.search')">
-              <el-input v-model="queryParams.searchText" :placeholder="t('material.searchTextPlaceholder')" clearable />
+              <el-input v-model="queryParams.searchText" :placeholder="t('material.searchTextPlaceholder')" clearable
+                @keyup.enter="onMobileFilterSubmit" />
+            </el-form-item>
+            <el-form-item :label="t('material.imageLink')">
+              <el-input v-model="queryParams.url" :placeholder="t('material.enterFullImageUrl')" clearable
+                @keyup.enter="onMobileFilterSubmit" />
             </el-form-item>
             <el-form-item :label="t('material.sort')">
               <el-select v-model="queryParams.sortingFields" :placeholder="t('material.selectSort')">
@@ -3627,6 +3642,7 @@ const queryParams = reactive({
   endTime: "",
   suffix: [], // 新增后缀参数（支持多选）
   id: "", // 新增ID精确查询参数
+  url: "", // 图片链接精确查询参数
   phash: "", // phash值或直接输入图片地址
   phashMode: "range", // range | exact
   isCustom: "" as boolean | string, // 空字符串表示"全部"，请求时转为 null
@@ -4886,6 +4902,7 @@ async function getList() {
     keyword: undefined,
     searchText: searchText || undefined,
     id: String(queryParams.id || "").trim() || undefined,
+    url: String(queryParams.url || "").trim() || undefined,
     phash: phash || undefined,
     phashMode: phash ? queryParams.phashMode : undefined,
     startTime: queryParams.startTime || undefined,

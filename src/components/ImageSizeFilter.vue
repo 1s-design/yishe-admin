@@ -48,6 +48,7 @@
             :controls="false"
             placeholder="不限"
             class="isf-input"
+            @keyup.enter="apply"
           />
           <span class="isf-unit">px</span>
         </div>
@@ -61,6 +62,7 @@
             :controls="false"
             placeholder="不限"
             class="isf-input"
+            @keyup.enter="apply"
           />
           <span class="isf-unit">px</span>
         </div>
@@ -78,6 +80,7 @@
             :controls="false"
             placeholder="最小"
             class="isf-input"
+            @keyup.enter="apply"
           />
           <span class="isf-sep">~</span>
           <el-input-number
@@ -88,6 +91,7 @@
             :controls="false"
             placeholder="最大"
             class="isf-input"
+            @keyup.enter="apply"
           />
           <span class="isf-unit">px</span>
         </div>
@@ -101,6 +105,7 @@
             :controls="false"
             placeholder="最小"
             class="isf-input"
+            @keyup.enter="apply"
           />
           <span class="isf-sep">~</span>
           <el-input-number
@@ -111,6 +116,7 @@
             :controls="false"
             placeholder="最大"
             class="isf-input"
+            @keyup.enter="apply"
           />
           <span class="isf-unit">px</span>
         </div>

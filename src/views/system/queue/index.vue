@@ -368,9 +368,9 @@
                     >
                       <template #reference>
                         <div class="queue-exec-cell">
-                          <div v-if="row._ui?.durationText" class="queue-exec-cell__line">
-                            <span class="queue-exec-cell__label">{{ t('queue.duration') }}</span>
-                            <span class="queue-exec-cell__value">{{ row._ui.durationText }}</span>
+                          <div v-if="row._ui?.finishedAtText" class="queue-exec-cell__line">
+                            <span class="queue-exec-cell__label">{{ t('queue.finishedAt') }}</span>
+                            <span class="queue-exec-cell__value">{{ row._ui.finishedAtText }}</span>
                           </div>
                         </div>
                       </template>
@@ -1322,12 +1322,18 @@ function decorateQueueRow(row: QueueMessage): QueueMessage {
     return row;
   }
   const conclusion = getQueueConclusion(row);
+  const dispatchMeta = getPublishDispatchMeta(row) || {};
+  const rowStatus = String(row?.status || "");
+  const isRowFinished = rowStatus === "completed" || rowStatus === "failed";
   (row as any)._ui = {
     conclusionKey: conclusion.key,
     conclusionText: conclusion.text,
     conclusionReason: conclusion.reason,
     conclusionRunning: conclusion.running,
-    durationText: getQueueDurationText(row),
+    finishedAtText: formatQueueFullTime(
+      dispatchMeta?.finishedAt ||
+        (isRowFinished ? row?.processedAt || row?.updatedAt : null),
+    ),
     psdStatus: getPsdSetStatusInfo(row),
     titleStatus: getTitleStatusInfo(row),
     createdAtText: formatQueueDateTime(row.createdAt),
@@ -4583,6 +4589,9 @@ onUnmounted(() => {
 .queue-page :deep(.table-operation-cell .vxe-cell),
 .queue-page :deep(.table-operation-cell .vxe-cell--wrapper),
 .queue-page :deep(.table-operation-cell .vxe-cell--label) {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
   min-height: 100%;
 }
 

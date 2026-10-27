@@ -13,6 +13,7 @@
                     placeholder="请输入图片名称"
                     clearable
                     @change="(val) => { if (!val) getList(); }"
+                    @keyup.enter="getList"
                   />
                 </el-form-item>
               </el-col>
@@ -24,6 +25,19 @@
                     placeholder="请输入ID"
                     clearable
                     @change="(val) => { if (!val) getList(); }"
+                    @keyup.enter="getList"
+                  />
+                </el-form-item>
+              </el-col>
+              <el-col class="list-page-search-form__col--narrow" :xs="24" :sm="12" :md="8" :lg="4">
+                <el-form-item label="图片链接">
+                  <el-input
+                    v-model="queryParams.url"
+                    size="small"
+                    placeholder="请输入完整图片URL"
+                    clearable
+                    @change="(val) => { if (!val) getList(); }"
+                    @keyup.enter="getList"
                   />
                 </el-form-item>
               </el-col>
@@ -618,6 +632,7 @@ const queryParams = reactive({
   sortingFields: "createTime DESC", // 默认倒序
   suffix: "", // 后缀参数
   id: "", // ID精确查询参数
+  url: "", // 图片链接查询参数
   isCutout: "" as boolean | "", // 是否抠图：'' 表示全部
   sizeShape: [] as string[], // 尺寸形状（比例）多选
   targetAspectRatio: undefined as number | undefined, // 精确比例目标值
@@ -824,7 +839,11 @@ const importIds = ref<string[]>([]); // 用于存储要入库的ID列表
 function getList() {
   loading.value = true;
   dataSource.value = []; // 清空旧数据，避免切换页数时旧图残留
-  CrawlerMaterialApi.getCrawlerMaterialPage({ ...queryParams, ...sizeFilter.value })
+  CrawlerMaterialApi.getCrawlerMaterialPage({
+    ...queryParams,
+    ...sizeFilter.value,
+    url: String(queryParams.url || "").trim() || undefined,
+  })
     .then((res) => {
       dataSource.value = res.list;
       total.value = res.total;
