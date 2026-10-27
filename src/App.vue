@@ -53,10 +53,14 @@ body {
 
   padding: 0 !important;
   margin: 0;
+  border: 0 !important;
+  outline: none !important;
   overflow: hidden;
 
   #app {
     @extend .size;
+    border: 0 !important;
+    outline: none !important;
   }
 }
 

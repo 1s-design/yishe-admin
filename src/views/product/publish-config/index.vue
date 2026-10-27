@@ -379,6 +379,8 @@ const commonRatioPresets = [
   { label: "4:3", value: 1.3333, name: "4:3 横版" },
   { label: "9:16", value: 0.5625, name: "9:16 长竖版" },
   { label: "16:9", value: 1.7778, name: "16:9 横屏" },
+  { label: "2:3", value: 0.6667, name: "2:3 经典竖版" },
+  { label: "3:2", value: 1.5, name: "3:2 经典横版" },
 ];
 
 function isRatioPresetActive(val: number) {
@@ -2022,14 +2024,23 @@ onMounted(() => {
                         v-model="imageSpecForm.aspectRatioTolerance"
                         placeholder="默认 ±8%"
                         style="width: 100%;"
+                        clearable
                       >
+                        <el-option :value="0" label="0% (绝对精确，无容差)" />
+                        <el-option :value="0.01" label="±1% (极精细)" />
+                        <el-option :value="0.02" label="±2% (极严格)" />
                         <el-option :value="0.03" label="±3% (严格)" />
                         <el-option :value="0.05" label="±5% (适中)" />
                         <el-option :value="0.08" label="±8% (推荐默认)" />
                         <el-option :value="0.10" label="±10% (宽松)" />
-                        <el-option :value="0.15" label="±15% (广阔)" />
+                        <el-option :value="0.15" label="±15% (较宽松)" />
+                        <el-option :value="0.20" label="±20% (广阔)" />
+                        <el-option :value="0.25" label="±25% (超广阔)" />
+                        <el-option :value="0.30" label="±30% (大容差)" />
+                        <el-option :value="0.40" label="±40% (很大容差)" />
+                        <el-option :value="0.50" label="±50% (超大容差)" />
                       </el-select>
-                      <div class="publish-config-form-tip">匹配素材允许偏离目标比例的容忍范围</div>
+                      <div class="publish-config-form-tip">匹配素材允许偏离目标比例的容忍范围（选 0 为严格绝对精确匹配）</div>
                     </el-form-item>
                   </el-col>
                 </el-row>
@@ -3228,27 +3239,52 @@ onMounted(() => {
   }
 
   .publish-config-spec-preset-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     background: var(--el-fill-color-light);
     border: 1px solid var(--el-border-color-lighter);
     border-radius: 4px;
-    padding: 1px 7px;
+    padding: 2px 8px;
     font-size: 12px;
     color: var(--el-text-color-regular);
     cursor: pointer;
-    line-height: 20px;
-    transition: all 0.15s ease;
+    line-height: 18px;
+    transition: all 0.16s ease;
 
     &:hover {
       color: var(--el-color-primary);
-      border-color: var(--el-color-primary-light-5);
-      background: var(--el-color-primary-light-9);
+      border-color: var(--el-color-primary-light-3, var(--el-color-primary));
+      background: color-mix(in srgb, var(--el-color-primary) 10%, transparent);
     }
 
     &.is-active {
-      color: var(--el-color-primary);
-      border-color: var(--el-color-primary);
-      background: var(--el-color-primary-light-9);
-      font-weight: 500;
+      color: #ffffff !important;
+      background: var(--el-color-primary) !important;
+      border-color: var(--el-color-primary) !important;
+      font-weight: 600;
+      box-shadow: 0 1px 4px color-mix(in srgb, var(--el-color-primary) 40%, transparent);
+    }
+  }
+
+  :global(html.dark) {
+    .publish-config-spec-preset-btn {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: rgba(255, 255, 255, 0.14);
+      color: var(--el-text-color-regular);
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.12);
+        border-color: var(--el-color-primary);
+        color: var(--el-color-primary-light-3, var(--el-color-primary));
+      }
+
+      &.is-active {
+        color: #ffffff !important;
+        background: var(--el-color-primary) !important;
+        border-color: var(--el-color-primary) !important;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+      }
     }
   }
 

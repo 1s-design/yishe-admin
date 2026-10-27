@@ -361,6 +361,17 @@
               <el-button size="small" @click="handleMultiDownloadByCode">
                 按编码下载
               </el-button>
+              <el-button
+                size="small"
+                type="primary"
+                plain
+                :icon="Shop"
+                title="全屏逐张快速审核与创建商品发布任务（快捷键：Enter 提交 / A 忽略 / W 上一张）"
+                @click="openMaterialPublishQuickReview"
+              >
+                商品快速审核
+                <span v-if="ids.length" class="ml-1">({{ ids.length }})</span>
+              </el-button>
               <el-button size="small" type="danger" :loading="deleteLoading" @click="handleDelete(null)">
                 <el-icon>
                   <Delete />
@@ -401,6 +412,10 @@
                 </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
+                    <el-dropdown-item @click="openMaterialPublishQuickReview">
+                      <el-icon class="mr-1"><Shop /></el-icon>
+                      <span>商品快速审核</span>
+                    </el-dropdown-item>
                     <el-dropdown-item @click="() => openPsdSetDialog(false)">
                       <span>{{ t('material.createPsSet') }}</span>
                     </el-dropdown-item>
@@ -1904,8 +1919,8 @@
                       <div v-else class="material-compact-preview__empty">{{ t('material.noImage') }}</div>
                     </div>
                     <span class="material-compact-preview__relation">
-                      <MaterialRelationPopover :row="row" @open-manage="openRelatedImageDialog"
-                        @open-publish="handleViewPublishUsageRecords" />
+                      <MaterialRelationPopover :row="row" @open-manage="openRelatedImageDialog" />
+                      <MaterialPublishQuickPopover :row="row" @open-publish="handleViewPublishUsageRecords" />
                     </span>
                   </div>
                 </template>
@@ -3117,6 +3132,11 @@
 
     <RelatedPsdSetDialog ref="relatedPsdSetDialogRef" />
     <RelatedImageDialog ref="relatedImageDialogRef" @changed="handleRelatedImagesChanged" />
+    <MaterialPublishQuickReview
+      v-model:visible="quickPublishReviewVisible"
+      :items="quickPublishReviewItems"
+      @reviewed="getList"
+    />
     <el-dialog v-model="storyScriptDialogVisible" fullscreen destroy-on-close class="story-script-dialog"
       :title="t('material.storyScriptFor', { name: storyScriptCurrentSticker?.name || t('material.materialImage') })">
       <div
@@ -3443,6 +3463,7 @@ import {
   DArrowLeft,
   DArrowRight,
   Operation,
+  Shop,
 } from "@element-plus/icons-vue";
 import tree from "./tree.vue";
 import { materialStatusOptions } from ".";
@@ -3476,6 +3497,8 @@ import { useFolderRowDrag } from "@/hooks/useFolderRowDrag";
 import RelatedPsdSetDialog from "./RelatedPsdSetDialog.vue";
 import RelatedImageDialog from "./RelatedImageDialog.vue";
 import MaterialRelationPopover from "./MaterialRelationPopover.vue";
+import MaterialPublishQuickPopover from "./MaterialPublishQuickPopover.vue";
+import MaterialPublishQuickReview from "./MaterialPublishQuickReview.vue";
 import { invalidateMaterialRelations } from "./useMaterialRelations";
 import FolderTree from "@/components/material/FolderTree.vue";
 import TableRowDragHandle from "@/components/TableRowDragHandle/index.vue";
@@ -4793,6 +4816,26 @@ const enabledPsdSetAutomationKeys = computed(() =>
 );
 const relatedPsdSetDialogRef = ref<any>(null);
 const relatedImageDialogRef = ref<any>(null);
+
+const quickPublishReviewVisible = ref(false);
+const quickPublishReviewItems = ref<any[]>([]);
+
+/** 打开商品快速审核（全屏逐张极速创建与审核发布配置） */
+function openMaterialPublishQuickReview() {
+  if (ids.value && ids.value.length > 0) {
+    const selectedList = (dataSource.value || []).filter((row: any) => ids.value.includes(row.id));
+    quickPublishReviewItems.value = selectedList.length > 0 ? selectedList : [...(dataSource.value || [])];
+  } else {
+    quickPublishReviewItems.value = [...(dataSource.value || [])];
+  }
+
+  if (!quickPublishReviewItems.value.length) {
+    ElMessage.warning('当前列表没有可审核的素材');
+    return;
+  }
+
+  quickPublishReviewVisible.value = true;
+}
 
 /** 关联卡与管理弹窗共用同一个弹窗；弹窗内改动后需失效关联卡的缓存 */
 function openRelatedImageDialog(row: any) {
@@ -8766,11 +8809,19 @@ async function handleUrlUpload() {
 
 .material-compact-preview__relation {
   position: absolute;
-  right: 3px;
-  bottom: 3px;
+  right: 4px;
+  bottom: 4px;
   z-index: 3;
   display: inline-flex;
+  align-items: center;
+  gap: 4px;
   line-height: 0;
+  opacity: 0.92;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.material-compact-preview:hover .material-compact-preview__relation {
+  opacity: 1;
 }
 
 .material-compact-name {

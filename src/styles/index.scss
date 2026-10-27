@@ -77,6 +77,13 @@
 
 html,
 body,
+#app {
+  border: none !important;
+  outline: none !important;
+}
+
+html,
+body,
 #app,
 .el-config-provider,
 .el-overlay,

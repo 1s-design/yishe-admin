@@ -2,8 +2,8 @@
   <el-popover
     placement="right"
     trigger="hover"
-    :width="340"
-    :show-after="350"
+    :width="300"
+    :show-after="300"
     :hide-after="120"
     popper-class="material-relation-popper"
     :popper-style="{ padding: '12px 14px', borderRadius: '10px' }"
@@ -12,12 +12,12 @@
     <template #reference>
       <button
         type="button"
-        class="relation-trigger"
+        class="relation-trigger relation-trigger--link"
         :class="{ 'relation-trigger--linked': hasRelated }"
-        title="查看关联详情"
-        @click.stop="emit('open-publish', row)"
+        title="查看/管理关联图"
+        @click.stop="emit('open-manage', row)"
       >
-        <el-icon :size="11"><Link /></el-icon>
+        <el-icon :size="12"><Link /></el-icon>
       </button>
     </template>
 
@@ -29,6 +29,7 @@
           <span v-else-if="!loading" class="relation-card__hint">未关联</span>
           <button type="button" class="relation-card__action" @click.stop="emit('open-manage', row)">管理</button>
         </header>
+
         <div v-if="related.length" class="relation-card__thumbs">
           <el-image
             v-for="item in related.slice(0, 8)"
@@ -46,35 +47,9 @@
           </el-image>
           <span v-if="related.length > 8" class="relation-card__rest">+{{ related.length - 8 }}</span>
         </div>
-      </section>
-
-      <section class="relation-card__section">
-        <header class="relation-card__header">
-          <span class="relation-card__title">发布绑定</span>
-          <span v-if="bindings.length" class="relation-card__count">{{ bindings.length }}</span>
-          <span v-else-if="!loading" class="relation-card__hint">未绑定</span>
-        </header>
-        <ul v-if="bindings.length" class="relation-card__list">
-          <li v-for="item in bindings.slice(0, 5)" :key="item.id" class="relation-card__item">
-            <div class="relation-card__item-main">
-              <span class="relation-card__item-name">{{ item.publishConfig?.name || item.publishConfigId || '-' }}</span>
-              <el-tag :type="statusTag(item.status)" size="small">{{ statusLabel(item.status) }}</el-tag>
-            </div>
-            <div class="relation-card__item-meta">
-              <span v-if="item.taskId" :title="String(item.taskId)">{{ shortId(item.taskId) }}</span>
-              <span>{{ formatTime(item.createTime) }}</span>
-            </div>
-          </li>
-        </ul>
-        <button
-          v-if="bindings.length > 5"
-          type="button"
-          class="relation-card__action relation-card__action--block"
-          @click.stop="emit('open-publish', row)"
-        >
-          查看全部 {{ bindings.length }} 条
-          <el-icon :size="11"><ArrowRight /></el-icon>
-        </button>
+        <div v-else-if="!loading" class="relation-card__empty-tip">
+          暂无关联印花，点击「管理」可快速添加
+        </div>
       </section>
 
       <p v-for="message in errors" :key="message" class="relation-card__error">{{ message }}</p>
@@ -84,13 +59,10 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { ArrowRight, Link } from '@element-plus/icons-vue'
-import { formatDate } from '@/utils/formatTime'
+import { Link } from '@element-plus/icons-vue'
 import { getFastPreviewImageUrl } from '@/utils/image'
 import {
   loadMaterialRelations,
-  PUBLISH_BINDING_STATUS_LABELS,
-  PUBLISH_BINDING_STATUS_TAGS,
   type MaterialRelations
 } from './useMaterialRelations'
 
@@ -98,14 +70,12 @@ const props = defineProps<{ row: any }>()
 
 const emit = defineEmits<{
   (e: 'open-manage', row: any): void
-  (e: 'open-publish', row: any): void
 }>()
 
 const loading = ref(false)
 const relations = ref<MaterialRelations>({ related: [], bindings: [], errors: [] })
 
 const related = computed(() => relations.value.related)
-const bindings = computed(() => relations.value.bindings)
 const errors = computed(() => relations.value.errors)
 
 /** 列表接口已返回 relatedImageIds，这里免费取数量做高亮，不额外发查询 */
@@ -129,80 +99,72 @@ function thumbUrl(item: any) {
   const url = item?.url || item?.originUrl || ''
   return url ? getFastPreviewImageUrl(url, { width: 96, height: 96 }) : ''
 }
-
-/** 卡内只做预览，36 位任务 ID 只留尾段，完整值放 title */
-function shortId(value: any) {
-  const text = String(value || '')
-  return text.length > 12 ? `…${text.slice(-8)}` : text
-}
-
-function statusLabel(status?: string) {
-  return PUBLISH_BINDING_STATUS_LABELS[String(status || '')] || String(status || '-')
-}
-
-function statusTag(status?: string) {
-  return PUBLISH_BINDING_STATUS_TAGS[String(status || '')] || 'info'
-}
-
-function formatTime(value: any) {
-  if (!value) return '-'
-  try {
-    return formatDate(value)
-  } catch {
-    return String(value)
-  }
-}
 </script>
 
 <style scoped>
+/* 缩略图触发胶囊：圆形高级暗色磨砂小胶囊 */
 .relation-trigger {
+  position: relative;
   display: inline-flex;
   width: 20px;
   height: 20px;
+  box-sizing: border-box;
+  margin: 0;
   padding: 0;
-  color: rgba(255, 255, 255, 0.92);
+  appearance: none;
+  -webkit-appearance: none;
   cursor: pointer;
-  background: rgba(18, 20, 24, 0.58);
-  backdrop-filter: blur(6px) saturate(150%);
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  border-radius: 50%;
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.18);
-  transition:
-    transform 160ms cubic-bezier(0.2, 0.8, 0.3, 1),
-    background-color 160ms ease,
-    border-color 160ms ease,
-    box-shadow 160ms ease;
   align-items: center;
   justify-content: center;
+  line-height: 1;
+  color: #ffffff;
+  background: rgba(18, 20, 24, 0.68);
+  backdrop-filter: blur(6px) saturate(140%);
+  -webkit-backdrop-filter: blur(6px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  outline: none;
+  transition: all 160ms cubic-bezier(0.2, 0.8, 0.3, 1);
 }
 
 .relation-trigger:hover {
-  color: #fff;
-  background: rgba(18, 20, 24, 0.76);
-  border-color: rgba(255, 255, 255, 0.4);
-  transform: translateY(-1px);
-  box-shadow:
-    0 3px 8px rgba(0, 0, 0, 0.36),
-    inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  color: #ffffff;
+  background: #0284c7;
+  border-color: #38bdf8;
+  box-shadow: 0 3px 8px rgba(2, 132, 199, 0.45);
+  transform: translateY(-1px) scale(1.1);
+  z-index: 2;
 }
 
 .relation-trigger:active {
-  transform: translateY(0) scale(0.94);
+  transform: translateY(0) scale(0.92);
 }
 
 .relation-trigger:focus-visible {
-  outline: 2px solid var(--el-color-primary);
+  outline: 2px solid #0284c7;
   outline-offset: 1px;
 }
 
+/* 已有关联图高亮状态：带清爽蓝色微光环 */
 .relation-trigger--linked {
-  border-color: color-mix(in srgb, var(--el-color-primary) 55%, rgba(255, 255, 255, 0.3));
+  border-color: rgba(56, 189, 248, 0.8);
   box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.32),
-    0 0 0 2px color-mix(in srgb, var(--el-color-primary) 22%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    0 1px 3px rgba(0, 0, 0, 0.35),
+    0 0 0 1.5px rgba(56, 189, 248, 0.35);
+}
+
+/* 浮动卡片弹层全局圆角与阴影增强 */
+:global(.relation-popover.el-popover) {
+  padding: 12px !important;
+  border-radius: 12px !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.16) !important;
+}
+
+:global(html.dark .relation-popover.el-popover),
+:global(html[class*="dark"] .relation-popover.el-popover) {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6) !important;
 }
 
 .relation-card {
@@ -335,6 +297,13 @@ function formatTime(value: any) {
 .relation-card__hint {
   font-size: 11px;
   color: var(--el-text-color-placeholder);
+}
+
+.relation-card__empty-tip {
+  padding: 8px 4px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--el-text-color-secondary);
 }
 
 .relation-card__error {
