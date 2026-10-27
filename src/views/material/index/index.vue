@@ -363,15 +363,12 @@
               </el-button>
               <el-dropdown
                 trigger="click"
-                popper-class="quick-review-mode-popper"
-                :show-timeout="60"
-                :hide-timeout="120"
+                popper-class="material-tool-dropdown"
               >
                 <el-button
                   size="small"
                   type="primary"
                   plain
-                  class="quick-review-unified-btn"
                   title="全屏逐张快速审核与创建商品发布任务（点击选择审核模式）"
                 >
                   <el-icon class="mr-1"><Shop /></el-icon>
@@ -381,67 +378,20 @@
                 </el-button>
 
                 <template #dropdown>
-                  <div class="qrm-panel">
-                    <div class="qrm-panel__header">
-                      <span class="qrm-panel__title">选择审核模式</span>
-                      <span class="qrm-panel__badge">
-                        {{ ids.length ? `已选 ${ids.length} 张素材` : '全库智能审核' }}
-                      </span>
-                    </div>
-
-                    <div class="qrm-panel__options">
-                      <!-- 模式 1：最近图片 -->
-                      <div
-                        class="qrm-option"
-                        @click="() => openMaterialPublishQuickReview('recent')"
-                      >
-                        <div class="qrm-option__icon qrm-option__icon--recent">
-                          <el-icon :size="16"><Timer /></el-icon>
-                        </div>
-                        <div class="qrm-option__content">
-                          <div class="qrm-option__head">
-                            <span class="qrm-option__name">最近的图片</span>
-                            <span class="qrm-option__pill qrm-option__pill--recent">最新优先</span>
-                          </div>
-                          <div class="qrm-option__desc">按入库时间倒序，优先审核最新素材</div>
-                        </div>
-                      </div>
-
-                      <!-- 模式 2：最早图片 -->
-                      <div
-                        class="qrm-option"
-                        @click="() => openMaterialPublishQuickReview('oldest')"
-                      >
-                        <div class="qrm-option__icon qrm-option__icon--oldest">
-                          <el-icon :size="16"><Calendar /></el-icon>
-                        </div>
-                        <div class="qrm-option__content">
-                          <div class="qrm-option__head">
-                            <span class="qrm-option__name">最早的图片</span>
-                            <span class="qrm-option__pill qrm-option__pill--oldest">最早优先</span>
-                          </div>
-                          <div class="qrm-option__desc">按入库时间正序推进，回溯清理早期素材</div>
-                        </div>
-                      </div>
-
-                      <!-- 模式 3：随机图片 -->
-                      <div
-                        class="qrm-option"
-                        @click="() => openMaterialPublishQuickReview('random')"
-                      >
-                        <div class="qrm-option__icon qrm-option__icon--random">
-                          <el-icon :size="16"><MagicStick /></el-icon>
-                        </div>
-                        <div class="qrm-option__content">
-                          <div class="qrm-option__head">
-                            <span class="qrm-option__name">随机图片</span>
-                            <span class="qrm-option__pill qrm-option__pill--random">随机抽检</span>
-                          </div>
-                          <div class="qrm-option__desc">均匀随机打乱，适合日常抽检与制作</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  <el-dropdown-menu>
+                    <el-dropdown-item @click="() => openMaterialPublishQuickReview('recent')">
+                      <el-icon class="mr-1.5"><Timer /></el-icon>
+                      <span>最近的图片</span>
+                    </el-dropdown-item>
+                    <el-dropdown-item @click="() => openMaterialPublishQuickReview('oldest')">
+                      <el-icon class="mr-1.5"><Calendar /></el-icon>
+                      <span>最早的图片</span>
+                    </el-dropdown-item>
+                    <el-dropdown-item @click="() => openMaterialPublishQuickReview('random')">
+                      <el-icon class="mr-1.5"><MagicStick /></el-icon>
+                      <span>随机图片</span>
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
                 </template>
               </el-dropdown>
               <el-button size="small" type="danger" :loading="deleteLoading" @click="handleDelete(null)">
@@ -10681,159 +10631,7 @@ h1 {
   box-shadow: none;
 }
 
-/* ================= 全新商品快速审核一体化下拉选择面板 ================= */
-.quick-review-mode-popper {
-  --el-dropdown-menu-box-shadow: 0 10px 32px -4px rgba(0, 0, 0, 0.16), 0 4px 12px -2px rgba(0, 0, 0, 0.08);
-  padding: 0 !important;
-  border-radius: 10px !important;
-  overflow: hidden !important;
-  border: 1px solid var(--el-border-color-lighter) !important;
-  background: var(--el-bg-color-overlay, #ffffff) !important;
-}
 
-.quick-review-unified-btn {
-  font-weight: 500;
-  transition: all 0.16s ease;
-}
-
-.quick-review-unified-btn:hover {
-  transform: translateY(-0.5px);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--el-color-primary) 22%, transparent);
-}
-
-.qrm-panel {
-  width: 290px;
-  user-select: none;
-}
-
-.qrm-panel__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px 8px;
-  background: var(--el-fill-color-light);
-  border-bottom: 1px solid var(--el-border-color-lighter);
-}
-
-.qrm-panel__title {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--el-text-color-regular);
-}
-
-.qrm-panel__badge {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--el-color-primary);
-  background: color-mix(in srgb, var(--el-color-primary) 12%, transparent);
-  padding: 1px 7px;
-  border-radius: 10px;
-}
-
-.qrm-panel__options {
-  padding: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.qrm-option {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: 7px;
-  cursor: pointer;
-  transition: all 0.14s ease;
-  background: transparent;
-}
-
-.qrm-option:hover {
-  background: var(--el-fill-color-light);
-}
-
-.qrm-option:active {
-  transform: scale(0.99);
-}
-
-.qrm-option__icon {
-  width: 30px;
-  height: 30px;
-  border-radius: 7px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  margin-top: 1px;
-  transition: transform 0.14s ease;
-}
-
-.qrm-option:hover .qrm-option__icon {
-  transform: scale(1.08);
-}
-
-.qrm-option__icon--recent {
-  color: #7c3aed;
-  background: color-mix(in srgb, #7c3aed 14%, transparent);
-}
-
-.qrm-option__icon--oldest {
-  color: #d97706;
-  background: color-mix(in srgb, #d97706 14%, transparent);
-}
-
-.qrm-option__icon--random {
-  color: #059669;
-  background: color-mix(in srgb, #059669 14%, transparent);
-}
-
-.qrm-option__content {
-  flex: 1;
-  min-width: 0;
-}
-
-.qrm-option__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  margin-bottom: 2px;
-}
-
-.qrm-option__name {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--el-text-color-primary);
-}
-
-.qrm-option__pill {
-  font-size: 10.5px;
-  font-weight: 500;
-  padding: 0 5px;
-  border-radius: 3px;
-  line-height: 1.4;
-}
-
-.qrm-option__pill--recent {
-  color: #7c3aed;
-  background: color-mix(in srgb, #7c3aed 12%, transparent);
-}
-
-.qrm-option__pill--oldest {
-  color: #d97706;
-  background: color-mix(in srgb, #d97706 12%, transparent);
-}
-
-.qrm-option__pill--random {
-  color: #059669;
-  background: color-mix(in srgb, #059669 12%, transparent);
-}
-
-.qrm-option__desc {
-  font-size: 11.5px;
-  line-height: 1.35;
-  color: var(--el-text-color-secondary);
-}
 </style>
 <style scoped>
 
