@@ -157,7 +157,7 @@ import * as authUtil from '@/utils/auth'
 import { usePermissionStoreWithOut } from '@/store/modules/permission'
 import { resolveFirstAccessibleMenuPath } from '@/router/menu-path'
 import * as LoginApi from '@/api/login'
-import { LoginStateEnum, useLoginState } from './useLogin'
+import { LoginStateEnum, SELF_REGISTER_ENABLED, useLoginState } from './useLogin'
 import { useUserStoreWithOut } from '@/store/modules/user'
 import { removeToken, setAccessToken } from '@/utils/auth'
 import HumanVerify from '@/components/HumanVerify/index.vue'
@@ -174,7 +174,10 @@ const redirect = ref<string>('')
 const loginLoading = ref(false)
 const loading = ref()
 
-const getShow = computed(() => unref(getLoginState) === LoginStateEnum.REGISTER)
+const getShow = computed(
+  () =>
+    SELF_REGISTER_ENABLED && unref(getLoginState) === LoginStateEnum.REGISTER
+)
 
 // 每个字段的校验状态：'' | 'valid' | 'invalid'
 const fieldStatus = reactive<Record<string, 'valid' | 'invalid' | ''>>({

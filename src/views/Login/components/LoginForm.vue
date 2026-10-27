@@ -55,7 +55,7 @@
       </el-button>
 
       <!-- Register Link -->
-      <div class="ds-form__get-account">
+      <div v-if="selfRegisterEnabled" class="ds-form__get-account">
         <button type="button" class="ds-form__link" @click="handleRegister">
           注册账号
         </button>
@@ -99,7 +99,7 @@ import * as authUtil from "@/utils/auth"
 import { usePermissionStoreWithOut } from "@/store/modules/permission"
 import { resolveFirstAccessibleMenuPath } from "@/router/menu-path"
 import * as LoginApi from "@/api/login"
-import { LoginStateEnum, useFormValid, useLoginState } from "./useLogin"
+import { LoginStateEnum, SELF_REGISTER_ENABLED, useFormValid, useLoginState } from "./useLogin"
 import { useUserStoreWithOut } from "@/store/modules/user"
 import { removeToken, setAccessToken } from "@/utils/auth"
 import { getDeviceInfo } from "@/utils/device"
@@ -118,6 +118,7 @@ const redirect = ref<string>("")
 const loginLoading = ref(false)
 const loading = ref()
 const showContactDialog = ref(false)
+const selfRegisterEnabled = SELF_REGISTER_ENABLED
 
 const getShow = computed(() => unref(getLoginState) === LoginStateEnum.LOGIN)
 
