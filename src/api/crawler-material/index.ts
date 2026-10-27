@@ -102,7 +102,12 @@ export const CrawlerMaterialApi = {
   },
 
   // 批量入库到贴纸
-  batchImportToSticker: async (data: { ids: string[], userId?: string }) => {
+  // rotations：审核时点过旋转的素材，服务端入库那一刻才就地旋转覆盖同一张 COS 对象
+  batchImportToSticker: async (data: {
+    ids: string[]
+    userId?: string
+    rotations?: Array<{ id: string; degrees: number }>
+  }) => {
     return await request.post<CrawlerMaterialImportTaskResponse>({ url: `/crawler/material/import-to-sticker`, data })
   },
 

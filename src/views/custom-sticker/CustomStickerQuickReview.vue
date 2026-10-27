@@ -61,14 +61,6 @@
           >
             重新加载
           </button>
-          <button
-            type="button"
-            class="qr__text-btn"
-            :title="sideCollapsed ? '显示贴纸详细信息' : '隐藏信息面板'"
-            @click="sideCollapsed = !sideCollapsed"
-          >
-            {{ sideCollapsed ? "显示信息" : "隐藏信息" }}
-          </button>
         </div>
 
         <button type="button" class="qr__close" title="关闭 (Esc)" @click="close">
@@ -95,10 +87,12 @@
           class="qr__stage"
           :class="{ 'qr__stage--settle': !dragging }"
           :style="stageStyle"
+          title="双击查看原图"
           @pointerdown="onPointerDown"
           @pointermove="onPointerMove"
           @pointerup="onPointerUp"
           @pointercancel="onPointerCancel"
+          @dblclick="openOriginal"
         >
           <!-- 渲染的是 displayUrl 而不是 current.url：
                它只在图片真正解码完成后才更新，避免上屏瞬间在主线程同步解码大图 -->
@@ -134,88 +128,61 @@
           <button type="button" class="qr__state-btn" @click="reload">重新加载</button>
         </div>
 
-        <aside
-          v-if="current && !sideCollapsed"
-          ref="sideRef"
-          class="qr__side"
-          :class="{ 'qr__side--expanded': sheetExpanded }"
-        >
+        <aside v-if="current" ref="sideRef" class="qr__side">
           <div class="qr__side-head">
             <h3 class="qr__name" :title="current.name || ''">
               {{ current.name || `贴纸 #${current.id}` }}
             </h3>
-            <button
-              type="button"
-              class="qr__side-toggle"
-              :title="sheetExpanded ? '收起详情' : '展开全部字段'"
-              @click="sheetExpanded = !sheetExpanded"
-            >
-              {{ sheetExpanded ? "收起" : "全部字段" }}
-            </button>
+            <div class="qr__specs">
+              <span class="qr__spec">
+                <span class="qr__spec-k">尺寸</span>
+                <span class="qr__spec-v">{{ dimensionText || "-" }}</span>
+              </span>
+              <span class="qr__spec">
+                <span class="qr__spec-k">比例</span>
+                <span class="qr__spec-v">{{ aspectText }}</span>
+              </span>
+              <span class="qr__spec">
+                <span class="qr__spec-k">格式</span>
+                <span class="qr__spec-v">{{ current.suffix ? current.suffix.toUpperCase() : "PNG" }}</span>
+              </span>
+            </div>
+
+            <div class="qr__meta">
+              <span class="qr__meta-item">
+                <span class="qr__chip" :class="current.imported ? 'qr__chip--ok' : 'qr__chip--muted'">
+                  {{ current.imported ? "已复制" : "未复制" }}{{ current.imported && current.importedSticker?.code ? ` (${current.importedSticker.code})` : "" }}
+                </span>
+              </span>
+              <span class="qr__meta-item">
+                <span class="qr__chip" :class="current.isShared ? 'qr__chip--info' : 'qr__chip--muted'">
+                  {{ current.isShared ? "已发布" : "未发布" }}
+                </span>
+              </span>
+              <span class="qr__meta-item" :title="creatorText">{{ creatorText }}</span>
+              <span class="qr__meta-item">
+                <span class="qr__chip qr__chip--muted">{{ current.folder || "根目录" }}</span>
+              </span>
+              <span class="qr__meta-item qr__meta-item--faint">{{ createTimeText }}</span>
+            </div>
           </div>
 
-          <dl class="qr__fields">
-            <div class="qr__field">
-              <dt>创作者</dt>
-              <dd :title="creatorText">{{ creatorText }}</dd>
-            </div>
-            <div class="qr__field">
-              <dt>尺寸</dt>
-              <dd :title="dimensionText || '-'">{{ dimensionText || "-" }}</dd>
-            </div>
-            <div class="qr__field">
-              <dt>比例</dt>
-              <dd :title="aspectText">{{ aspectText }}</dd>
-            </div>
-            <div class="qr__field">
-              <dt>格式</dt>
-              <dd :title="current.suffix || 'PNG'">{{ current.suffix ? current.suffix.toUpperCase() : "PNG" }}</dd>
-            </div>
-            <div class="qr__field">
-              <dt>文件夹</dt>
-              <dd :title="current.folder || '根目录'">{{ current.folder || "根目录" }}</dd>
-            </div>
-            <div class="qr__field">
-              <dt>素材库状态</dt>
-              <dd>
-                <span v-if="current.imported" class="qr__text-ok">已复制{{ current.importedSticker?.code ? ` (${current.importedSticker.code})` : '' }}</span>
-                <span v-else class="qr__text-muted">未复制</span>
-              </dd>
-            </div>
-            <div class="qr__field">
-              <dt>素材中心</dt>
-              <dd>
-                <span v-if="current.isShared" class="qr__text-info">已发布</span>
-                <span v-else class="qr__text-muted">未发布</span>
-              </dd>
-            </div>
-            <div class="qr__field">
-              <dt>创建时间</dt>
-              <dd :title="createTimeText">{{ createTimeText }}</dd>
-            </div>
+          <p class="qr__note">
+            <span class="qr__note-k qr__note-k--key">提示词</span>{{ promptText }}
+          </p>
+          <p v-if="negativePromptText" class="qr__note">
+            <span class="qr__note-k qr__note-k--key">负向提示词</span>{{ negativePromptText }}
+          </p>
+          <p v-if="current.keywords" class="qr__note">
+            <span class="qr__note-k">关键词</span>{{ current.keywords }}
+          </p>
+          <p v-if="current.description" class="qr__note">
+            <span class="qr__note-k">描述</span>{{ current.description }}
+          </p>
 
-            <div class="qr__field qr__field--full">
-              <dt>提示词 (Prompt)</dt>
-              <dd class="qr__prompt" :title="promptText">{{ promptText }}</dd>
-            </div>
-
-            <div v-if="negativePromptText" class="qr__field qr__field--full qr__field--more">
-              <dt>负向提示词 (Negative Prompt)</dt>
-              <dd class="qr__prompt" :title="negativePromptText">{{ negativePromptText }}</dd>
-            </div>
-            <div class="qr__field qr__field--more">
-              <dt>关键词</dt>
-              <dd :title="current.keywords || '-'">{{ current.keywords || "-" }}</dd>
-            </div>
-            <div class="qr__field qr__field--more">
-              <dt>描述</dt>
-              <dd :title="current.description || '-'">{{ current.description || "-" }}</dd>
-            </div>
-            <div class="qr__field qr__field--more">
-              <dt>贴纸 ID</dt>
-              <dd class="qr__id">{{ current.id }}</dd>
-            </div>
-          </dl>
+          <div class="qr__tail">
+            <span class="qr__id" :title="current.id">{{ current.id }}</span>
+          </div>
         </aside>
       </main>
 
@@ -274,6 +241,7 @@ import { Close } from "@element-plus/icons-vue";
 import { CustomStickerApi, type CustomSticker } from "@/api/custom-sticker";
 import { formatTimestamp } from "@/common/date";
 import { useImageDeck } from "@/composables/useImageDeck";
+import { getReviewImageUrl } from "@/utils/image";
 
 defineOptions({ name: "CustomStickerQuickReview" });
 
@@ -295,13 +263,16 @@ const emit = defineEmits<{
 const PAGE_SIZE = 50;
 /** 队列剩余多少条时在后台自动补货（留足缓冲，用户感觉不到加载） */
 const PREFETCH_THRESHOLD = 32;
-/** 空闲帧里最多预热后面几张图（下一张永远走立即通道） */
+/** 空闲帧里最多预热后面几张图（紧挨着的两张走立即通道） */
 const PRELOAD_AHEAD = 6;
 /**
  * 切换到下一张时，最多愿意等它解码多久。
  * 超时就照切不误 —— 宁可极偶尔白一下，也不能让用户点了没反应。
+ * 现在上屏的是按视口出图的 webp，几百毫秒足够下载 + 解码完。
  */
-const DECK_WAIT_TIMEOUT = 900;
+const DECK_WAIT_TIMEOUT = 500;
+/** 出图宽度上限：再宽对「要不要复制到素材库」的判断没有增益，只多花带宽和解码时间 */
+const DECK_MAX_WIDTH = 2000;
 /**
  * 攒批提交的参数刻意调小了。
  * 批越大单次接口越慢（后台要处理几十条），返回前一直占着连接，
@@ -351,10 +322,6 @@ const processedCount = computed(
 const skippedItems = ref<CustomSticker[]>([]);
 const copyQueue = ref<CustomSticker[]>([]);
 const deleteQueue = ref<CustomSticker[]>([]);
-
-// ── 面板展开与折叠 ────────────────────────────────────────────
-const sideCollapsed = ref(false);
-const sheetExpanded = ref(false);
 
 // ── 模态层内轻提示 ────────────────────────────────────────────
 const TOAST_DURATION = 1600;
@@ -541,16 +508,38 @@ function scheduleAutoRetry(): void {
 }
 
 /** 图片预解码调度器：负责「下一张随时可上屏」 */
-const deck = useImageDeck();
+const deck = useImageDeck({ maxCache: 16 });
 
 /**
- * 预热策略：下一张独占立即通道（切过去必须能马上显示），
- * 更远的丢进空闲帧慢慢来 —— 一次性并发拉 8 张大图会把带宽摊薄，
+ * 实际下载/上屏的图片地址。
+ * 原本直接拿原图（几 MB、动辄上千万像素）解码，连点几张就会把主线程压出掉帧；
+ * 现在按视口宽度让 COS 出图，清晰度对审核没有损失，解码量小一到两个数量级。
+ */
+function pickDeckWidth(): number {
+  if (typeof window === "undefined") return 1600;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  // 画布大约占视口的 3/4，乘像素比就是这块屏真正需要多少宽
+  const cssWidth = Math.min(window.innerWidth, 1920);
+  return Math.max(900, Math.min(DECK_MAX_WIDTH, Math.round(cssWidth * dpr * 0.75)));
+}
+
+const deckWidth = ref(pickDeckWidth());
+
+/** 预热与渲染必须算出同一个地址，否则缓存永远命不中 */
+function deckKeyOf(item?: CustomSticker | null): string {
+  return getReviewImageUrl(item?.url, deckWidth.value);
+}
+
+/**
+ * 预热策略：紧挨着的两张走立即通道（手快的人 200ms 就翻过去，只备一张必然跟不上），
+ * 更远的丢进空闲帧慢慢来 —— 一次性并发拉一堆还是会把带宽摊薄，
  * 反而让紧邻的下一张变慢，这是「越预载越卡」的常见误区。
  */
 function warmAhead(): void {
-  deck.warmNow(queue.value[1]?.url);
-  deck.warmIdle(queue.value.slice(2, 2 + PRELOAD_AHEAD).map((item) => item?.url));
+  const list = queue.value;
+  deck.warmNow(deckKeyOf(list[1]));
+  deck.warmNow(deckKeyOf(list[2]));
+  deck.warmIdle(list.slice(3, 3 + PRELOAD_AHEAD).map((item) => deckKeyOf(item)));
 }
 
 /** 数据层推进后的收尾：按需后台补货 + 预热（全异步，不阻塞点击反馈） */
@@ -572,7 +561,7 @@ const deckPending = ref(false);
 let deckSeq = 0;
 
 async function syncDeck(): Promise<void> {
-  const target = current.value?.url || "";
+  const target = deckKeyOf(current.value);
   const seq = ++deckSeq;
 
   if (!target) {
@@ -596,6 +585,28 @@ async function syncDeck(): Promise<void> {
 }
 
 watch(() => current.value?.url, syncDeck, { immediate: true });
+
+/** 缩放窗口后出图宽度变了，旧地址整批作废：清缓存按新宽度重来 */
+let deckResizeTimer: ReturnType<typeof setTimeout> | null = null;
+
+function onViewportResize(): void {
+  if (deckResizeTimer) clearTimeout(deckResizeTimer);
+  deckResizeTimer = setTimeout(() => {
+    deckResizeTimer = null;
+    const next = pickDeckWidth();
+    if (!props.visible || next === deckWidth.value) return;
+    deckWidth.value = next;
+    deck.reset();
+    void syncDeck();
+    warmAhead();
+  }, 300);
+}
+
+/** 双击看原图：出图日常够用，但要抠边缘/水印时不必退出面板去列表里翻 */
+function openOriginal(): void {
+  const url = current.value?.url;
+  if (url) window.open(url, "_blank", "noreferrer");
+}
 
 function retry(): void {
   loadError.value = "";
@@ -842,13 +853,6 @@ function onKeydown(event: KeyboardEvent): void {
   ) {
     event.preventDefault();
     actDelete();
-  } else if (event.key === " ") {
-    event.preventDefault();
-    if (sideCollapsed.value) {
-      sideCollapsed.value = false;
-    } else {
-      sheetExpanded.value = !sheetExpanded.value;
-    }
   }
 }
 
@@ -887,10 +891,15 @@ watch(
   { immediate: true },
 );
 
-onMounted(() => window.addEventListener("keydown", onKeydown));
+onMounted(() => {
+  window.addEventListener("keydown", onKeydown);
+  window.addEventListener("resize", onViewportResize);
+});
 
 onBeforeUnmount(() => {
   window.removeEventListener("keydown", onKeydown);
+  window.removeEventListener("resize", onViewportResize);
+  if (deckResizeTimer) clearTimeout(deckResizeTimer);
   if (copyTimer) clearTimeout(copyTimer);
   if (deleteTimer) clearTimeout(deleteTimer);
   if (autoRetryTimer) clearTimeout(autoRetryTimer);
@@ -1118,7 +1127,7 @@ onBeforeUnmount(() => {
   position: relative;
   z-index: 0;
   display: flex;
-  flex: 1 1 auto;
+  flex: 1 1 0;
   align-items: center;
   justify-content: center;
   min-width: 0;
@@ -1228,42 +1237,31 @@ onBeforeUnmount(() => {
   display: flex;
   flex: 0 0 auto;
   flex-direction: column;
+  gap: 5px;
+  max-height: 100%;
   min-width: 0;
   min-height: 0;
-  max-height: 28%;
-  padding: 12px 20px 14px;
+  padding: 11px 20px 12px;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   background: var(--app-content-surface-color, #ffffff);
   border-top: 1px solid var(--app-content-border-color, rgba(148, 163, 184, 0.22));
-
-  &--expanded {
-    .qr__field--more {
-      display: block;
-    }
-
-    .qr__field dd {
-      overflow: visible;
-      overflow-wrap: anywhere;
-      text-overflow: clip;
-      white-space: normal;
-    }
-  }
 }
 
+/* 标题 + 关键数值 + 次要信息排在同一行，按内容自然铺满 */
 .qr__side-head {
   display: flex;
   flex: 0 0 auto;
-  gap: 12px;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  max-width: 1280px;
-  margin: 0 auto 8px;
+  flex-wrap: wrap;
+  gap: 2px 26px;
+  align-items: baseline;
 }
 
 .qr__name {
+  flex: 0 1 auto;
+  max-width: 55%;
+  min-width: 0;
   margin: 0;
   overflow: hidden;
   font-size: 14px;
@@ -1273,84 +1271,132 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-.qr__side-toggle {
-  display: inline-flex;
+/* 关键数值：11px 标签 + 17px 等宽数字 */
+.qr__specs {
+  display: flex;
   flex: 0 0 auto;
-  align-items: center;
-  padding: 2px 6px;
-  font-size: 12px;
-  color: var(--el-color-primary, #3b82f6);
-  cursor: pointer;
-  background: transparent;
-  border: 0;
-  transition: opacity 0.16s;
-
-  &:hover {
-    opacity: 0.8;
-    text-decoration: underline;
-  }
+  gap: 22px;
+  align-items: baseline;
 }
 
-.qr__fields {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 8px 16px;
-  width: 100%;
-  max-width: 1280px;
-  margin: 0 auto;
+.qr__spec {
+  display: inline-flex;
+  gap: 6px;
+  align-items: baseline;
 }
 
-.qr__field {
+.qr__spec-k {
+  font-size: 11px;
+  color: var(--el-text-color-secondary, #64748b);
+}
+
+.qr__spec-v {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--el-text-color-primary, #0f172a);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 次要信息：吃掉标题与数值之后的剩余宽度，项间用细竖线 */
+.qr__meta {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  gap: 2px 16px;
+  align-items: baseline;
   min-width: 0;
+  font-size: 12px;
+  color: var(--el-text-color-regular, #334155);
+}
 
-  &--full {
-    grid-column: 1 / -1;
-  }
+.qr__meta-item {
+  position: relative;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 
-  &--more {
-    display: none;
-  }
-
-  dt {
-    margin-bottom: 2px;
-    font-size: 11px;
-    color: var(--el-text-color-secondary, #64748b);
-  }
-
-  dd {
-    margin: 0;
-    overflow: hidden;
-    font-size: 13px;
-    line-height: 1.5;
-    color: var(--el-text-color-regular, #334155);
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  & + &::before {
+    position: absolute;
+    top: 0;
+    left: -8px;
+    width: 1px;
+    height: 13px;
+    background: var(--el-border-color, #cbd5e1);
+    content: "";
+    opacity: 0.7;
   }
 }
 
-.qr__prompt {
-  font-family: inherit;
-  color: var(--el-text-color-primary, #0f172a) !important;
+.qr__note {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--el-text-color-regular, #334155);
+  overflow-wrap: anywhere;
+}
+
+.qr__meta-item--faint {
+  color: var(--el-text-color-secondary, #64748b);
+}
+
+/* 状态色块：绿=已入素材库，蓝=已发布/有透明通道，灰=未处理 */
+.qr__chip {
+  padding: 1px 7px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+}
+
+.qr__chip--ok {
+  color: #047857;
+  background: color-mix(in srgb, #10b981 13%, transparent);
+  border-color: color-mix(in srgb, #10b981 24%, transparent);
+}
+
+.qr__chip--info {
+  color: #1d4ed8;
+  background: color-mix(in srgb, #3b82f6 13%, transparent);
+  border-color: color-mix(in srgb, #3b82f6 24%, transparent);
+}
+
+.qr__chip--muted {
+  color: var(--el-text-color-secondary, #64748b);
+  background: var(--el-fill-color-light, #f1f5f9);
+  border-color: var(--el-border-color-lighter, rgb(148 163 184 / 24%));
+}
+
+.qr__note-k {
+  display: inline-block;
+  margin-right: 7px;
+  padding: 1px 6px;
+  font-size: 11px;
+  color: var(--el-text-color-secondary, #64748b);
+  background: var(--el-fill-color-light, #f1f5f9);
+  border-radius: 4px;
+
+  &--key {
+    color: var(--el-color-primary, #3b82f6);
+    background: color-mix(in srgb, var(--el-color-primary, #3b82f6) 10%, transparent);
+  }
+}
+
+/* 末行：ID 右锚，整行拉满 */
+.qr__tail {
+  display: flex;
+  gap: 18px;
+  align-items: baseline;
+  font-size: 11px;
 }
 
 .qr__id {
+  flex: 0 0 auto;
+  margin-left: auto;
   font-family: var(--el-font-family-mono, monospace);
-  font-size: 11px !important;
-  color: var(--el-text-color-secondary, #64748b) !important;
-}
-
-.qr__text-ok {
-  color: #10b981;
-  font-weight: 500;
-}
-
-.qr__text-info {
-  color: #3b82f6;
-  font-weight: 500;
-}
-
-.qr__text-muted {
-  color: var(--el-text-color-secondary, #94a3b8);
+  font-size: 11px;
+  color: var(--el-text-color-secondary, #64748b);
 }
 
 /* ── 空/加载态 ── */
@@ -1629,32 +1675,51 @@ html[class*="dark"] {
     color: #f0f2f5;
   }
 
-  .qr__side-toggle {
-    color: #60a5fa;
-  }
-
-  .qr__field dt {
+  .qr__spec-k,
+  .qr__note-k {
     color: #94a3b8;
   }
 
-  .qr__field dd {
+  .qr__spec-v {
+    color: #f0f2f5;
+  }
+
+  .qr__meta,
+  .qr__note {
     color: #cbd5e1;
   }
 
-  .qr__prompt {
-    color: #ffffff !important;
+  .qr__meta-item + .qr__meta-item::before {
+    background: rgba(255, 255, 255, 0.18);
+  }
+
+  .qr__chip--ok {
+    color: #34d399;
+    border-color: color-mix(in srgb, #10b981 30%, transparent);
+  }
+
+  .qr__chip--info {
+    color: #60a5fa;
+    border-color: color-mix(in srgb, #3b82f6 30%, transparent);
+  }
+
+  .qr__chip--muted {
+    color: #94a3b8;
+    background: rgb(255 255 255 / 6%);
+    border-color: rgb(255 255 255 / 10%);
+  }
+
+  .qr__note-k {
+    background: rgb(255 255 255 / 6%);
+  }
+
+  .qr__note-k--key {
+    color: var(--el-color-primary, #60a5fa);
+    background: color-mix(in srgb, var(--el-color-primary, #3b82f6) 18%, transparent);
   }
 
   .qr__id {
-    color: #94a3b8 !important;
-  }
-
-  .qr__text-ok {
-    color: #34d399;
-  }
-
-  .qr__text-info {
-    color: #60a5fa;
+    color: #94a3b8;
   }
 
   .qr__state-title {
@@ -1770,17 +1835,27 @@ html[class*="dark"] {
   }
 
   .qr__side {
-    max-height: 35%;
     padding: 10px 14px 12px;
-
-    &--expanded {
-      max-height: 85%;
-    }
   }
 
-  .qr__fields {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 6px 10px;
+  .qr__side-head {
+    gap: 2px 14px;
+  }
+
+  .qr__name {
+    max-width: 100%;
+  }
+
+  .qr__specs {
+    gap: 14px;
+  }
+
+  .qr__spec-v {
+    font-size: 15px;
+  }
+
+  .qr__meta-item {
+    max-width: 100%;
   }
 
   .qr__dock {

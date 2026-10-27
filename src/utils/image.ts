@@ -137,6 +137,49 @@ export function getRotatedImageUrl(url: string | null | undefined, degrees: 90 |
 }
 
 /**
+ * 是否支持 imageMogr2 在线处理：目前只有自家腾讯云 COS 的默认域名。
+ * 第三方域名（来源站直链、未回源的 CDN）加上处理参数可能被直接拒成 404，
+ * 所以调用方要先过这道判断，不满足就原样返回。
+ */
+export function isImageProcessableUrl(url: string | null | undefined): boolean {
+  if (!url || typeof url !== 'string') {
+    return false
+  }
+  try {
+    return /(^|\.)myqcloud\.com$/i.test(new URL(url).hostname)
+  } catch {
+    return false
+  }
+}
+
+/**
+ * 逐张浏览大图（快速审核、画廊）用的地址：按目标宽度出图并转 webp。
+ *
+ * 审核面板原本直接下载并解码原图，几 MB / 上千万像素的图片是「连点几张就卡」的主因；
+ * 出图宽度按视口给足，肉眼看不出差别，体积和解码时间通常只有原图的几十分之一。
+ * GIF 不转格式，否则动图会被定住。非 COS 地址原样返回。
+ */
+export function getReviewImageUrl(url: string | null | undefined, width = 1600): string {
+  if (!url || typeof url !== 'string') {
+    return ''
+  }
+  if (!isImageProcessableUrl(url)) {
+    return url
+  }
+
+  const keepAnimation = /\.gif(\?|#|$)/i.test(url)
+  const processed = getPreviewImageUrl(url, {
+    width,
+    quality: keepAnimation ? undefined : 85,
+    format: keepAnimation ? undefined : 'webp',
+    ignoreError: true,
+    thumbnail: true
+  })
+
+  return processed || url
+}
+
+/**
  * 获取更激进压缩的快速预览图 URL，适合列表、弹窗缩略图等场景。
  * 默认产出类似：?imageMogr2/thumbnail/x200/quality/80/format/webp/size-limit/200k!/ignore-error/1
  */

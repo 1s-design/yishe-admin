@@ -12,6 +12,9 @@
         <div class="related-image-panel__add-label">
           素材 ID
           <span class="related-image-panel__add-hint">多个用逗号、空格或换行分隔</span>
+          <span v-if="parsedInputIds.length" class="selected-count">
+            已解析 {{ parsedInputIds.length }}
+          </span>
         </div>
         <el-input
           v-model="inputIds"
@@ -29,7 +32,7 @@
             :disabled="!parsedInputIds.length"
             @click="handleAdd"
           >
-            添加{{ parsedInputIds.length ? `（${parsedInputIds.length}）` : '' }}
+            添加
           </el-button>
         </div>
       </div>
@@ -85,16 +88,21 @@
     </div>
 
     <template #footer>
-      <el-button
-        type="danger"
-        plain
-        :disabled="!selectedIds.length"
-        :loading="removing"
-        @click="handleRemove(selectedIds)"
-      >
-        批量解除{{ selectedIds.length ? `（${selectedIds.length}）` : '' }}
-      </el-button>
-      <el-button @click="visible = false">关闭</el-button>
+      <div class="related-image-footer">
+        <span v-if="selectedIds.length" class="selected-count">
+          已选 {{ selectedIds.length }}
+        </span>
+        <el-button
+          type="danger"
+          plain
+          :disabled="!selectedIds.length"
+          :loading="removing"
+          @click="handleRemove(selectedIds)"
+        >
+          批量解除
+        </el-button>
+        <el-button @click="visible = false">关闭</el-button>
+      </div>
     </template>
   </el-dialog>
 </template>
@@ -105,7 +113,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { addRelatedImages, getRelatedImages, removeRelatedImages } from '@/api/material'
 import { getFastPreviewImageUrl } from '@/utils/image'
 
-const emit = defineEmits<{ (e: 'changed'): void }>()
+const emit = defineEmits<{ (e: 'changed', stickerId: string): void }>()
 
 const visible = ref(false)
 const loading = ref(false)
@@ -166,7 +174,7 @@ async function handleAdd() {
     ElMessage.success(`已添加 ${ids.length} 个关联图`)
     inputIds.value = ''
     await fetchList()
-    emit('changed')
+    emit('changed', materialId.value)
   } catch (error: any) {
     ElMessage.error(error?.message || '添加关联图失败')
   } finally {
@@ -194,7 +202,7 @@ async function handleRemove(ids: string[]) {
     await removeRelatedImages({ id: materialId.value, ids: targets })
     ElMessage.success(`已解除 ${targets.length} 个关联图`)
     await fetchList()
-    emit('changed')
+    emit('changed', materialId.value)
   } catch (error: any) {
     ElMessage.error(error?.message || '解除关联图失败')
   } finally {
@@ -235,6 +243,8 @@ defineExpose({ open })
 }
 
 .related-image-panel__add-label {
+  display: flex;
+  align-items: center;
   font-size: 12px;
   color: var(--el-text-color-regular);
 }
@@ -248,6 +258,35 @@ defineExpose({ open })
   display: flex;
   justify-content: flex-end;
   gap: 4px;
+}
+
+/* 计数从按钮文案里拆出来，单独挂在行尾/行首，数字变化不再推挤按钮 */
+.selected-count {
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--el-color-primary);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  background: color-mix(in srgb, var(--el-color-primary) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--el-color-primary) 22%, transparent);
+  border-radius: 4px;
+}
+
+.related-image-panel__add-label .selected-count {
+  margin-left: auto;
+}
+
+.related-image-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.related-image-footer .selected-count {
+  margin-right: auto;
 }
 
 /* 扁平表格：无外框、无斑马，仅行分隔线 */

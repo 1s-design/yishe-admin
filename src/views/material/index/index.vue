@@ -356,21 +356,21 @@
                 {{ t('material.urlUpload') }}
               </el-button>
               <el-button size="small" @click="handleMultiDownload">
-                {{ t('material.downloadCount', { count: ids.length }) }}
+                {{ t('material.download') }}
               </el-button>
               <el-button size="small" @click="handleMultiDownloadByCode">
-                按编码下载 ({{ ids.length }})
+                按编码下载
               </el-button>
               <el-button size="small" type="danger" :loading="deleteLoading" @click="handleDelete(null)">
                 <el-icon>
                   <Delete />
                 </el-icon>
-                <span>{{ t('material.batchDelete', { count: ids.length }) }}</span>
+                <span>{{ t('material.batchDelete') }}</span>
               </el-button>
               <el-dropdown trigger="click" popper-class="material-tool-dropdown"
                 @command="(cmd: StickerUserTransferAction) => openStickerUserTransferDialog(cmd)">
                 <el-button size="small" type="success" :disabled="loading || !ids.length">
-                  {{ t('material.shareCount', { count: ids.length }) }}
+                  {{ t('material.share') }}
                 </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
@@ -393,11 +393,11 @@
                   :disabled="loading || !ids.length"
                   @click="handleBatchPublishToLibrary"
                 >
-                  {{ t('material.publishToLibraryWithCount', { count: ids.length }) }}
+                  {{ t('material.publishToLibrary') }}
                 </el-button>
               <el-dropdown trigger="click" popper-class="material-tool-dropdown" :disabled="loading || !ids.length">
                 <el-button size="small" type="primary" :disabled="loading || !ids.length">
-                  {{ t('material.toolsCount', { count: ids.length }) }}
+                  {{ t('material.tools') }}
                 </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
@@ -419,6 +419,12 @@
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
+              <span v-if="ids.length" class="selected-count">
+                {{ t('material.selectedCount', { count: ids.length }) }}
+              </span>
+              <el-button v-if="ids.length" link type="primary" size="small" @click="handleClearSelection">
+                {{ t('material.deselectAll') }}
+              </el-button>
             </div>
           </el-form>
         </div>
@@ -749,7 +755,6 @@
                     :data="materialPublishConfigDataSource"
                     height="100%"
                     row-key="id"
-                    stripe
                     class="config-el-table"
                     :row-class-name="getPublishConfigRowClassName"
                     @selection-change="handlePublishConfigSelectionChange"
@@ -1898,6 +1903,10 @@
                         @error="row._imageError = true" @click="openImagePreview(row.url, row.name)" />
                       <div v-else class="material-compact-preview__empty">{{ t('material.noImage') }}</div>
                     </div>
+                    <span class="material-compact-preview__relation">
+                      <MaterialRelationPopover :row="row" @open-manage="openRelatedImageDialog"
+                        @open-publish="handleViewPublishUsageRecords" />
+                    </span>
                   </div>
                 </template>
 
@@ -2287,14 +2296,10 @@
                               <div class="op-submenu-item" @click.stop="handleOperationCommand('move-to-user', row)">
                                 {{ t('material.transferAll') }}
                               </div>
+                              <div class="op-submenu-item" @click.stop="handleOperationCommand('view-shared', row)">
+                                {{ t('material.viewShare') }}
+                              </div>
                             </div>
-                          </div>
-
-                          <div class="op-menu-item" @click.stop="handleOperationCommand('view-shared', row)">
-                            <el-icon>
-                              <Connection />
-                            </el-icon>
-                            <span>{{ t('material.viewShare') }}</span>
                           </div>
 
                           <!-- 图片裂变和视频制作 -->
@@ -3111,7 +3116,7 @@
     </el-dialog>
 
     <RelatedPsdSetDialog ref="relatedPsdSetDialogRef" />
-    <RelatedImageDialog ref="relatedImageDialogRef" />
+    <RelatedImageDialog ref="relatedImageDialogRef" @changed="handleRelatedImagesChanged" />
     <el-dialog v-model="storyScriptDialogVisible" fullscreen destroy-on-close class="story-script-dialog"
       :title="t('material.storyScriptFor', { name: storyScriptCurrentSticker?.name || t('material.materialImage') })">
       <div
@@ -3437,7 +3442,6 @@ import {
   Files,
   DArrowLeft,
   DArrowRight,
-  Connection,
   Operation,
 } from "@element-plus/icons-vue";
 import tree from "./tree.vue";
@@ -3471,6 +3475,8 @@ import {
 import { useFolderRowDrag } from "@/hooks/useFolderRowDrag";
 import RelatedPsdSetDialog from "./RelatedPsdSetDialog.vue";
 import RelatedImageDialog from "./RelatedImageDialog.vue";
+import MaterialRelationPopover from "./MaterialRelationPopover.vue";
+import { invalidateMaterialRelations } from "./useMaterialRelations";
 import FolderTree from "@/components/material/FolderTree.vue";
 import TableRowDragHandle from "@/components/TableRowDragHandle/index.vue";
 import ListPageLayout from "@/components/ListPageLayout/index.vue";
@@ -4788,6 +4794,15 @@ const enabledPsdSetAutomationKeys = computed(() =>
 const relatedPsdSetDialogRef = ref<any>(null);
 const relatedImageDialogRef = ref<any>(null);
 
+/** 关联卡与管理弹窗共用同一个弹窗；弹窗内改动后需失效关联卡的缓存 */
+function openRelatedImageDialog(row: any) {
+  relatedImageDialogRef.value?.open(row);
+}
+
+function handleRelatedImagesChanged(stickerId?: string) {
+  invalidateMaterialRelations(stickerId);
+}
+
 // PSD制作套图允许的图片格式（固定为这三个）
 const psdSetAllowedFormats = ["jpg", "png", "jpeg", "svg", "webp"];
 
@@ -5641,6 +5656,13 @@ function checkboxAllChange(e) {
   const reserves = Array.isArray(e.reserves) ? e.reserves : [];
   cacheSelectedMaterialRows([...records, ...reserves]);
   ids.value = [...records.map((item) => item.id), ...reserves.map((item) => item.id)];
+}
+
+/** reserve: true 会跨页保留勾选，表头复选框只作用于当前页，这里一次清干净 */
+function handleClearSelection() {
+  const selectedIds = ids.value.map((id) => String(id));
+  resetCheckStatus(ids);
+  selectedIds.forEach((id) => delete selectedMaterialCache[id]);
 }
 
 function removeSelectedMaterial(materialId: string | number) {
@@ -8740,6 +8762,15 @@ async function handleUrlUpload() {
   background: color-mix(in srgb, var(--el-color-primary) 92%, transparent);
   border-radius: 999px;
   align-items: center;
+}
+
+.material-compact-preview__relation {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  z-index: 3;
+  display: inline-flex;
+  line-height: 0;
 }
 
 .material-compact-name {

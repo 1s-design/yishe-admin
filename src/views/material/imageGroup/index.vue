@@ -56,7 +56,7 @@
               </el-button>
               <el-dropdown trigger="click" popper-class="material-tool-dropdown" :disabled="loading || !selectedIds.length">
                 <el-button size="small" type="primary" :disabled="loading || !selectedIds.length">
-                  {{ t('material.toolsCount', { count: selectedIds.length }) }}
+                  {{ t('material.tools') }}
                 </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
@@ -79,7 +79,13 @@
                 :icon="Delete"
                 @click="handleBatchDelete"
               >
-                {{ t('material.batchDelete', { count: selectedIds.length }) }}
+                {{ t('material.batchDelete') }}
+              </el-button>
+              <span v-if="selectedIds.length" class="selected-count">
+                {{ t('material.selectedCount', { count: selectedIds.length }) }}
+              </span>
+              <el-button v-if="selectedIds.length" link type="primary" size="small" @click="handleClearSelection">
+                {{ t('material.deselectAll') }}
               </el-button>
             </div>
           </el-form>
@@ -517,6 +523,11 @@ async function copyText(value: string) {
 function onSelectionChange() {
   const records = gridRef.value?.getCheckboxRecords() || [];
   selectedIds.value = records.map((record) => record.id);
+}
+
+function handleClearSelection() {
+  gridRef.value?.clearCheckboxRow();
+  selectedIds.value = [];
 }
 
 function handleCreatePsdSets() {

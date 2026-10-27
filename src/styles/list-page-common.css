@@ -93,6 +93,22 @@ html.dark {
   padding-top: 0;
 }
 
+/* 计数位挂在工具栏末尾并靠右，出现/消失与数字增减都不推挤前面的按钮 */
+.list-page-search-form__actions .selected-count {
+  align-self: center;
+  margin-left: auto;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--el-color-primary);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  background: color-mix(in srgb, var(--el-color-primary) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--el-color-primary) 22%, transparent);
+  border-radius: 4px;
+}
+
 .list-page-search-form :deep(.el-form-item) {
   margin-bottom: 0;
 }

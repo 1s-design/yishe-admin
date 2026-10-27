@@ -61,14 +61,6 @@
           >
             重新加载
           </button>
-          <button
-            type="button"
-            class="qr__text-btn"
-            :title="sideCollapsed ? '显示素材信息' : '隐藏信息面板'"
-            @click="sideCollapsed = !sideCollapsed"
-          >
-            {{ sideCollapsed ? "显示信息" : "隐藏信息" }}
-          </button>
         </div>
 
         <button type="button" class="qr__close" title="关闭 (Esc)" @click="close">
@@ -93,16 +85,26 @@
         <div
           v-if="current"
           class="qr__stage"
-          :class="{ 'qr__stage--settle': !dragging }"
+          :class="{ 'qr__stage--settle': !dragging, 'qr__stage--quarter': isQuarterTurn }"
           :style="stageStyle"
+          title="双击查看原图"
           @pointerdown="onPointerDown"
           @pointermove="onPointerMove"
           @pointerup="onPointerUp"
           @pointercancel="onPointerCancel"
+          @dblclick="openOriginal"
         >
           <!-- 渲染的是 displayUrl 而不是 current.url：
                它只在图片真正解码完成后才更新，避免上屏瞬间在主线程同步解码大图 -->
-          <img v-if="displayUrl" :src="displayUrl" :alt="current.name || '素材图片'" draggable="false" />
+          <!-- 旋转只走 CSS transform：点一次转 90°，不动网络也不动文件，
+               真正的改写等到入库时由服务端在同一张 COS 对象上就地完成 -->
+          <img
+            v-if="displayUrl"
+            :src="displayUrl"
+            :alt="current.name || '素材图片'"
+            :style="imageStyle"
+            draggable="false"
+          />
 
           <!-- 新图还在解码：保留旧图 + 轻提示，绝不给一块白画布 -->
           <div v-if="deckPending" class="qr__deck-pending">
@@ -134,88 +136,85 @@
           <button type="button" class="qr__state-btn" @click="reload">重新加载</button>
         </div>
 
-        <aside
-          v-if="current && !sideCollapsed"
-          ref="sideRef"
-          class="qr__side"
-          :class="{ 'qr__side--expanded': sheetExpanded }"
-        >
+        <aside v-if="current" ref="sideRef" class="qr__side">
           <div class="qr__side-head">
             <h3 class="qr__name" :title="current.name">
               {{ current.name || `素材 ${current.id}` }}
             </h3>
-            <button
-              type="button"
-              class="qr__side-toggle"
-              :title="sheetExpanded ? '收起详情' : '展开全部字段'"
-              @click="sheetExpanded = !sheetExpanded"
-            >
-              {{ sheetExpanded ? "收起" : "全部字段" }}
-            </button>
+            <div class="qr__specs">
+              <span class="qr__spec">
+                <span class="qr__spec-k">尺寸</span>
+                <span class="qr__spec-v">{{ dimensionText || "-" }}</span>
+              </span>
+              <span class="qr__spec">
+                <span class="qr__spec-k">比例</span>
+                <span class="qr__spec-v">{{ aspectText }}</span>
+              </span>
+              <span class="qr__spec">
+                <span class="qr__spec-k">大小</span>
+                <span class="qr__spec-v">{{ fileSizeText }}</span>
+              </span>
+            </div>
+
+            <div class="qr__meta">
+              <span class="qr__meta-item" :title="`来源：${current.source || '-'}`">
+                {{ current.source || "未知来源" }}
+              </span>
+              <span v-if="current.suffix" class="qr__meta-item">
+                <span class="qr__chip" :class="isTransparent ? 'qr__chip--info' : 'qr__chip--muted'">
+                  {{ current.suffix.toUpperCase() }}
+                </span>
+              </span>
+              <span class="qr__meta-item">
+                <span class="qr__chip" :class="current.isCutout ? 'qr__chip--ok' : 'qr__chip--muted'">
+                  {{ current.isCutout ? "已抠图" : "未抠图" }}
+                </span>
+              </span>
+              <span class="qr__meta-item qr__meta-item--faint">{{ createTimeText }}</span>
+            </div>
           </div>
 
-          <dl class="qr__fields">
-            <div class="qr__field">
-              <dt>来源</dt>
-              <dd :title="current.source || '-'">{{ current.source || "-" }}</dd>
-            </div>
-            <div class="qr__field">
-              <dt>比例</dt>
-              <dd :title="aspectText">{{ aspectText }}</dd>
-            </div>
-            <div class="qr__field">
-              <dt>尺寸</dt>
-              <dd :title="dimensionText || '-'">{{ dimensionText || "-" }}</dd>
-            </div>
-            <div class="qr__field">
-              <dt>大小</dt>
-              <dd :title="fileSizeText">{{ fileSizeText }}</dd>
-            </div>
-            <div class="qr__field">
-              <dt>后缀</dt>
-              <dd :title="current.suffix || '-'">{{ current.suffix || "-" }}</dd>
-            </div>
-            <div class="qr__field">
-              <dt>是否抠图</dt>
-              <dd>{{ current.isCutout ? "是" : "否" }}</dd>
-            </div>
-            <div class="qr__field">
-              <dt>创建时间</dt>
-              <dd :title="createTimeText">{{ createTimeText }}</dd>
-            </div>
-            <div class="qr__field">
-              <dt>关键词</dt>
-              <dd :title="current.keywords || '-'">{{ current.keywords || "-" }}</dd>
-            </div>
+          <p v-if="current.keywords" class="qr__note">
+            <span class="qr__note-k">关键词</span>{{ current.keywords }}
+          </p>
+          <p v-if="current.description" class="qr__note">
+            <span class="qr__note-k">描述</span>{{ current.description }}
+          </p>
 
-            <div class="qr__field qr__field--full qr__field--more">
-              <dt>描述</dt>
-              <dd>{{ current.description || "-" }}</dd>
-            </div>
-            <div class="qr__field qr__field--full qr__field--more">
-              <dt>原始地址</dt>
-              <dd>
-                <a
-                  v-if="current.originUrl"
-                  :href="current.originUrl"
-                  target="_blank"
-                  rel="noreferrer"
-                  :title="current.originUrl"
-                >{{ current.originUrl }}</a>
-                <span v-else>-</span>
-              </dd>
-            </div>
-            <div class="qr__field qr__field--more">
-              <dt>ID</dt>
-              <dd class="qr__id">{{ current.id }}</dd>
-            </div>
-          </dl>
+          <div class="qr__tail">
+            <a
+              v-if="current.originUrl"
+              class="qr__link"
+              :href="current.originUrl"
+              target="_blank"
+              rel="noreferrer"
+              :title="current.originUrl"
+              >{{ current.originUrl }}</a
+            >
+            <span class="qr__id" :title="current.id">{{ current.id }}</span>
+          </div>
         </aside>
       </main>
 
       <!-- 底部动作：悬浮毛玻璃胶囊 Dock 风格 -->
       <footer class="qr__dock">
         <div class="qr__dock-capsule">
+          <button
+            type="button"
+            class="qr__dock-btn qr__dock-btn--rotate"
+            :class="{ 'is-active': currentRotation > 0 }"
+            :disabled="!current || !canRotate"
+            :title="rotateTitle"
+            @click="rotateCurrent"
+          >
+            <span class="qr__dock-arrow">⟳</span>
+            <span class="qr__dock-text">旋转</span>
+            <span v-if="currentRotation > 0" class="qr__dock-badge">{{ currentRotation }}°</span>
+            <kbd class="qr__dock-kbd">R</kbd>
+          </button>
+
+          <div class="qr__dock-sep"></div>
+
           <button
             type="button"
             class="qr__dock-btn qr__dock-btn--skip"
@@ -269,6 +268,7 @@ import { CrawlerMaterialApi } from "@/api/crawler-material";
 import { formatTimestamp } from "@/common/date";
 import { useUserStore } from "@/store/modules/user";
 import { useImageDeck } from "@/composables/useImageDeck";
+import { getReviewImageUrl } from "@/utils/image";
 
 defineOptions({ name: "CrawlerQuickReview" });
 
@@ -290,13 +290,16 @@ const emit = defineEmits<{
 const PAGE_SIZE = 50;
 /** 队列剩余多少条就后台补货：留足缓冲，用户感觉不到加载 */
 const PREFETCH_THRESHOLD = 32;
-/** 空闲帧里最多预热后面几张图（下一张永远走立即通道） */
+/** 空闲帧里最多预热后面几张图（紧挨着的两张走立即通道） */
 const PRELOAD_AHEAD = 6;
 /**
  * 切换到下一张时，最多愿意等它解码多久。
  * 超时就照切不误 —— 宁可极偶尔白一下，也不能让用户点了没反应。
+ * 现在上屏的是按视口出图的 webp，几百毫秒足够下载 + 解码完。
  */
-const DECK_WAIT_TIMEOUT = 900;
+const DECK_WAIT_TIMEOUT = 500;
+/** 出图宽度上限：再宽对「要不要入库」的判断没有增益，只多花带宽和解码时间 */
+const DECK_MAX_WIDTH = 2000;
 /**
  * 攒批提交的参数刻意调小了。
  * 批越大单次接口越慢（后台要处理几十条），返回前会一直占着连接，
@@ -357,11 +360,6 @@ const skippedItems = ref<any[]>([]);
 const importQueue = ref<any[]>([]);
 const deleteQueue = ref<any[]>([]);
 
-// ── 信息面板折叠（折叠后图片区独占全屏）────────────────────
-const sideCollapsed = ref(false);
-/** 移动端：详情面板展开为全高，便于一次读完所有字段 */
-const sheetExpanded = ref(false);
-
 // ── 层内轻提示 ──────────────────────────────────────────────
 const TOAST_DURATION = 1600;
 const toasts = ref<Array<{ id: number; text: string; tone: string }>>([]);
@@ -415,6 +413,94 @@ const fileSizeText = computed(() => {
 });
 
 const createTimeText = computed(() => formatTimestamp(current.value?.createTime) || "-");
+
+/** 透明底素材入库价值更高，直接用配色标出来，省掉一次「点开看格式」 */
+const isTransparent = computed(() =>
+  ["png", "webp", "gif"].includes(String(current.value?.suffix || "").toLowerCase()),
+);
+
+// ── 旋转：点了只转预览，入库那一刻才由后端就地改写同一张 COS 对象 ──
+/** 与后端的支持范围一致：gif 会丢动画、svg 是矢量，都不重编码 */
+const ROTATABLE_SUFFIXES = ["jpg", "jpeg", "png", "webp"];
+
+/** 已点过的角度，按素材 id 累计（4 张 90° 回到原样）；提交入库或删除后清掉 */
+const pendingRotations = ref<Record<string, number>>({});
+
+/** 后端只肯覆盖自家 COS 上的对象，判断口径与 isManagedCosPath 对齐 */
+function isOwnCosUrl(url: unknown): boolean {
+  const raw = String(url || "").trim();
+  if (!raw) return false;
+  if (/^https?:\/\//i.test(raw)) {
+    try {
+      return /\.cos\.[^.]+\.myqcloud\.com$/i.test(new URL(raw).hostname);
+    } catch {
+      return false;
+    }
+  }
+  return raw.replace(/^\/+/, "").startsWith("users/");
+}
+
+/** 不能旋转的原因，空串表示可以。前端提前拦住而不是等入库任务里失败：
+ *  那会儿素材已经离开队列，用户只会看到「少进了一条」，不知道为什么。 */
+const rotateBlockReason = computed(() => {
+  const row = current.value;
+  if (!row) return "没有正在审核的素材";
+  const suffix = String(row.suffix || "")
+    .toLowerCase()
+    .replace(/^\./, "");
+  if (!ROTATABLE_SUFFIXES.includes(suffix)) {
+    return suffix ? `${suffix.toUpperCase()} 不支持旋转改写` : "格式未知，不支持旋转改写";
+  }
+  if (!isOwnCosUrl(row.url)) return "图片不在自有存储上，不支持旋转改写";
+  if (row.shareType === "shared") return "与他人共用同一张图，旋转会改到别人的素材";
+  if (row.sourceUserId && row.sourceUserId !== row.userId) {
+    return "来自他人分享的素材，旋转会改到源文件";
+  }
+  return "";
+});
+
+const canRotate = computed(() => rotateBlockReason.value === "");
+
+const currentRotation = computed(() => pendingRotations.value[String(current.value?.id ?? "")] || 0);
+
+/** 90/270 时横向边界要看容器的高度，反之亦然，不然横图竖过来会被裁 */
+const isQuarterTurn = computed(() => currentRotation.value % 180 !== 0);
+
+const imageStyle = computed(() =>
+  currentRotation.value ? { transform: `rotate(${currentRotation.value}deg)` } : {},
+);
+
+const rotateTitle = computed(() =>
+  canRotate.value
+    ? "旋转预览：点一次转 90°，不产生新文件，入库时才真正转过来（快捷键 R 或 ↑）"
+    : `${rotateBlockReason.value}（快捷键 R 或 ↑）`,
+);
+
+/** 提交过的素材角度不再需要，别让这张表一直涨 */
+function dropRotations(items: any[]): void {
+  items.forEach((item: any) => {
+    delete pendingRotations.value[String(item.id)];
+  });
+}
+
+function rotateCurrent(): void {
+  const row = current.value;
+  if (!row) return;
+  if (!canRotate.value) {
+    // 按钮此时是灰的，只有键盘会走到这里，得说清为什么不能转
+    pushToast(rotateBlockReason.value, "warning");
+    return;
+  }
+  const key = String(row.id);
+  const previous = pendingRotations.value[key] || 0;
+  const next = (previous + 90) % 360;
+  if (next) {
+    pendingRotations.value[key] = next;
+    if (!previous) pushToast("只是预览，入库时才会真正转过来");
+  } else {
+    delete pendingRotations.value[key];
+  }
+}
 
 function formatFileSize(bytes: number): string {
   if (!bytes || bytes <= 0) return "-";
@@ -514,16 +600,38 @@ function scheduleAutoRetry(): void {
 }
 
 /** 图片预解码调度器：负责「下一张随时可上屏」 */
-const deck = useImageDeck();
+const deck = useImageDeck({ maxCache: 16 });
 
 /**
- * 预热策略：下一张独占立即通道（切过去必须能马上显示），
- * 更远的丢进空闲帧慢慢来 —— 一次性并发拉 8 张大图会把带宽摊薄，
+ * 实际下载/上屏的图片地址。
+ * 原本直接拿原图（几 MB、动辄上千万像素）解码，连点几张就会把主线程压出掉帧；
+ * 现在按视口宽度让 COS 出图，清晰度对审核没有损失，解码量小一到两个数量级。
+ */
+function pickDeckWidth(): number {
+  if (typeof window === "undefined") return 1600;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  // 画布大约占视口的 3/4，乘像素比就是这块屏真正需要多少宽
+  const cssWidth = Math.min(window.innerWidth, 1920);
+  return Math.max(900, Math.min(DECK_MAX_WIDTH, Math.round(cssWidth * dpr * 0.75)));
+}
+
+const deckWidth = ref(pickDeckWidth());
+
+/** 预热与渲染必须算出同一个地址，否则缓存永远命不中 */
+function deckKeyOf(item: any): string {
+  return getReviewImageUrl(item?.url, deckWidth.value);
+}
+
+/**
+ * 预热策略：紧挨着的两张走立即通道（手快的人 200ms 就翻过去，只备一张必然跟不上），
+ * 更远的丢进空闲帧慢慢来 —— 一次性并发拉一堆还是会把带宽摊薄，
  * 反而让紧邻的下一张变慢，这是「越预载越卡」的常见误区。
  */
 function warmAhead(): void {
-  deck.warmNow(queue.value[1]?.url);
-  deck.warmIdle(queue.value.slice(2, 2 + PRELOAD_AHEAD).map((item: any) => item?.url));
+  const list = queue.value;
+  deck.warmNow(deckKeyOf(list[1]));
+  deck.warmNow(deckKeyOf(list[2]));
+  deck.warmIdle(list.slice(3, 3 + PRELOAD_AHEAD).map((item: any) => deckKeyOf(item)));
 }
 
 /** 数据层推进后的收尾：按需后台补货 + 预热（全异步，不阻塞点击反馈） */
@@ -545,7 +653,7 @@ const deckPending = ref(false);
 let deckSeq = 0;
 
 async function syncDeck(): Promise<void> {
-  const target = current.value?.url || "";
+  const target = deckKeyOf(current.value);
   const seq = ++deckSeq;
 
   if (!target) {
@@ -570,6 +678,28 @@ async function syncDeck(): Promise<void> {
 
 watch(() => current.value?.url, syncDeck, { immediate: true });
 
+/** 缩放窗口后出图宽度变了，旧地址整批作废：清缓存按新宽度重来 */
+let deckResizeTimer: ReturnType<typeof setTimeout> | null = null;
+
+function onViewportResize(): void {
+  if (deckResizeTimer) clearTimeout(deckResizeTimer);
+  deckResizeTimer = setTimeout(() => {
+    deckResizeTimer = null;
+    const next = pickDeckWidth();
+    if (!props.visible || next === deckWidth.value) return;
+    deckWidth.value = next;
+    deck.reset();
+    void syncDeck();
+    warmAhead();
+  }, 300);
+}
+
+/** 双击看原图：出图日常够用，但要抠边缘/水印时不必退出面板去列表里翻 */
+function openOriginal(): void {
+  const url = current.value?.url;
+  if (url) window.open(url, "_blank", "noreferrer");
+}
+
 function retry(): void {
   loadError.value = "";
   autoRetryLeft = 2;
@@ -582,6 +712,8 @@ function reload(): void {
   deck.reset();
   skippedItems.value = [];
   skippedCount.value = 0;
+  // 重新加载是按新页取的回同一批素材，留着旧角度会在用户没察觉时改写文件
+  pendingRotations.value = {};
   nextOffset.value = 0;
   total.value = 0;
   finished.value = false;
@@ -656,10 +788,15 @@ async function flushImports(): Promise<void> {
   if (!importQueue.value.length) return;
 
   const items = importQueue.value.splice(0, importQueue.value.length);
+  const rotations = items
+    .map((item: any) => ({ id: String(item.id), degrees: pendingRotations.value[String(item.id)] || 0 }))
+    .filter((item) => item.degrees > 0);
+  dropRotations(items);
   try {
     await CrawlerMaterialApi.batchImportToSticker({
       ids: items.map((item: any) => String(item.id)),
       userId: String(userStore.user?.id ?? ""),
+      ...(rotations.length ? { rotations } : {}),
     });
   } catch (error: any) {
     importedCount.value = Math.max(0, importedCount.value - items.length);
@@ -691,6 +828,7 @@ async function flushDeletes(): Promise<void> {
   if (!deleteQueue.value.length) return;
 
   const items = deleteQueue.value.splice(0, deleteQueue.value.length);
+  dropRotations(items);
   const count = items.length;
   // 乐观预判：这批删除一旦生效，库内数据会整体前移 count 位，
   // 后台补货必须立刻按新位置取值，否则会跳过素材。
@@ -795,7 +933,10 @@ function onKeydown(event: KeyboardEvent): void {
     return;
   }
 
-  if (event.key === "ArrowLeft") {
+  if (event.key === "ArrowUp" || event.key === "r" || event.key === "R") {
+    event.preventDefault();
+    rotateCurrent();
+  } else if (event.key === "ArrowLeft") {
     event.preventDefault();
     actSkip();
   } else if (event.key === "ArrowRight") {
@@ -848,10 +989,15 @@ watch(
   { immediate: true },
 );
 
-onMounted(() => window.addEventListener("keydown", onKeydown));
+onMounted(() => {
+  window.addEventListener("keydown", onKeydown);
+  window.addEventListener("resize", onViewportResize);
+});
 
 onBeforeUnmount(() => {
   window.removeEventListener("keydown", onKeydown);
+  window.removeEventListener("resize", onViewportResize);
+  if (deckResizeTimer) clearTimeout(deckResizeTimer);
   if (importTimer) clearTimeout(importTimer);
   if (deleteTimer) clearTimeout(deleteTimer);
   if (autoRetryTimer) clearTimeout(autoRetryTimer);
@@ -1079,7 +1225,7 @@ onBeforeUnmount(() => {
   position: relative;
   z-index: 0;
   display: flex;
-  flex: 1 1 auto;
+  flex: 1 1 0;
   align-items: center;
   justify-content: center;
   min-width: 0;
@@ -1093,6 +1239,7 @@ onBeforeUnmount(() => {
     )
     50% / 20px 20px;
   touch-action: none;
+  container-type: size;
 
   &:active {
     cursor: grabbing;
@@ -1109,6 +1256,15 @@ onBeforeUnmount(() => {
     pointer-events: none;
     user-select: none;
     filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.35));
+    transition: transform 0.28s cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  /* 转 90/270 后图片的「宽」变成屏幕上的「高」，约束得跟着交换，
+     否则横图竖过来正好被画布上下裁掉。cq 单位相对的是本容器，
+     不支持容器查询的浏览器会忽略这两条，退回按原尺寸裁切显示。 */
+  &--quarter img {
+    max-width: 100cqh;
+    max-height: 100cqw;
   }
 }
 
@@ -1182,49 +1338,38 @@ onBeforeUnmount(() => {
   }
 }
 
-/* ── 信息面板 ── */
+/* ── 信息面板：整宽铺开，不再居中限宽 ── */
 .qr__side {
   position: relative;
   z-index: 1;
   display: flex;
   flex: 0 0 auto;
   flex-direction: column;
+  gap: 5px;
+  max-height: 100%;
   min-width: 0;
   min-height: 0;
-  max-height: 28%;
-  padding: 12px 20px 14px;
+  padding: 11px 20px 12px;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   background: var(--app-content-surface-color, #ffffff);
   border-top: 1px solid var(--app-content-border-color, rgba(148, 163, 184, 0.22));
-
-  &--expanded {
-    .qr__field--more {
-      display: block;
-    }
-
-    .qr__field dd {
-      overflow: visible;
-      overflow-wrap: anywhere;
-      text-overflow: clip;
-      white-space: normal;
-    }
-  }
 }
 
+/* 标题 + 关键数值 + 次要信息排在同一行，按内容自然铺满 */
 .qr__side-head {
   display: flex;
   flex: 0 0 auto;
-  gap: 12px;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  max-width: 1280px;
-  margin: 0 auto 8px;
+  flex-wrap: wrap;
+  gap: 2px 26px;
+  align-items: baseline;
 }
 
 .qr__name {
+  flex: 0 1 auto;
+  max-width: 55%;
+  min-width: 0;
   margin: 0;
   overflow: hidden;
   font-size: 14px;
@@ -1234,74 +1379,140 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-.qr__side-toggle {
-  display: inline-flex;
+/* 关键数值：11px 标签 + 17px 等宽数字 */
+.qr__specs {
+  display: flex;
   flex: 0 0 auto;
-  align-items: center;
-  padding: 2px 6px;
+  gap: 22px;
+  align-items: baseline;
+}
+
+.qr__spec {
+  display: inline-flex;
+  gap: 6px;
+  align-items: baseline;
+}
+
+.qr__spec-k {
+  font-size: 11px;
+  color: var(--el-text-color-secondary, #64748b);
+}
+
+.qr__spec-v {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--el-text-color-primary, #0f172a);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 次要信息：吃掉标题与数值之后的剩余宽度，项间用细竖线 */
+.qr__meta {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  gap: 2px 16px;
+  align-items: baseline;
+  min-width: 0;
   font-size: 12px;
+  color: var(--el-text-color-regular, #334155);
+}
+
+.qr__meta-item {
+  position: relative;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  & + &::before {
+    position: absolute;
+    top: 0;
+    left: -8px;
+    width: 1px;
+    height: 13px;
+    background: var(--el-border-color, #cbd5e1);
+    content: "";
+    opacity: 0.7;
+  }
+}
+
+.qr__note {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--el-text-color-regular, #334155);
+  overflow-wrap: anywhere;
+}
+
+.qr__meta-item--faint {
+  color: var(--el-text-color-secondary, #64748b);
+}
+
+/* 状态色块：绿=已处理，蓝=有透明通道，灰=未处理/普通格式 */
+.qr__chip {
+  padding: 1px 7px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+}
+
+.qr__chip--ok {
+  color: #047857;
+  background: color-mix(in srgb, #10b981 13%, transparent);
+  border-color: color-mix(in srgb, #10b981 24%, transparent);
+}
+
+.qr__chip--info {
+  color: #1d4ed8;
+  background: color-mix(in srgb, #3b82f6 13%, transparent);
+  border-color: color-mix(in srgb, #3b82f6 24%, transparent);
+}
+
+.qr__chip--muted {
+  color: var(--el-text-color-secondary, #64748b);
+  background: var(--el-fill-color-light, #f1f5f9);
+  border-color: var(--el-border-color-lighter, rgb(148 163 184 / 24%));
+}
+
+.qr__note-k {
+  display: inline-block;
+  margin-right: 7px;
+  padding: 1px 6px;
+  font-size: 11px;
+  color: var(--el-text-color-secondary, #64748b);
+  background: var(--el-fill-color-light, #f1f5f9);
+  border-radius: 4px;
+}
+
+/* 末行：地址靠左长开，ID 靠右锚定，整行拉满 */
+.qr__tail {
+  display: flex;
+  gap: 18px;
+  align-items: baseline;
+  font-size: 11px;
+}
+
+.qr__link {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
   color: var(--el-color-primary, #3b82f6);
-  cursor: pointer;
-  background: transparent;
-  border: 0;
-  transition: opacity 0.16s;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 
   &:hover {
-    opacity: 0.8;
     text-decoration: underline;
   }
 }
 
-.qr__fields {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-  gap: 8px 16px;
-  width: 100%;
-  max-width: 1280px;
-  margin: 0 auto;
-}
-
-.qr__field {
-  min-width: 0;
-
-  &--full {
-    grid-column: 1 / -1;
-  }
-
-  &--more {
-    display: none;
-  }
-
-  dt {
-    margin-bottom: 2px;
-    font-size: 11px;
-    color: var(--el-text-color-secondary, #64748b);
-  }
-
-  dd {
-    margin: 0;
-    overflow: hidden;
-    font-size: 13px;
-    line-height: 1.5;
-    color: var(--el-text-color-regular, #334155);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-
-    a {
-      color: var(--el-color-primary, #3b82f6);
-      text-decoration: none;
-
-      &:hover {
-        text-decoration: underline;
-      }
-    }
-  }
-}
-
 .qr__id {
+  flex: 0 0 auto;
+  margin-left: auto;
   font-family: var(--el-font-family-mono, monospace);
-  font-size: 11px !important;
-  color: var(--el-text-color-secondary, #64748b) !important;
+  font-size: 11px;
+  color: var(--el-text-color-secondary, #64748b);
 }
 
 /* ── 空/加载态 ── */
@@ -1437,6 +1648,39 @@ onBeforeUnmount(() => {
   border: 1px solid rgba(148, 163, 184, 0.35);
   border-radius: 4px;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+/* 旋转按钮 (Light mode)：只是预览，所以保持幽灵态，转了角度才点亮 */
+.qr__dock-btn--rotate {
+  &:hover:not(:disabled) {
+    color: var(--el-text-color-primary, #0f172a);
+    background: rgb(15 23 42 / 6%);
+
+    .qr__dock-arrow {
+      opacity: 1;
+      transform: rotate(90deg);
+    }
+  }
+
+  &.is-active {
+    color: #4338ca;
+    background: rgb(99 102 241 / 10%);
+
+    .qr__dock-arrow {
+      opacity: 1;
+    }
+  }
+}
+
+.qr__dock-badge {
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+  color: #4338ca;
+  background: rgb(99 102 241 / 12%);
+  border-radius: 999px;
 }
 
 /* 忽略按钮交互 (Light mode) */
@@ -1580,24 +1824,51 @@ html[class*="dark"] {
     color: #f0f2f5;
   }
 
-  .qr__side-toggle {
-    color: #60a5fa;
-  }
-
-  .qr__field dt {
+  .qr__spec-k,
+  .qr__note-k {
     color: #94a3b8;
   }
 
-  .qr__field dd {
-    color: #cbd5e1;
+  .qr__spec-v {
+    color: #f0f2f5;
+  }
 
-    a {
-      color: #60a5fa;
-    }
+  .qr__meta,
+  .qr__note {
+    color: #cbd5e1;
+  }
+
+  .qr__meta-item + .qr__meta-item::before {
+    background: rgb(255 255 255 / 18%);
+  }
+
+  .qr__link {
+    color: #60a5fa;
+  }
+
+  .qr__chip--ok {
+    color: #34d399;
+    border-color: color-mix(in srgb, #10b981 30%, transparent);
+  }
+
+  .qr__chip--info {
+    color: #60a5fa;
+    border-color: color-mix(in srgb, #3b82f6 30%, transparent);
+  }
+
+  .qr__chip--muted {
+    color: #94a3b8;
+    background: rgb(255 255 255 / 6%);
+    border-color: rgb(255 255 255 / 10%);
+  }
+
+  .qr__note-k {
+    color: #94a3b8;
+    background: rgb(255 255 255 / 6%);
   }
 
   .qr__id {
-    color: #94a3b8 !important;
+    color: #94a3b8;
   }
 
   .qr__state-title {
@@ -1646,6 +1917,23 @@ html[class*="dark"] {
   .qr__dock-btn--skip:hover:not(:disabled) {
     color: #ffffff;
     background: rgba(255, 255, 255, 0.08);
+  }
+
+  .qr__dock-btn--rotate {
+    &:hover:not(:disabled) {
+      color: #fff;
+      background: rgb(255 255 255 / 8%);
+    }
+
+    &.is-active {
+      color: #a5b4fc;
+      background: rgb(99 102 241 / 18%);
+    }
+  }
+
+  .qr__dock-badge {
+    color: #c7d2fe;
+    background: rgb(99 102 241 / 24%);
   }
 
   .qr__dock-btn--delete {
@@ -1713,17 +2001,27 @@ html[class*="dark"] {
   }
 
   .qr__side {
-    max-height: 35%;
     padding: 10px 14px 12px;
-
-    &--expanded {
-      max-height: 85%;
-    }
   }
 
-  .qr__fields {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 6px 10px;
+  .qr__side-head {
+    gap: 2px 14px;
+  }
+
+  .qr__name {
+    max-width: 100%;
+  }
+
+  .qr__specs {
+    gap: 14px;
+  }
+
+  .qr__spec-v {
+    font-size: 15px;
+  }
+
+  .qr__meta-item {
+    max-width: 100%;
   }
 
   .qr__dock {
@@ -1749,6 +2047,17 @@ html[class*="dark"] {
 
   .qr__dock-kbd {
     display: none;
+  }
+
+  /* 多了一个按钮，窄屏把旋转按钮收紧一点，别让角度徽章把胶囊顶宽 */
+  .qr__dock-btn--rotate {
+    gap: 3px;
+    padding: 0 6px;
+  }
+
+  .qr__dock-badge {
+    padding: 0 4px;
+    font-size: 10px;
   }
 }
 </style>
