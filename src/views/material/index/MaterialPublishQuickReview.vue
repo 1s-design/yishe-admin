@@ -4,7 +4,6 @@
       <!-- 顶栏：标题、模式切换器、统计与退出 -->
       <header class="pqr__bar">
         <div class="pqr__bar-lead">
-          <el-icon :size="18" class="pqr__bar-icon"><Shop /></el-icon>
           <span class="pqr__title">商品快速审核</span>
           <span class="pqr__badge">{{ hasUserSelection ? `已选 ${queue.length} 张` : '素材库' }}</span>
           <span v-if="queue.length" class="pqr__progress">
@@ -12,7 +11,7 @@
           </span>
         </div>
 
-        <!-- 🌟 模式选择器：最近图片 / 最早图片 / 随机图片 -->
+        <!-- 模式选择器：极简文字分段切换，无多余装饰 icon/emoji -->
         <div class="pqr__bar-center">
           <div class="pqr__mode-segmented">
             <button
@@ -22,7 +21,6 @@
               title="按创建时间从最新到最旧审核"
               @click="switchMode('recent')"
             >
-              <span class="pqr__mode-tab-icon">🌟</span>
               <span>最近图片</span>
             </button>
             <button
@@ -32,7 +30,6 @@
               title="按创建时间从最早到最新审核"
               @click="switchMode('oldest')"
             >
-              <span class="pqr__mode-tab-icon">⏳</span>
               <span>最早图片</span>
             </button>
             <button
@@ -42,7 +39,6 @@
               title="随机乱序抽检审核"
               @click="switchMode('random')"
             >
-              <span class="pqr__mode-tab-icon">🎲</span>
               <span>随机图片</span>
             </button>
           </div>
@@ -161,7 +157,6 @@
                 {{ current.name || `素材 #${current.id}` }}
               </span>
               <span class="pqr__info-pill pqr__info-pill--highlight">
-                <el-icon :size="12" class="mr-0.5"><Aim /></el-icon>
                 <span>{{ dimensionText }}</span>
               </span>
               <span class="pqr__info-pill">
@@ -178,15 +173,26 @@
           </div>
 
           <div v-else class="pqr__empty">
-            <el-icon :size="48" class="text-success mb-3"><CircleCheckFilled /></el-icon>
-            <p class="pqr__empty-title">队列中的素材已全部审核完毕！</p>
-            <p class="pqr__empty-desc">
-              本次共完成 {{ createdMaterialCount }} 张素材的商品任务制作（共派发 {{ createdTaskCount }} 个发布任务），忽略 {{ skippedCount }} 张素材。
-            </p>
-            <div class="mt-4 flex gap-3 justify-center">
-              <el-button type="primary" @click="reloadQueue">重新开始审核</el-button>
-              <el-button @click="close">返回素材列表</el-button>
-            </div>
+            <template v-if="createdMaterialCount > 0 || skippedCount > 0">
+              <p class="pqr__empty-title">队列中的素材已全部审核完毕！</p>
+              <p class="pqr__empty-desc">
+                本次共完成 {{ createdMaterialCount }} 张素材的商品任务制作（共派发 {{ createdTaskCount }} 个发布任务），忽略 {{ skippedCount }} 张素材。
+              </p>
+              <div class="mt-4 flex gap-3 justify-center">
+                <el-button type="primary" @click="reloadQueue">重新开始审核</el-button>
+                <el-button @click="close">返回素材列表</el-button>
+              </div>
+            </template>
+            <template v-else>
+              <p class="pqr__empty-title">当前素材库暂无可审核素材</p>
+              <p class="pqr__empty-desc">
+                未能加载到待审核的素材图片，请点击重试加载或选择其他文件夹。
+              </p>
+              <div class="mt-4 flex gap-3 justify-center">
+                <el-button type="primary" :loading="loadingBatch" @click="() => fetchBatch(activeMode, 1)">重试加载</el-button>
+                <el-button @click="close">返回素材列表</el-button>
+              </div>
+            </template>
           </div>
         </section>
 
@@ -309,7 +315,6 @@
               title="一键创建选中的发布任务并看下一张 (快捷键：↵ Enter)"
               @click="actCreateAndNext"
             >
-              <el-icon class="mr-1"><Shop /></el-icon>
               <span>{{ selectedConfigIds.length ? `一键创建并看下一张 (${selectedConfigIds.length})` : `请勾选配置` }}</span>
               <kbd v-if="selectedConfigIds.length" class="pqr__kbd-hint">↵ Enter</kbd>
             </el-button>
@@ -353,7 +358,6 @@
             title="一键直接创建任务并自动切换下一张（快捷键：↵ Enter）"
             @click="actCreateAndNext"
           >
-            <el-icon :size="14"><Shop /></el-icon>
             <span class="pqr__dock-text">
               一键创建
               <template v-if="selectedConfigIds.length">({{ selectedConfigIds.length }})</template>
@@ -369,17 +373,15 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import {
-  Aim,
   ArrowLeft,
   ArrowRight,
   Check,
-  CircleCheckFilled,
   Close,
   Loading,
   Refresh,
-  Shop,
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import { convertFolderIdToApiParam } from '@/constants/folder'
 import { stickerPsdSetApi } from '@/api/stickerPsdSet'
 import { getMaterialList } from '@/api/material'
 import { useImageDeck } from '@/composables/useImageDeck'
@@ -494,8 +496,9 @@ async function fetchBatch(mode: QuickReviewMode, page = 1) {
       listMode: 'compact',
       includeRelations: false
     }
-    if (props.folderId !== undefined && props.folderId !== null && props.folderId !== '') {
-      params.folderId = props.folderId
+    const folderFilter = convertFolderIdToApiParam(props.folderId)
+    if (folderFilter !== undefined && folderFilter !== null) {
+      params.folderId = folderFilter
     }
     if (mode === 'recent') {
       params.sortOrder = 'DESC'
@@ -515,23 +518,36 @@ async function fetchBatch(mode: QuickReviewMode, page = 1) {
       skippedQueue.value = []
       syncCurrentMaterial()
       const labels: Record<QuickReviewMode, string> = {
-        recent: '最近图片 (最新优先)',
-        oldest: '最早图片 (最早优先)',
-        random: '随机图片 (随机抽检)'
+        recent: '最近图片',
+        oldest: '最早图片',
+        random: '随机图片'
       }
       ElMessage.success(`已切换至【${labels[mode]}】，加载了 ${list.length} 张素材`)
     } else {
-      queue.value = sortQueueItems(props.items || [], mode)
+      if (props.items && props.items.length > 0) {
+        queue.value = sortQueueItems(props.items, mode)
+        currentIndex.value = 0
+        skippedQueue.value = []
+        syncCurrentMaterial()
+      } else {
+        queue.value = []
+        currentIndex.value = 0
+        syncCurrentMaterial()
+      }
+    }
+  } catch (err) {
+    console.warn('[MaterialPublishQuickReview] 拉取批次失败:', err)
+    if (props.items && props.items.length > 0) {
+      queue.value = sortQueueItems(props.items, mode)
       currentIndex.value = 0
       skippedQueue.value = []
       syncCurrentMaterial()
+    } else {
+      queue.value = []
+      currentIndex.value = 0
+      syncCurrentMaterial()
+      ElMessage.error('拉取审核素材失败，请点击重试加载')
     }
-  } catch (err) {
-    console.warn('[MaterialPublishQuickReview] 拉取批次失败，使用本地素材重排:', err)
-    queue.value = sortQueueItems(props.items || [], mode)
-    currentIndex.value = 0
-    skippedQueue.value = []
-    syncCurrentMaterial()
   } finally {
     loadingBatch.value = false
   }
@@ -807,11 +823,15 @@ function initQueue() {
 
   // 如果用户手动勾选了卡片且有数据，按选中的卡片进行审核
   if (props.hasUserSelection && initialItems.length > 0) {
+    loadingBatch.value = false
     queue.value = sortQueueItems(initialItems, activeMode.value)
     currentIndex.value = Math.min(Math.max(props.startIndex || 0, 0), Math.max(queue.value.length - 1, 0))
     syncCurrentMaterial()
   } else {
-    // 未勾选或全库审核模式：无论何种排序（recent/oldest/random），均直接独立向后端拉取第一批50张素材
+    // 未勾选或全库审核模式：同步置 loadingBatch = true，清空 queue，确保不会短暂露底「全部审核完毕」
+    loadingBatch.value = true
+    queue.value = []
+    currentIndex.value = 0
     fetchBatch(activeMode.value, 1)
   }
 }
@@ -1250,11 +1270,6 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
 
-.pqr__mode-tab-icon {
-  font-size: 13px;
-  line-height: 1;
-}
-
 .pqr__refresh-batch-btn {
   display: inline-flex;
   align-items: center;
@@ -1282,11 +1297,9 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
 }
 
 @media (max-width: 1024px) {
-  .pqr__mode-tab span:not(.pqr__mode-tab-icon) {
-    display: none;
-  }
   .pqr__mode-tab {
-    padding: 4px 8px;
+    padding: 4px 6px;
+    font-size: 11px;
   }
 }
 

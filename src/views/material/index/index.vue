@@ -3167,7 +3167,7 @@
       :items="quickPublishReviewItems"
       :initial-mode="quickPublishReviewMode"
       :has-user-selection="Boolean(ids.length)"
-      :folder-id="queryParams.folderId"
+      :folder-id="getStickerFolderFilterForQuery(queryParams.folderId)"
       @reviewed="getList"
     />
     <el-dialog v-model="storyScriptDialogVisible" fullscreen destroy-on-close class="story-script-dialog"
