@@ -202,12 +202,12 @@
                       {{ item.name }}
                     </span>
 
-                    <!-- ⚡ 醒目的比例徽章：直观对比，一眼看清所需尺寸比例 -->
+                    <!-- ⚡ 简洁清晰的比例显示：告别tag边框底色，直接以专属形态配色文字呈现，清爽直观 -->
                     <span
-                      class="pqr__ratio-badge"
+                      class="pqr__ratio-text"
                       :class="[
-                        item.isMatched ? 'pqr__ratio-badge--matched' : 'pqr__ratio-badge--mismatch',
-                        `pqr__ratio-badge--${getRatioBadgeKind(item)}`
+                        item.isMatched ? 'pqr__ratio-text--matched' : 'pqr__ratio-text--mismatch',
+                        `pqr__ratio-text--${getRatioBadgeKind(item)}`
                       ]"
                       :title="item.targetAspectRatio ? `目标宽高比：${item.targetAspectRatio}:1` : '不限比例'"
                     >
@@ -1225,12 +1225,6 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
       color: var(--el-color-primary);
       font-weight: 600;
     }
-
-    .pqr__ratio-badge--matched {
-      background: var(--el-color-primary);
-      color: #ffffff;
-      border-color: var(--el-color-primary);
-    }
   }
 
   /* ---------- 已发布：不可选，弱化 + 绿勾 ---------- */
@@ -1307,79 +1301,62 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   white-space: nowrap;
 }
 
-/* ⚡ 醒目的比例标签：字体清晰、颜色对比强烈、一眼可见 */
-.pqr__ratio-badge {
+/* ⚡ 简洁清晰的比例显示：告别臃肿 tag，采用纯净专属彩色文字 */
+.pqr__ratio-text {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  padding: 1.5px 7px;
-  font-size: 11px;
+  padding: 0;
+  font-size: 11.5px;
   font-weight: 700;
-  border-radius: 4px;
-  letter-spacing: 0.2px;
-  line-height: 17px;
+  letter-spacing: 0.25px;
+  line-height: 1.3;
   white-space: nowrap;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  background: transparent;
+  border: none;
   transition: all 0.12s ease;
-  border: 1px solid transparent;
 
   /* 竖版：紫罗兰色 (Violet) */
   &--portrait {
     color: #7c3aed;
-    background: #f5f3ff;
-    border-color: #ddd6fe;
   }
   /* 横版：青碧色 (Teal) */
   &--landscape {
     color: #0d9488;
-    background: #f0fdfa;
-    border-color: #99f6e4;
   }
   /* 正方：天蓝色 (Sky Blue) */
   &--square {
     color: #0284c7;
-    background: #f0f9ff;
-    border-color: #bae6fd;
   }
   /* 通用：暖琥珀金 (Amber) */
   &--generic {
-    color: #b45309;
-    background: #fffbeb;
-    border-color: #fde68a;
+    color: #d97706;
   }
 
   &--mismatch {
-    opacity: 0.76;
-    filter: grayscale(25%);
+    opacity: 0.55;
   }
 }
 
-:global(html.dark) .pqr__ratio-badge--portrait,
-:global(html[class*="dark"]) .pqr__ratio-badge--portrait {
+:global(html.dark) .pqr__ratio-text--portrait,
+:global(html[class*="dark"]) .pqr__ratio-text--portrait {
   color: #c4b5fd;
-  background: rgba(124, 58, 237, 0.18);
-  border-color: rgba(167, 139, 250, 0.35);
 }
 
-:global(html.dark) .pqr__ratio-badge--landscape,
-:global(html[class*="dark"]) .pqr__ratio-badge--landscape {
+:global(html.dark) .pqr__ratio-text--landscape,
+:global(html[class*="dark"]) .pqr__ratio-text--landscape {
   color: #5eead4;
-  background: rgba(13, 148, 136, 0.18);
-  border-color: rgba(45, 212, 191, 0.35);
 }
 
-:global(html.dark) .pqr__ratio-badge--square,
-:global(html[class*="dark"]) .pqr__ratio-badge--square {
+:global(html.dark) .pqr__ratio-text--square,
+:global(html[class*="dark"]) .pqr__ratio-text--square {
   color: #7dd3fc;
-  background: rgba(2, 132, 199, 0.18);
-  border-color: rgba(56, 189, 248, 0.35);
 }
 
-:global(html.dark) .pqr__ratio-badge--generic,
-:global(html[class*="dark"]) .pqr__ratio-badge--generic {
+:global(html.dark) .pqr__ratio-text--generic,
+:global(html[class*="dark"]) .pqr__ratio-text--generic {
   color: #fcd34d;
-  background: rgba(217, 119, 6, 0.18);
-  border-color: rgba(251, 191, 36, 0.35);
 }
 
 .pqr__config-platform {

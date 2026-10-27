@@ -983,64 +983,48 @@ html[class*="dark"] .publish-quick-item.is-selected {
 }
 
 .publish-quick-item__desc {
-  padding: 1.5px 7px;
+  padding: 0;
   font-size: 11px;
   font-weight: 700;
-  border-radius: 4px;
   white-space: nowrap;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   letter-spacing: 0.2px;
-  border: 1px solid transparent;
+  background: transparent;
+  border: none;
   transition: all 0.12s ease;
 }
 
-/* 🎨 比例形态高辨识度专属彩色体系 */
+/* 🎨 比例形态专属文字配色体系（简洁纯文本，去 tag 边框与背景） */
 .ratio-tag--portrait {
   color: #7c3aed;
-  background: #f5f3ff;
-  border-color: #ddd6fe;
 }
 :global(html.dark) .ratio-tag--portrait,
 :global(html[class*="dark"]) .ratio-tag--portrait {
   color: #c4b5fd;
-  background: rgba(124, 58, 237, 0.18);
-  border-color: rgba(167, 139, 250, 0.35);
 }
 
 .ratio-tag--landscape {
   color: #0d9488;
-  background: #f0fdfa;
-  border-color: #99f6e4;
 }
 :global(html.dark) .ratio-tag--landscape,
 :global(html[class*="dark"]) .ratio-tag--landscape {
   color: #5eead4;
-  background: rgba(13, 148, 136, 0.18);
-  border-color: rgba(45, 212, 191, 0.35);
 }
 
 .ratio-tag--square {
   color: #0284c7;
-  background: #f0f9ff;
-  border-color: #bae6fd;
 }
 :global(html.dark) .ratio-tag--square,
 :global(html[class*="dark"]) .ratio-tag--square {
   color: #7dd3fc;
-  background: rgba(2, 132, 199, 0.18);
-  border-color: rgba(56, 189, 248, 0.35);
 }
 
 .ratio-tag--generic {
-  color: #b45309;
-  background: #fffbeb;
-  border-color: #fde68a;
+  color: #d97706;
 }
 :global(html.dark) .ratio-tag--generic,
 :global(html[class*="dark"]) .ratio-tag--generic {
   color: #fcd34d;
-  background: rgba(217, 119, 6, 0.18);
-  border-color: rgba(251, 191, 36, 0.35);
 }
 
 .match-badge {
@@ -1150,14 +1134,14 @@ html[class*="dark"] .publish-quick-item.is-selected {
 }
 
 .published-item__desc {
-  padding: 1.5px 6px;
+  padding: 0;
   font-size: 10.5px;
   font-weight: 700;
-  border-radius: 3px;
   white-space: nowrap;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   letter-spacing: 0.2px;
-  border: 1px solid transparent;
+  background: transparent;
+  border: none;
   opacity: 0.92;
 }
 
