@@ -144,7 +144,9 @@
                 :alt="current.name || '素材图片'"
                 draggable="false"
                 class="pqr__image"
+                :class="{ 'is-pending': deckPending }"
               />
+              <div v-if="deckPending" class="pqr__deck-loading-dot" title="高清图解码中..."></div>
             </div>
 
             <!-- 图片中间偏下位置：图片规格与素材信息条 -->
@@ -382,6 +384,8 @@ import {
   evaluatePublishConfigsForSticker,
   getRatioBadgeKind,
   invalidatePublishBindingsCache,
+  preloadPublishConfigs,
+  preloadMaterialBindings,
   type QuickPublishMatchResult,
   type MatchedPublishConfigItem
 } from './useMaterialPublishQuick'
@@ -498,6 +502,7 @@ async function fetchBatch(mode: QuickReviewMode, page = 1) {
     const res: any = await getMaterialList(params)
     const list = res?.list || []
     if (list.length > 0) {
+      deck.reset()
       queue.value = mode === 'random' ? sortQueueItems(list, 'random') : list
       currentIndex.value = 0
       skippedQueue.value = []
@@ -549,9 +554,174 @@ const optimisticRecordKeys = ref<Set<string>>(new Set())
 
 const current = computed(() => queue.value[currentIndex.value] || null)
 
-// ==================== 图片大图预热调度 ====================
-const deck = useImageDeck({ maxCache: 16, warmTimeout: 5000 })
+// ==================== 预加载与大图解码配置 ====================
+/** 空闲帧里最多预热后面几张大图（紧挨着的 2 张走立即通道） */
+const PRELOAD_AHEAD = 6
+/** 切换到下一张时，最多愿意等待解码多久（毫秒，超时不阻塞直接切） */
+const DECK_WAIT_TIMEOUT = 400
+/** 出图宽度上限：兼顾高清画质与解码性能，避免过大原图占满主线程 */
+const DECK_MAX_WIDTH = 2000
+/** 队列剩余多少张素材时在后台无感补货下一批 */
+const PREFETCH_THRESHOLD = 15
+
+/** 图片预解码调度器：负责「下一张随时可上屏」 */
+const deck = useImageDeck({ maxCache: 24, warmTimeout: 6000 })
+
+/**
+ * 实际下载/上屏的图片地址按视口宽度让 COS 出图，
+ * 清晰度对审核没有损失，解码量比原图小一到两个数量级。
+ */
+function pickDeckWidth(): number {
+  if (typeof window === 'undefined') return 1600
+  const dpr = Math.min(window.devicePixelRatio || 1, 2)
+  const cssWidth = Math.min(window.innerWidth, 1920)
+  return Math.max(900, Math.min(DECK_MAX_WIDTH, Math.round(cssWidth * dpr * 0.75)))
+}
+
+const deckWidth = ref(pickDeckWidth())
+
+/** 预热与渲染必须算出同一个地址，否则缓存无法命中 */
+function deckKeyOf(item: any): string {
+  if (!item?.url) return ''
+  return getReviewImageUrl(item.url, deckWidth.value) || item.url
+}
+
+function handleResize(): void {
+  const nextW = pickDeckWidth()
+  if (Math.abs(nextW - deckWidth.value) > 100) {
+    deckWidth.value = nextW
+  }
+}
+
+/** 真正上屏的图片地址与就绪状态 */
 const displayUrl = ref('')
+const deckPending = ref(false)
+let deckSeq = 0
+
+/** 视觉层无缝切换：图片解码就绪才上屏，避免白闪与掉帧 */
+async function syncDeck(): Promise<void> {
+  const sticker = current.value
+  const target = deckKeyOf(sticker)
+  const seq = ++deckSeq
+
+  if (!target) {
+    displayUrl.value = ''
+    deckPending.value = false
+    return
+  }
+
+  // 绝大多数情况下下一张早已在后台解码就绪，这里零延迟直接上屏
+  if (deck.isReady(target)) {
+    displayUrl.value = target
+    deckPending.value = false
+    return
+  }
+
+  // 若尚未就绪，保留当前画面等待微解码，绝不给用户闪白
+  deckPending.value = true
+  await deck.awaitReady(target, DECK_WAIT_TIMEOUT)
+  if (seq !== deckSeq) return // 用户快速切图，丢弃过期结果
+  displayUrl.value = target
+  deckPending.value = false
+}
+
+/**
+ * 多级大图预热管线：
+ * 1) 紧挨着的 2 张大图走立即通道（解码优先级最高）
+ * 2) 前方的第 3~8 张通过空闲帧慢慢预解码
+ * 3) 预热上一张（方便用户按 W 回退复查时秒开）
+ */
+function warmAhead(): void {
+  const list = queue.value
+  const idx = currentIndex.value
+  if (!list.length) return
+
+  // 1. 紧随其后的 2 张大图走立即通道
+  if (idx + 1 < list.length) {
+    deck.warmNow(deckKeyOf(list[idx + 1]))
+  }
+  if (idx + 2 < list.length) {
+    deck.warmNow(deckKeyOf(list[idx + 2]))
+  }
+
+  // 2. 前方的第 3~8 张通过空闲帧慢慢预解码
+  const idleSlice = list.slice(idx + 3, idx + 3 + PRELOAD_AHEAD)
+  if (idleSlice.length) {
+    deck.warmIdle(idleSlice.map((item: any) => deckKeyOf(item)))
+  }
+
+  // 3. 预热上一张（方便用户回退秒开）
+  if (idx > 0) {
+    deck.warmNow(deckKeyOf(list[idx - 1]))
+  }
+}
+
+/** 提前预拉取后续 5 张素材的发布配置绑定记录，填充 30s 内存缓存 */
+function preloadDataAhead(): void {
+  const list = queue.value
+  const idx = currentIndex.value
+  if (!list.length) return
+
+  const aheadSlice = list.slice(idx + 1, idx + 6)
+  aheadSlice.forEach((item: any) => {
+    const id = item?.id ? String(item.id) : ''
+    if (id) {
+      preloadMaterialBindings(id)
+      evaluatePublishConfigsForSticker(item, false).catch(() => {})
+    }
+  })
+}
+
+let inflightPrefetch: Promise<void> | null = null
+
+/** 当队列剩余小于阈值时，在后台静默获取下一页数据并追加到队列末尾 */
+async function checkAndPrefetchQueue(): Promise<void> {
+  if (props.hasUserSelection || loadingBatch.value || inflightPrefetch) return
+  const remaining = queue.value.length - (currentIndex.value + 1)
+  if (remaining > PREFETCH_THRESHOLD) return
+
+  inflightPrefetch = (async () => {
+    try {
+      const nextPage = batchPage.value + 1
+      const params: any = {
+        currentPage: nextPage,
+        pageSize: 50,
+        listMode: 'compact',
+        includeRelations: false
+      }
+      if (props.folderId !== undefined && props.folderId !== null && props.folderId !== '') {
+        params.folderId = props.folderId
+      }
+      if (activeMode.value === 'recent') {
+        params.sortOrder = 'DESC'
+      } else if (activeMode.value === 'oldest') {
+        params.sortOrder = 'ASC'
+      } else if (activeMode.value === 'random') {
+        params.random = true
+        params._t = Date.now()
+      }
+
+      const res: any = await getMaterialList(params)
+      const list = Array.isArray(res?.list) ? res.list : []
+      if (list.length > 0) {
+        batchPage.value = nextPage
+        const existingIds = new Set(queue.value.map((item: any) => String(item.id)))
+        const fresh = list.filter((item: any) => !existingIds.has(String(item.id)))
+        if (fresh.length > 0) {
+          queue.value.push(...fresh)
+          warmAhead()
+          preloadDataAhead()
+        }
+      }
+    } catch (err) {
+      console.warn('[MaterialPublishQuickReview] 后台静默补货失败:', err)
+    } finally {
+      inflightPrefetch = null
+    }
+  })()
+
+  return inflightPrefetch
+}
 
 // ==================== 当前素材的配置匹配与勾选 ====================
 const selectedConfigIds = ref<string[]>([])
@@ -607,14 +777,18 @@ watch(
     if (val) {
       initQueue()
       window.addEventListener('keydown', handleKeydown, true)
+      window.addEventListener('resize', handleResize)
     } else {
       window.removeEventListener('keydown', handleKeydown, true)
+      window.removeEventListener('resize', handleResize)
     }
   },
   { immediate: true }
 )
 
 function initQueue() {
+  deck.reset()
+  preloadPublishConfigs()
   activeMode.value = props.initialMode || 'recent'
   batchPage.value = 1
   skippedQueue.value = []
@@ -638,6 +812,7 @@ function syncCurrentMaterial() {
   const sticker = current.value
   if (!sticker) {
     displayUrl.value = ''
+    deckPending.value = false
     selectedConfigIds.value = []
     matchResult.value = {
       imageWidth: 0,
@@ -653,7 +828,7 @@ function syncCurrentMaterial() {
     return
   }
 
-  // 1. 同步进行尺寸解析与全部配置排序初筛
+  // 1. 同步进行尺寸解析与全部配置排序初筛（0ms 纯同步内存计算）
   const { width, height, targetRatio, ratioLabel } = extractDimensions(sticker)
   const allInitialConfigs = findMatchingConfigsSync(width, height, targetRatio)
   matchResult.value = {
@@ -668,26 +843,23 @@ function syncCurrentMaterial() {
     errors: []
   }
 
-  // 核心逻辑：默认只勾选「匹配」的配置
+  // 核心逻辑：默认只勾选「匹配且未被乐观记录发布」的配置
   const initialMatchedIds = allInitialConfigs
     .filter((item) => item.isMatched && !optimisticRecordKeys.value.has(`${sticker.id}:${item.id}`))
     .map((item) => item.id)
   selectedConfigIds.value = initialMatchedIds
 
-  // 2. 图片高清预解码调度
-  const targetUrl = getReviewImageUrl(sticker.url, 1600)
-  displayUrl.value = targetUrl
-  if (targetUrl) {
-    deck.ensure(targetUrl)
-  }
+  // 2. 调度图片高清上屏与无白屏平滑切换
+  void syncDeck()
 
-  // 预热下一张图片
-  const nextItem = queue.value[currentIndex.value + 1]
-  if (nextItem?.url) {
-    deck.warmIdle(getReviewImageUrl(nextItem.url, 1600))
-  }
+  // 3. 多级高清预热管线（立即预热后 2 张，空闲预热后 3~8 张，预热前 1 张）
+  warmAhead()
 
-  // 3. 异步拉取已发布历史记录，标记已发布排重项
+  // 4. 数据层预热（提前拉取后 5 张的发布记录）与无感静默补货
+  preloadDataAhead()
+  void checkAndPrefetchQueue()
+
+  // 5. 异步获取已发布历史记录（若提前预热已在缓存中，则 0ms 瞬间解析）
   const stickerId = String(sticker.id || '')
   if (stickerId) {
     evaluatePublishConfigsForSticker(sticker, false)
@@ -898,6 +1070,7 @@ function handleKeydown(e: KeyboardEvent) {
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleKeydown, true)
+  window.removeEventListener('resize', handleResize)
 })
 
 function getMatchStatusBadgeText(item: MatchedPublishConfigItem): string {
@@ -1255,6 +1428,36 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.22));
   border: none;
   background: transparent;
+  transition: opacity 0.12s ease;
+
+  &.is-pending {
+    opacity: 0.88;
+  }
+}
+
+.pqr__deck-loading-dot {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--el-color-primary, #409eff);
+  box-shadow: 0 0 10px var(--el-color-primary, #409eff);
+  animation: pqrDeckPulse 0.9s infinite alternate;
+  pointer-events: none;
+  z-index: 10;
+}
+
+@keyframes pqrDeckPulse {
+  from {
+    opacity: 0.25;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1.15);
+  }
 }
 
 /* 图片中间偏下：轻量信息胶囊条 */
