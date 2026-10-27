@@ -105,3 +105,33 @@ export const applyAiApiKeyToAllFeatures = (id: number) =>
   request.post({
     url: `/system/ai-api-key/${id}/apply-to-all`,
   });
+
+export interface AiApiKeyTestParams {
+  id?: number;
+  apiKey?: string;
+  baseUrl?: string | null;
+  model?: string | null;
+}
+
+export interface AiApiKeyTestResult {
+  success: boolean;
+  status: "success" | "warning" | "error";
+  message: string;
+  durationMs: number;
+  statusCode?: number;
+  modelChecked?: string | null;
+  modelFound?: boolean;
+  modelsCount?: number;
+  availableModelsPreview?: string[];
+  endpointType?: "openai-compatible" | "dashscope" | "unknown";
+  testedAt: string;
+}
+
+// 测试连通性（支持临时凭证或已有配置）
+export const testAiApiKey = (data: AiApiKeyTestParams) =>
+  request.post<AiApiKeyTestResult>({ url: "/system/ai-api-key/test", data });
+
+// 测试指定已有 Key 连通性
+export const testAiApiKeyById = (id: number, data?: Partial<AiApiKeyTestParams>) =>
+  request.post<AiApiKeyTestResult>({ url: `/system/ai-api-key/${id}/test`, data: data || {} });
+

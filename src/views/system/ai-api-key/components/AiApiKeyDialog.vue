@@ -17,6 +17,20 @@
       v-loading="formLoading"
       autocomplete="off"
     >
+      <!-- 连通性测试结果提示 -->
+      <transition name="el-fade-in-linear">
+        <el-alert
+          v-if="testResult"
+          :type="testResult.status === 'success' ? 'success' : testResult.status === 'warning' ? 'warning' : 'error'"
+          :title="testResultTitle"
+          :description="testResult.message"
+          show-icon
+          closable
+          class="ai-api-key-test-alert"
+          @close="testResult = null"
+        />
+      </transition>
+
       <!-- 基础信息 -->
       <section class="ai-api-key-section">
         <div class="ai-api-key-section__title">基础信息</div>
@@ -142,8 +156,19 @@
     </el-form>
 
     <template #footer>
-      <el-button @click="dialogVisible = false">取消</el-button>
-      <el-button type="primary" :loading="formLoading" @click="submitForm">确定</el-button>
+      <div class="ai-api-key-dialog__footer">
+        <el-button
+          :loading="testLoading"
+          :disabled="formLoading"
+          @click="handleTestConnectivity"
+        >
+          测试连通性
+        </el-button>
+        <div class="ai-api-key-dialog__footer-actions">
+          <el-button @click="dialogVisible = false">取消</el-button>
+          <el-button type="primary" :loading="formLoading" @click="submitForm">确定</el-button>
+        </div>
+      </div>
     </template>
   </el-dialog>
 </template>
@@ -155,8 +180,10 @@ import {
   createAiApiKey,
   getAiApiKeyDetail,
   revealAiApiKey,
+  testAiApiKey,
   updateAiApiKey,
   type AiApiKeyConfig,
+  type AiApiKeyTestResult,
 } from "@/api/aiApiKey";
 import { useUserStore } from "@/store/modules/user";
 import { copyToClipboard } from "@/utils/clipboard";
@@ -234,6 +261,60 @@ const formRules = {
 const resetForm = () => {
   Object.assign(formData, createFormData(), { id: undefined });
   maskedApiKey.value = "";
+  testResult.value = null;
+  testLoading.value = false;
+};
+
+const testLoading = ref(false);
+const testResult = ref<AiApiKeyTestResult | null>(null);
+
+const testResultTitle = computed(() => {
+  if (!testResult.value) return "";
+  if (testResult.value.status === "success") {
+    return `连通性测试通过 (${testResult.value.durationMs}ms)`;
+  }
+  if (testResult.value.status === "warning") {
+    return `连通性测试提示 (${testResult.value.durationMs}ms)`;
+  }
+  return `连通性测试未通过 (${testResult.value.durationMs}ms)`;
+});
+
+const handleTestConnectivity = async () => {
+  if (!formData.apiKey && !formData.id) {
+    ElMessage.warning("请先输入 API Key 再进行连通性测试");
+    return;
+  }
+
+  testLoading.value = true;
+  testResult.value = null;
+
+  try {
+    const res = await testAiApiKey({
+      id: formData.id ? Number(formData.id) : undefined,
+      apiKey: formData.apiKey ? String(formData.apiKey).trim() : undefined,
+      baseUrl: formData.baseUrl ? String(formData.baseUrl).trim() : undefined,
+      model: formData.model ? String(formData.model).trim() : undefined,
+    });
+    testResult.value = res;
+    if (res.status === "success") {
+      ElMessage.success("连通性测试通过");
+    } else if (res.status === "warning") {
+      ElMessage.warning(res.message);
+    } else {
+      ElMessage.error(res.message);
+    }
+  } catch (error: any) {
+    testResult.value = {
+      success: false,
+      status: "error",
+      message: error?.message || "连通性测试请求失败",
+      durationMs: 0,
+      testedAt: new Date().toISOString(),
+    };
+    ElMessage.error(error?.message || "连通性测试请求失败");
+  } finally {
+    testLoading.value = false;
+  }
 };
 
 const open = async (id?: number) => {
@@ -300,15 +381,20 @@ const submitForm = async () => {
         enabled: Boolean(formData.enabled),
       };
 
-      // 编辑模式下，如果 apiKey 为空，则不发送该字段，保持后端原值
+      // 编辑模式下留空表示不改密钥：整个字段必须从 body 里去掉。
+      // 只是「不覆盖」是不够的——上面的展开已经把 apiKey: "" 带进 payload 了，
+      // 后端会当成「把密钥改成空值」，直接 400 apiKey should not be empty。
       const apiKeyTrimmed = String(formData.apiKey || "").trim();
       if (apiKeyTrimmed) {
         payload.apiKey = apiKeyTrimmed;
-      } else if (!payload.id) {
-        // 新增时 apiKey 必填
-        ElMessage.error("请输入 API Key");
-        formLoading.value = false;
-        return;
+      } else {
+        delete payload.apiKey;
+        if (!payload.id) {
+          // 新增时 apiKey 必填
+          ElMessage.error("请输入 API Key");
+          formLoading.value = false;
+          return;
+        }
       }
 
       if (canManagePublic.value) {
@@ -357,6 +443,23 @@ defineExpose({ open });
     align-items: center;
     width: 100%;
   }
+
+  &__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  &__footer-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+}
+
+.ai-api-key-test-alert {
+  margin-bottom: 12px;
 }
 
 .ai-api-key-section {

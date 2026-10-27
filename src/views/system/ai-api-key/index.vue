@@ -3,12 +3,14 @@
     <ListPageLayout class="ai-api-key-page">
       <template #filter>
         <div class="list-page-filter list-page-filter--flat">
-          <div class="list-page-filter__row">
-            <div class="list-page-search-form__actions">
+          <div class="list-page-filter__row ai-api-key-toolbar">
+            <!-- 左侧检索条件：单行水平对齐 -->
+            <div class="ai-api-key-toolbar__left">
               <el-input
                 v-model="queryParams.keyword"
                 class="ai-api-key-search"
                 clearable
+                :prefix-icon="Search"
                 placeholder="搜索名称 / 默认模型 / Base URL"
                 size="small"
                 @clear="handleSearch"
@@ -26,10 +28,19 @@
                 <el-option label="启用" value="true" />
                 <el-option label="停用" value="false" />
               </el-select>
+              <el-button size="small" type="primary" :disabled="loading" @click="handleSearch">
+                查询
+              </el-button>
+              <el-button size="small" :disabled="loading" @click="handleReset">
+                重置
+              </el-button>
+            </div>
+
+            <!-- 右侧快捷操作：对齐在同一行 -->
+            <div class="ai-api-key-toolbar__right">
               <el-button size="small" :disabled="loading" @click="openUsageSettingDialog()">
                 AI 使用设置
               </el-button>
-              <el-button size="small" :disabled="loading" @click="handleSearch">查询</el-button>
               <el-button
                 size="small"
                 type="primary"
@@ -63,6 +74,7 @@
                 :data="currentList"
                 :loading="loading"
               >
+                <!-- 启用状态开关 -->
                 <template #enabledSlot="{ row }">
                   <div class="ai-api-key-switch-cell">
                     <el-switch
@@ -79,6 +91,7 @@
                   </div>
                 </template>
 
+                <!-- 公开状态开关 -->
                 <template #publicSlot="{ row }">
                   <div class="ai-api-key-switch-cell">
                     <el-switch
@@ -96,6 +109,7 @@
                   </div>
                 </template>
 
+                <!-- 密钥凭据列：单行脱敏 + 查看明文 + 快捷复制 -->
                 <template #apiKeySlot="{ row }">
                   <div class="ai-api-key-mask">
                     <span>{{ getDisplayedApiKey(row) }}</span>
@@ -108,9 +122,18 @@
                     >
                       {{ isApiKeyVisible(row) ? "隐藏" : "查看明文" }}
                     </el-button>
+                    <el-button
+                      v-if="row.id"
+                      link
+                      size="small"
+                      @click="handleCopyKey(row)"
+                    >
+                      复制
+                    </el-button>
                   </div>
                 </template>
 
+                <!-- 公开列表中的可用性 -->
                 <template #availabilitySlot="{ row }">
                   <div class="ai-api-key-availability">
                     <el-tag
@@ -123,18 +146,29 @@
                   </div>
                 </template>
 
+                <!-- 过期时间 -->
                 <template #expiresAtSlot="{ row }">
                   <span :class="['table-meta-text', { 'is-expired': isExpired(row.expiresAt) }]">
                     {{ formatExpiresAt(row.expiresAt) }}
                   </span>
                 </template>
 
+                <!-- 备注 -->
                 <template #remarkSlot="{ row }">
                   <span class="table-meta-text">{{ row.remark || "-" }}</span>
                 </template>
 
+                <!-- 我的 Key 操作列：编辑 + 操作下拉（内含测试连通性等） -->
                 <template #operationDefaultSlot="{ row }">
-                  <div class="flex justify-start">
+                  <div class="ai-api-key-operations">
+                    <el-button
+                      type="primary"
+                      link
+                      size="small"
+                      @click="openDialog(row.id)"
+                    >
+                      编辑
+                    </el-button>
                     <el-dropdown
                       class="operation-dropdown"
                       placement="bottom-end"
@@ -145,8 +179,8 @@
                       </el-button>
                       <template #dropdown>
                         <el-dropdown-menu class="operation-menu-compact">
-                          <el-dropdown-item command="edit">
-                            <span>编辑</span>
+                          <el-dropdown-item command="test" :disabled="testLoadingId === row.id">
+                            <span>{{ testLoadingId === row.id ? "测试中..." : "测试连通性" }}</span>
                           </el-dropdown-item>
                           <el-dropdown-item command="apply-all">
                             <span>一键应用</span>
@@ -160,6 +194,28 @@
                             class="operation-menu-item--danger"
                           >
                             <span>删除</span>
+                          </el-dropdown-item>
+                        </el-dropdown-menu>
+                      </template>
+                    </el-dropdown>
+                  </div>
+                </template>
+
+                <!-- 公开 Key 操作列 -->
+                <template #publicOperationDefaultSlot="{ row }">
+                  <div class="ai-api-key-operations">
+                    <el-dropdown
+                      class="operation-dropdown"
+                      placement="bottom-end"
+                      @command="(command) => handleOperationCommand(String(command), row)"
+                    >
+                      <el-button type="primary" link size="small" class="operation-trigger-button">
+                        操作
+                      </el-button>
+                      <template #dropdown>
+                        <el-dropdown-menu class="operation-menu-compact">
+                          <el-dropdown-item command="test" :disabled="testLoadingId === row.id">
+                            <span>{{ testLoadingId === row.id ? "测试中..." : "测试连通性" }}</span>
                           </el-dropdown-item>
                         </el-dropdown-menu>
                       </template>
@@ -196,18 +252,21 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
 import { useWindowSize } from "@vueuse/core";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { ElMessage, ElMessageBox, ElNotification } from "element-plus";
+import { Search } from "@element-plus/icons-vue";
 import {
   applyAiApiKeyToAllFeatures,
   deleteAiApiKey,
   getAiApiKeyList,
   getPublicAiApiKeyList,
   revealAiApiKey,
+  testAiApiKeyById,
   updateAiApiKey,
   type AiApiKeyConfig,
 } from "@/api/aiApiKey";
 import { buildOperationColumn, buildTimeColumn, commonGridOptions } from "@/common/table";
 import { useUserStore } from "@/store/modules/user";
+import { copyToClipboard } from "@/utils/clipboard";
 import AiApiKeyDialog from "./components/AiApiKeyDialog.vue";
 import AiApiKeyShareDialog from "./components/AiApiKeyShareDialog.vue";
 import AiUsageSettingPanel from "./components/AiUsageSettingPanel.vue";
@@ -221,6 +280,7 @@ const deleteLoading = ref(false);
 const statusLoadingId = ref<number | null>(null);
 const publicLoadingId = ref<number | null>(null);
 const apiKeyLoadingId = ref<number | null>(null);
+const testLoadingId = ref<number | null>(null);
 const activeTab = ref<"mine" | "public">("mine");
 const mineList = ref<AiApiKeyConfig[]>([]);
 const publicList = ref<AiApiKeyConfig[]>([]);
@@ -230,6 +290,7 @@ const shareDialogRef = ref();
 const usageSettingDialogRef = ref();
 const revealedApiKeyMap = reactive<Record<number, boolean>>({});
 const plainApiKeyMap = reactive<Record<number, string>>({});
+
 const queryParams = reactive({
   currentPage: 1,
   pageSize: 20,
@@ -244,35 +305,42 @@ const mineGridOptions = computed(() => ({
   ...commonGridOptions,
   maxHeight: tableMaxHeight.value,
   columns: [
-    { title: "ID", field: "id", width: 80 },
-    { title: "名称", field: "name", minWidth: 180 },
-    {
-      title: "创建人",
-      field: "uploader",
-      width: 140,
-      showOverflow: "tooltip",
-      formatter: ({ row }) => row?.uploader?.account || row?.uploader?.name || row?.userId || "-",
-    },
+    { title: "ID", field: "id", width: 70, align: "center" },
+    { title: "名称", field: "name", minWidth: 160, showOverflow: "tooltip" },
     {
       title: "默认模型",
       field: "model",
-      minWidth: 180,
+      minWidth: 160,
       showOverflow: "tooltip",
       formatter: ({ row }) => row?.model || "-",
     },
-    { title: "状态", field: "enabled", width: 110, slots: { default: "enabledSlot" } },
-    { title: "公开", field: "isPublic", width: 110, slots: { default: "publicSlot" } },
-    { title: "密钥", field: "maskedApiKey", minWidth: 360, slots: { default: "apiKeySlot" } },
-    { title: "过期时间", field: "expiresAt", minWidth: 180, slots: { default: "expiresAtSlot" } },
+    {
+      title: "Base URL",
+      field: "baseUrl",
+      minWidth: 200,
+      showOverflow: "tooltip",
+      formatter: ({ row }) => row?.baseUrl || "默认 (api.openai.com)",
+    },
+    {
+      title: "创建人",
+      field: "uploader",
+      width: 120,
+      showOverflow: "tooltip",
+      formatter: ({ row }) => row?.uploader?.account || row?.uploader?.name || row?.userId || "-",
+    },
+    { title: "状态", field: "enabled", width: 120, align: "center", slots: { default: "enabledSlot" } },
+    { title: "公开", field: "isPublic", width: 120, align: "center", slots: { default: "publicSlot" } },
+    { title: "密钥", field: "maskedApiKey", minWidth: 320, slots: { default: "apiKeySlot" } },
+    { title: "过期时间", field: "expiresAt", minWidth: 160, slots: { default: "expiresAtSlot" } },
     {
       title: "备注",
       field: "remark",
-      minWidth: 220,
+      minWidth: 180,
       showOverflow: "tooltip",
       slots: { default: "remarkSlot" },
     },
     buildTimeColumn("创建时间", "createTime"),
-    buildOperationColumn("operationDefaultSlot"),
+    buildOperationColumn("operationDefaultSlot", 125, { fixed: "right" }),
   ],
 }));
 
@@ -280,32 +348,40 @@ const publicGridOptions = computed(() => ({
   ...commonGridOptions,
   maxHeight: tableMaxHeight.value,
   columns: [
-    { title: "ID", field: "id", width: 80 },
-    { title: "名称", field: "name", minWidth: 180 },
-    {
-      title: "创建人",
-      field: "uploader",
-      width: 140,
-      showOverflow: "tooltip",
-      formatter: ({ row }) => row?.uploader?.account || row?.uploader?.name || row?.userId || "-",
-    },
+    { title: "ID", field: "id", width: 70, align: "center" },
+    { title: "名称", field: "name", minWidth: 160, showOverflow: "tooltip" },
     {
       title: "默认模型",
       field: "model",
-      minWidth: 180,
+      minWidth: 160,
       showOverflow: "tooltip",
       formatter: ({ row }) => row?.model || "-",
     },
-    { title: "可用状态", field: "available", width: 120, slots: { default: "availabilitySlot" } },
-    { title: "过期时间", field: "expiresAt", minWidth: 180, slots: { default: "expiresAtSlot" } },
+    {
+      title: "Base URL",
+      field: "baseUrl",
+      minWidth: 200,
+      showOverflow: "tooltip",
+      formatter: ({ row }) => row?.baseUrl || "默认 (api.openai.com)",
+    },
+    {
+      title: "创建人",
+      field: "uploader",
+      width: 120,
+      showOverflow: "tooltip",
+      formatter: ({ row }) => row?.uploader?.account || row?.uploader?.name || row?.userId || "-",
+    },
+    { title: "可用状态", field: "available", width: 120, align: "center", slots: { default: "availabilitySlot" } },
+    { title: "过期时间", field: "expiresAt", minWidth: 160, slots: { default: "expiresAtSlot" } },
     {
       title: "备注",
       field: "remark",
-      minWidth: 220,
+      minWidth: 180,
       showOverflow: "tooltip",
       slots: { default: "remarkSlot" },
     },
     buildTimeColumn("更新时间", "updateTime"),
+    buildOperationColumn("publicOperationDefaultSlot", 90, { fixed: "right" }),
   ],
 }));
 
@@ -386,6 +462,13 @@ const handleSearch = async () => {
   await getList();
 };
 
+const handleReset = async () => {
+  queryParams.keyword = "";
+  queryParams.enabled = "";
+  queryParams.currentPage = 1;
+  await getList();
+};
+
 const handleDialogSuccess = async () => {
   await getList();
 };
@@ -457,7 +540,69 @@ const handleToggleApiKeyVisible = async (row: AiApiKeyConfig) => {
   }
 };
 
+const handleCopyKey = async (row: AiApiKeyConfig) => {
+  if (!row.id) return;
+  if (plainApiKeyMap[row.id]) {
+    await copyToClipboard(plainApiKeyMap[row.id], "API Key 已复制到剪贴板");
+    return;
+  }
+
+  apiKeyLoadingId.value = row.id;
+  try {
+    const detail = await revealAiApiKey(row.id);
+    plainApiKeyMap[row.id] = String(detail.apiKey || "").trim();
+    revealedApiKeyMap[row.id] = true;
+    await copyToClipboard(plainApiKeyMap[row.id], "API Key 已复制到剪贴板");
+  } catch (error: any) {
+    ElMessage.error(error?.message || "获取密钥失败");
+  } finally {
+    apiKeyLoadingId.value = null;
+  }
+};
+
+const handleTestRow = async (row: AiApiKeyConfig) => {
+  if (!row.id || testLoadingId.value === row.id) return;
+
+  testLoadingId.value = row.id;
+  try {
+    const res = await testAiApiKeyById(row.id);
+
+    if (res.status === "success") {
+      ElNotification.success({
+        title: `Key「${row.name}」连通测试通过`,
+        message: res.message,
+        duration: 5000,
+      });
+    } else if (res.status === "warning") {
+      ElNotification.warning({
+        title: `Key「${row.name}」连通测试提示`,
+        message: res.message,
+        duration: 8000,
+      });
+    } else {
+      ElNotification.error({
+        title: `Key「${row.name}」连通测试失败`,
+        message: res.message,
+        duration: 10000,
+      });
+    }
+  } catch (error: any) {
+    const errorMsg = error?.message || "连通性测试请求失败";
+    ElNotification.error({
+      title: `Key「${row.name}」测试异常`,
+      message: errorMsg,
+      duration: 8000,
+    });
+  } finally {
+    testLoadingId.value = null;
+  }
+};
+
 const handleOperationCommand = (command: string, row: AiApiKeyConfig) => {
+  if (command === "test") {
+    handleTestRow(row);
+    return;
+  }
   if (command === "edit") {
     openDialog(row.id);
     return;
@@ -529,12 +674,31 @@ onMounted(() => {
   gap: 10px;
 }
 
-.ai-api-key-tabs {
-  padding: 0 14px;
+.ai-api-key-toolbar {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+  gap: 12px;
+  flex-wrap: nowrap !important;
 }
 
-.ai-api-key-tabs :deep(.el-tabs__header) {
-  margin-bottom: 10px;
+.ai-api-key-toolbar__left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+}
+
+.ai-api-key-toolbar__right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .ai-api-key-search {
@@ -545,34 +709,64 @@ onMounted(() => {
   width: 120px;
 }
 
+.ai-api-key-tabs {
+  padding: 0 14px;
+}
+
+.ai-api-key-tabs :deep(.el-tabs__header) {
+  margin-bottom: 10px;
+}
+
 .ai-api-key-mask {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
   font-size: 12px;
   line-height: 1.5;
   color: var(--el-text-color-secondary);
-  word-break: break-all;
+  white-space: nowrap;
+  flex-wrap: nowrap;
 }
 
 .ai-api-key-mask span {
-  flex: 1;
-  min-width: 0;
+  font-family: var(--el-font-family-mono, monospace);
+  color: var(--el-text-color-regular);
+  white-space: nowrap;
 }
 
 .ai-api-key-mask :deep(.el-button) {
   flex-shrink: 0;
+  padding: 0 4px;
 }
 
 .ai-api-key-switch-cell {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+  flex-wrap: nowrap;
+}
+
+.ai-api-key-operations {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  flex-wrap: nowrap;
 }
 
 .ai-api-key-availability {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.table-meta-text {
+  white-space: nowrap;
+  word-break: keep-all;
+  display: inline-block;
 }
 
 .table-meta-text.is-expired {
