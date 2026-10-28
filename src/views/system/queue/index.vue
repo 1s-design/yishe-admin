@@ -1307,8 +1307,13 @@ const gridOptions = ref({
   rowClassName: ({ row }) => getQueueRowClassName(row),
   rowConfig: {
     keyField: "id",
-    // 固定行高：避免含 meta / 状态副行的行高度不一致
-    height: 64,
+    // 固定行高：容纳最多3行描述文字与状态副行
+    height: 72,
+  },
+  // 启用纵向虚拟滚动：单页 50/100 条时仅渲染视口可视的 10~15 行 DOM 节点
+  scrollY: {
+    enabled: true,
+    gt: 20,
   },
   showOverlap: false,
   checkboxConfig: {
@@ -5113,16 +5118,15 @@ onUnmounted(() => {
 .queue-page :deep(.queue-task-cell) {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 0;
+  gap: 3px;
+  padding: 2px 0;
   white-space: normal;
   word-break: break-word;
-  line-height: 1.55;
 }
 
 .queue-page :deep(.queue-task-cell__title-line) {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   gap: 8px;
 }
 
@@ -5132,17 +5136,22 @@ onUnmounted(() => {
 
 .queue-page :deep(.queue-task-cell__title-line .queue-platform-chip) {
   flex: none;
+  margin-top: 1px;
 }
 
 .queue-page :deep(.queue-task-cell__title) {
-  display: block;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
   flex: 1;
   min-width: 0;
   overflow: hidden;
   font-size: 13px;
   font-weight: 500;
   color: var(--el-text-color-primary);
-  white-space: nowrap;
+  line-height: 1.38;
+  word-break: break-word;
   text-overflow: ellipsis;
 }
 
