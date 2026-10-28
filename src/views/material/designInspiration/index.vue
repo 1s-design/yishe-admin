@@ -447,21 +447,22 @@
     <el-dialog
       :title="dialogTitle"
       v-model="dialogVisible"
-      width="720px"
+      :width="isMobile ? 'calc(100vw - 16px)' : '840px'"
       align-center
       class="design-inspiration-dialog"
       :class="{ 'is-mobile': isMobile }"
-      :style="isMobile ? { width: 'calc(100vw - 16px)', margin: '8px auto' } : {}"
+      :style="isMobile ? { width: 'calc(100vw - 16px)', margin: '8px auto' } : { maxWidth: '94vw' }"
       :close-on-click-modal="!isMobile"
       @close="dialogClose"
     >
-      <el-scrollbar :max-height="isMobile ? '55vh' : '60vh'" class="design-inspiration-dialog__scroll">
+      <el-scrollbar :max-height="isMobile ? '55vh' : '65vh'" class="design-inspiration-dialog__scroll">
         <el-form
           ref="formRef"
           :model="form"
           :rules="rules"
-          :label-width="isMobile ? undefined : '86px'"
+          :label-width="isMobile ? undefined : '100px'"
           :label-position="isMobile ? 'top' : undefined"
+          class="design-inspiration-form"
         >
           <el-form-item label="标题" prop="title">
             <el-input
@@ -1563,6 +1564,73 @@ onUnmounted(() => {
 .mobile-card-actions :deep(.el-button) {
   padding: 4px 6px;
   font-size: 13px;
+}
+
+/* ================= 设计灵感弹窗 (基础与桌面端，彻底清除多余横向滚动条) ================= */
+.design-inspiration-dialog :deep(.el-dialog) {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.design-inspiration-dialog :deep(.el-dialog__header) {
+  padding: 16px 20px 12px;
+  margin-right: 0;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.design-inspiration-dialog :deep(.el-dialog__body) {
+  padding: 18px 20px 6px;
+  overflow-x: hidden !important;
+}
+
+.design-inspiration-dialog__scroll {
+  overflow-x: hidden !important;
+}
+
+.design-inspiration-dialog__scroll :deep(.el-scrollbar__wrap) {
+  overflow-x: hidden !important;
+}
+
+.design-inspiration-dialog__scroll :deep(.el-scrollbar__bar.is-horizontal) {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.design-inspiration-dialog__scroll :deep(.el-scrollbar__view) {
+  padding-right: 14px;
+  padding-left: 2px;
+  overflow-x: hidden !important;
+  box-sizing: border-box;
+}
+
+.design-inspiration-form {
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+.design-inspiration-form :deep(.el-row) {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+.design-inspiration-form :deep(.el-form-item) {
+  margin-bottom: 18px;
+}
+
+.design-inspiration-form :deep(.el-form-item__label) {
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+  white-space: nowrap;
+}
+
+.design-inspiration-dialog__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 12px 20px 16px;
+  border-top: 1px solid var(--el-border-color-lighter);
 }
 
 /* ================= 移动端适配响应式 ================= */
