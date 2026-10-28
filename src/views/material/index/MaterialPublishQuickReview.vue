@@ -109,17 +109,17 @@
             v-if="current && currentIndex > 0"
             type="button"
             class="pqr__nav-arrow pqr__nav-arrow--prev"
-            title="上一张 (快捷键：W 或 ↑)"
+            title="上一张 (快捷键：← 或 W)"
             @click.stop="actPrev"
           >
             <el-icon><ArrowLeft /></el-icon>
           </button>
           <button
-            v-if="current && currentIndex < queue.length - 1"
+            v-if="current"
             type="button"
             class="pqr__nav-arrow pqr__nav-arrow--next"
-            title="下一张 (快捷键：D 或 →)"
-            @click.stop="actNext"
+            title="忽略/下一张 (当前不处理，直接看下一张；快捷键：空格、→ 或 D)"
+            @click.stop="actSkip"
           >
             <el-icon><ArrowRight /></el-icon>
           </button>
@@ -328,12 +328,12 @@
           <button
             type="button"
             class="pqr__dock-btn"
-            :disabled="!current"
-            title="忽略该素材并看下一张（快捷键：A 或 ←）"
-            @click="actSkip"
+            :disabled="currentIndex <= 0"
+            title="查看上一张（快捷键：← 或 W）"
+            @click="actPrev"
           >
-            <span class="pqr__dock-text">忽略</span>
-            <kbd class="pqr__dock-kbd">A</kbd>
+            <span class="pqr__dock-text">上一张</span>
+            <kbd class="pqr__dock-kbd">← / W</kbd>
           </button>
 
           <div class="pqr__dock-sep"></div>
@@ -341,12 +341,12 @@
           <button
             type="button"
             class="pqr__dock-btn"
-            :disabled="currentIndex <= 0"
-            title="查看上一张（快捷键：W 或 ↑）"
-            @click="actPrev"
+            :disabled="!current"
+            title="当前不处理，直接忽略并进入下一张（快捷键：空格 Space、→、D、S）"
+            @click="actSkip"
           >
-            <span class="pqr__dock-text">上一张</span>
-            <kbd class="pqr__dock-kbd">W</kbd>
+            <span class="pqr__dock-text">忽略 / 下一张</span>
+            <kbd class="pqr__dock-kbd">空格 / →</kbd>
           </button>
 
           <div class="pqr__dock-sep"></div>
@@ -712,8 +712,9 @@ async function checkAndPrefetchQueue(): Promise<void> {
         listMode: 'compact',
         includeRelations: false
       }
-      if (props.folderId !== undefined && props.folderId !== null && props.folderId !== '') {
-        params.folderId = props.folderId
+      const folderFilter = convertFolderIdToApiParam(props.folderId)
+      if (folderFilter !== undefined && folderFilter !== null) {
+        params.folderId = folderFilter
       }
       if (activeMode.value === 'recent') {
         params.sortOrder = 'DESC'
@@ -969,17 +970,22 @@ function actPrev() {
   }
 }
 
+/** 下一张：等同于忽略当前不处理，直接进入下一张素材 */
 function actNext() {
-  if (currentIndex.value < queue.value.length - 1) {
-    currentIndex.value++
-  }
+  actSkip()
 }
 
+/** 忽略当前素材：当前不处理，记录忽略，直接进入下一张 */
 function actSkip() {
   if (!current.value) return
   skippedCount.value++
   skippedQueue.value.push(current.value)
   currentIndex.value++
+
+  // 若已到达当前队列末尾且为全库/分类模式，自动拉取下一批无感续航
+  if (currentIndex.value >= queue.value.length && !props.hasUserSelection && !loadingBatch.value) {
+    loadNextBatch()
+  }
 }
 
 /** 一键创建选中的发布任务并看下一张 */
@@ -1010,6 +1016,11 @@ function actCreateAndNext() {
 
   // 2. 秒切下一张
   currentIndex.value++
+
+  // 若已到达当前队列末尾且为全库/分类模式，自动拉取下一批无感续航
+  if (currentIndex.value >= queue.value.length && !props.hasUserSelection && !loadingBatch.value) {
+    loadNextBatch()
+  }
 
   // 3. 后台静默派发
   creating.value = true
@@ -1065,33 +1076,53 @@ function handleKeydown(e: KeyboardEvent) {
     return
   }
 
+  // 1. 退出审核 (Esc)
   if (e.key === 'Escape' || e.code === 'Escape') {
     e.preventDefault()
     close()
     return
   }
 
+  // 2. 一键创建选中的发布任务并看下一张：Enter / NumpadEnter
   if (e.key === 'Enter' || e.code === 'Enter' || e.code === 'NumpadEnter') {
     e.preventDefault()
     actCreateAndNext()
     return
   }
 
-  if (e.key === 'a' || e.key === 'A' || e.code === 'ArrowLeft') {
+  // 3. 忽略 / 下一张（当前不处理，直接进入下一张素材）：
+  // 覆盖：空格键(Space)、向右箭头(ArrowRight)、向右(D/d)、跳过/向下(S/s)、向下箭头(ArrowDown)、历史忽略键(A/a)
+  if (
+    e.code === 'Space' ||
+    e.key === ' ' ||
+    e.code === 'ArrowRight' ||
+    e.key === 'ArrowRight' ||
+    e.code === 'ArrowDown' ||
+    e.key === 'ArrowDown' ||
+    e.key === 'd' ||
+    e.key === 'D' ||
+    e.key === 's' ||
+    e.key === 'S' ||
+    e.key === 'a' ||
+    e.key === 'A'
+  ) {
     e.preventDefault()
     actSkip()
     return
   }
 
-  if (e.key === 'w' || e.key === 'W' || e.code === 'ArrowUp') {
+  // 4. 上一张（返回上一张素材）：
+  // 覆盖：向左箭头(ArrowLeft)、向上箭头(ArrowUp)、向上(W/w)
+  if (
+    e.code === 'ArrowLeft' ||
+    e.key === 'ArrowLeft' ||
+    e.code === 'ArrowUp' ||
+    e.key === 'ArrowUp' ||
+    e.key === 'w' ||
+    e.key === 'W'
+  ) {
     e.preventDefault()
     actPrev()
-    return
-  }
-
-  if (e.key === 'd' || e.key === 'D' || e.code === 'ArrowRight') {
-    e.preventDefault()
-    actNext()
     return
   }
 }
