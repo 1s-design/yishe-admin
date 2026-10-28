@@ -428,145 +428,79 @@
 
                   <template #statusDetailDefaultSlot="{ row }">
                     <div v-if="isPublishProductTaskRow(row)" class="queue-status-detail-cell">
-                      <!-- 套图制作状态行 -->
-                      <div class="queue-status-detail-line">
-                        <el-popover
-                          placement="top"
-                          :width="330"
-                          trigger="hover"
-                          popper-class="queue-status-detail-popover"
-                        >
-                          <template #reference>
-                            <span
-                              class="queue-status-pill"
-                              :class="`queue-status-pill--${row._ui?.psdStatus.type || 'pending'}`"
-                            >
-                              <i class="queue-status-pill__dot"></i>
-                              <span class="queue-status-pill__prefix">套图:</span>
-                              <span class="queue-status-pill__value">{{ row._ui?.psdStatus.text || "-" }}</span>
-                            </span>
-                          </template>
-                          <div class="queue-status-popover-card">
-                            <div class="queue-status-popover-card__header">
-                              <span class="queue-status-popover-card__title">套图制作状态</span>
-                              <span
-                                class="queue-status-pill"
-                                :class="`queue-status-pill--${row._ui?.psdStatus.type || 'pending'}`"
-                              >
-                                {{ row._ui?.psdStatus.text || "-" }}
+                      <!-- 套图制作状态 Tag -->
+                      <el-tooltip
+                        placement="top"
+                        :show-after="80"
+                        popper-class="queue-status-compact-tooltip"
+                      >
+                        <template #content>
+                          <div class="queue-status-tip">
+                            <div class="queue-status-tip__header">
+                              <span class="queue-status-tip__badge" :class="`is-${row._ui?.psdStatus.type || 'pending'}`">
+                                套图: {{ row._ui?.psdStatus.text || '-' }}
                               </span>
                             </div>
-                            <div v-if="row._ui?.psdStatus.psdSetName" class="queue-status-popover-card__row">
-                              <span class="queue-status-popover-card__label">套图名称</span>
-                              <span class="queue-status-popover-card__value is-highlight">{{ row._ui.psdStatus.psdSetName }}</span>
+                            <div v-if="row._ui?.psdStatus.psdSetName" class="queue-status-tip__row">
+                              <span class="queue-status-tip__label">套图名称：</span>
+                              <span class="queue-status-tip__value">{{ row._ui.psdStatus.psdSetName }}</span>
                             </div>
-                            <div v-if="row._ui?.psdStatus.psdSetId" class="queue-status-popover-card__row">
-                              <span class="queue-status-popover-card__label">套图编号</span>
-                              <span class="queue-status-popover-card__value text-mono">{{ row._ui.psdStatus.psdSetId }}</span>
+                            <div v-if="row._ui?.psdStatus.error" class="queue-status-tip__row is-error">
+                              <span class="queue-status-tip__label">失败原因：</span>
+                              <span class="queue-status-tip__value">{{ row._ui.psdStatus.error }}</span>
                             </div>
-                            <div class="queue-status-popover-card__row">
-                              <span class="queue-status-popover-card__label">当前说明</span>
-                              <span class="queue-status-popover-card__value">{{ row._ui?.psdStatus.reason }}</span>
-                            </div>
-                            <div v-if="row._ui?.psdStatus.error" class="queue-status-popover-card__error">
-                              <span class="queue-status-popover-card__label">失败原因</span>
-                              <span class="queue-status-popover-card__error-text">{{ row._ui.psdStatus.error }}</span>
-                            </div>
-                            <div class="queue-status-popover-card__tip">
-                              {{ row._ui?.psdStatus.type === 'danger' ? '建议：请在「贴纸PSD套装」模块排查错误或重试出图' : (row._ui?.psdStatus.type === 'warning' ? '提示：出图完成后将自动把成品图灌入发布数据' : '状态说明：套图为商品发布的必要前置素材') }}
+                            <div v-else-if="row._ui?.psdStatus.reason" class="queue-status-tip__row">
+                              <span class="queue-status-tip__label">状态说明：</span>
+                              <span class="queue-status-tip__value">{{ row._ui.psdStatus.reason }}</span>
                             </div>
                           </div>
-                        </el-popover>
+                        </template>
                         <span
-                          v-if="row._ui?.psdStatus.error"
-                          class="queue-status-detail-line__hint is-error"
-                          :title="row._ui.psdStatus.error"
+                          class="queue-status-pill queue-status-pill--interactive"
+                          :class="`queue-status-pill--${row._ui?.psdStatus.type || 'pending'}`"
                         >
-                          ⚠️ {{ row._ui.psdStatus.error }}
+                          <i class="queue-status-pill__dot"></i>
+                          <span class="queue-status-pill__prefix">套图:</span>
+                          <span class="queue-status-pill__value">{{ row._ui?.psdStatus.text || "-" }}</span>
                         </span>
-                        <span
-                          v-else-if="row._ui?.psdStatus.psdSetName"
-                          class="queue-status-detail-line__hint"
-                          :title="row._ui.psdStatus.psdSetName"
-                        >
-                          {{ row._ui.psdStatus.psdSetName }}
-                        </span>
-                        <span
-                          v-else-if="row._ui?.psdStatus.reason"
-                          class="queue-status-detail-line__hint is-dim"
-                          :title="row._ui.psdStatus.reason"
-                        >
-                          {{ row._ui.psdStatus.reason }}
-                        </span>
-                      </div>
+                      </el-tooltip>
 
-                      <!-- 商品标题状态行 -->
-                      <div class="queue-status-detail-line">
-                        <el-popover
-                          placement="top"
-                          :width="350"
-                          trigger="hover"
-                          popper-class="queue-status-detail-popover"
-                        >
-                          <template #reference>
-                            <span
-                              class="queue-status-pill"
-                              :class="`queue-status-pill--${row._ui?.titleStatus.type || 'pending'}`"
-                            >
-                              <i class="queue-status-pill__dot"></i>
-                              <span class="queue-status-pill__prefix">标题:</span>
-                              <span class="queue-status-pill__value">{{ row._ui?.titleStatus.text || "-" }}</span>
-                            </span>
-                          </template>
-                          <div class="queue-status-popover-card">
-                            <div class="queue-status-popover-card__header">
-                              <span class="queue-status-popover-card__title">商品标题状态</span>
-                              <span
-                                class="queue-status-pill"
-                                :class="`queue-status-pill--${row._ui?.titleStatus.type || 'pending'}`"
-                              >
-                                {{ row._ui?.titleStatus.text || "-" }}
+                      <!-- 商品标题状态 Tag -->
+                      <el-tooltip
+                        placement="top"
+                        :show-after="80"
+                        popper-class="queue-status-compact-tooltip"
+                      >
+                        <template #content>
+                          <div class="queue-status-tip">
+                            <div class="queue-status-tip__header">
+                              <span class="queue-status-tip__badge" :class="`is-${row._ui?.titleStatus.type || 'pending'}`">
+                                标题: {{ row._ui?.titleStatus.text || '-' }}
                               </span>
                             </div>
-                            <div v-if="row._ui?.titleStatus.titleText" class="queue-status-popover-card__row">
-                              <span class="queue-status-popover-card__label">商品标题</span>
-                              <span class="queue-status-popover-card__value is-highlight">{{ row._ui.titleStatus.titleText }}</span>
+                            <div v-if="row._ui?.titleStatus.titleText" class="queue-status-tip__row">
+                              <span class="queue-status-tip__label">生成标题：</span>
+                              <span class="queue-status-tip__value">{{ row._ui.titleStatus.titleText }}</span>
                             </div>
-                            <div class="queue-status-popover-card__row">
-                              <span class="queue-status-popover-card__label">当前说明</span>
-                              <span class="queue-status-popover-card__value">{{ row._ui?.titleStatus.reason }}</span>
+                            <div v-if="row._ui?.titleStatus.error" class="queue-status-tip__row is-error">
+                              <span class="queue-status-tip__label">失败原因：</span>
+                              <span class="queue-status-tip__value">{{ row._ui.titleStatus.error }}</span>
                             </div>
-                            <div v-if="row._ui?.titleStatus.error" class="queue-status-popover-card__error">
-                              <span class="queue-status-popover-card__label">失败原因</span>
-                              <span class="queue-status-popover-card__error-text">{{ row._ui.titleStatus.error }}</span>
-                            </div>
-                            <div class="queue-status-popover-card__tip">
-                              {{ row._ui?.titleStatus.type === 'danger' ? '建议：可点击右侧操作栏「重新生成」重新触发 AI 标题生成' : (row._ui?.titleStatus.type === 'info' ? '提示：等待套图出图完成后将自动由 AI 生成标题' : '状态说明：商品标题为各电商平台必须字段') }}
+                            <div v-else-if="row._ui?.titleStatus.reason" class="queue-status-tip__row">
+                              <span class="queue-status-tip__label">状态说明：</span>
+                              <span class="queue-status-tip__value">{{ row._ui.titleStatus.reason }}</span>
                             </div>
                           </div>
-                        </el-popover>
+                        </template>
                         <span
-                          v-if="row._ui?.titleStatus.error"
-                          class="queue-status-detail-line__hint is-error"
-                          :title="row._ui.titleStatus.error"
+                          class="queue-status-pill queue-status-pill--interactive"
+                          :class="`queue-status-pill--${row._ui?.titleStatus.type || 'pending'}`"
                         >
-                          ⚠️ {{ row._ui.titleStatus.error }}
+                          <i class="queue-status-pill__dot"></i>
+                          <span class="queue-status-pill__prefix">标题:</span>
+                          <span class="queue-status-pill__value">{{ row._ui?.titleStatus.text || "-" }}</span>
                         </span>
-                        <span
-                          v-else-if="row._ui?.titleStatus.titleText"
-                          class="queue-status-detail-line__hint is-title"
-                          :title="row._ui.titleStatus.titleText"
-                        >
-                          {{ row._ui.titleStatus.titleText }}
-                        </span>
-                        <span
-                          v-else-if="row._ui?.titleStatus.reason"
-                          class="queue-status-detail-line__hint is-dim"
-                          :title="row._ui.titleStatus.reason"
-                        >
-                          {{ row._ui.titleStatus.reason }}
-                        </span>
-                      </div>
+                      </el-tooltip>
                     </div>
                     <span v-else class="text-secondary">-</span>
                   </template>
@@ -1398,7 +1332,7 @@ const gridOptions = ref({
       // 商品发布行显示 套图状态+标题状态 两个徽标，其他家族暂无专属状态则显示 -
       title: t('queue.statusDetail'),
       field: "statusDetail",
-      width: 290,
+      width: 200,
       showOverflow: false,
       slots: {
         default: "statusDetailDefaultSlot",
@@ -5339,52 +5273,18 @@ onUnmounted(() => {
   flex-direction: column;
   gap: 4px;
   justify-content: center;
-  min-height: 48px;
-  max-width: 100%;
-  overflow: hidden;
+  align-items: flex-start;
+  padding: 4px 0;
 }
 
-.queue-page :deep(.queue-status-detail-line) {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  max-width: 100%;
-  overflow: hidden;
-  white-space: nowrap;
-}
+.queue-page :deep(.queue-status-pill--interactive) {
+  cursor: pointer;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  user-select: none;
 
-.queue-page :deep(.queue-status-pill__prefix) {
-  font-weight: 600;
-  opacity: 0.85;
-  margin-right: 2px;
-}
-
-.queue-page :deep(.queue-status-pill__value) {
-  font-weight: 500;
-}
-
-.queue-page :deep(.queue-status-detail-line__hint) {
-  font-size: 11px;
-  color: var(--el-text-color-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-  min-width: 0;
-
-  &.is-title {
-    color: var(--el-text-color-primary);
-    font-weight: 500;
-  }
-
-  &.is-error {
-    color: var(--el-color-danger);
-    font-weight: 500;
-  }
-
-  &.is-dim {
-    color: var(--el-text-color-placeholder);
+  &:hover {
+    opacity: 0.88;
+    transform: translateY(-1px);
   }
 }
 
@@ -5871,83 +5771,78 @@ onUnmounted(() => {
 </style>
 
 <style lang="less">
-.queue-status-detail-popover {
-  padding: 12px 14px !important;
-  border-radius: 8px !important;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12) !important;
+.queue-status-compact-tooltip {
+  padding: 8px 12px !important;
+  border-radius: 6px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16) !important;
+  max-width: 320px !important;
+  line-height: 1.5 !important;
+  font-size: 12px !important;
 
-  .queue-status-popover-card {
+  .queue-status-tip {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    font-size: 12px;
-    line-height: 1.5;
+    gap: 4px;
 
     &__header {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding-bottom: 6px;
-      border-bottom: 1px solid var(--el-border-color-lighter);
+      margin-bottom: 2px;
     }
 
-    &__title {
+    &__badge {
+      display: inline-flex;
+      align-items: center;
+      font-size: 11px;
       font-weight: 600;
-      font-size: 13px;
-      color: var(--el-text-color-primary);
+      padding: 1px 6px;
+      border-radius: 4px;
+
+      &.is-success {
+        color: #67c23a;
+        background: rgba(103, 194, 58, 0.18);
+      }
+      &.is-primary {
+        color: #409eff;
+        background: rgba(64, 158, 255, 0.18);
+      }
+      &.is-warning {
+        color: #e6a23c;
+        background: rgba(230, 162, 60, 0.2);
+      }
+      &.is-danger {
+        color: #f56c6c;
+        background: rgba(245, 108, 108, 0.2);
+      }
+      &.is-info {
+        color: #909399;
+        background: rgba(144, 147, 153, 0.2);
+      }
     }
 
     &__row {
       display: flex;
       align-items: flex-start;
-      gap: 10px;
+      gap: 4px;
+      font-size: 12px;
+      line-height: 1.45;
+
+      &.is-error {
+        color: #f56c6c;
+        font-weight: 500;
+      }
     }
 
     &__label {
       flex: none;
-      width: 56px;
-      color: var(--el-text-color-secondary);
-      font-size: 12px;
+      opacity: 0.72;
+      font-size: 11px;
     }
 
     &__value {
       flex: 1;
       min-width: 0;
-      color: var(--el-text-color-primary);
       word-break: break-all;
-
-      &.is-highlight {
-        font-weight: 600;
-        color: var(--el-color-primary);
-      }
-    }
-
-    &__error {
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      padding: 6px 8px;
-      border-radius: 6px;
-      background: var(--el-color-danger-light-9);
-      border: 1px solid var(--el-color-danger-light-7);
-    }
-
-    &__error-text {
-      flex: 1;
-      min-width: 0;
-      color: var(--el-color-danger);
-      font-size: 12px;
-      word-break: break-all;
-      line-height: 1.4;
-      font-weight: 500;
-    }
-
-    &__tip {
-      font-size: 11px;
-      color: var(--el-text-color-placeholder);
-      padding-top: 2px;
-      line-height: 1.4;
     }
   }
 
