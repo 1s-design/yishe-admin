@@ -205,7 +205,12 @@
                 <template #ownerSlot="{ row }">
                   <span class="owner-text" :title="`ID: ${row.userId}`">{{ formatUserName(row.user, row.userId) }}</span>
                 </template>
-                <template #timeSlot="{ row }"><span>{{ formatTime(row.updateTime || row.createTime) }}</span></template>
+                <template #createTimeSlot="{ row }">
+                  <span class="time-cell" :title="`创建时间: ${formatTime(row.createTime)}`">{{ formatTime(row.createTime) }}</span>
+                </template>
+                <template #timeSlot="{ row }">
+                  <span class="time-cell" :title="`更新时间: ${formatTime(row.updateTime || row.createTime)}`">{{ formatTime(row.updateTime || row.createTime) }}</span>
+                </template>
                 <template #operationSlot="{ row }">
                   <el-dropdown trigger="click" @command="(command) => handleOperation(command, row)">
                     <el-button type="primary" link size="small">操作</el-button>
@@ -651,6 +656,7 @@ const gridOptions = computed(() => ({
     { title: '所属用户', width: 150, slots: { default: 'ownerSlot' } },
     { title: '素材库', width: 140, align: 'center', slots: { default: 'importSlot' } },
     { title: '素材中心', width: 100, align: 'center', slots: { default: 'shareSlot' } },
+    { title: '创建时间', width: 164, slots: { default: 'createTimeSlot' } },
     { title: '最近更新', width: 164, slots: { default: 'timeSlot' } },
     buildOperationColumn('operationSlot'),
   ],
