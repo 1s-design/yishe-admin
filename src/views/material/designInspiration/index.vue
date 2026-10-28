@@ -2,6 +2,39 @@
   <ContentWrap :plain="true">
     <ListPageLayout class="design-inspiration-page">
       <template #filter>
+        <!-- 自动制作工位监控胶囊条 -->
+        <div class="station-monitor-capsule-bar">
+          <div class="monitor-left">
+            <div class="station-pulse-badge">
+              <span class="station-dot" :class="{ 'is-active': stats.onlineStations > 0 }"></span>
+              <span class="station-title">在线工位 <strong>{{ stats.onlineStations }}</strong> 台</span>
+            </div>
+            <div class="monitor-stat-pill">
+              <span class="stat-label">制作中</span>
+              <span class="stat-val highlight">{{ stats.activeJobs }}</span>
+            </div>
+            <div class="monitor-stat-pill">
+              <span class="stat-label">今日生产</span>
+              <span class="stat-val">{{ stats.todayCompleted }}</span>
+            </div>
+            <div class="monitor-stat-pill">
+              <span class="stat-label">已入库</span>
+              <span class="stat-val success">{{ stats.todayApproved }}</span>
+            </div>
+            <div class="monitor-stat-pill">
+              <span class="stat-label">返工微调</span>
+              <span class="stat-val warning">{{ stats.todayReworked }}</span>
+            </div>
+            <div class="monitor-stat-pill">
+              <span class="stat-label">通过率</span>
+              <span class="stat-val primary">{{ stats.approvalRate }}%</span>
+            </div>
+          </div>
+          <div class="monitor-right">
+            <el-button link size="small" :icon="Refresh" @click="fetchStats">刷新工位</el-button>
+          </div>
+        </div>
+
         <div class="list-page-filter list-page-filter--flat">
           <el-form :model="queryParams" label-position="top" class="list-page-search-form">
             <el-row :gutter="12" class="list-page-search-form__row">
@@ -128,6 +161,66 @@
                   <div class="design-inspiration-content">{{ row.promptHints || "-" }}</div>
                 </template>
 
+                <template #productionSlot="{ row }">
+                  <div class="production-cell">
+                    <div class="production-status-row">
+                      <el-tag
+                        v-if="row.status === 'producing'"
+                        type="success"
+                        size="small"
+                        effect="dark"
+                        class="production-badge"
+                      >
+                        <span class="mini-pulse-dot"></span> 制作中
+                      </el-tag>
+                      <el-tag
+                        v-else-if="row.status === 'done'"
+                        type="info"
+                        size="small"
+                        effect="plain"
+                      >
+                        已达标
+                      </el-tag>
+                      <el-tag
+                        v-else
+                        size="small"
+                        type="info"
+                        effect="light"
+                      >
+                        待排产
+                      </el-tag>
+                      <el-switch
+                        v-model="row.autoEnabled"
+                        size="small"
+                        :loading="row._switchLoading"
+                        inline-prompt
+                        active-text="挂机"
+                        inactive-text="停"
+                        @change="(val: boolean) => handleToggleAutoEnabled(row, val)"
+                      />
+                    </div>
+                    <div class="production-progress-row">
+                      <span class="progress-text">
+                        <template v-if="row.targetCount">
+                          已产 {{ row.approvedCount || 0 }}/{{ row.targetCount }} 款
+                        </template>
+                        <template v-else>
+                          持续变体 ({{ row.approvedCount || 0 }}款)
+                        </template>
+                      </span>
+                      <el-button
+                        type="primary"
+                        link
+                        size="small"
+                        class="history-btn"
+                        @click.stop="openJobHistory(row)"
+                      >
+                        流水
+                      </el-button>
+                    </div>
+                  </div>
+                </template>
+
                 <template #operationDefaultSlot="{ row }">
                   <div class="flex justify-start">
                     <el-dropdown class="operation-dropdown" placement="bottom-end">
@@ -136,6 +229,7 @@
                       </el-button>
                       <template #dropdown>
                         <el-dropdown-menu class="operation-menu-compact">
+                          <el-dropdown-item @click="openJobHistory(row)">制作历史流水</el-dropdown-item>
                           <el-dropdown-item @click="handleEdit(row)">编辑</el-dropdown-item>
                           <el-dropdown-item
                             divided
@@ -291,9 +385,23 @@
                   <!-- 底部：时间与快捷操作 -->
                   <div class="mobile-card-footer" @click.stop>
                     <div class="mobile-card-time">
-                      {{ formatTime(item.updateTime || item.createTime) }}
+                      <span v-if="item.targetCount" class="mobile-prod-tag">
+                        进度 {{ item.approvedCount || 0 }}/{{ item.targetCount }}款
+                      </span>
+                      <span v-else class="mobile-prod-tag">
+                        变体 ({{ item.approvedCount || 0 }}款)
+                      </span>
+                      <span>{{ formatTime(item.updateTime || item.createTime) }}</span>
                     </div>
                     <div class="mobile-card-actions">
+                      <el-button
+                        size="small"
+                        type="primary"
+                        link
+                        @click="openJobHistory(item)"
+                      >
+                        流水
+                      </el-button>
                       <el-button
                         size="small"
                         type="primary"
@@ -395,6 +503,43 @@
               placeholder="例如：不要直接复刻 Logo，不要使用具体人物肖像"
             />
           </el-form-item>
+          <el-row :gutter="12">
+            <el-col :xs="24" :sm="12">
+              <el-form-item label="制作优先级">
+                <el-select v-model="form.priority" placeholder="选择优先级" style="width: 100%">
+                  <el-option :value="0" label="0 - 紧急 (优先制作)" />
+                  <el-option :value="1" label="1 - 高优" />
+                  <el-option :value="2" label="2 - 普通" />
+                  <el-option :value="3" label="3 - 低" />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="12">
+              <el-form-item label="目标制作量">
+                <el-input-number
+                  v-model="form.targetCount"
+                  :min="1"
+                  :max="999"
+                  style="width: 100%"
+                  placeholder="留空则持续变体"
+                />
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-form-item label="尺寸规格建议">
+            <el-input
+              v-model="form.sizeHint"
+              maxlength="200"
+              placeholder="例如：横版大概 3:1 / 手机壳 / 400x600 贴纸（留空则由设计工具自主评估）"
+            />
+          </el-form-item>
+          <el-form-item label="自动挂机">
+            <el-switch
+              v-model="form.autoEnabled"
+              active-text="参与 1s 自动工位制作"
+              inactive-text="暂停自动制作"
+            />
+          </el-form-item>
           <el-form-item label="参考图">
             <div class="inspiration-image-upload-wrapper w-full">
               <el-upload
@@ -432,14 +577,20 @@
         <img :src="previewImageUrl" alt="参考图预览" style="max-width: 100%; max-height: 65vh; object-fit: contain;" />
       </div>
     </el-dialog>
+
+    <!-- 制作历史流水抽屉 -->
+    <DesignJobHistoryDrawer
+      v-model="historyDrawerVisible"
+      :inspiration="activeHistoryInspiration"
+    />
   </ContentWrap>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watchEffect } from "vue";
+import { computed, onMounted, onUnmounted, reactive, ref, watchEffect } from "vue";
 import type { FormInstance, FormRules, UploadUserFile } from "element-plus";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { Delete, Edit, MagicStick, Plus, Search, Warning } from "@element-plus/icons-vue";
+import { Delete, Edit, MagicStick, Plus, Refresh, Search, Warning } from "@element-plus/icons-vue";
 import { useWindowSize } from "@vueuse/core";
 import { uploadToCOS } from "@/api/cos";
 import {
@@ -449,6 +600,11 @@ import {
   updateDesignInspiration,
   type DesignInspiration,
 } from "@/api/design-inspiration";
+import {
+  getDesignJobStats,
+  type DesignJobStats,
+} from "@/api/design-job";
+import DesignJobHistoryDrawer from "./DesignJobHistoryDrawer.vue";
 import { formatTimestamp } from "@/common/date";
 import { buildOperationColumn, buildTimeColumn, commonGridOptions } from "@/common/table";
 import ContentWrap from "@/components/ContentWrap/src/ContentWrap.vue";
@@ -483,6 +639,12 @@ const gridOptions = ref<any>({
       minWidth: 240,
       slots: { default: "promptHintsSlot" },
     },
+    {
+      title: "制作进度 / 挂机",
+      field: "production",
+      width: 175,
+      slots: { default: "productionSlot" },
+    },
     buildTimeColumn("创建时间", "createTime", 160),
     buildTimeColumn("更新时间", "updateTime", 160),
     { title: "ID", field: "id", width: 190, slots: { default: "idSlot" } },
@@ -504,6 +666,53 @@ const dialogTitle = ref("");
 const dialogVisible = ref(false);
 const submitLoading = ref(false);
 const isEdit = ref(false);
+
+// 工位统计与历史流水抽屉
+const historyDrawerVisible = ref(false);
+const activeHistoryInspiration = ref<DesignInspiration | null>(null);
+
+function openJobHistory(row: DesignInspiration) {
+  activeHistoryInspiration.value = row;
+  historyDrawerVisible.value = true;
+}
+
+const stats = reactive<DesignJobStats>({
+  onlineStations: 0,
+  activeJobs: 0,
+  todayCompleted: 0,
+  todayApproved: 0,
+  todayRejected: 0,
+  todayReworked: 0,
+  approvalRate: 100,
+});
+
+async function fetchStats() {
+  try {
+    const res = await getDesignJobStats();
+    if (res) {
+      Object.assign(stats, res);
+    }
+  } catch (error) {
+    console.warn("获取工位统计失败:", error);
+  }
+}
+
+async function handleToggleAutoEnabled(row: any, val: boolean) {
+  row._switchLoading = true;
+  try {
+    await updateDesignInspiration({
+      id: row.id,
+      title: row.title,
+      autoEnabled: val,
+    });
+    ElMessage.success(val ? "已加入自动制作队列" : "已暂停自动制作");
+  } catch (error: any) {
+    row.autoEnabled = !val;
+    ElMessage.error(error?.message || "切换失败");
+  } finally {
+    row._switchLoading = false;
+  }
+}
 
 const imageFileList = ref<UploadUserFile[]>([]);
 const previewDialogVisible = ref(false);
@@ -577,6 +786,10 @@ const defaultForm = () => ({
   category: "",
   promptHints: "",
   avoidNotes: "",
+  priority: 2,
+  autoEnabled: true,
+  targetCount: null as number | null,
+  sizeHint: "",
   images: [] as string[],
 });
 
@@ -653,6 +866,10 @@ function handleEdit(row: DesignInspiration) {
     category: row.category || "",
     promptHints: row.promptHints || "",
     avoidNotes: row.avoidNotes || "",
+    priority: row.priority ?? 2,
+    autoEnabled: row.autoEnabled ?? true,
+    targetCount: row.targetCount ?? null,
+    sizeHint: row.sizeHint ?? "",
     images: [...(row.images || [])],
   };
   imageFileList.value = (row.images || []).map((url: string, idx: number) => ({
@@ -771,6 +988,10 @@ async function submitForm() {
       images,
       promptHints: form.value.promptHints,
       avoidNotes: form.value.avoidNotes,
+      priority: form.value.priority,
+      autoEnabled: form.value.autoEnabled,
+      targetCount: form.value.targetCount,
+      sizeHint: form.value.sizeHint,
     };
 
     console.log("[设计灵感提交] 准备提交数据", payload);
@@ -794,12 +1015,168 @@ async function submitForm() {
   }
 }
 
+let statsIntervalTimer: any = null;
+
 onMounted(() => {
   getList();
+  fetchStats();
+  statsIntervalTimer = setInterval(fetchStats, 15000);
+});
+
+onUnmounted(() => {
+  if (statsIntervalTimer) {
+    clearInterval(statsIntervalTimer);
+  }
 });
 </script>
 
 <style scoped>
+/* ================= 工位监控胶囊条 ================= */
+.station-monitor-capsule-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  margin-bottom: 10px;
+  background: linear-gradient(135deg, rgba(240, 249, 255, 0.7) 0%, rgba(245, 243, 255, 0.7) 100%);
+  border: 1px solid rgba(199, 210, 254, 0.5);
+  border-radius: 8px;
+  backdrop-filter: blur(8px);
+}
+
+.monitor-left {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.station-pulse-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--el-text-color-primary);
+  font-weight: 500;
+  padding-right: 8px;
+  border-right: 1px solid var(--el-border-color-lighter);
+}
+
+.station-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--el-color-info-light-3);
+  transition: all 0.3s ease;
+}
+
+.station-dot.is-active {
+  background: var(--el-color-success);
+  box-shadow: 0 0 0 0 rgba(103, 194, 58, 0.7);
+  animation: pulse-green 1.8s infinite;
+}
+
+.monitor-stat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.monitor-stat-pill .stat-val {
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.monitor-stat-pill .stat-val.highlight {
+  color: var(--el-color-primary);
+}
+
+.monitor-stat-pill .stat-val.success {
+  color: var(--el-color-success);
+}
+
+.monitor-stat-pill .stat-val.warning {
+  color: var(--el-color-warning);
+}
+
+.monitor-stat-pill .stat-val.primary {
+  color: #6366f1;
+}
+
+/* ================= 表格制作进度单元格 ================= */
+.production-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.production-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.production-progress-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+}
+
+.progress-text {
+  color: var(--el-text-color-secondary);
+  font-size: 11px;
+}
+
+.history-btn {
+  padding: 0;
+  height: auto;
+  font-size: 11px;
+}
+
+.mini-pulse-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ffffff;
+  margin-right: 2px;
+  animation: pulse-mini 1.2s infinite;
+}
+
+@keyframes pulse-mini {
+  0% { opacity: 0.4; }
+  50% { opacity: 1; }
+  100% { opacity: 0.4; }
+}
+
+@keyframes pulse-green {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(103, 194, 58, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 6px rgba(103, 194, 58, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(103, 194, 58, 0);
+  }
+}
+
+.mobile-prod-tag {
+  background: var(--el-fill-color-darker);
+  color: var(--el-text-color-regular);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  margin-right: 6px;
+}
+
 :deep(.design-inspiration-page) {
   gap: 10px;
   padding: 8px 0 0;

@@ -105,4 +105,7 @@ export const CustomStickerApi = {
 
   batchDelete: (data: { ids: string[] }) =>
     request.post<{ success: boolean; deletedCount: number }>({ url: '/custom-sticker/batch-delete', data }),
+
+  triggerRework: (data: { sourceStickerId: string; inspirationId?: string; feedbackPrompt: string; priority?: number }) =>
+    request.post<{ success: boolean; jobId: string; message: string }>({ url: '/design-job/rework', data }),
 }

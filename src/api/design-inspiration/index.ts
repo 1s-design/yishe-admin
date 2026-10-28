@@ -10,6 +10,14 @@ export interface DesignInspiration {
   images?: string[];
   promptHints?: string | null;
   avoidNotes?: string | null;
+  priority?: number;
+  autoEnabled?: boolean;
+  targetCount?: number | null;
+  sizeHint?: string | null;
+  approvedCount?: number;
+  deletedCount?: number;
+  reworkCount?: number;
+  status?: string;
   createTime?: string;
   updateTime?: string;
 }

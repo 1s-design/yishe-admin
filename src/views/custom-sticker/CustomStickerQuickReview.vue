@@ -27,6 +27,12 @@
             </span>
             <span class="qr__stat-divider">/</span>
             <span class="qr__stat-item">
+              <i class="qr__stat-dot qr__stat-dot--rework"></i>
+              <span class="qr__stat-name">已返工</span>
+              <span class="qr__stat-val">{{ reworkedCount }}</span>
+            </span>
+            <span class="qr__stat-divider">/</span>
+            <span class="qr__stat-item">
               <i class="qr__stat-dot qr__stat-dot--skip"></i>
               <span class="qr__stat-name">已忽略</span>
               <span class="qr__stat-val">{{ skippedCount }}</span>
@@ -219,6 +225,20 @@
 
           <button
             type="button"
+            class="qr__dock-btn qr__dock-btn--rework"
+            :disabled="!current"
+            title="对该贴纸提出微调意见并派发返工任务（快捷键：R）"
+            @click="openReworkDialog"
+          >
+            <span class="qr__dock-arrow">↺</span>
+            <span class="qr__dock-text">返工微调</span>
+            <kbd class="qr__dock-kbd">R</kbd>
+          </button>
+
+          <div class="qr__dock-sep"></div>
+
+          <button
+            type="button"
             class="qr__dock-btn qr__dock-btn--copy"
             :disabled="!current"
             title="复制该贴纸到素材库（快捷键：→ 或 D）"
@@ -230,6 +250,68 @@
           </button>
         </div>
       </footer>
+
+      <!-- 返工微调弹窗 -->
+      <el-dialog
+        v-model="reworkDialogVisible"
+        title="返工微调 · 派发给工位"
+        width="480px"
+        append-to-body
+        align-center
+        destroy-on-close
+        class="qr__rework-dialog"
+      >
+        <div class="qr__rework-content">
+          <div class="qr__rework-preview">
+            <img v-if="current" :src="current.url" class="qr__rework-thumb" alt="原稿" />
+            <div class="qr__rework-info">
+              <div class="font-bold text-sm truncate">{{ current?.name || '贴纸原稿' }}</div>
+              <div class="text-xs text-muted-foreground mt-1">版本代次：v{{ current?.revision || 1 }}</div>
+            </div>
+          </div>
+
+          <div class="qr__rework-chips">
+            <span class="text-xs font-semibold mb-1.5 block">快捷反馈标签（可多选）：</span>
+            <div class="flex flex-wrap gap-1.5">
+              <el-check-tag
+                v-for="tag in REWORK_QUICK_TAGS"
+                :key="tag"
+                :checked="selectedReworkTags.includes(tag)"
+                class="qr__rework-tag"
+                @change="toggleReworkTag(tag)"
+              >
+                {{ tag }}
+              </el-check-tag>
+            </div>
+          </div>
+
+          <div class="qr__rework-input">
+            <span class="text-xs font-semibold mb-1.5 block">微调指示要求：</span>
+            <el-input
+              v-model="reworkFeedbackInput"
+              type="textarea"
+              :rows="3"
+              placeholder="例如：主标题放大一点并居中，背景增加细微暗纹，颜色换成暖黄调..."
+              maxlength="300"
+              show-word-limit
+            />
+          </div>
+        </div>
+
+        <template #footer>
+          <div class="flex justify-end gap-2">
+            <el-button @click="reworkDialogVisible = false">取消</el-button>
+            <el-button
+              type="primary"
+              color="#7c3aed"
+              :loading="submittingRework"
+              @click="submitRework"
+            >
+              确认派发返工
+            </el-button>
+          </div>
+        </template>
+      </el-dialog>
     </div>
   </teleport>
 </template>
@@ -313,10 +395,31 @@ const seenIds = ref<Set<string>>(new Set());
 // ── 统计计数 ──────────────────────────────────────────────────
 const copiedCount = ref(0);
 const deletedCount = ref(0);
+const reworkedCount = ref(0);
 const skippedCount = ref(0);
 const processedCount = computed(
-  () => copiedCount.value + deletedCount.value + skippedCount.value,
+  () => copiedCount.value + deletedCount.value + reworkedCount.value + skippedCount.value,
 );
+
+const reworkDialogVisible = ref(false);
+const submittingRework = ref(false);
+const reworkFeedbackInput = ref("");
+const selectedReworkTags = ref<string[]>([]);
+
+const REWORK_QUICK_TAGS = [
+  "排版过密",
+  "排版过空",
+  "文字重叠",
+  "主标题太小",
+  "主标不明显",
+  "配色过于单调",
+  "缺少背景层次",
+  "元素溢出边缘",
+  "增加装饰细节",
+  "替换字体风格",
+  "对比度过弱",
+  "换一个文案侧重",
+];
 
 // ── 队列与暂存 ────────────────────────────────────────────────
 const skippedItems = ref<CustomSticker[]>([]);
@@ -672,6 +775,56 @@ function resetSkipped(): void {
   afterAdvance();
 }
 
+function openReworkDialog(): void {
+  if (!current.value) return;
+  selectedReworkTags.value = [];
+  reworkFeedbackInput.value = "";
+  reworkDialogVisible.value = true;
+}
+
+function toggleReworkTag(tag: string): void {
+  const idx = selectedReworkTags.value.indexOf(tag);
+  if (idx > -1) {
+    selectedReworkTags.value.splice(idx, 1);
+  } else {
+    selectedReworkTags.value.push(tag);
+  }
+}
+
+async function submitRework(): Promise<void> {
+  if (!current.value) return;
+  const tagsStr = selectedReworkTags.value.join("；");
+  const detailStr = reworkFeedbackInput.value.trim();
+  const feedback = [tagsStr, detailStr].filter(Boolean).join("。说明：");
+
+  if (!feedback) {
+    ElMessage.warning("请选择至少一个标签或输入微调说明");
+    return;
+  }
+
+  submittingRework.value = true;
+  try {
+    const cur = current.value;
+    await CustomStickerApi.triggerRework({
+      sourceStickerId: cur.id,
+      inspirationId: (cur as any).inspirationId || undefined,
+      feedbackPrompt: feedback,
+    });
+
+    const item = queue.value.shift();
+    if (item) {
+      reworkedCount.value += 1;
+      pushToast(`已派发返工任务给工位：${tagsStr || detailStr.slice(0, 15)}`, "warning");
+      reworkDialogVisible.value = false;
+      afterAdvance();
+    }
+  } catch (err: any) {
+    ElMessage.error(err?.message || "派发返工任务失败");
+  } finally {
+    submittingRework.value = false;
+  }
+}
+
 // ── 复制提交（积攒批量提交）───────────────────────────────────
 let copyTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -853,6 +1006,9 @@ function onKeydown(event: KeyboardEvent): void {
   ) {
     event.preventDefault();
     actDelete();
+  } else if (event.key === "r" || event.key === "R") {
+    event.preventDefault();
+    openReworkDialog();
   }
 }
 
@@ -998,6 +1154,11 @@ onBeforeUnmount(() => {
 
 .qr__stat-dot--delete {
   background: #f87171;
+}
+
+.qr__stat-dot--rework {
+  background: #a855f7;
+  box-shadow: 0 0 6px rgba(168, 85, 247, 0.5);
 }
 
 .qr__stat-dot--skip {
