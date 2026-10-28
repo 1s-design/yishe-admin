@@ -5771,10 +5771,46 @@ onUnmounted(() => {
 </style>
 
 <style lang="less">
+/* ── 队列任务 hover 浮层（Tooltip & Popover）深浅模式统一样式 ── */
+.queue-status-compact-tooltip,
+.queue-exec-popover,
+.queue-error-popover,
+.queue-status-detail-popover {
+  background: var(--el-bg-color-overlay, #ffffff) !important;
+  border: 1px solid var(--el-border-color-lighter) !important;
+  color: var(--el-text-color-primary) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12) !important;
+}
+
+html.dark .queue-status-compact-tooltip,
+html.dark .queue-exec-popover,
+html.dark .queue-error-popover,
+html.dark .queue-status-detail-popover,
+html[class*="dark"] .queue-status-compact-tooltip,
+html[class*="dark"] .queue-exec-popover,
+html[class*="dark"] .queue-error-popover,
+html[class*="dark"] .queue-status-detail-popover {
+  background: #1d1e1f !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: #e5eaf3 !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55) !important;
+}
+
+html.dark .queue-status-compact-tooltip .el-popper__arrow::before,
+html.dark .queue-exec-popover .el-popper__arrow::before,
+html.dark .queue-error-popover .el-popper__arrow::before,
+html.dark .queue-status-detail-popover .el-popper__arrow::before,
+html[class*="dark"] .queue-status-compact-tooltip .el-popper__arrow::before,
+html[class*="dark"] .queue-exec-popover .el-popper__arrow::before,
+html[class*="dark"] .queue-error-popover .el-popper__arrow::before,
+html[class*="dark"] .queue-status-detail-popover .el-popper__arrow::before {
+  background: #1d1e1f !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
 .queue-status-compact-tooltip {
   padding: 8px 12px !important;
   border-radius: 6px !important;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16) !important;
   max-width: 320px !important;
   line-height: 1.5 !important;
   font-size: 12px !important;

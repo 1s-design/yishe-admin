@@ -1086,13 +1086,21 @@ html.dark {
   .el-autocomplete__popper,
   .el-picker__popper,
   .el-mention__popper
-).el-popper {
+).el-popper,
+.el-popover.el-popper {
   border: 1px solid var(--ep-cover-border-color) !important;
   border-radius: var(--ep-cover-radius-md) !important;
   background: var(--app-content-surface-color, var(--el-bg-color-overlay)) !important;
+  color: var(--el-text-color-primary) !important;
   box-shadow: var(--ep-cover-shadow-md), var(--el-box-shadow-light) !important;
-  padding: 0 !important;
   box-sizing: border-box !important;
+}
+
+html.dark .el-popover.el-popper,
+html.dark .el-popper.is-light {
+  background: var(--app-content-surface-color, var(--el-bg-color-overlay, #181818)) !important;
+  border-color: var(--ep-cover-border-color, rgba(255, 255, 255, 0.08)) !important;
+  color: var(--el-text-color-primary, #e5eaf3) !important;
 }
 
 /* 2. 内层菜单容器（dropdown / menu / panel）：去除多余边框与独立背景，继承圆角并平滑裁切 */
@@ -1139,6 +1147,11 @@ html.dark {
 .el-popper__arrow::before {
   border-color: var(--ep-cover-border-color) !important;
   background: var(--app-content-surface-color, var(--el-bg-color-overlay)) !important;
+}
+
+html.dark .el-popper__arrow::before {
+  border-color: var(--ep-cover-border-color, rgba(255, 255, 255, 0.08)) !important;
+  background: var(--app-content-surface-color, var(--el-bg-color-overlay, #181818)) !important;
 }
 
 .el-dropdown-menu,
