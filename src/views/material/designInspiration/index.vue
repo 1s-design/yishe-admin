@@ -5,7 +5,7 @@
         <!-- 自动制作工位监控胶囊条 -->
         <div class="station-monitor-capsule-bar">
           <div class="monitor-left">
-            <div class="station-pulse-badge">
+            <div class="station-pulse-badge" :class="{ 'is-active': stats.onlineStations > 0 }">
               <span class="station-dot" :class="{ 'is-active': stats.onlineStations > 0 }"></span>
               <span class="station-title">在线工位 <strong>{{ stats.onlineStations }}</strong> 台</span>
             </div>
@@ -15,7 +15,7 @@
             </div>
             <div class="monitor-stat-pill">
               <span class="stat-label">今日生产</span>
-              <span class="stat-val">{{ stats.todayCompleted }}</span>
+              <span class="stat-val default">{{ stats.todayCompleted }}</span>
             </div>
             <div class="monitor-stat-pill">
               <span class="stat-label">已入库</span>
@@ -27,7 +27,7 @@
             </div>
             <div class="monitor-stat-pill">
               <span class="stat-label">通过率</span>
-              <span class="stat-val primary">{{ stats.approvalRate }}%</span>
+              <span class="stat-val rate">{{ stats.approvalRate }}%</span>
             </div>
           </div>
           <div class="monitor-right">
@@ -1038,40 +1038,70 @@ onUnmounted(() => {
   justify-content: space-between;
   padding: 8px 14px;
   margin-bottom: 10px;
-  background: linear-gradient(135deg, rgba(240, 249, 255, 0.7) 0%, rgba(245, 243, 255, 0.7) 100%);
-  border: 1px solid rgba(199, 210, 254, 0.5);
+  background: var(--el-bg-color-overlay, #ffffff);
+  border: 1px solid var(--el-border-color-light, #e2e8f0);
   border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   backdrop-filter: blur(8px);
+}
+
+:global(html.dark) .station-monitor-capsule-bar {
+  background: var(--el-bg-color-overlay, #1d1e1f);
+  border-color: var(--el-border-color-darker, #363637);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
 .monitor-left {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 8px;
 }
 
 .station-pulse-badge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
-  color: var(--el-text-color-primary);
+  font-size: 12px;
   font-weight: 500;
-  padding-right: 8px;
-  border-right: 1px solid var(--el-border-color-lighter);
+  padding: 4px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  background: var(--el-fill-color-light, #f5f7fa);
+  border: 1px solid var(--el-border-color-lighter, #e4e7ed);
+  color: var(--el-text-color-regular, #606266);
+  transition: all 0.25s ease;
+}
+
+.station-pulse-badge.is-active {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #15803d;
+}
+
+:global(html.dark) .station-pulse-badge {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+}
+
+:global(html.dark) .station-pulse-badge.is-active {
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.28);
+  color: #86efac;
 }
 
 .station-dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: var(--el-color-info-light-3);
+  background: var(--el-color-info-light-3, #c0c4cc);
   transition: all 0.3s ease;
 }
 
 .station-dot.is-active {
-  background: var(--el-color-success);
+  background: var(--el-color-success, #67c23a);
   box-shadow: 0 0 0 0 rgba(103, 194, 58, 0.7);
   animation: pulse-green 1.8s infinite;
 }
@@ -1079,30 +1109,75 @@ onUnmounted(() => {
 .monitor-stat-pill {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
   font-size: 12px;
-  color: var(--el-text-color-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+  background: var(--el-fill-color-light, #f5f7fa);
+  border: 1px solid var(--el-border-color-lighter, #e4e7ed);
+  transition: all 0.2s ease;
+}
+
+:global(html.dark) .monitor-stat-pill {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.monitor-stat-pill .stat-label {
+  color: var(--el-text-color-secondary, #909399);
+  font-size: 12px;
+}
+
+:global(html.dark) .monitor-stat-pill .stat-label {
+  color: #94a3b8;
 }
 
 .monitor-stat-pill .stat-val {
-  font-weight: 600;
-  color: var(--el-text-color-primary);
+  font-weight: 700;
+  font-size: 13px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.monitor-stat-pill .stat-val.default {
+  color: var(--el-text-color-primary, #303133);
+}
+
+:global(html.dark) .monitor-stat-pill .stat-val.default {
+  color: #f1f5f9;
 }
 
 .monitor-stat-pill .stat-val.highlight {
-  color: var(--el-color-primary);
+  color: var(--el-color-primary, #409eff);
+}
+
+:global(html.dark) .monitor-stat-pill .stat-val.highlight {
+  color: #60a5fa;
 }
 
 .monitor-stat-pill .stat-val.success {
-  color: var(--el-color-success);
+  color: var(--el-color-success, #67c23a);
+}
+
+:global(html.dark) .monitor-stat-pill .stat-val.success {
+  color: #4ade80;
 }
 
 .monitor-stat-pill .stat-val.warning {
-  color: var(--el-color-warning);
+  color: var(--el-color-warning, #e6a23c);
 }
 
-.monitor-stat-pill .stat-val.primary {
+:global(html.dark) .monitor-stat-pill .stat-val.warning {
+  color: #fbbf24;
+}
+
+.monitor-stat-pill .stat-val.rate {
   color: #6366f1;
+}
+
+:global(html.dark) .monitor-stat-pill .stat-val.rate {
+  color: #a5b4fc;
 }
 
 /* ================= 表格制作进度单元格 ================= */

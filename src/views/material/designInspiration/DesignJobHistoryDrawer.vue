@@ -368,11 +368,15 @@ watch(
   height: 80px;
   border-radius: 6px;
   border: 1px solid var(--el-border-color-lighter);
-  background: #f8fafc;
+  background: var(--el-fill-color-light, #f8fafc);
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+:global(html.dark) .job-preview {
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .job-thumb {
@@ -389,10 +393,14 @@ watch(
 }
 
 .job-rework-section {
-  background: #fef0f0;
+  background: var(--el-color-danger-light-9, #fef0f0);
   padding: 6px 8px;
   border-radius: 4px;
   border-left: 3px solid var(--el-color-danger);
+}
+
+:global(html.dark) .job-rework-section {
+  background: rgba(245, 108, 108, 0.15);
 }
 
 .rework-tags {
