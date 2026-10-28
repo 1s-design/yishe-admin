@@ -183,24 +183,6 @@
               <el-button size="small" type="primary" :icon="Plus" @click="handleAdd"
                 >{{ t('queue.addTask') }}</el-button
               >
-              <!-- 勾选任务数量与快捷清空徽标 -->
-              <transition name="el-fade-in-linear">
-                <div v-if="ids.length > 0" class="queue-selection-badge">
-                  <span class="queue-selection-badge__dot" />
-                  <span class="queue-selection-badge__text">
-                    {{ t('queue.selectedCount', { count: ids.length }) }}
-                  </span>
-                  <el-button
-                    link
-                    type="primary"
-                    size="small"
-                    class="queue-selection-badge__clear"
-                    @click="clearSelectedRows"
-                  >
-                    {{ t('queue.clearSelection') }}
-                  </el-button>
-                </div>
-              </transition>
               <el-button
                 size="small"
                 type="danger"
@@ -245,6 +227,24 @@
               >
                 {{ t('mediaSchema.entry') }}
               </el-button>
+
+              <!-- 靠右、简洁、垂直居中的勾选提示 -->
+              <transition name="el-fade-in-linear">
+                <div v-if="ids.length > 0" class="queue-selected-count">
+                  <span class="queue-selected-count__text">
+                    已选 <span class="queue-selected-count__num">{{ ids.length }}</span> 项
+                  </span>
+                  <el-button
+                    link
+                    type="primary"
+                    size="small"
+                    class="queue-selected-count__clear"
+                    @click="clearSelectedRows"
+                  >
+                    {{ t('queue.clearSelection') }}
+                  </el-button>
+                </div>
+              </transition>
             </div>
           </el-form>
         </div>
@@ -273,16 +273,6 @@
               <span class="queue-stats-pill__label">{{ t('queue.total') }}</span>
               <span class="queue-stats-pill__value">{{ stats.total }}</span>
             </div>
-            <!-- 统计栏：高亮选中胶囊 -->
-            <transition name="el-fade-in-linear">
-              <div v-if="ids.length > 0" class="queue-stats-pill queue-stats-pill--selected">
-                <span class="queue-stats-pill__label">{{ t('queue.selectedCount', { count: '' }).trim() || '已选' }}</span>
-                <span class="queue-stats-pill__value">{{ ids.length }}</span>
-                <span class="queue-stats-pill__clear" @click="clearSelectedRows" :title="t('queue.clearSelection')">
-                  <el-icon><Close /></el-icon>
-                </span>
-              </div>
-            </transition>
 
             <div v-if="showPublishDispatchPanel" class="queue-dispatch-panel">
               <div class="queue-dispatch-panel__main">
@@ -5131,9 +5121,9 @@ onUnmounted(() => {
     linear-gradient(0deg, transparent, transparent);
 }
 
-/* ── 虚拟滚动：强制 DOM 行高与 rowConfig.height 一致，否则滚动偏移累积会出现空白 ── */
+/* ── 虚拟滚动：强制 DOM 行高与 rowConfig.height (72px) 一致，避免滚动累积偏移 ── */
 .queue-page :deep(.vxe-body--row) {
-  height: 64px !important;
+  height: 72px !important;
 }
 
 .queue-page :deep(.vxe-body--row > .vxe-body--column) {
@@ -5142,86 +5132,54 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
-.queue-page :deep(.queue-selection-badge) {
+/* ── 操作栏：靠右、简洁、垂直居中的勾选计数 ── */
+.queue-page :deep(.queue-selected-count) {
+  margin-left: auto;
+  align-self: center;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  height: 28px;
-  padding: 0 10px;
-  background-color: var(--el-color-primary-light-9);
-  border: 1px solid var(--el-color-primary-light-6);
-  border-radius: 14px;
-  color: var(--el-color-primary);
-  font-size: 12px;
-  font-weight: 500;
+  gap: 8px;
+  padding: 0 4px;
+  font-size: 13px;
+  line-height: 24px;
   white-space: nowrap;
+  user-select: none;
 }
 
-html.dark .queue-page :deep(.queue-selection-badge) {
-  background-color: rgba(64, 158, 255, 0.15);
-  border-color: rgba(64, 158, 255, 0.35);
-  color: #79bbff;
+.queue-page :deep(.queue-selected-count__text) {
+  display: inline-flex;
+  align-items: center;
+  color: var(--el-text-color-regular);
+  font-size: 13px;
 }
 
-.queue-page :deep(.queue-selection-badge__dot) {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: var(--el-color-primary);
-  box-shadow: 0 0 6px var(--el-color-primary);
-}
-
-.queue-page :deep(.queue-selection-badge__text) {
-  letter-spacing: 0.2px;
-}
-
-.queue-page :deep(.queue-selection-badge__clear) {
-  padding: 0 2px;
-  height: auto;
-  font-size: 12px;
-  margin-left: 2px;
-}
-
-.queue-page :deep(.queue-stats-pill--selected) {
-  background: linear-gradient(135deg, rgba(64, 158, 255, 0.16), rgba(64, 158, 255, 0.08));
-  border-color: var(--el-color-primary-light-5);
+.queue-page :deep(.queue-selected-count__num) {
+  margin: 0 3px;
   color: var(--el-color-primary);
   font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+  font-variant-numeric: tabular-nums;
 }
 
-html.dark .queue-page :deep(.queue-stats-pill--selected) {
-  background: linear-gradient(135deg, rgba(64, 158, 255, 0.24), rgba(64, 158, 255, 0.12));
-  border-color: rgba(64, 158, 255, 0.4);
-  color: #79bbff;
-}
-
-.queue-page :deep(.queue-stats-pill--selected .queue-stats-pill__value) {
+.queue-page :deep(.queue-selected-count__clear) {
+  padding: 0;
+  height: auto;
+  font-size: 12px;
   color: var(--el-color-primary);
+  opacity: 0.8;
+  transition: opacity 0.2s;
 }
 
-html.dark .queue-page :deep(.queue-stats-pill--selected .queue-stats-pill__value) {
+.queue-page :deep(.queue-selected-count__clear:hover) {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+html.dark .queue-page :deep(.queue-selected-count__num) {
   color: #79bbff;
 }
 
-.queue-page :deep(.queue-stats-pill__clear) {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 15px;
-  height: 15px;
-  border-radius: 50%;
-  cursor: pointer;
-  opacity: 0.65;
-  transition: opacity 0.2s, background-color 0.2s;
-  font-size: 11px;
-}
-
-.queue-page :deep(.queue-stats-pill__clear:hover) {
-  opacity: 1;
-  background-color: rgba(64, 158, 255, 0.2);
+html.dark .queue-page :deep(.queue-selected-count__clear) {
+  color: #79bbff;
 }
 
 .queue-page :deep(.vxe-body--row .vxe-cell) {
