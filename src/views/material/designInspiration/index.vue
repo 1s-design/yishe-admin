@@ -531,7 +531,7 @@
             <el-input
               v-model="form.sizeHint"
               maxlength="200"
-              placeholder="例如：横版大概 3:1 / 手机壳 / 400x600 贴纸（留空则由设计工具自主评估）"
+              placeholder="例如：横版 3000x1376 / 手机壳 / 贴纸（留空默认采用 2400x2400 超清规格）"
             />
           </el-form-item>
           <el-form-item label="自动挂机">
