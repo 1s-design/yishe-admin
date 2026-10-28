@@ -4949,6 +4949,8 @@ export default {
     search: '搜索',
     reset: '重置',
     addTask: '新增任务',
+    selectedCount: '已选 {count} 项',
+    clearSelection: '清空选择',
     batchDelete: '批量删除',
     batchResetToPending: '批量重置为未运行',
     batchRegenerate: '批量重新生成',

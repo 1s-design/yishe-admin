@@ -183,6 +183,24 @@
               <el-button size="small" type="primary" :icon="Plus" @click="handleAdd"
                 >{{ t('queue.addTask') }}</el-button
               >
+              <!-- 勾选任务数量与快捷清空徽标 -->
+              <transition name="el-fade-in-linear">
+                <div v-if="ids.length > 0" class="queue-selection-badge">
+                  <span class="queue-selection-badge__dot" />
+                  <span class="queue-selection-badge__text">
+                    {{ t('queue.selectedCount', { count: ids.length }) }}
+                  </span>
+                  <el-button
+                    link
+                    type="primary"
+                    size="small"
+                    class="queue-selection-badge__clear"
+                    @click="clearSelectedRows"
+                  >
+                    {{ t('queue.clearSelection') }}
+                  </el-button>
+                </div>
+              </transition>
               <el-button
                 size="small"
                 type="danger"
@@ -190,7 +208,7 @@
                 :disabled="!ids.length"
                 @click="handleDelete(null)"
               >
-                {{ t('queue.batchDelete') }}
+                {{ ids.length ? `${t('queue.batchDelete')} (${ids.length})` : t('queue.batchDelete') }}
               </el-button>
               <el-button
                 size="small"
@@ -199,7 +217,7 @@
                 :loading="batchResetPendingLoading"
                 @click="handleBatchResetPublishTasksToPending"
               >
-                {{ t('queue.batchResetToPending') }}
+                {{ ids.length ? `${t('queue.batchResetToPending')} (${ids.length})` : t('queue.batchResetToPending') }}
               </el-button>
               <el-button
                 size="small"
@@ -209,7 +227,7 @@
                 :loading="batchRegenerateLoading"
                 @click="handleBatchRegeneratePublishTasks"
               >
-                {{ t('queue.batchRegenerate') }}
+                {{ ids.length ? `${t('queue.batchRegenerate')} (${ids.length})` : t('queue.batchRegenerate') }}
               </el-button>
               <el-button
                 size="small"
@@ -255,6 +273,16 @@
               <span class="queue-stats-pill__label">{{ t('queue.total') }}</span>
               <span class="queue-stats-pill__value">{{ stats.total }}</span>
             </div>
+            <!-- 统计栏：高亮选中胶囊 -->
+            <transition name="el-fade-in-linear">
+              <div v-if="ids.length > 0" class="queue-stats-pill queue-stats-pill--selected">
+                <span class="queue-stats-pill__label">{{ t('queue.selectedCount', { count: '' }).trim() || '已选' }}</span>
+                <span class="queue-stats-pill__value">{{ ids.length }}</span>
+                <span class="queue-stats-pill__clear" @click="clearSelectedRows" :title="t('queue.clearSelection')">
+                  <el-icon><Close /></el-icon>
+                </span>
+              </div>
+            </transition>
 
             <div v-if="showPublishDispatchPanel" class="queue-dispatch-panel">
               <div class="queue-dispatch-panel__main">
@@ -320,6 +348,7 @@
             <div class="list-page-table-panel__body">
               <div class="common-table">
                 <vxe-grid
+                  ref="gridRef"
                   v-bind="gridOptions"
                   :data="dataSource"
                   :loading="loading"
@@ -1407,6 +1436,7 @@ function decorateQueueRow(row: QueueMessage): QueueMessage {
 const dataSource = ref<QueueMessage[]>([]);
 const loading = ref(false);
 const ids = ref<string[]>([]);
+const gridRef = ref<any>(null);
 const total = ref(0);
 const submitLoading = ref(false);
 const statusSubmitLoading = ref(false);
@@ -2966,7 +2996,8 @@ function handleResetQuery() {
   queueQueryFilterStorage.value = { ...defaultQueueQueryFilters };
   localStorage.removeItem("queue_last_type");
 
-  // 刷新列表和统计
+  // 刷新列表和统计并清空已选项
+  clearSelectedRows();
   getList();
   refreshStats();
 }
@@ -3030,13 +3061,20 @@ async function refreshStats() {
   }
 }
 
-// 复选框变化
-function checkboxChange(e) {
-  ids.value = e.records.map((item) => item.id);
+// 清空复选框选中
+function clearSelectedRows() {
+  gridRef.value?.clearCheckboxRow?.();
+  gridRef.value?.clearCheckboxReserve?.();
+  ids.value = [];
 }
 
-function checkboxAllChange(e) {
-  ids.value = e.records.map((item) => item.id);
+// 复选框变化
+function checkboxChange(e: any) {
+  ids.value = (e.records || []).map((item: any) => item.id);
+}
+
+function checkboxAllChange(e: any) {
+  ids.value = (e.records || []).map((item: any) => item.id);
 }
 
 function getSelectedQueueRows() {
@@ -5099,9 +5137,91 @@ onUnmounted(() => {
 }
 
 .queue-page :deep(.vxe-body--row > .vxe-body--column) {
-  height: 64px !important;
-  max-height: 64px;
+  height: 72px !important;
+  max-height: 72px;
   overflow: hidden;
+}
+
+.queue-page :deep(.queue-selection-badge) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  background-color: var(--el-color-primary-light-9);
+  border: 1px solid var(--el-color-primary-light-6);
+  border-radius: 14px;
+  color: var(--el-color-primary);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+html.dark .queue-page :deep(.queue-selection-badge) {
+  background-color: rgba(64, 158, 255, 0.15);
+  border-color: rgba(64, 158, 255, 0.35);
+  color: #79bbff;
+}
+
+.queue-page :deep(.queue-selection-badge__dot) {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--el-color-primary);
+  box-shadow: 0 0 6px var(--el-color-primary);
+}
+
+.queue-page :deep(.queue-selection-badge__text) {
+  letter-spacing: 0.2px;
+}
+
+.queue-page :deep(.queue-selection-badge__clear) {
+  padding: 0 2px;
+  height: auto;
+  font-size: 12px;
+  margin-left: 2px;
+}
+
+.queue-page :deep(.queue-stats-pill--selected) {
+  background: linear-gradient(135deg, rgba(64, 158, 255, 0.16), rgba(64, 158, 255, 0.08));
+  border-color: var(--el-color-primary-light-5);
+  color: var(--el-color-primary);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+html.dark .queue-page :deep(.queue-stats-pill--selected) {
+  background: linear-gradient(135deg, rgba(64, 158, 255, 0.24), rgba(64, 158, 255, 0.12));
+  border-color: rgba(64, 158, 255, 0.4);
+  color: #79bbff;
+}
+
+.queue-page :deep(.queue-stats-pill--selected .queue-stats-pill__value) {
+  color: var(--el-color-primary);
+}
+
+html.dark .queue-page :deep(.queue-stats-pill--selected .queue-stats-pill__value) {
+  color: #79bbff;
+}
+
+.queue-page :deep(.queue-stats-pill__clear) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  cursor: pointer;
+  opacity: 0.65;
+  transition: opacity 0.2s, background-color 0.2s;
+  font-size: 11px;
+}
+
+.queue-page :deep(.queue-stats-pill__clear:hover) {
+  opacity: 1;
+  background-color: rgba(64, 158, 255, 0.2);
 }
 
 .queue-page :deep(.vxe-body--row .vxe-cell) {

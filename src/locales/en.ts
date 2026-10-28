@@ -4955,6 +4955,8 @@ export default {
     search: 'Search',
     reset: 'Reset',
     addTask: 'Add Task',
+    selectedCount: '{count} selected',
+    clearSelection: 'Clear',
     batchDelete: 'Batch Delete',
     batchResetToPending: 'Batch Reset to Not Run',
     batchRegenerate: 'Batch Regenerate',
