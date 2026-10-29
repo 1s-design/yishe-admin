@@ -381,15 +381,19 @@
                   <el-dropdown-menu>
                     <el-dropdown-item @click="() => openMaterialPublishQuickReview('recent')">
                       <el-icon class="mr-1.5"><Timer /></el-icon>
-                      <span>最近的图片</span>
+                      <span>最近优先</span>
                     </el-dropdown-item>
                     <el-dropdown-item @click="() => openMaterialPublishQuickReview('oldest')">
                       <el-icon class="mr-1.5"><Calendar /></el-icon>
-                      <span>最早的图片</span>
+                      <span>最早优先</span>
                     </el-dropdown-item>
                     <el-dropdown-item @click="() => openMaterialPublishQuickReview('random')">
                       <el-icon class="mr-1.5"><MagicStick /></el-icon>
-                      <span>随机图片</span>
+                      <span>随机抽检</span>
+                    </el-dropdown-item>
+                    <el-dropdown-item divided @click="() => openMaterialPublishQuickReview('recent', true)">
+                      <el-icon class="mr-1.5"><Operation /></el-icon>
+                      <span>按当前列表筛选审核 (同步比例/抠图/格式)</span>
                     </el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
@@ -445,6 +449,10 @@
                     <el-dropdown-item @click="() => openMaterialPublishQuickReview('random')">
                       <el-icon class="mr-1"><MagicStick /></el-icon>
                       <span>商品快速审核 (随机图片)</span>
+                    </el-dropdown-item>
+                    <el-dropdown-item divided @click="() => openMaterialPublishQuickReview('recent', true)">
+                      <el-icon class="mr-1"><Operation /></el-icon>
+                      <span>商品快速审核 (按当前筛选)</span>
                     </el-dropdown-item>
                     <el-dropdown-item @click="() => openPsdSetDialog(false)">
                       <span>{{ t('material.createPsSet') }}</span>
@@ -3166,7 +3174,8 @@
       v-model:visible="quickPublishReviewVisible"
       :items="quickPublishReviewItems"
       :initial-mode="quickPublishReviewMode"
-      :has-user-selection="Boolean(ids.length)"
+      :initial-filters="quickPublishInitialFilters"
+      :has-user-selection="Boolean(ids.length) && !quickPublishInheritFilters"
       :folder-id="getStickerFolderFilterForQuery(queryParams.folderId)"
       @reviewed="getList"
     />
@@ -4857,11 +4866,45 @@ const relatedImageDialogRef = ref<any>(null);
 const quickPublishReviewVisible = ref(false);
 const quickPublishReviewItems = ref<any[]>([]);
 const quickPublishReviewMode = ref<'recent' | 'oldest' | 'random'>('recent');
+const quickPublishInitialFilters = ref<Record<string, any>>({});
+const quickPublishInheritFilters = ref(false);
 
 /** 打开商品快速审核（全屏逐张极速创建与审核发布配置） */
-function openMaterialPublishQuickReview(mode: 'recent' | 'oldest' | 'random' = 'recent') {
+function openMaterialPublishQuickReview(
+  mode: 'recent' | 'oldest' | 'random' = 'recent',
+  inheritFilters = false
+) {
   quickPublishReviewMode.value = mode;
-  if (ids.value && ids.value.length > 0) {
+  quickPublishInheritFilters.value = inheritFilters;
+
+  if (inheritFilters) {
+    const suffixList = Array.isArray(queryParams.suffix)
+      ? [...queryParams.suffix]
+      : queryParams.suffix
+        ? [queryParams.suffix]
+        : [];
+    const sizeShapeList = Array.isArray(queryParams.sizeShape)
+      ? [...queryParams.sizeShape]
+      : queryParams.sizeShape
+        ? [queryParams.sizeShape]
+        : [];
+
+    // 原样透传列表页的查询条件（含多选形状与自定义比例），避免二次折叠丢失精度
+    quickPublishInitialFilters.value = {
+      isCutout: queryParams.isCutout === "" ? undefined : queryParams.isCutout,
+      suffix: suffixList,
+      sizeShape: sizeShapeList,
+      targetAspectRatio: queryParams.targetAspectRatio,
+      aspectRatioTolerance: queryParams.aspectRatioTolerance,
+      startTime: queryParams.startTime || undefined,
+      endTime: queryParams.endTime || undefined,
+    };
+  } else {
+    quickPublishInitialFilters.value = {};
+  }
+
+  // 继承列表筛选时一律按筛选条件从服务端拉取，忽略当前勾选，避免「按筛选审核」变成只审勾选行
+  if (ids.value && ids.value.length > 0 && !inheritFilters) {
     const selectedList = (dataSource.value || []).filter((row: any) => ids.value.includes(row.id));
     quickPublishReviewItems.value = selectedList;
   } else {

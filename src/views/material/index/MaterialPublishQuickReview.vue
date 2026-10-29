@@ -1,233 +1,499 @@
 <template>
   <teleport to="body">
     <div v-if="visible" class="pqr" :class="{ 'is-dark': isDark }">
-      <!-- 顶栏：标题、模式切换器、统计与退出 -->
-      <header class="pqr__bar">
-        <div class="pqr__bar-lead">
-          <span class="pqr__title">商品快速审核</span>
-          <span class="pqr__badge">{{ hasUserSelection ? `已选 ${queue.length} 张` : '素材库' }}</span>
-          <span v-if="queue.length" class="pqr__progress">
-            {{ currentIndex + 1 }} / {{ queue.length }}
-          </span>
-        </div>
+      <!-- ================= 左侧：负责图片与沉浸式操作 ================= -->
+      <section
+        class="pqr__stage-wrap"
+        v-loading="loadingBatch"
+        element-loading-text="正在加载素材图片..."
+      >
+        <!-- 极简悬浮顶条：无多余实底头栏，浮动毛玻璃轻量胶囊控件 -->
+        <header class="pqr__floating-bar">
+          <div class="pqr__floating-left">
+            <span v-if="queue.length" class="pqr__floating-progress">
+              {{ currentIndex + 1 }} / {{ queue.length }}
+            </span>
+            <span v-if="hasUserSelection" class="pqr__floating-badge">已选</span>
 
-        <!-- 模式选择器：极简文字分段切换，无多余装饰 icon/emoji -->
-        <div class="pqr__bar-center">
-          <div class="pqr__mode-segmented">
-            <button
-              type="button"
-              class="pqr__mode-tab"
-              :class="{ 'is-active': activeMode === 'recent' }"
-              title="按创建时间从最新到最旧审核"
-              @click="switchMode('recent')"
+            <!-- 模式切换：极简文字分段切换 -->
+            <div v-if="!hasUserSelection" class="pqr__mode-segmented">
+              <button
+                type="button"
+                class="pqr__mode-tab"
+                :class="{ 'is-active': activeMode === 'recent' }"
+                :disabled="loadingBatch"
+                title="按创建时间从最新到最旧审核"
+                @click="switchMode('recent')"
+              >
+                <span>最近图片</span>
+              </button>
+              <button
+                type="button"
+                class="pqr__mode-tab"
+                :class="{ 'is-active': activeMode === 'oldest' }"
+                :disabled="loadingBatch"
+                title="按创建时间从最早到最新审核"
+                @click="switchMode('oldest')"
+              >
+                <span>最早图片</span>
+              </button>
+              <button
+                type="button"
+                class="pqr__mode-tab"
+                :class="{ 'is-active': activeMode === 'random' }"
+                :disabled="loadingBatch"
+                title="随机乱序抽检审核"
+                @click="switchMode('random')"
+              >
+                <span>随机图片</span>
+              </button>
+            </div>
+
+            <!-- 多维度精准过滤 Popover -->
+            <el-popover
+              v-if="!hasUserSelection"
+              v-model:visible="filterPopoverVisible"
+              trigger="click"
+              placement="bottom-start"
+              :width="500"
+              popper-class="pqr-filter-popover"
+              :teleported="true"
             >
-              <span>最近图片</span>
-            </button>
+              <template #reference>
+                <button
+                  type="button"
+                  class="pqr__filter-trigger-btn"
+                  :class="{ 'has-active': activeFilterCount > 0, 'is-open': filterPopoverVisible }"
+                  :disabled="loadingBatch"
+                  title="多维度筛选：图片尺寸比例、是否抠图、时间范围、后缀格式"
+                >
+                  <el-icon class="mr-0.5"><Operation /></el-icon>
+                  <span>筛选</span>
+                  <span v-if="activeFilterCount > 0" class="pqr__filter-count-badge">{{ activeFilterCount }}</span>
+                </button>
+              </template>
+
+              <!-- 筛选控制面板 -->
+              <div class="pqr-filter-panel">
+                <div class="pqr-filter-header">
+                  <div class="pqr-filter-header-left">
+                    <span class="pqr-filter-title">审核素材精准过滤</span>
+                    <span class="pqr-filter-subtitle">按比例、抠图、时间与格式定制审核队列</span>
+                  </div>
+                  <el-button
+                    v-if="activeFilterCount > 0"
+                    link
+                    type="primary"
+                    size="small"
+                    @click="resetFilters"
+                  >
+                    重置所有
+                  </el-button>
+                </div>
+
+                <!-- 1. 图片尺寸比例 -->
+                <div class="pqr-filter-section">
+                  <div class="pqr-filter-label">
+                    <span>图片尺寸比例</span>
+                    <span v-if="hasInheritedRatio" class="pqr-filter-val-hint">
+                      已同步列表：{{ inheritedRatioLabel }}
+                    </span>
+                    <span v-else-if="reviewFilters.aspectRatioCategory !== 'all'" class="pqr-filter-val-hint">
+                      {{ getRatioCategoryLabel(reviewFilters.aspectRatioCategory) }}
+                    </span>
+                    <button
+                      v-if="hasInheritedRatio"
+                      type="button"
+                      class="pqr-filter-clear-inherited"
+                      @click="clearInheritedRatio"
+                    >
+                      清除
+                    </button>
+                  </div>
+                  <div class="pqr-filter-chips">
+                    <button
+                      v-for="opt in RATIO_FILTER_OPTIONS"
+                      :key="opt.key"
+                      type="button"
+                      class="pqr-chip"
+                      :class="{ 'is-active': !hasInheritedRatio && reviewFilters.aspectRatioCategory === opt.key }"
+                      @click="selectRatioCategory(opt.key)"
+                    >
+                      <span>{{ opt.label }}</span>
+                      <span v-if="opt.sub" class="pqr-chip-sub">{{ opt.sub }}</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- 2. 是否抠图 -->
+                <div class="pqr-filter-section">
+                  <div class="pqr-filter-label">
+                    <span>是否抠图</span>
+                    <span v-if="reviewFilters.isCutout !== undefined && reviewFilters.isCutout !== null" class="pqr-filter-val-hint">
+                      {{ reviewFilters.isCutout ? '仅透明底抠图' : '仅含底色背景' }}
+                    </span>
+                  </div>
+                  <div class="pqr-filter-chips">
+                    <button
+                      type="button"
+                      class="pqr-chip"
+                      :class="{ 'is-active': reviewFilters.isCutout === undefined || reviewFilters.isCutout === null }"
+                      @click="reviewFilters.isCutout = undefined"
+                    >
+                      全部
+                    </button>
+                    <button
+                      type="button"
+                      class="pqr-chip"
+                      :class="{ 'is-active': reviewFilters.isCutout === true }"
+                      @click="reviewFilters.isCutout = true"
+                    >
+                      <i class="pqr-chip-dot pqr-chip-dot--cutout"></i>
+                      <span>已抠图 (透明底)</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="pqr-chip"
+                      :class="{ 'is-active': reviewFilters.isCutout === false }"
+                      @click="reviewFilters.isCutout = false"
+                    >
+                      <i class="pqr-chip-dot pqr-chip-dot--bg"></i>
+                      <span>未抠图 (含底色)</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- 3. 时间范围 -->
+                <div class="pqr-filter-section">
+                  <div class="pqr-filter-label">
+                    <span>时间范围</span>
+                  </div>
+                  <div class="pqr-filter-chips">
+                    <button
+                      v-for="tOpt in TIME_PRESET_OPTIONS"
+                      :key="tOpt.key"
+                      type="button"
+                      class="pqr-chip"
+                      :class="{ 'is-active': reviewFilters.timePreset === tOpt.key }"
+                      @click="selectTimePreset(tOpt.key)"
+                    >
+                      {{ tOpt.label }}
+                    </button>
+                  </div>
+                  <!-- 自定义时间范围选择器 -->
+                  <div v-if="reviewFilters.timePreset === 'custom'" class="pqr-filter-custom-time">
+                    <el-date-picker
+                      v-model="reviewFilters.dateRange"
+                      type="datetimerange"
+                      size="small"
+                      range-separator="至"
+                      start-placeholder="开始时间"
+                      end-placeholder="结束时间"
+                      format="YYYY-MM-DD HH:mm"
+                      value-format="x"
+                      style="width: 100%"
+                    />
+                  </div>
+                </div>
+
+                <!-- 4. 文件格式 / 后缀 -->
+                <div class="pqr-filter-section">
+                  <div class="pqr-filter-label">
+                    <span>文件格式 / 后缀</span>
+                    <span v-if="reviewFilters.suffix.length" class="pqr-filter-val-hint">
+                      {{ reviewFilters.suffix.map(s => s.toUpperCase()).join('、') }}
+                    </span>
+                  </div>
+                  <div class="pqr-filter-chips">
+                    <button
+                      type="button"
+                      class="pqr-chip"
+                      :class="{ 'is-active': !reviewFilters.suffix.length }"
+                      @click="reviewFilters.suffix = []"
+                    >
+                      全部格式
+                    </button>
+                    <button
+                      v-for="ext in SUFFIX_OPTIONS"
+                      :key="ext"
+                      type="button"
+                      class="pqr-chip"
+                      :class="{ 'is-active': reviewFilters.suffix.includes(ext) }"
+                      @click="toggleSuffix(ext)"
+                    >
+                      {{ ext.toUpperCase() }}
+                    </button>
+                  </div>
+                </div>
+
+                <!-- 底部操作按钮 -->
+                <div class="pqr-filter-footer">
+                  <span class="pqr-filter-tips">应用后将自动从第 1 页加载符合条件的素材</span>
+                  <div class="pqr-filter-btns">
+                    <el-button size="small" @click="filterPopoverVisible = false">取消</el-button>
+                    <el-button size="small" type="primary" :loading="loadingBatch" @click="applyFilters">
+                      应用并审核
+                    </el-button>
+                  </div>
+                </div>
+              </div>
+            </el-popover>
+
+            <!-- 活跃过滤标签展示条 -->
+            <div v-if="!hasUserSelection && activeFilterTags.length" class="pqr__active-tags">
+              <span
+                v-for="tag in activeFilterTags"
+                :key="tag.key"
+                class="pqr__active-tag"
+                :title="`点击移除 ${tag.label} 筛选`"
+                @click="tag.onRemove"
+              >
+                <span>{{ tag.label }}</span>
+                <el-icon class="pqr__active-tag-close"><Close /></el-icon>
+              </span>
+              <button
+                type="button"
+                class="pqr__clear-all-link"
+                title="清空所有筛选条件"
+                @click="resetFilters"
+              >
+                清空
+              </button>
+            </div>
+
+            <!-- 非指定勾选模式下，支持随时换一批 -->
             <button
+              v-if="!hasUserSelection"
               type="button"
-              class="pqr__mode-tab"
-              :class="{ 'is-active': activeMode === 'oldest' }"
-              title="按创建时间从最早到最新审核"
-              @click="switchMode('oldest')"
+              class="pqr__refresh-batch-btn"
+              :class="{ 'is-loading': loadingBatch }"
+              :disabled="loadingBatch"
+              :title="activeMode === 'random' ? '随机从素材库换一批50张素材' : '从素材库加载下一批50张素材'"
+              @click="loadNextBatch"
             >
-              <span>最早图片</span>
-            </button>
-            <button
-              type="button"
-              class="pqr__mode-tab"
-              :class="{ 'is-active': activeMode === 'random' }"
-              title="随机乱序抽检审核"
-              @click="switchMode('random')"
-            >
-              <span>随机图片</span>
+              <el-icon :class="{ 'is-loading': loadingBatch }"><Refresh /></el-icon>
+              <span>换一批</span>
             </button>
           </div>
 
-          <!-- 非指定勾选模式下，支持随时换一批 -->
-          <button
-            v-if="!hasUserSelection"
-            type="button"
-            class="pqr__refresh-batch-btn"
-            :class="{ 'is-loading': loadingBatch }"
-            :disabled="loadingBatch"
-            :title="activeMode === 'random' ? '随机从素材库换一批50张素材' : '从素材库加载下一批50张素材'"
-            @click="loadNextBatch"
-          >
-            <el-icon :class="{ 'is-loading': loadingBatch }"><Refresh /></el-icon>
-            <span>换一批</span>
-          </button>
-        </div>
+          <div class="pqr__floating-right">
+            <div class="pqr__stats">
+              <span class="pqr__stat-item">
+                <i class="pqr__stat-dot pqr__stat-dot--create"></i>
+                <span class="pqr__stat-name">已创建</span>
+                <span class="pqr__stat-val">{{ createdMaterialCount }} 张</span>
+                <span v-if="createdTaskCount" class="pqr__stat-sub">({{ createdTaskCount }}任务)</span>
+              </span>
+              <span class="pqr__stat-divider">/</span>
+              <span class="pqr__stat-item">
+                <i class="pqr__stat-dot pqr__stat-dot--skip"></i>
+                <span class="pqr__stat-name">已忽略</span>
+                <span class="pqr__stat-val">{{ skippedCount }}</span>
+              </span>
+            </div>
 
-        <div class="pqr__bar-ops">
-          <div class="pqr__stats">
-            <span class="pqr__stat-item">
-              <i class="pqr__stat-dot pqr__stat-dot--create"></i>
-              <span class="pqr__stat-name">已创建</span>
-              <span class="pqr__stat-val">{{ createdMaterialCount }} 张</span>
-              <span v-if="createdTaskCount" class="pqr__stat-sub">({{ createdTaskCount }}任务)</span>
-            </span>
-            <span class="pqr__stat-divider">/</span>
-            <span class="pqr__stat-item">
-              <i class="pqr__stat-dot pqr__stat-dot--skip"></i>
-              <span class="pqr__stat-name">已忽略</span>
-              <span class="pqr__stat-val">{{ skippedCount }}</span>
-            </span>
+            <div class="pqr__ops-divider"></div>
+
+            <button
+              v-if="skippedQueue.length"
+              type="button"
+              class="pqr__text-btn"
+              title="把已跳过的素材重新追加回队列末尾"
+              @click="restoreSkipped"
+            >
+              重置忽略 ({{ skippedQueue.length }})
+            </button>
+            <button
+              type="button"
+              class="pqr__text-btn"
+              title="重新从第一张开始审核"
+              @click="reloadQueue"
+            >
+              重新开始
+            </button>
           </div>
+        </header>
 
-          <div class="pqr__ops-divider"></div>
-
-          <button
-            v-if="skippedQueue.length"
-            type="button"
-            class="pqr__text-btn"
-            title="把已跳过的素材重新追加回队列末尾"
-            @click="restoreSkipped"
-          >
-            重置忽略 ({{ skippedQueue.length }})
-          </button>
-          <button
-            type="button"
-            class="pqr__text-btn"
-            title="重新从第一张开始审核"
-            @click="reloadQueue"
-          >
-            重新开始
-          </button>
-        </div>
-
-        <button type="button" class="pqr__close" title="退出审核 (Esc)" @click="close">
-          <el-icon><Close /></el-icon>
+        <!-- 左右翻页按钮：固定在舞台两侧安全区域，绝不超出屏幕，绝不遮挡右侧面板 -->
+        <button
+          v-if="current && currentIndex > 0 && !loadingBatch"
+          type="button"
+          class="pqr__nav-arrow pqr__nav-arrow--prev"
+          title="上一张 (快捷键：← 或 W)"
+          @click.stop="actPrev"
+        >
+          <el-icon><ArrowLeft /></el-icon>
         </button>
-      </header>
+        <button
+          v-if="current && !loadingBatch"
+          type="button"
+          class="pqr__nav-arrow pqr__nav-arrow--next"
+          title="忽略/下一张 (当前不处理，直接看下一张；快捷键：空格、→ 或 D)"
+          @click.stop="actSkip"
+        >
+          <el-icon><ArrowRight /></el-icon>
+        </button>
 
-      <!-- 主体：居中大图与底部图片信息 + 右侧完整配置面板 -->
-      <main class="pqr__main">
-        <!-- 中央图片舞台 -->
-        <section class="pqr__stage-wrap">
-          <!-- 左右翻页按钮：固定在舞台两侧安全区域，绝不超出屏幕，绝不遮挡右侧面板 -->
-          <button
-            v-if="current && currentIndex > 0"
-            type="button"
-            class="pqr__nav-arrow pqr__nav-arrow--prev"
-            title="上一张 (快捷键：← 或 W)"
-            @click.stop="actPrev"
-          >
-            <el-icon><ArrowLeft /></el-icon>
-          </button>
-          <button
-            v-if="current"
-            type="button"
-            class="pqr__nav-arrow pqr__nav-arrow--next"
-            title="忽略/下一张 (当前不处理，直接看下一张；快捷键：空格、→ 或 D)"
-            @click.stop="actSkip"
-          >
-            <el-icon><ArrowRight /></el-icon>
-          </button>
-
-          <!-- 首次加载中：从素材库独立拉取批次 -->
-          <div v-if="loadingBatch && !current" class="pqr__loading-full">
-            <el-icon class="is-loading" :size="36"><Loading /></el-icon>
-            <p class="pqr__loading-text">正在从素材库加载审核批次...</p>
-          </div>
-
+        <div
+          v-if="current"
+          class="pqr__stage-container"
+        >
+          <!-- 图片区域 -->
           <div
-            v-else-if="current"
-            class="pqr__stage-container"
+            class="pqr__stage"
+            title="双击在新标签查看原图"
+            @dblclick="openOriginal"
           >
-            <!-- 图片区域 -->
-            <div
-              class="pqr__stage"
-              title="双击在新标签查看原图"
-              @dblclick="openOriginal"
+            <img
+              v-if="displayUrl || current.url"
+              :src="displayUrl || current.url"
+              :alt="current.name || '素材图片'"
+              draggable="false"
+              class="pqr__image"
+              :class="{ 'is-pending': deckPending }"
+            />
+            <div v-if="deckPending" class="pqr__deck-loading-dot" title="高清图解码中..."></div>
+          </div>
+
+          <!-- 图片规格与素材信息条 -->
+          <div class="pqr__image-info-bar">
+            <span class="pqr__info-name" :title="current.name || ''">
+              {{ current.name || `素材 #${current.id}` }}
+            </span>
+            <span class="pqr__info-pill pqr__info-pill--highlight">
+              <span>{{ dimensionText }}</span>
+            </span>
+            <span class="pqr__info-pill">
+              <span>{{ ratioText }}</span>
+            </span>
+            <span v-if="current.suffix" class="pqr__info-pill">
+              <span>{{ String(current.suffix).toUpperCase() }}</span>
+            </span>
+            <span v-if="current.folderName" class="pqr__info-pill pqr__info-pill--folder" :title="current.folderName">
+              <span>{{ current.folderName }}</span>
+            </span>
+            <span class="pqr__info-hint">双击查看原图</span>
+          </div>
+        </div>
+
+        <div v-else-if="!loadingBatch" class="pqr__empty">
+          <template v-if="createdMaterialCount > 0 || skippedCount > 0">
+            <p class="pqr__empty-title">队列中的素材已全部审核完毕！</p>
+            <p class="pqr__empty-desc">
+              本次共完成 {{ createdMaterialCount }} 张素材的商品任务制作（共派发 {{ createdTaskCount }} 个发布任务），忽略 {{ skippedCount }} 张素材。
+            </p>
+            <div class="mt-4 flex gap-3 justify-center">
+              <el-button type="primary" @click="reloadQueue">重新开始审核</el-button>
+              <el-button @click="close">返回素材列表</el-button>
+            </div>
+          </template>
+          <template v-else>
+            <p class="pqr__empty-title">当前素材库暂无可审核素材</p>
+            <p class="pqr__empty-desc">
+              未能加载到待审核的素材图片，请点击重试加载或选择其他文件夹。
+            </p>
+            <div class="mt-4 flex gap-3 justify-center">
+              <el-button type="primary" :loading="loadingBatch" @click="() => fetchBatch(activeMode, 1)">重试加载</el-button>
+              <el-button @click="close">返回素材列表</el-button>
+            </div>
+          </template>
+        </div>
+
+        <!-- 底部简洁浮动 Dock 快捷键操作栏 -->
+        <footer class="pqr__dock">
+          <div class="pqr__dock-capsule">
+            <button
+              type="button"
+              class="pqr__dock-btn"
+              :disabled="currentIndex <= 0 || loadingBatch"
+              title="查看上一张（快捷键：← 或 W）"
+              @click="actPrev"
             >
-              <img
-                v-if="displayUrl || current.url"
-                :src="displayUrl || current.url"
-                :alt="current.name || '素材图片'"
-                draggable="false"
-                class="pqr__image"
-                :class="{ 'is-pending': deckPending }"
-              />
-              <div v-if="deckPending" class="pqr__deck-loading-dot" title="高清图解码中..."></div>
-            </div>
+              <span class="pqr__dock-text">上一张</span>
+              <kbd class="pqr__dock-kbd">← / W</kbd>
+            </button>
 
-            <!-- 图片中间偏下位置：图片规格与素材信息条 -->
-            <div class="pqr__image-info-bar">
-              <span class="pqr__info-name" :title="current.name || ''">
-                {{ current.name || `素材 #${current.id}` }}
+            <div class="pqr__dock-sep"></div>
+
+            <button
+              type="button"
+              class="pqr__dock-btn"
+              :disabled="!current || loadingBatch"
+              title="当前不处理，直接忽略并进入下一张（快捷键：空格 Space、→、D、S）"
+              @click="actSkip"
+            >
+              <span class="pqr__dock-text">忽略 / 下一张</span>
+              <kbd class="pqr__dock-kbd">空格 / →</kbd>
+            </button>
+
+            <div class="pqr__dock-sep"></div>
+
+            <button
+              type="button"
+              class="pqr__dock-btn pqr__dock-btn--primary"
+              :disabled="!current || !selectedConfigIds.length || creating || loadingBatch"
+              title="一键直接创建任务并自动切换下一张（快捷键：↵ Enter）"
+              @click="actCreateAndNext"
+            >
+              <span class="pqr__dock-text">
+                一键创建
+                <template v-if="selectedConfigIds.length">({{ selectedConfigIds.length }})</template>
               </span>
-              <span class="pqr__info-pill pqr__info-pill--highlight">
-                <span>{{ dimensionText }}</span>
-              </span>
-              <span class="pqr__info-pill">
-                <span>{{ ratioText }}</span>
-              </span>
-              <span v-if="current.suffix" class="pqr__info-pill">
-                <span>{{ String(current.suffix).toUpperCase() }}</span>
-              </span>
-              <span v-if="current.folderName" class="pqr__info-pill pqr__info-pill--folder" :title="current.folderName">
-                <span>{{ current.folderName }}</span>
-              </span>
-              <span class="pqr__info-hint">双击查看原图</span>
-            </div>
+              <kbd class="pqr__dock-kbd pqr__dock-kbd--primary">Enter ↵</kbd>
+            </button>
+          </div>
+        </footer>
+      </section>
+
+      <!-- ================= 右侧：负责完整配置面板 ================= -->
+      <aside
+        class="pqr__side"
+        v-loading="loadingBatch"
+        element-loading-text="正在加载发布配置..."
+      >
+        <!-- 顶栏：标题 + 推荐状态 + 右上角专属关闭按钮 -->
+        <div class="pqr__side-header">
+          <div class="pqr__side-title-row">
+            <span class="pqr__side-title">发布任务配置</span>
+            <span v-if="current" class="pqr__count-badge">{{ displayConfigs.length }} 项</span>
+            <span v-if="current && matchedCount" class="pqr__count-badge pqr__count-badge--success">
+              推荐匹配 {{ matchedCount }}
+            </span>
           </div>
 
-          <div v-else class="pqr__empty">
-            <template v-if="createdMaterialCount > 0 || skippedCount > 0">
-              <p class="pqr__empty-title">队列中的素材已全部审核完毕！</p>
-              <p class="pqr__empty-desc">
-                本次共完成 {{ createdMaterialCount }} 张素材的商品任务制作（共派发 {{ createdTaskCount }} 个发布任务），忽略 {{ skippedCount }} 张素材。
-              </p>
-              <div class="mt-4 flex gap-3 justify-center">
-                <el-button type="primary" @click="reloadQueue">重新开始审核</el-button>
-                <el-button @click="close">返回素材列表</el-button>
-              </div>
-            </template>
-            <template v-else>
-              <p class="pqr__empty-title">当前素材库暂无可审核素材</p>
-              <p class="pqr__empty-desc">
-                未能加载到待审核的素材图片，请点击重试加载或选择其他文件夹。
-              </p>
-              <div class="mt-4 flex gap-3 justify-center">
-                <el-button type="primary" :loading="loadingBatch" @click="() => fetchBatch(activeMode, 1)">重试加载</el-button>
-                <el-button @click="close">返回素材列表</el-button>
-              </div>
-            </template>
-          </div>
-        </section>
+          <button type="button" class="pqr__side-close" title="退出审核 (Esc)" @click="close">
+            <el-icon><Close /></el-icon>
+          </button>
+        </div>
 
-        <!-- 右侧纯配置面板：展示所有配置，匹配的排在前并默认勾选，不匹配的按近似比例从上到下排序 -->
-        <aside v-if="current" class="pqr__side">
-          <div class="pqr__side-header">
-            <div class="pqr__side-title-row">
-              <span class="pqr__side-title">发布任务配置</span>
-              <span class="pqr__count-badge">{{ displayConfigs.length }} 项</span>
-              <span v-if="matchedCount" class="pqr__count-badge pqr__count-badge--success">
-                推荐匹配 {{ matchedCount }}
-              </span>
-            </div>
-            <div class="pqr__side-actions">
-              <button
-                v-if="matchedCount > 0"
-                type="button"
-                class="pqr__action-link"
-                title="一键重置为仅勾选推荐匹配项"
-                @click="selectOnlyMatched"
-              >
-                仅选匹配
-              </button>
-              <button
-                type="button"
-                class="pqr__action-link"
-                @click="toggleSelectAll"
-              >
-                {{ isAllSelected ? '取消全选' : '全选' }}
-              </button>
-            </div>
+        <!-- 快捷操作栏：仅选匹配 / 全选 -->
+        <div class="pqr__side-subbar">
+          <div class="pqr__side-actions">
+            <button
+              v-if="matchedCount > 0"
+              type="button"
+              class="pqr__action-link"
+              :disabled="loadingBatch || !current"
+              title="一键重置为仅勾选推荐匹配项"
+              @click="selectOnlyMatched"
+            >
+              仅选匹配 ({{ matchedCount }})
+            </button>
+            <button
+              type="button"
+              class="pqr__action-link"
+              :disabled="loadingBatch || !current"
+              @click="toggleSelectAll"
+            >
+              {{ isAllSelected ? '取消全选' : '全选所有' }}
+            </button>
           </div>
+          <span class="pqr__side-sub-count">已选 {{ selectedConfigIds.length }} 项</span>
+        </div>
 
-          <!-- 配置列表：按契合度与近似比例从高到低从上到下排序 -->
-          <div class="pqr__config-scroll">
+        <!-- 配置列表：按契合度与近似比例从高到低从上到下排序 -->
+        <div class="pqr__config-scroll">
+          <template v-if="current && displayConfigs.length > 0">
             <template v-for="(item, index) in displayConfigs" :key="item.id">
               <!-- 当进入不匹配区域时展示分隔提示 -->
               <div
@@ -303,69 +569,27 @@
                 </div>
               </div>
             </template>
+          </template>
+          <div v-else-if="!loadingBatch" class="pqr__side-empty">
+            <el-empty description="暂无可配置素材" :image-size="64" />
           </div>
+        </div>
 
-          <!-- 侧边栏底部提交栏（贴底） -->
-          <div class="pqr__side-footer">
-            <el-button
-              type="primary"
-              class="pqr__submit"
-              :disabled="!selectedConfigIds.length || creating"
-              :loading="creating"
-              title="一键创建选中的发布任务并看下一张 (快捷键：↵ Enter)"
-              @click="actCreateAndNext"
-            >
-              <span>{{ selectedConfigIds.length ? `一键创建并看下一张 (${selectedConfigIds.length})` : `请勾选配置` }}</span>
-              <kbd v-if="selectedConfigIds.length" class="pqr__kbd-hint">↵ Enter</kbd>
-            </el-button>
-          </div>
-        </aside>
-      </main>
-
-      <!-- 底部简洁浮动 Dock 快捷键操作栏 -->
-      <footer class="pqr__dock">
-        <div class="pqr__dock-capsule">
-          <button
-            type="button"
-            class="pqr__dock-btn"
-            :disabled="currentIndex <= 0"
-            title="查看上一张（快捷键：← 或 W）"
-            @click="actPrev"
-          >
-            <span class="pqr__dock-text">上一张</span>
-            <kbd class="pqr__dock-kbd">← / W</kbd>
-          </button>
-
-          <div class="pqr__dock-sep"></div>
-
-          <button
-            type="button"
-            class="pqr__dock-btn"
-            :disabled="!current"
-            title="当前不处理，直接忽略并进入下一张（快捷键：空格 Space、→、D、S）"
-            @click="actSkip"
-          >
-            <span class="pqr__dock-text">忽略 / 下一张</span>
-            <kbd class="pqr__dock-kbd">空格 / →</kbd>
-          </button>
-
-          <div class="pqr__dock-sep"></div>
-
-          <button
-            type="button"
-            class="pqr__dock-btn pqr__dock-btn--primary"
-            :disabled="!current || !selectedConfigIds.length || creating"
-            title="一键直接创建任务并自动切换下一张（快捷键：↵ Enter）"
+        <!-- 侧边栏底部提交栏（贴底） -->
+        <div class="pqr__side-footer">
+          <el-button
+            type="primary"
+            class="pqr__submit"
+            :disabled="!current || !selectedConfigIds.length || creating || loadingBatch"
+            :loading="creating"
+            title="一键创建选中的发布任务并看下一张 (快捷键：↵ Enter)"
             @click="actCreateAndNext"
           >
-            <span class="pqr__dock-text">
-              一键创建
-              <template v-if="selectedConfigIds.length">({{ selectedConfigIds.length }})</template>
-            </span>
-            <kbd class="pqr__dock-kbd pqr__dock-kbd--primary">Enter ↵</kbd>
-          </button>
+            <span>{{ current && selectedConfigIds.length ? `一键创建并看下一张 (${selectedConfigIds.length})` : (loadingBatch ? '正在加载配置...' : (current ? '请勾选配置' : '暂无可配置素材')) }}</span>
+            <kbd v-if="current && selectedConfigIds.length" class="pqr__kbd-hint">↵ Enter</kbd>
+          </el-button>
         </div>
-      </footer>
+      </aside>
     </div>
   </teleport>
 </template>
@@ -377,7 +601,8 @@ import {
   ArrowRight,
   Check,
   Close,
-  Loading,
+  Filter,
+  Operation,
   Refresh,
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
@@ -399,6 +624,7 @@ import {
   type MatchedPublishConfigItem
 } from './useMaterialPublishQuick'
 import { invalidateMaterialRelations } from './useMaterialRelations'
+import { calculateAspectRatioRange, getSizeShapeConfig } from './sizeShapeConfig'
 
 defineOptions({ name: 'MaterialPublishQuickReview' })
 
@@ -415,13 +641,15 @@ const props = withDefaults(
     initialMode?: QuickReviewMode
     hasUserSelection?: boolean
     folderId?: any
+    initialFilters?: Record<string, any>
   }>(),
   {
     items: () => [],
     startIndex: 0,
     initialMode: 'recent',
     hasUserSelection: false,
-    folderId: undefined
+    folderId: undefined,
+    initialFilters: () => ({})
   }
 )
 
@@ -434,6 +662,268 @@ const emit = defineEmits<{
 const activeMode = ref<QuickReviewMode>('recent')
 const loadingBatch = ref(false)
 const batchPage = ref(1)
+
+// ==================== 多维度筛选状态 ====================
+const filterPopoverVisible = ref(false)
+
+export interface QuickReviewFiltersState {
+  isCutout?: boolean | null | undefined
+  suffix: string[]
+  aspectRatioCategory: string
+  /** 继承自列表页的精细尺寸形状（多选，如 wide / ultra-long） */
+  sizeShape: string[]
+  /** 继承自列表页的自定义精确比例（与 sizeShape 可同时生效） */
+  ratioTarget?: number
+  ratioTolerance?: number
+  timePreset: string
+  dateRange: any[]
+}
+
+const reviewFilters = ref<QuickReviewFiltersState>({
+  isCutout: undefined,
+  suffix: [],
+  aspectRatioCategory: 'all',
+  sizeShape: [],
+  ratioTarget: undefined,
+  ratioTolerance: undefined,
+  timePreset: 'all',
+  dateRange: []
+})
+
+const RATIO_FILTER_OPTIONS = [
+  { key: 'all', label: '全部比例' },
+  { key: '1:1', label: '1:1 方图', sub: '正方' },
+  { key: '3:4', label: '3:4 竖图', sub: '商品/海报' },
+  { key: '4:3', label: '4:3 横图', sub: '画报' },
+  { key: '9:16', label: '9:16 竖图', sub: '壁纸/立标' },
+  { key: '16:9', label: '16:9 横图', sub: '宽屏/电脑' },
+  { key: '2:1', label: '2:1 长图', sub: '桌垫/横幅' },
+  { key: 'portrait', label: '所有竖图', sub: '高 > 宽' },
+  { key: 'landscape', label: '所有横图', sub: '宽 > 高' }
+]
+
+const TIME_PRESET_OPTIONS = [
+  { key: 'all', label: '全部时间' },
+  { key: 'today', label: '今天' },
+  { key: '3days', label: '近3天' },
+  { key: '7days', label: '近7天' },
+  { key: '30days', label: '近30天' },
+  { key: 'custom', label: '自定义范围' }
+]
+
+const SUFFIX_OPTIONS = ['png', 'jpg', 'webp', 'svg', 'psd']
+
+/** 预设比例对应的查询参数（容差为百分比，与列表页一致） */
+const RATIO_PRESET_QUERY: Record<string, { target: number; tolerance: number }> = {
+  '1:1': { target: 1.0, tolerance: 5 },
+  '3:4': { target: 0.75, tolerance: 6 },
+  '4:3': { target: 1.333, tolerance: 6 },
+  '9:16': { target: 0.5625, tolerance: 6 },
+  '16:9': { target: 1.778, tolerance: 6 },
+  '2:1': { target: 2.0, tolerance: 15 }
+}
+
+const activeFilterCount = computed(() => {
+  let count = 0
+  if (reviewFilters.value.isCutout !== undefined && reviewFilters.value.isCutout !== null) count++
+  if (reviewFilters.value.suffix && reviewFilters.value.suffix.length > 0) count++
+  if (
+    hasInheritedRatio.value ||
+    (reviewFilters.value.aspectRatioCategory && reviewFilters.value.aspectRatioCategory !== 'all')
+  ) {
+    count++
+  }
+  if (reviewFilters.value.timePreset && reviewFilters.value.timePreset !== 'all') count++
+  return count
+})
+
+const activeFilterTags = computed(() => {
+  const tags: Array<{ key: string; label: string; onRemove: () => void }> = []
+
+  if (reviewFilters.value.isCutout === true) {
+    tags.push({
+      key: 'cutout',
+      label: '已抠图',
+      onRemove: () => {
+        reviewFilters.value.isCutout = undefined
+        applyFilters()
+      }
+    })
+  } else if (reviewFilters.value.isCutout === false) {
+    tags.push({
+      key: 'cutout',
+      label: '未抠图',
+      onRemove: () => {
+        reviewFilters.value.isCutout = undefined
+        applyFilters()
+      }
+    })
+  }
+
+  if (hasInheritedRatio.value) {
+    tags.push({
+      key: 'ratio',
+      label: inheritedRatioLabel.value,
+      onRemove: () => {
+        clearInheritedRatio()
+        applyFilters()
+      }
+    })
+  } else if (reviewFilters.value.aspectRatioCategory && reviewFilters.value.aspectRatioCategory !== 'all') {
+    const item = RATIO_FILTER_OPTIONS.find((o) => o.key === reviewFilters.value.aspectRatioCategory)
+    tags.push({
+      key: 'ratio',
+      label: item ? item.label : reviewFilters.value.aspectRatioCategory,
+      onRemove: () => {
+        reviewFilters.value.aspectRatioCategory = 'all'
+        applyFilters()
+      }
+    })
+  }
+
+  if (reviewFilters.value.suffix && reviewFilters.value.suffix.length > 0) {
+    tags.push({
+      key: 'suffix',
+      label: reviewFilters.value.suffix.map((s) => s.toUpperCase()).join('/'),
+      onRemove: () => {
+        reviewFilters.value.suffix = []
+        applyFilters()
+      }
+    })
+  }
+
+  if (reviewFilters.value.timePreset && reviewFilters.value.timePreset !== 'all') {
+    const timeLabels: Record<string, string> = {
+      today: '今天',
+      '3days': '近3天',
+      '7days': '近7天',
+      '30days': '近30天',
+      custom: '自定义时间'
+    }
+    tags.push({
+      key: 'time',
+      label: timeLabels[reviewFilters.value.timePreset] || '指定时间',
+      onRemove: () => {
+        reviewFilters.value.timePreset = 'all'
+        reviewFilters.value.dateRange = []
+        applyFilters()
+      }
+    })
+  }
+
+  return tags
+})
+
+function getRatioCategoryLabel(key: string): string {
+  const item = RATIO_FILTER_OPTIONS.find((o) => o.key === key)
+  return item ? item.label : key
+}
+
+function selectTimePreset(key: string) {
+  reviewFilters.value.timePreset = key
+  if (key !== 'custom') {
+    reviewFilters.value.dateRange = []
+  }
+}
+
+function toggleSuffix(ext: string) {
+  const idx = reviewFilters.value.suffix.indexOf(ext)
+  if (idx > -1) {
+    reviewFilters.value.suffix.splice(idx, 1)
+  } else {
+    reviewFilters.value.suffix.push(ext)
+  }
+}
+
+function initReviewFilters() {
+  const init = props.initialFilters || {}
+  const hasInit = Object.keys(init).length > 0
+  const sizeShape = hasInit
+    ? Array.isArray(init.sizeShape)
+      ? init.sizeShape.filter(Boolean)
+      : init.sizeShape
+        ? [init.sizeShape]
+        : []
+    : []
+  const targetNum = Number(init.targetAspectRatio)
+  const hasTarget =
+    hasInit &&
+    init.targetAspectRatio !== undefined &&
+    init.targetAspectRatio !== null &&
+    init.targetAspectRatio !== '' &&
+    Number.isFinite(targetNum) &&
+    targetNum > 0
+  const toleranceNum = Number(init.aspectRatioTolerance)
+  const legacyCategory = init.aspectRatioCategory
+  const category =
+    hasInit && legacyCategory && RATIO_FILTER_OPTIONS.some((o) => o.key === legacyCategory)
+      ? legacyCategory
+      : 'all'
+
+  reviewFilters.value = {
+    isCutout: hasInit && init.isCutout !== undefined && init.isCutout !== '' ? init.isCutout : undefined,
+    suffix: hasInit && Array.isArray(init.suffix) ? [...init.suffix] : hasInit && init.suffix ? [init.suffix] : [],
+    aspectRatioCategory: sizeShape.length || hasTarget ? 'all' : category,
+    sizeShape,
+    ratioTarget: hasTarget ? targetNum : undefined,
+    ratioTolerance: hasTarget ? (Number.isFinite(toleranceNum) ? toleranceNum : 5) : undefined,
+    timePreset: hasInit && (init.startTime || init.endTime) ? 'custom' : init.timePreset || 'all',
+    dateRange: hasInit && init.startTime && init.endTime ? [init.startTime, init.endTime] : []
+  }
+}
+
+/** 是否带有从列表页同步来的比例条件（精细形状 / 自定义比例） */
+const hasInheritedRatio = computed(
+  () => reviewFilters.value.sizeShape.length > 0 || reviewFilters.value.ratioTarget !== undefined
+)
+
+const inheritedRatioLabel = computed(() => {
+  const parts: string[] = []
+  if (reviewFilters.value.sizeShape.length) {
+    parts.push(
+      reviewFilters.value.sizeShape.map((key) => getSizeShapeConfig(key)?.label || key).join('、')
+    )
+  }
+  if (reviewFilters.value.ratioTarget !== undefined) {
+    parts.push(`比例 ${reviewFilters.value.ratioTarget} (±${reviewFilters.value.ratioTolerance ?? 5}%)`)
+  }
+  return parts.join(' + ')
+})
+
+/** 点击预设比例：覆盖同步来的比例条件 */
+function selectRatioCategory(key: string) {
+  reviewFilters.value.sizeShape = []
+  reviewFilters.value.ratioTarget = undefined
+  reviewFilters.value.ratioTolerance = undefined
+  reviewFilters.value.aspectRatioCategory = key
+}
+
+function clearInheritedRatio() {
+  reviewFilters.value.sizeShape = []
+  reviewFilters.value.ratioTarget = undefined
+  reviewFilters.value.ratioTolerance = undefined
+  reviewFilters.value.aspectRatioCategory = 'all'
+}
+
+function applyFilters() {
+  filterPopoverVisible.value = false
+  batchPage.value = 1
+  fetchBatch(activeMode.value, 1)
+}
+
+function resetFilters() {
+  reviewFilters.value = {
+    isCutout: undefined,
+    suffix: [],
+    aspectRatioCategory: 'all',
+    sizeShape: [],
+    ratioTarget: undefined,
+    ratioTolerance: undefined,
+    timePreset: 'all',
+    dateRange: []
+  }
+  applyFilters()
+}
 
 // ==================== 辅助排序与模式调度 ====================
 function getMaterialTimestamp(item: any): number {
@@ -487,28 +977,100 @@ function switchMode(mode: QuickReviewMode) {
   }
 }
 
+function buildQueryPayload(mode: QuickReviewMode, page = 1) {
+  const params: any = {
+    currentPage: page,
+    pageSize: 50,
+    listMode: 'compact',
+    includeRelations: false
+  }
+  const folderFilter = convertFolderIdToApiParam(props.folderId)
+  if (folderFilter !== undefined && folderFilter !== null) {
+    params.folderId = folderFilter
+  }
+  if (mode === 'recent') {
+    params.sortOrder = 'DESC'
+  } else if (mode === 'oldest') {
+    params.sortOrder = 'ASC'
+  } else if (mode === 'random') {
+    params.random = true
+    params._t = Date.now()
+  }
+
+  // 1. 是否抠图过滤
+  if (reviewFilters.value.isCutout !== undefined && reviewFilters.value.isCutout !== null) {
+    params.isCutout = reviewFilters.value.isCutout
+  }
+
+  // 2. 文件后缀过滤
+  if (reviewFilters.value.suffix && reviewFilters.value.suffix.length > 0) {
+    params.suffix = reviewFilters.value.suffix
+  }
+
+  // 3. 尺寸比例过滤
+  // 列表页同步来的精细形状与自定义比例可同时生效（后端为 AND 关系）
+  const { sizeShape, ratioTarget, ratioTolerance } = reviewFilters.value
+  if (sizeShape.length > 0) {
+    params.sizeShape = sizeShape
+  }
+  if (ratioTarget !== undefined) {
+    const tolerance = ratioTolerance ?? 5
+    const range = calculateAspectRatioRange(ratioTarget, tolerance)
+    params.targetAspectRatio = ratioTarget
+    params.aspectRatioTolerance = tolerance / 100
+    params.minAspectRatio = range.min
+    params.maxAspectRatio = range.max
+  }
+
+  const cat = sizeShape.length > 0 || ratioTarget !== undefined ? 'all' : reviewFilters.value.aspectRatioCategory
+  if (cat && cat !== 'all') {
+    if (cat === 'portrait' || cat === 'landscape' || cat === 'square') {
+      params.sizeShape = [cat]
+    } else {
+      const preset = RATIO_PRESET_QUERY[cat]
+      if (preset) {
+        const range = calculateAspectRatioRange(preset.target, preset.tolerance)
+        params.targetAspectRatio = preset.target
+        params.aspectRatioTolerance = preset.tolerance / 100
+        params.minAspectRatio = range.min
+        params.maxAspectRatio = range.max
+      }
+    }
+  }
+
+  // 4. 时间范围过滤
+  const timePreset = reviewFilters.value.timePreset
+  const now = Date.now()
+  if (timePreset === 'today') {
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
+    params.startTime = d.getTime()
+    params.endTime = now
+  } else if (timePreset === '3days') {
+    params.startTime = now - 3 * 86400 * 1000
+    params.endTime = now
+  } else if (timePreset === '7days') {
+    params.startTime = now - 7 * 86400 * 1000
+    params.endTime = now
+  } else if (timePreset === '30days') {
+    params.startTime = now - 30 * 86400 * 1000
+    params.endTime = now
+  } else if (
+    timePreset === 'custom' &&
+    Array.isArray(reviewFilters.value.dateRange) &&
+    reviewFilters.value.dateRange.length === 2
+  ) {
+    params.startTime = reviewFilters.value.dateRange[0]
+    params.endTime = reviewFilters.value.dateRange[1]
+  }
+
+  return params
+}
+
 async function fetchBatch(mode: QuickReviewMode, page = 1) {
   loadingBatch.value = true
   try {
-    const params: any = {
-      currentPage: page,
-      pageSize: 50,
-      listMode: 'compact',
-      includeRelations: false
-    }
-    const folderFilter = convertFolderIdToApiParam(props.folderId)
-    if (folderFilter !== undefined && folderFilter !== null) {
-      params.folderId = folderFilter
-    }
-    if (mode === 'recent') {
-      params.sortOrder = 'DESC'
-    } else if (mode === 'oldest') {
-      params.sortOrder = 'ASC'
-    } else if (mode === 'random') {
-      params.random = true
-      params._t = Date.now()
-    }
-
+    const params = buildQueryPayload(mode, page)
     const res: any = await getMaterialList(params)
     const list = res?.list || []
     if (list.length > 0) {
@@ -516,13 +1078,17 @@ async function fetchBatch(mode: QuickReviewMode, page = 1) {
       queue.value = mode === 'random' ? sortQueueItems(list, 'random') : list
       currentIndex.value = 0
       skippedQueue.value = []
+      // 批次到达立即预热前 4 张
+      const headSlice = queue.value.slice(0, 4).map((item: any) => deckKeyOf(item)).filter(Boolean)
+      if (headSlice.length) deck.warmNow(headSlice)
       syncCurrentMaterial()
       const labels: Record<QuickReviewMode, string> = {
         recent: '最近图片',
         oldest: '最早图片',
         random: '随机图片'
       }
-      ElMessage.success(`已切换至【${labels[mode]}】，加载了 ${list.length} 张素材`)
+      const filterHint = activeFilterCount.value > 0 ? ` (已生效 ${activeFilterCount.value} 个筛选)` : ''
+      ElMessage.success(`已切换至【${labels[mode]}】，加载了 ${list.length} 张素材${filterHint}`)
     } else {
       if (props.items && props.items.length > 0) {
         queue.value = sortQueueItems(props.items, mode)
@@ -533,6 +1099,9 @@ async function fetchBatch(mode: QuickReviewMode, page = 1) {
         queue.value = []
         currentIndex.value = 0
         syncCurrentMaterial()
+        if (activeFilterCount.value > 0) {
+          ElMessage.warning('未找到符合当前筛选条件的素材，可点击「筛选」放宽条件')
+        }
       }
     }
   } catch (err) {
@@ -578,27 +1147,29 @@ const optimisticRecordKeys = ref<Set<string>>(new Set())
 const current = computed(() => queue.value[currentIndex.value] || null)
 
 // ==================== 预加载与大图解码配置 ====================
-/** 空闲帧里最多预热后面几张大图（紧挨着的 2 张走立即通道） */
-const PRELOAD_AHEAD = 6
-/** 切换到下一张时，最多愿意等待解码多久（毫秒，超时不阻塞直接切） */
-const DECK_WAIT_TIMEOUT = 400
+/** 空闲帧里最多预热后面几张大图（紧挨着的 3 张走立即通道） */
+const PRELOAD_AHEAD = 9
 /** 出图宽度上限：兼顾高清画质与解码性能，避免过大原图占满主线程 */
 const DECK_MAX_WIDTH = 2000
 /** 队列剩余多少张素材时在后台无感补货下一批 */
 const PREFETCH_THRESHOLD = 15
 
 /** 图片预解码调度器：负责「下一张随时可上屏」 */
-const deck = useImageDeck({ maxCache: 24, warmTimeout: 6000 })
+const deck = useImageDeck({ maxCache: 40, warmTimeout: 6000 })
 
 /**
- * 实际下载/上屏的图片地址按视口宽度让 COS 出图，
- * 清晰度对审核没有损失，解码量比原图小一到两个数量级。
+ * 实际下载/上屏的图片地址按视口宽度离散量化出图，
+ * 采用 1200 / 1600 / 2000 档位消除微小视口抖动，
+ * 确保预热算出的 URL 与真正渲染的 URL 100% 相同，杜绝脱靶。
  */
 function pickDeckWidth(): number {
   if (typeof window === 'undefined') return 1600
   const dpr = Math.min(window.devicePixelRatio || 1, 2)
-  const cssWidth = Math.min(window.innerWidth, 1920)
-  return Math.max(900, Math.min(DECK_MAX_WIDTH, Math.round(cssWidth * dpr * 0.75)))
+  const cssWidth = window.innerWidth || 1600
+  const target = cssWidth * dpr * 0.75
+  if (target <= 1300) return 1200
+  if (target <= 1700) return 1600
+  return 2000
 }
 
 const deckWidth = ref(pickDeckWidth())
@@ -611,8 +1182,10 @@ function deckKeyOf(item: any): string {
 
 function handleResize(): void {
   const nextW = pickDeckWidth()
-  if (Math.abs(nextW - deckWidth.value) > 100) {
+  if (nextW !== deckWidth.value) {
     deckWidth.value = nextW
+    // 档位变化时，重新预热当前及后续图片
+    warmAhead()
   }
 }
 
@@ -621,8 +1194,12 @@ const displayUrl = ref('')
 const deckPending = ref(false)
 let deckSeq = 0
 
-/** 视觉层无缝切换：图片解码就绪才上屏，避免白闪与掉帧 */
-async function syncDeck(): Promise<void> {
+/**
+ * 视觉层无缝极速切换：
+ * 0ms 瞬间把当前目标素材的图片赋给 displayUrl，绝不卡死在上一张旧图！
+ * 若已后台预解码完毕，实现 0ms 丝滑瞬切；若尚未就绪，保留轻量 pending 态并异步加速解码。
+ */
+function syncDeck(): void {
   const sticker = current.value
   const target = deckKeyOf(sticker)
   const seq = ++deckSeq
@@ -633,49 +1210,63 @@ async function syncDeck(): Promise<void> {
     return
   }
 
-  // 绝大多数情况下下一张早已在后台解码就绪，这里零延迟直接上屏
+  // 1. 0ms 瞬间直显目标素材地址，彻底根除快速连按时旧图锁死 400ms 的缺陷
+  displayUrl.value = target
+
+  // 2. 检查是否在后台已完成预解码
   if (deck.isReady(target)) {
-    displayUrl.value = target
     deckPending.value = false
     return
   }
 
-  // 若尚未就绪，保留当前画面等待微解码，绝不给用户闪白
+  // 3. 尚未预解码完成时，开启轻量 pending 提示，并在后台加速解码
   deckPending.value = true
-  await deck.awaitReady(target, DECK_WAIT_TIMEOUT)
-  if (seq !== deckSeq) return // 用户快速切图，丢弃过期结果
-  displayUrl.value = target
-  deckPending.value = false
+  void deck.ensure(target).then(() => {
+    if (seq === deckSeq) {
+      deckPending.value = false
+    }
+  })
 }
 
 /**
- * 多级大图预热管线：
- * 1) 紧挨着的 2 张大图走立即通道（解码优先级最高）
- * 2) 前方的第 3~8 张通过空闲帧慢慢预解码
- * 3) 预热上一张（方便用户按 W 回退复查时秒开）
+ * 多级大图超前预热管线：
+ * 1) 紧挨着的后 3 张大图走立即通道（最高优先级）
+ * 2) 紧挨着的前 1 张大图走立即通道（方便用户按 W / ← 回退秒开）
+ * 3) 前方的第 4~12 张通过空闲帧管道逐步预解码
  */
 function warmAhead(): void {
   const list = queue.value
   const idx = currentIndex.value
   if (!list.length) return
 
-  // 1. 紧随其后的 2 张大图走立即通道
-  if (idx + 1 < list.length) {
-    deck.warmNow(deckKeyOf(list[idx + 1]))
-  }
-  if (idx + 2 < list.length) {
-    deck.warmNow(deckKeyOf(list[idx + 2]))
-  }
+  // 1. 立即通道：当前正在看的图确保在缓存中
+  const curUrl = deckKeyOf(list[idx])
+  if (curUrl) deck.ensure(curUrl)
 
-  // 2. 前方的第 3~8 张通过空闲帧慢慢预解码
-  const idleSlice = list.slice(idx + 3, idx + 3 + PRELOAD_AHEAD)
-  if (idleSlice.length) {
-    deck.warmIdle(idleSlice.map((item: any) => deckKeyOf(item)))
+  // 2. 立即通道：紧随其后的 3 张大图抢占式预解码
+  const nextSlice: string[] = []
+  for (let i = 1; i <= 3; i++) {
+    if (idx + i < list.length) {
+      const u = deckKeyOf(list[idx + i])
+      if (u) nextSlice.push(u)
+    }
   }
-
-  // 3. 预热上一张（方便用户回退秒开）
+  // 3. 立即通道：前 1 张大图（回退秒开）
   if (idx > 0) {
-    deck.warmNow(deckKeyOf(list[idx - 1]))
+    const prevU = deckKeyOf(list[idx - 1])
+    if (prevU) nextSlice.push(prevU)
+  }
+  if (nextSlice.length) {
+    deck.warmNow(nextSlice)
+  }
+
+  // 4. 空闲通道：前方第 4~12 张（共 9 张）通过空闲帧慢慢解码
+  const idleSlice = list.slice(idx + 4, idx + 4 + PRELOAD_AHEAD)
+  if (idleSlice.length) {
+    const idleUrls = idleSlice.map((item: any) => deckKeyOf(item)).filter(Boolean)
+    if (idleUrls.length) {
+      deck.warmIdle(idleUrls)
+    }
   }
 }
 
@@ -706,24 +1297,7 @@ async function checkAndPrefetchQueue(): Promise<void> {
   inflightPrefetch = (async () => {
     try {
       const nextPage = batchPage.value + 1
-      const params: any = {
-        currentPage: nextPage,
-        pageSize: 50,
-        listMode: 'compact',
-        includeRelations: false
-      }
-      const folderFilter = convertFolderIdToApiParam(props.folderId)
-      if (folderFilter !== undefined && folderFilter !== null) {
-        params.folderId = folderFilter
-      }
-      if (activeMode.value === 'recent') {
-        params.sortOrder = 'DESC'
-      } else if (activeMode.value === 'oldest') {
-        params.sortOrder = 'ASC'
-      } else if (activeMode.value === 'random') {
-        params.random = true
-        params._t = Date.now()
-      }
+      const params = buildQueryPayload(activeMode.value, nextPage)
 
       const res: any = await getMaterialList(params)
       const list = Array.isArray(res?.list) ? res.list : []
@@ -814,6 +1388,7 @@ function initQueue() {
   deck.reset()
   preloadPublishConfigs()
   activeMode.value = props.initialMode || 'recent'
+  initReviewFilters()
   batchPage.value = 1
   skippedQueue.value = []
   createdMaterialCount.value = 0
@@ -827,6 +1402,9 @@ function initQueue() {
     loadingBatch.value = false
     queue.value = sortQueueItems(initialItems, activeMode.value)
     currentIndex.value = Math.min(Math.max(props.startIndex || 0, 0), Math.max(queue.value.length - 1, 0))
+    const startIdx = currentIndex.value
+    const headSlice = queue.value.slice(startIdx, startIdx + 4).map((item: any) => deckKeyOf(item)).filter(Boolean)
+    if (headSlice.length) deck.warmNow(headSlice)
     syncCurrentMaterial()
   } else {
     // 未勾选或全库审核模式：同步置 loadingBatch = true，清空 queue，确保不会短暂露底「全部审核完毕」
@@ -878,10 +1456,10 @@ function syncCurrentMaterial() {
     .map((item) => item.id)
   selectedConfigIds.value = initialMatchedIds
 
-  // 2. 调度图片高清上屏与无白屏平滑切换
-  void syncDeck()
+  // 2. 调度图片高清上屏与无白屏平滑切换（0ms 即时生效）
+  syncDeck()
 
-  // 3. 多级高清预热管线（立即预热后 2 张，空闲预热后 3~8 张，预热前 1 张）
+  // 3. 多级高清预热管线（立即预热后 3 张 + 前 1 张，空闲预热后 4~12 张）
   warmAhead()
 
   // 4. 数据层预热（提前拉取后 5 张的发布记录）与无感静默补货
@@ -1083,6 +1661,9 @@ function handleKeydown(e: KeyboardEvent) {
     return
   }
 
+  // 加载批次中不响应其他快捷键
+  if (loadingBatch.value) return
+
   // 2. 一键创建选中的发布任务并看下一张：Enter / NumpadEnter
   if (e.key === 'Enter' || e.code === 'Enter' || e.code === 'NumpadEnter') {
     e.preventDefault()
@@ -1169,7 +1750,7 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   inset: 0;
   z-index: 2500;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   background: var(--app-content-bg-color, var(--el-bg-color-page));
   color: var(--el-text-color-primary);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -1182,10 +1763,20 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   --pqr-checker-color-1: #edf1f7;
   --pqr-checker-color-2: #ffffff;
 
+  /* 主色淡底 / 描边 / 前景：半透明叠底，深色模式自动落到深紫底，不会整块发白 */
+  --pqr-primary-tint: color-mix(in srgb, var(--el-color-primary) 12%, transparent);
+  --pqr-primary-border: color-mix(in srgb, var(--el-color-primary) 28%, transparent);
+  --pqr-primary-on-tint: var(--el-color-primary);
+  /* 移除态前景：浅色压深、深色提亮，保证在淡红底上仍有足够对比 */
+  --pqr-danger-on-tint: color-mix(in srgb, var(--el-color-danger) 62%, #000000);
+
   /* 黑夜模式变量覆盖 */
   &.is-dark {
-    --pqr-checker-color-1: #1a1a1c;
-    --pqr-checker-color-2: #111112;
+    --pqr-checker-color-1: #18191b;
+    --pqr-checker-color-2: #101012;
+    /* 深色下主色 #6900ff 偏暗，前景提亮保证可读性 */
+    --pqr-primary-on-tint: color-mix(in srgb, var(--el-color-primary) 50%, #ffffff);
+    --pqr-danger-on-tint: color-mix(in srgb, var(--el-color-danger) 45%, #ffffff);
   }
 }
 
@@ -1193,92 +1784,88 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
 :global(html.dark) .pqr,
 :global(html[class*="dark"]) .pqr,
 :global(body.dark) .pqr {
-  --pqr-checker-color-1: #1a1a1c;
-  --pqr-checker-color-2: #111112;
+  --pqr-checker-color-1: #18191b;
+  --pqr-checker-color-2: #101012;
 }
 
 @media (prefers-color-scheme: dark) {
   :global(html:not(.light)) .pqr {
-    --pqr-checker-color-1: #1a1a1c;
-    --pqr-checker-color-2: #111112;
+    --pqr-checker-color-1: #18191b;
+    --pqr-checker-color-2: #101012;
   }
 }
 
-/* ================= 顶栏 ================= */
-.pqr__bar {
-  height: 50px;
-  flex-shrink: 0;
+/* ================= 左侧大图展示与沉浸舞台 ================= */
+.pqr__stage-wrap {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  background-image: repeating-conic-gradient(
+      var(--pqr-checker-color-1, #edf1f7) 0% 25%,
+      var(--pqr-checker-color-2, #ffffff) 0% 50%
+    );
+  background-size: 20px 20px;
+  background-position: 50% 50%;
+  transition: background-image 0.2s ease;
+}
+
+/* 极简悬浮顶条：无实底边框，浮动毛玻璃轻量控件 */
+.pqr__floating-bar {
+  position: absolute;
+  top: 14px;
+  left: 18px;
+  right: 18px;
+  z-index: 2005;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
-  border-bottom: 1px solid var(--app-content-border-color, var(--el-border-color-lighter));
-  background: var(--app-content-surface-color, var(--el-bg-color));
+  pointer-events: none;
 }
 
-.pqr__bar-lead {
-  display: flex;
+.pqr__floating-left,
+.pqr__floating-right {
+  pointer-events: auto;
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
-.pqr__bar-icon {
-  color: var(--el-color-primary);
-}
-
-.pqr__title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--el-text-color-primary);
-}
-
-.pqr__badge {
-  font-size: 12px;
-  padding: 1px 7px;
-  border-radius: 4px;
-  background: var(--el-fill-color-light);
-  color: var(--el-text-color-secondary);
-}
-
-.pqr__progress {
+.pqr__floating-progress {
   font-size: 13px;
-  font-weight: 600;
-  color: var(--el-color-primary);
-  background: color-mix(in srgb, var(--el-color-primary) 12%, transparent);
-  padding: 2px 10px;
-  border-radius: 12px;
-  margin-left: 4px;
+  font-weight: 700;
+  color: var(--pqr-primary-on-tint);
+  font-variant-numeric: tabular-nums;
 }
 
-/* ================= 顶栏中央模式选择器 ================= */
-.pqr__bar-center {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.pqr__floating-badge {
+  font-size: 11px;
+  color: var(--el-text-color-secondary);
 }
 
 .pqr__mode-segmented {
   display: inline-flex;
   align-items: center;
-  background: var(--el-fill-color-darker, rgba(0, 0, 0, 0.08));
-  padding: 2.5px;
-  border-radius: 8px;
-  border: 1px solid var(--el-border-color-lighter);
+  gap: 12px;
 }
 
 .pqr__mode-tab {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 4px 11px;
+  gap: 4px;
+  padding: 0;
   font-size: 12px;
   font-weight: 500;
-  color: var(--el-text-color-regular);
+  color: var(--el-text-color-secondary);
   background: transparent;
   border: none;
-  border-radius: 6px;
   cursor: pointer;
-  transition: all 0.14s ease;
+  transition: color 0.14s ease;
   white-space: nowrap;
   user-select: none;
 
@@ -1287,38 +1874,26 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   }
 
   &.is-active {
-    background: var(--el-bg-color, #ffffff);
-    color: var(--el-color-primary);
+    color: var(--pqr-primary-on-tint);
     font-weight: 600;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   }
-}
-
-:global(html.dark) .pqr__mode-tab.is-active,
-:global(html[class*="dark"]) .pqr__mode-tab.is-active {
-  background: var(--el-bg-color-overlay, #1d1e1f);
-  color: var(--el-color-primary);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
 
 .pqr__refresh-batch-btn {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 4.5px 10px;
+  padding: 0;
   font-size: 12px;
   font-weight: 500;
-  color: var(--el-text-color-regular);
-  background: var(--el-fill-color-light);
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 6px;
+  color: var(--el-text-color-secondary);
+  background: transparent;
+  border: none;
   cursor: pointer;
-  transition: all 0.14s ease;
+  transition: color 0.14s ease;
 
   &:hover:not(:disabled) {
-    color: var(--el-color-primary);
-    border-color: var(--el-color-primary-light-5);
-    background: var(--el-color-primary-light-9);
+    color: var(--pqr-primary-on-tint);
   }
 
   &:disabled {
@@ -1327,35 +1902,246 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   }
 }
 
-@media (max-width: 1024px) {
-  .pqr__mode-tab {
-    padding: 4px 6px;
-    font-size: 11px;
+/* ================= 筛选触发按钮与计数 ================= */
+.pqr__filter-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--el-text-color-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color 0.14s ease;
+  user-select: none;
+
+  &:hover,
+  &.is-open {
+    color: var(--el-text-color-primary);
+  }
+
+  &.has-active {
+    color: var(--pqr-primary-on-tint);
+    font-weight: 600;
   }
 }
 
-.pqr__bar-ops {
+.pqr__filter-count-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--pqr-primary-on-tint);
+}
+
+/* ================= 活跃过滤标签快速指示条 ================= */
+.pqr__active-tags {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pqr__active-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11.5px;
+  background: transparent;
+  color: var(--pqr-primary-on-tint);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: color 0.14s ease;
+  white-space: nowrap;
+
+  &:hover {
+    color: var(--pqr-danger-on-tint);
+  }
+}
+
+.pqr__active-tag-close {
+  font-size: 10px;
+}
+
+.pqr__clear-all-link {
+  font-size: 11px;
+  color: var(--el-text-color-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0 2px;
+  white-space: nowrap;
+
+  &:hover {
+    color: var(--el-color-danger);
+    text-decoration: underline;
+  }
+}
+
+/* ================= 筛选面板样式 ================= */
+.pqr-filter-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  color: var(--el-text-color-primary);
+}
+
+.pqr-filter-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  padding-bottom: 10px;
+}
+
+.pqr-filter-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pqr-filter-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--el-text-color-primary);
+}
+
+.pqr-filter-subtitle {
+  font-size: 11px;
+  color: var(--el-text-color-secondary);
+}
+
+.pqr-filter-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pqr-filter-label {
   display: flex;
   align-items: center;
-  gap: 14px;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--el-text-color-regular);
+}
+
+.pqr-filter-val-hint {
+  font-size: 11px;
+  font-weight: normal;
+  color: var(--el-color-primary);
+}
+
+.pqr-filter-clear-inherited {
+  margin-left: auto;
+  padding: 0;
+  font-size: 11px;
+  color: var(--el-text-color-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--el-color-primary);
+  }
+}
+
+.pqr-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pqr-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--el-text-color-regular);
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color-lighter);
+  cursor: pointer;
+  transition: all 0.14s ease;
+  user-select: none;
+  white-space: nowrap;
+
+  &:hover {
+    color: var(--pqr-primary-on-tint);
+    border-color: var(--pqr-primary-border);
+    background: var(--pqr-primary-tint);
+  }
+
+  &.is-active {
+    color: var(--pqr-primary-on-tint);
+    background: var(--pqr-primary-tint);
+    border-color: var(--el-color-primary);
+    font-weight: 600;
+  }
+}
+
+.pqr-chip-sub {
+  font-size: 10px;
+  opacity: 0.65;
+  margin-left: 1px;
+}
+
+.pqr-chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+
+  &--cutout {
+    background: #10b981;
+  }
+
+  &--bg {
+    background: #3b82f6;
+  }
+}
+
+.pqr-filter-custom-time {
+  margin-top: 4px;
+}
+
+.pqr-filter-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--el-border-color-lighter);
+  padding-top: 12px;
+  margin-top: 2px;
+}
+
+.pqr-filter-tips {
+  font-size: 11px;
+  color: var(--el-text-color-secondary);
+}
+
+.pqr-filter-btns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .pqr__stats {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   font-size: 12px;
+  padding: 0 4px;
 }
 
 .pqr__stat-item {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
 .pqr__stat-dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
 
   &--create {
@@ -1387,8 +2173,8 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
 
 .pqr__ops-divider {
   width: 1px;
-  height: 16px;
-  background: var(--app-content-border-color, var(--el-border-color-lighter));
+  height: 14px;
+  background: var(--el-border-color-lighter);
 }
 
 .pqr__text-btn {
@@ -1397,7 +2183,7 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   font-size: 12px;
   color: var(--el-text-color-regular);
   cursor: pointer;
-  padding: 4px 8px;
+  padding: 3px 6px;
   border-radius: 4px;
   transition: all 0.15s ease;
 
@@ -1407,12 +2193,12 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   }
 }
 
-.pqr__close {
+.pqr__floating-close {
   background: none;
   border: none;
   color: var(--el-text-color-secondary);
-  font-size: 18px;
-  padding: 6px;
+  font-size: 16px;
+  padding: 4px;
   border-radius: 4px;
   cursor: pointer;
   display: flex;
@@ -1426,41 +2212,15 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   }
 }
 
-/* ================= 主体 ================= */
-.pqr__main {
-  flex: 1;
-  display: flex;
-  min-height: 0;
-  position: relative;
-}
-
-/* 中央图片舞台：自适应黑白天棋盘方格背景 */
-.pqr__stage-wrap {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  min-width: 0;
-  padding: 20px 24px 75px;
-  background-image: repeating-conic-gradient(
-      var(--pqr-checker-color-1, #edf1f7) 0% 25%,
-      var(--pqr-checker-color-2, #ffffff) 0% 50%
-    );
-  background-size: 20px 20px;
-  background-position: 50% 50%;
-  transition: background-image 0.2s ease;
-  overflow: hidden;
-}
-
 .pqr__stage-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  /* 严格限制最大宽度，为左右两侧翻页按钮保留至少 140px 安全空间 */
-  max-width: min(calc(100% - 130px), 860px);
+  justify-content: center;
+  max-width: min(calc(100% - 90px), 1100px);
   max-height: 100%;
   gap: 12px;
+  padding: 56px 20px 65px;
 }
 
 .pqr__stage {
@@ -1472,12 +2232,9 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
 }
 
 .pqr__image {
-  /* 限制图片宽度，横图不过度拉伸且绝对不挤压翻页按钮 */
-  max-width: min(calc(100vw - 380px - 140px), 820px);
-  max-height: calc(100vh - 220px);
+  max-width: min(calc(100vw - 390px - 80px), 1100px);
+  max-height: calc(100vh - 160px);
   object-fit: contain;
-  border-radius: 6px;
-  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.22));
   border: none;
   background: transparent;
   transition: opacity 0.12s ease;
@@ -1494,8 +2251,7 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--el-color-primary, #409eff);
-  box-shadow: 0 0 10px var(--el-color-primary, #409eff);
+  background: var(--pqr-primary-on-tint);
   animation: pqrDeckPulse 0.9s infinite alternate;
   pointer-events: none;
   z-index: 10;
@@ -1512,16 +2268,12 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   }
 }
 
-/* 图片中间偏下：轻量信息胶囊条 */
+/* 图片下方：纯文字信息行 */
 .pqr__image-info-bar {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 12px;
-  border-radius: 20px;
-  background: var(--el-bg-color-overlay, var(--el-bg-color));
-  border: 1px solid var(--el-border-color-lighter);
-  box-shadow: var(--el-box-shadow-light);
+  gap: 12px;
+  padding: 0;
   font-size: 12px;
 }
 
@@ -1537,16 +2289,13 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
 .pqr__info-pill {
   display: inline-flex;
   align-items: center;
-  padding: 1px 7px;
-  border-radius: 4px;
-  background: var(--el-fill-color-light);
-  color: var(--el-text-color-regular);
+  padding: 0;
+  color: var(--el-text-color-secondary);
   font-size: 11px;
   font-weight: 500;
 
   &--highlight {
-    background: color-mix(in srgb, var(--el-color-primary) 14%, transparent);
-    color: var(--el-color-primary);
+    color: var(--pqr-primary-on-tint);
     font-weight: 600;
   }
 
@@ -1564,7 +2313,7 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   margin-left: 2px;
 }
 
-/* 翻页按钮：固定在舞台左右两侧安全距离，绝不会超出屏幕或侵入右侧面板 */
+/* 翻页按钮：固定在舞台左右两侧安全距离 */
 .pqr__nav-arrow {
   position: absolute;
   top: 50%;
@@ -1572,23 +2321,19 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: var(--el-bg-color-overlay, var(--el-bg-color));
-  border: 1px solid var(--el-border-color-lighter);
+  background: transparent;
+  border: none;
   color: var(--el-text-color-regular);
   font-size: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16);
   z-index: 15;
-  transition: all 0.15s ease;
+  transition: color 0.15s ease;
 
   &:hover {
-    color: var(--el-color-primary);
-    border-color: var(--el-color-primary);
-    transform: translateY(-50%) scale(1.08);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+    color: var(--pqr-primary-on-tint);
   }
 
   &--prev {
@@ -1600,30 +2345,18 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   }
 }
 
-.pqr__loading-full {
+.pqr__side-empty {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  padding: 48px 0;
   color: var(--el-text-color-secondary);
-  height: 100%;
-  min-height: 360px;
-}
-
-.pqr__loading-text {
-  font-size: 14px;
-  color: var(--el-text-color-regular);
 }
 
 .pqr__empty {
   text-align: center;
   max-width: 420px;
-  padding: 36px 24px;
-  background: var(--el-bg-color);
-  border-radius: 8px;
-  border: 1px solid var(--el-border-color-lighter);
-  box-shadow: var(--el-box-shadow-light);
+  padding: 24px;
 }
 
 .pqr__empty-title {
@@ -1639,13 +2372,15 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   color: var(--el-text-color-secondary);
 }
 
-/* ================= 右侧面板（纯粹展示配置） ================= */
+/* ================= 右侧面板（纯粹负责配置） ================= */
 .pqr__side {
-  width: 380px;
+  width: 390px;
   flex-shrink: 0;
+  height: 100%;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  position: relative;
   background: var(--app-content-surface-color, var(--el-bg-color));
   border-left: 1px solid var(--app-content-border-color, var(--el-border-color-lighter));
   padding: 14px 14px 0;
@@ -1656,8 +2391,7 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--el-border-color-lighter);
+  padding-bottom: 2px;
 }
 
 .pqr__side-title-row {
@@ -1674,16 +2408,39 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
 
 .pqr__count-badge {
   font-size: 11px;
-  font-weight: 600;
-  padding: 1px 6px;
-  border-radius: 10px;
-  background: var(--el-fill-color-light);
   color: var(--el-text-color-secondary);
 
   &--success {
-    background: color-mix(in srgb, var(--el-color-success) 14%, transparent);
     color: var(--el-color-success);
   }
+}
+
+.pqr__side-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--el-text-color-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 15px;
+  position: relative;
+  z-index: 2005;
+  transition: color 0.15s ease;
+
+  &:hover {
+    color: var(--el-color-danger, #f56c6c);
+  }
+}
+
+.pqr__side-subbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 2px 4px;
 }
 
 .pqr__side-actions {
@@ -1706,15 +2463,20 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   }
 }
 
+.pqr__side-sub-count {
+  font-size: 11px;
+  color: var(--el-text-color-secondary);
+}
+
 .pqr__config-scroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin: 0 -4px;
-  padding: 2px 4px;
+  gap: 2px;
+  margin: 0 -8px;
+  padding: 0 8px;
 }
 
 /* 分隔提示条：其他配置 · 按近似比例排序 */
@@ -1740,29 +2502,27 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   white-space: nowrap;
 }
 
-/* ---------- 配置卡：未选中 ---------- */
+/* ---------- 配置行：无边框，仅靠底色区分状态 ---------- */
 .pqr__config-card {
   position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: var(--el-bg-color);
-  border: 1px solid var(--el-border-color-lighter);
+  padding: 8px;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
   cursor: pointer;
-  transition: background-color 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+  transition: background-color 0.12s ease;
   user-select: none;
 
   &:hover {
-    border-color: var(--el-color-primary-light-5);
+    background: var(--el-fill-color-light);
   }
 
-  /* ---------- 选中：蓝边 + 蓝底 + 实心勾 ---------- */
+  /* ---------- 选中：淡色底 + 主色名称 + 实心勾 ---------- */
   &.is-selected {
-    background: color-mix(in srgb, var(--el-color-primary) 9%, var(--el-bg-color));
-    border-color: var(--el-color-primary);
-    box-shadow: inset 0 0 0 1px var(--el-color-primary);
+    background: color-mix(in srgb, var(--el-color-primary) 8%, transparent);
 
     .pqr__check {
       background: var(--el-color-primary);
@@ -1771,7 +2531,7 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
     }
 
     .pqr__config-name {
-      color: var(--el-color-primary);
+      color: var(--pqr-primary-on-tint);
       font-weight: 600;
     }
   }
@@ -1779,9 +2539,7 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   /* ---------- 已发布：不可选，弱化 + 绿勾 ---------- */
   &.is-published {
     cursor: default;
-    background: var(--el-fill-color-lighter);
-    border-color: transparent;
-    box-shadow: none;
+    background: transparent;
 
     .pqr__check {
       background: var(--el-color-success);
@@ -1795,7 +2553,7 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
     }
 
     &:hover {
-      border-color: transparent;
+      background: transparent;
     }
   }
 
@@ -1969,10 +2727,7 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
 /* 侧边栏底部操作：贴底 */
 .pqr__side-footer {
   flex-shrink: 0;
-  margin: 0 -14px;
-  padding: 12px 14px 14px;
-  border-top: 1px solid var(--app-content-border-color, var(--el-border-color-lighter));
-  background: var(--app-content-surface-color, var(--el-bg-color));
+  padding: 10px 0 14px;
 }
 
 .pqr__submit {
@@ -1983,12 +2738,9 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
 
 .pqr__kbd-hint {
   margin-left: 6px;
-  padding: 1px 5px;
   font-size: 11px;
   font-family: inherit;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.25);
-  color: #ffffff;
+  color: rgba(255, 255, 255, 0.72);
 }
 
 /* ================= 底部极简浮动 Dock ================= */
@@ -1996,7 +2748,7 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   position: absolute;
   bottom: 16px;
   left: 0;
-  right: 380px;
+  right: 0;
   display: flex;
   justify-content: center;
   pointer-events: none;
@@ -2007,20 +2759,16 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   pointer-events: auto;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  border-radius: 20px;
-  background: var(--el-bg-color-overlay, var(--el-bg-color));
-  border: 1px solid var(--el-border-color-lighter);
-  box-shadow: var(--el-box-shadow-light);
+  gap: 6px;
+  padding: 0;
 }
 
 .pqr__dock-btn {
   background: none;
   border: none;
   height: 32px;
-  padding: 0 12px;
-  border-radius: 16px;
+  padding: 0 8px;
+  border-radius: 4px;
   color: var(--el-text-color-regular);
   font-size: 13px;
   font-weight: 500;
@@ -2028,10 +2776,9 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   align-items: center;
   gap: 6px;
   cursor: pointer;
-  transition: all 0.12s ease;
+  transition: color 0.12s ease, background-color 0.12s ease;
 
   &:hover:not(:disabled) {
-    background: var(--el-fill-color-light);
     color: var(--el-text-color-primary);
   }
 
@@ -2055,16 +2802,13 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   font-family: inherit;
   font-size: 10px;
   font-weight: 600;
-  padding: 1px 5px;
-  border-radius: 3px;
-  background: var(--el-fill-color);
-  color: var(--el-text-color-secondary);
-  border: 1px solid var(--el-border-color-lighter);
+  padding: 0;
+  background: transparent;
+  color: var(--el-text-color-regular);
+  border: none;
 
   &--primary {
-    background: rgba(255, 255, 255, 0.25);
-    color: #ffffff;
-    border-color: transparent;
+    color: rgba(255, 255, 255, 0.78);
   }
 }
 
