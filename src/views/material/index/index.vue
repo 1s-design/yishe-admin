@@ -4874,6 +4874,15 @@ function openMaterialPublishQuickReview(
   mode: 'recent' | 'oldest' | 'random' = 'recent',
   inheritFilters = false
 ) {
+  // 按当前列表审核时，队列顺序要跟随列表的「随机 / 时间排序」，而不是固定最近优先
+  if (inheritFilters) {
+    mode = queryParams.random
+      ? 'random'
+      : queryParams.sortingFields === 'createTime ASC'
+        ? 'oldest'
+        : 'recent';
+  }
+
   quickPublishReviewMode.value = mode;
   quickPublishInheritFilters.value = inheritFilters;
 

@@ -1648,6 +1648,42 @@ const remainingRouter: AppRouteRecordRaw[] = [
       // },
     ],
   },
+  // ── 14. 系统维护（仅管理员）────────────────────────────────────────
+  {
+    path: "/maintenance",
+    component: Layout,
+    name: "SystemMaintenance",
+    redirect: "/maintenance/overview",
+    meta: {
+      title: "router.systemMaintenance",
+      icon: "lucide:server-cog",
+      order: 14,
+      alwaysShow: true,
+      requiresAdmin: true,
+    },
+    children: [
+      {
+        path: "overview",
+        component: () => import("@/views/maintenance/overview/index.vue"),
+        name: "SystemMaintenanceOverview",
+        meta: {
+          title: "router.maintenanceOverview",
+          requiresAdmin: true,
+          order: 1,
+        },
+      },
+      {
+        path: "settings",
+        component: () => import("@/views/maintenance/settings/index.vue"),
+        name: "SystemMaintenanceSettings",
+        meta: {
+          title: "router.maintenanceSettings",
+          requiresAdmin: true,
+          order: 2,
+        },
+      },
+    ],
+  },
   {
     path: "/user/profile",
     redirect: "/personal/settings",

@@ -23,6 +23,9 @@ export const ADMIN_ONLY_MENU_KEYS = new Set([
   "system.file-log",
   "system.service-status",
   "system.vector-search",
+  "system.maintenance",
+  "system.maintenance-overview",
+  "system.maintenance-settings",
 ]);
 
 export const ROUTE_MENU_KEY_MAP: Record<string, string> = {
@@ -114,6 +117,9 @@ export const ROUTE_MENU_KEY_MAP: Record<string, string> = {
   SystemOperateLog: "system.operatelog",
   SystemFileLog: "system.file-log",
   SystemServiceStatus: "system.service-status",
+  SystemMaintenance: "system.maintenance",
+  SystemMaintenanceOverview: "system.maintenance-overview",
+  SystemMaintenanceSettings: "system.maintenance-settings",
   PersonalSettings: "personal.settings",
   MyOrganization: "personal.organization",
 

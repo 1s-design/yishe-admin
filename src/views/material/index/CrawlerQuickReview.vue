@@ -1263,7 +1263,8 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 8px 12px;
   pointer-events: none;
 }
 
@@ -1273,6 +1274,24 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: 12px;
+}
+
+.qr__floating-left {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+
+.qr__floating-right {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.qr__floating-progress,
+.qr__floating-badge,
+.qr__text-btn,
+.qr__stat-item,
+.qr__undo-top-btn {
+  white-space: nowrap;
 }
 
 .qr__floating-progress {
@@ -2327,23 +2346,103 @@ html[class*="dark"] {
   }
 }
 
-/* ── 移动端 / 窄屏适配 ── */
+/* ── 平板：侧栏收窄，仍保持左右分栏 ── */
+@media (width <= 1100px) {
+  .qr__side {
+    width: 340px;
+  }
+
+  .qr__stat-name {
+    display: none;
+  }
+
+  /* 侧栏收窄后 Dock 会横向压到解码角标，直接收起 */
+  .qr__deck-pending {
+    display: none;
+  }
+
+  .qr__undo-bar {
+    top: 92px;
+  }
+}
+
+/* ── 移动端：上下分栏，舞台在上、详情面板贴底 ── */
 @media (width <= 768px) {
+  .qr {
+    flex-direction: column;
+  }
+
+  .qr__stage-wrap {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .qr__floating-bar {
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    gap: 8px;
+  }
+
+  .qr__floating-left {
+    gap: 8px;
+  }
+
+  .qr__floating-badge {
+    display: none;
+  }
+
+  .qr__stats {
+    gap: 6px;
+  }
+
+  .qr__stat-name {
+    display: none;
+  }
+
+  .qr__undo-bar {
+    top: 88px;
+    right: 12px;
+  }
+
   .qr__toasts {
     top: 64px;
   }
 
   .qr__stage {
-    padding: 48px 12px 62px;
+    padding: 44px 12px 58px;
+  }
+
+  .qr__side {
+    width: 100%;
+    height: 46vh;
+    flex: 0 0 auto;
+    border-left: none;
+    border-top: 1px solid var(--app-content-border-color, rgba(148, 163, 184, 0.22));
+  }
+
+  .qr__side-header {
+    padding: 10px 14px 0;
+  }
+
+  .qr__side-body {
+    padding: 6px 14px 0;
+    gap: 12px;
+  }
+
+  .qr__side-footer {
+    padding: 8px 14px max(10px, env(safe-area-inset-bottom));
   }
 
   .qr__dock {
-    bottom: 10px;
+    bottom: max(10px, env(safe-area-inset-bottom));
+    padding: 0 10px;
+    box-sizing: border-box;
   }
 
   .qr__dock-capsule {
     width: 100%;
-    max-width: 420px;
+    max-width: 440px;
     justify-content: space-between;
     gap: 2px;
   }

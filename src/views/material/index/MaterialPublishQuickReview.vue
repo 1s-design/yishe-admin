@@ -1825,6 +1825,8 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
   pointer-events: none;
 }
 
@@ -1834,6 +1836,23 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   display: inline-flex;
   align-items: center;
   gap: 12px;
+}
+
+.pqr__floating-left {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+
+.pqr__floating-right {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.pqr__floating-progress,
+.pqr__floating-badge,
+.pqr__stat-item,
+.pqr__mode-tab {
+  white-space: nowrap;
 }
 
 .pqr__floating-progress {
@@ -2272,6 +2291,9 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
 .pqr__image-info-bar {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  max-width: 100%;
   gap: 12px;
   padding: 0;
   font-size: 12px;
@@ -2293,6 +2315,7 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   color: var(--el-text-color-secondary);
   font-size: 11px;
   font-weight: 500;
+  white-space: nowrap;
 
   &--highlight {
     color: var(--pqr-primary-on-tint);
@@ -2817,5 +2840,129 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   height: 16px;
   background: var(--el-border-color-lighter);
   margin: 0 2px;
+}
+
+/* ── 平板：侧栏收窄，仍保持左右分栏 ── */
+@media (width <= 1100px) {
+  .pqr__side {
+    width: 340px;
+  }
+
+  .pqr__stat-name {
+    display: none;
+  }
+
+  .pqr__image {
+    max-width: min(calc(100vw - 340px - 60px), 1100px);
+  }
+}
+
+/* ── 移动端：上下分栏，图片在上、配置面板贴底 ── */
+@media (width <= 768px) {
+  .pqr {
+    flex-direction: column;
+  }
+
+  .pqr__stage-wrap {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .pqr__floating-bar {
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    gap: 8px;
+  }
+
+  .pqr__floating-left,
+  .pqr__floating-right {
+    gap: 8px;
+  }
+
+  .pqr__floating-badge {
+    display: none;
+  }
+
+  .pqr__stats {
+    gap: 6px;
+  }
+
+  .pqr__stat-name {
+    display: none;
+  }
+
+  .pqr__nav-arrow {
+    display: none;
+  }
+
+  .pqr__stage-container {
+    padding: 44px 12px 56px;
+  }
+
+  .pqr__image {
+    max-width: calc(100vw - 28px);
+    max-height: calc(54vh - 132px);
+  }
+
+  .pqr__image-info-bar {
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: calc(100vw - 24px);
+    gap: 4px 10px;
+  }
+
+  .pqr__info-hint {
+    display: none;
+  }
+
+  .pqr__side {
+    width: 100%;
+    height: 46vh;
+    flex: 0 0 auto;
+    border-left: none;
+    border-top: 1px solid var(--app-content-border-color, var(--el-border-color-lighter));
+    padding: 10px 14px 0;
+    gap: 8px;
+  }
+
+  .pqr__side-footer {
+    padding: 8px 0 max(10px, env(safe-area-inset-bottom));
+  }
+
+  .pqr__dock {
+    bottom: max(10px, env(safe-area-inset-bottom));
+    padding: 0 10px;
+    box-sizing: border-box;
+  }
+
+  .pqr__dock-capsule {
+    width: 100%;
+    max-width: 440px;
+    justify-content: space-between;
+    gap: 2px;
+  }
+
+  .pqr__dock-btn {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 0 8px;
+    justify-content: center;
+    font-size: 12px;
+  }
+
+  .pqr__dock-kbd {
+    display: none;
+  }
+}
+</style>
+
+<!-- 筛选浮层被 teleport 到 body，需非 scoped 规则收窄宽度 -->
+<style lang="scss">
+@media (width <= 768px) {
+  .pqr-filter-popover.el-popover.el-popper {
+    width: calc(100vw - 24px) !important;
+    max-width: calc(100vw - 24px) !important;
+  }
 }
 </style>
