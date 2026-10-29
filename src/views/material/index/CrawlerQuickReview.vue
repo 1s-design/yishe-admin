@@ -1,87 +1,128 @@
 <template>
   <teleport to="body">
     <div v-if="visible" class="qr">
-      <!-- 顶栏：窄屏时统计与按钮换到第二行，关闭键始终在第一行右侧 -->
-      <!-- 顶栏：简洁信息与极简计数 -->
-      <header class="qr__bar">
-        <div class="qr__bar-lead">
-          <span class="qr__title">快捷审核</span>
-          <span class="qr__badge">采集素材</span>
-          <span class="qr__progress">
-            {{ processedCount }}<template v-if="total"> / {{ total }}</template>
-          </span>
-        </div>
+      <!-- ================= 左侧：负责图片展示与舞台交互 ================= -->
+      <section class="qr__stage-wrap">
+        <!-- 极简悬浮顶条：无多余实底头栏，浮动毛玻璃轻量控件 -->
+        <header class="qr__floating-bar">
+          <div class="qr__floating-left">
+            <span class="qr__floating-progress">
+              {{ processedCount }}<template v-if="total"> / {{ total }}</template>
+            </span>
+            <span class="qr__floating-badge">采集素材</span>
 
-        <div class="qr__bar-ops">
-          <div class="qr__stats">
-            <span class="qr__stat-item">
-              <i class="qr__stat-dot qr__stat-dot--import"></i>
-              <span class="qr__stat-name">已入库</span>
-              <span class="qr__stat-val">{{ importedCount }}</span>
-            </span>
-            <span class="qr__stat-divider">/</span>
-            <span class="qr__stat-item">
-              <i class="qr__stat-dot qr__stat-dot--delete"></i>
-              <span class="qr__stat-name">已删除</span>
-              <span class="qr__stat-val">{{ deletedCount }}</span>
-            </span>
-            <span class="qr__stat-divider">/</span>
-            <span class="qr__stat-item">
-              <i class="qr__stat-dot qr__stat-dot--skip"></i>
-              <span class="qr__stat-name">已忽略</span>
-              <span class="qr__stat-val">{{ skippedCount }}</span>
-            </span>
+            <!-- 撤销删除胶囊 -->
+            <button
+              v-if="canUndoDelete"
+              type="button"
+              class="qr__undo-top-btn"
+              :title="`撤销删除（还有 ${deleteQueue.length} 张待删，快捷键：Z 或 Ctrl+Z）`"
+              @click="undoLastDelete"
+            >
+              <span class="qr__undo-top-icon">↺</span>
+              <span class="qr__undo-top-text">撤销删除</span>
+              <span class="qr__undo-top-badge">{{ deleteQueue.length }}</span>
+              <span class="qr__undo-top-sec">{{ deleteCountdown }}s</span>
+            </button>
+
+            <button
+              v-if="skippedCount"
+              type="button"
+              class="qr__text-btn"
+              title="把本次忽略的素材重新放回队列末尾"
+              @click="resetSkipped"
+            >
+              重置忽略
+            </button>
+            <button
+              type="button"
+              class="qr__text-btn"
+              title="重新从第一页加载"
+              @click="reload"
+            >
+              重新加载
+            </button>
           </div>
 
-          <div class="qr__ops-divider"></div>
+          <div class="qr__floating-right">
+            <div class="qr__stats">
+              <span class="qr__stat-item">
+                <i class="qr__stat-dot qr__stat-dot--import"></i>
+                <span class="qr__stat-name">已入库</span>
+                <span class="qr__stat-val">{{ importedCount }}</span>
+              </span>
+              <span class="qr__stat-divider">/</span>
+              <span class="qr__stat-item">
+                <i class="qr__stat-dot qr__stat-dot--delete"></i>
+                <span class="qr__stat-name">已删除</span>
+                <span class="qr__stat-val">{{ deletedCount }}</span>
+              </span>
+              <span class="qr__stat-divider">/</span>
+              <span class="qr__stat-item">
+                <i class="qr__stat-dot qr__stat-dot--skip"></i>
+                <span class="qr__stat-name">已忽略</span>
+                <span class="qr__stat-val">{{ skippedCount }}</span>
+              </span>
+            </div>
 
-          <button
-            v-if="canUndoDelete"
-            type="button"
-            class="qr__text-btn"
-            title="撤销最近一次删除"
-            @click="undoLastDelete"
+            <!-- 当没有当前卡片时（已审核完毕或加载失败），左侧浮动条提供退出按钮 -->
+            <button
+              v-if="!current"
+              type="button"
+              class="qr__floating-close"
+              title="退出审核 (Esc)"
+              @click="close"
+            >
+              <el-icon><Close /></el-icon>
+            </button>
+          </div>
+        </header>
+
+        <!-- 右上角极简撤销浮条（带精炼进度条与快捷键提示） -->
+        <transition name="qr-undo-slide">
+          <div v-if="canUndoDelete" class="qr__undo-bar" role="alert">
+            <div class="qr__undo-bar-body">
+              <span class="qr__undo-bar-dot"></span>
+              <span class="qr__undo-bar-text">
+                待删 <b>{{ deleteQueue.length }}</b> 张
+                <span class="qr__undo-bar-sec">({{ deleteCountdown }}s)</span>
+              </span>
+              <button
+                type="button"
+                class="qr__undo-btn-act"
+                title="撤销最近一张误删素材（快捷键：Z 或 Ctrl+Z）"
+                @click="undoLastDelete"
+              >
+                <span>↺ 撤回</span>
+                <kbd class="qr__undo-btn-kbd">Z</kbd>
+              </button>
+              <button
+                v-if="deleteQueue.length > 1"
+                type="button"
+                class="qr__undo-btn-all"
+                title="全部恢复回待审队列"
+                @click="undoAllDeletes"
+              >
+                全部
+              </button>
+            </div>
+            <div class="qr__undo-bar-progress" :style="{ width: `${deleteProgressPercent}%` }"></div>
+          </div>
+        </transition>
+
+        <!-- 层内轻提示 -->
+        <div class="qr__toasts">
+          <div
+            v-for="toast in toasts"
+            :key="toast.id"
+            class="qr__toast"
+            :class="`qr__toast--${toast.tone}`"
           >
-            撤销删除
-          </button>
-          <button
-            v-if="skippedCount"
-            type="button"
-            class="qr__text-btn"
-            title="把本次忽略的素材重新放回队列末尾"
-            @click="resetSkipped"
-          >
-            重置忽略
-          </button>
-          <button
-            type="button"
-            class="qr__text-btn"
-            title="重新从第一页加载"
-            @click="reload"
-          >
-            重新加载
-          </button>
+            {{ toast.text }}
+          </div>
         </div>
 
-        <button type="button" class="qr__close" title="关闭 (Esc)" @click="close">
-          <el-icon><Close /></el-icon>
-        </button>
-      </header>
-
-      <!-- 层内轻提示（Element Plus 的 ElMessage 会被本层盖住，故自带一套） -->
-      <div class="qr__toasts">
-        <div
-          v-for="toast in toasts"
-          :key="toast.id"
-          class="qr__toast"
-          :class="`qr__toast--${toast.tone}`"
-        >
-          {{ toast.text }}
-        </div>
-      </div>
-
-      <!-- 主体：图片居中在上，信息在下方 -->
-      <main class="qr__main">
+        <!-- 舞台展示区 -->
         <div
           v-if="current"
           class="qr__stage"
@@ -94,10 +135,6 @@
           @pointercancel="onPointerCancel"
           @dblclick="openOriginal"
         >
-          <!-- 渲染的是 displayUrl 而不是 current.url：
-               它只在图片真正解码完成后才更新，避免上屏瞬间在主线程同步解码大图 -->
-          <!-- 旋转只走 CSS transform：点一次转 90°，不动网络也不动文件，
-               真正的改写等到入库时由服务端在同一张 COS 对象上就地完成 -->
           <img
             v-if="displayUrl"
             :src="displayUrl"
@@ -106,7 +143,7 @@
             draggable="false"
           />
 
-          <!-- 新图还在解码：保留旧图 + 轻提示，绝不给一块白画布 -->
+          <!-- 新图解码中提示 -->
           <div v-if="deckPending" class="qr__deck-pending">
             <span class="qr__deck-spinner"></span>
             <span class="qr__deck-text">加载下一张…</span>
@@ -133,129 +170,204 @@
           <p class="qr__state-desc">
             本次共处理 {{ processedCount }} 张（入库 {{ importedCount }} · 删除 {{ deletedCount }} · 忽略 {{ skippedCount }}）
           </p>
-          <button type="button" class="qr__state-btn" @click="reload">重新加载</button>
+          <div class="mt-4 flex gap-3 justify-center">
+            <button type="button" class="qr__state-btn" @click="reload">重新加载</button>
+            <button type="button" class="qr__state-btn qr__state-btn--sub" @click="close">关闭退出</button>
+          </div>
         </div>
 
-        <aside v-if="current" ref="sideRef" class="qr__side">
-          <div class="qr__side-head">
-            <h3 class="qr__name" :title="current.name">
-              {{ current.name || `素材 ${current.id}` }}
-            </h3>
-            <div class="qr__specs">
-              <span class="qr__spec">
-                <span class="qr__spec-k">尺寸</span>
-                <span class="qr__spec-v">{{ dimensionText || "-" }}</span>
-              </span>
-              <span class="qr__spec">
-                <span class="qr__spec-k">比例</span>
-                <span class="qr__spec-v">{{ aspectText }}</span>
-              </span>
-              <span class="qr__spec">
-                <span class="qr__spec-k">大小</span>
-                <span class="qr__spec-v">{{ fileSizeText }}</span>
-              </span>
-            </div>
+        <!-- 底部动作：悬浮毛玻璃胶囊 Dock 风格 -->
+        <footer class="qr__dock">
+          <div class="qr__dock-capsule">
+            <button
+              type="button"
+              class="qr__dock-btn qr__dock-btn--rotate"
+              :class="{ 'is-active': currentRotation > 0 }"
+              :disabled="!current || !canRotate"
+              :title="rotateTitle"
+              @click="rotateCurrent"
+            >
+              <span class="qr__dock-arrow">⟳</span>
+              <span class="qr__dock-text">旋转</span>
+              <span v-if="currentRotation > 0" class="qr__dock-badge">{{ currentRotation }}°</span>
+              <kbd class="qr__dock-kbd">R</kbd>
+            </button>
 
-            <div class="qr__meta">
-              <span class="qr__meta-item" :title="`来源：${current.source || '-'}`">
-                {{ current.source || "未知来源" }}
-              </span>
-              <span v-if="current.suffix" class="qr__meta-item">
-                <span class="qr__chip" :class="isTransparent ? 'qr__chip--info' : 'qr__chip--muted'">
-                  {{ current.suffix.toUpperCase() }}
-                </span>
-              </span>
-              <span class="qr__meta-item">
-                <span class="qr__chip" :class="current.isCutout ? 'qr__chip--ok' : 'qr__chip--muted'">
+            <div class="qr__dock-sep"></div>
+
+            <button
+              type="button"
+              class="qr__dock-btn qr__dock-btn--skip"
+              :disabled="!current"
+              title="忽略该素材并看下一张（快捷键：← 或 A）"
+              @click="actSkip"
+            >
+              <span class="qr__dock-arrow">←</span>
+              <span class="qr__dock-text">忽略</span>
+              <kbd class="qr__dock-kbd">A</kbd>
+            </button>
+
+            <div class="qr__dock-sep"></div>
+
+            <button
+              type="button"
+              class="qr__dock-btn qr__dock-btn--delete"
+              :disabled="!current"
+              title="删除该素材（快捷键：↓ 或 S）"
+              @click="actDelete"
+            >
+              <span class="qr__dock-arrow">↓</span>
+              <span class="qr__dock-text">删除</span>
+              <kbd class="qr__dock-kbd">S</kbd>
+            </button>
+
+            <div class="qr__dock-sep"></div>
+
+            <button
+              type="button"
+              class="qr__dock-btn qr__dock-btn--import"
+              :disabled="!current"
+              title="入库该素材（快捷键：→ 或 D）"
+              @click="actImport"
+            >
+              <span class="qr__dock-arrow">→</span>
+              <span class="qr__dock-text">入库</span>
+              <kbd class="qr__dock-kbd">D</kbd>
+            </button>
+          </div>
+        </footer>
+      </section>
+
+      <!-- ================= 右侧：负责详情与操作面板（常驻占位，不随数据出现） ================= -->
+      <aside class="qr__side">
+        <!-- 顶栏：极简标题 + 右上角专属关闭按钮 -->
+        <div class="qr__side-header">
+          <span class="qr__side-title">素材详情</span>
+          <button type="button" class="qr__side-close" title="退出审核 (Esc)" @click="close">
+            <el-icon><Close /></el-icon>
+          </button>
+        </div>
+
+        <!-- 详情滚动体：自上而下顺畅流式布局，轻背景，无多余边框 -->
+        <div ref="sideRef" class="qr__side-body">
+          <template v-if="current">
+            <!-- 1. 素材标题与标识行 -->
+            <div class="qr__meta-section">
+              <h3 class="qr__main-title" :title="current.name || ''">
+                {{ current.name || `素材 #${current.id}` }}
+              </h3>
+
+              <div class="qr__sub-meta">
+                <span class="qr__mono-id">#{{ current.id }}</span>
+                <span class="qr__meta-dot">·</span>
+                <span class="qr__meta-text">{{ current.source || '采集素材' }}</span>
+                <span class="qr__meta-dot">·</span>
+                <span class="qr__meta-text">{{ createTimeText }}</span>
+              </div>
+
+              <!-- 状态标签行：纯文字，无底色 -->
+              <div class="qr__pills-group">
+                <span class="qr__pill" :class="current.isCutout ? 'qr__pill--success' : 'qr__pill--neutral'">
                   {{ current.isCutout ? "已抠图" : "未抠图" }}
                 </span>
-              </span>
-              <span class="qr__meta-item qr__meta-item--faint">{{ createTimeText }}</span>
+                <span v-if="current.suffix" class="qr__pill" :class="isTransparent ? 'qr__pill--info' : 'qr__pill--neutral'">
+                  {{ isTransparent ? "透明通道" : "常规底色" }}
+                </span>
+                <span v-if="current.shareType" class="qr__pill qr__pill--neutral">
+                  {{ current.shareType === 'shared' ? '共享' : '私有' }}
+                </span>
+              </div>
             </div>
+
+            <!-- 2. 规格参数：纯文字指标行 -->
+            <div class="qr__specs-banner">
+              <div class="qr__spec-col">
+                <span class="qr__spec-label">尺寸</span>
+                <span class="qr__spec-val">{{ dimensionText || "-" }}</span>
+              </div>
+              <div class="qr__spec-divider"></div>
+              <div class="qr__spec-col">
+                <span class="qr__spec-label">比例</span>
+                <span class="qr__spec-val">{{ aspectText }}</span>
+              </div>
+              <div class="qr__spec-divider"></div>
+              <div class="qr__spec-col">
+                <span class="qr__spec-label">文件大小</span>
+                <span class="qr__spec-val">{{ fileSizeText }}</span>
+              </div>
+              <div class="qr__spec-divider"></div>
+              <div class="qr__spec-col">
+                <span class="qr__spec-label">格式</span>
+                <span class="qr__spec-val">{{ current.suffix ? current.suffix.toUpperCase() : "PNG" }}</span>
+              </div>
+            </div>
+
+            <!-- 3. 关键词与描述（若有） -->
+            <div v-if="current.keywords || current.description" class="qr__extra-panel">
+              <div v-if="current.keywords" class="qr__extra-row">
+                <span class="qr__extra-k">关键词</span>
+                <span class="qr__extra-v select-text">{{ current.keywords }}</span>
+              </div>
+              <div v-if="current.description" class="qr__extra-row">
+                <span class="qr__extra-k">描述</span>
+                <span class="qr__extra-v select-text">{{ current.description }}</span>
+              </div>
+            </div>
+
+            <!-- 4. 来源链接（若有） -->
+            <div v-if="current.originUrl" class="qr__link-panel">
+              <span class="qr__link-label">原始来源链接</span>
+              <a
+                class="qr__link-url"
+                :href="current.originUrl"
+                target="_blank"
+                rel="noreferrer"
+                :title="current.originUrl"
+              >
+                {{ current.originUrl }}
+              </a>
+            </div>
+          </template>
+
+          <!-- 无当前素材：面板保持占位，避免整块右侧后出现挤压画面 -->
+          <div v-else class="qr__side-placeholder">
+            <div v-if="loading" class="qr__ph" aria-hidden="true">
+              <span class="qr__ph-line qr__ph-line--title"></span>
+              <span class="qr__ph-line qr__ph-line--meta"></span>
+              <div class="qr__ph-specs">
+                <span v-for="i in 4" :key="i" class="qr__ph-cell"></span>
+              </div>
+              <span class="qr__ph-line"></span>
+              <span class="qr__ph-line qr__ph-line--short"></span>
+            </div>
+            <p v-else class="qr__side-hint">{{ loadError ? '素材加载失败' : '暂无待审核素材' }}</p>
           </div>
+        </div>
 
-          <p v-if="current.keywords" class="qr__note">
-            <span class="qr__note-k">关键词</span>{{ current.keywords }}
-          </p>
-          <p v-if="current.description" class="qr__note">
-            <span class="qr__note-k">描述</span>{{ current.description }}
-          </p>
-
-          <div class="qr__tail">
-            <a
-              v-if="current.originUrl"
-              class="qr__link"
-              :href="current.originUrl"
-              target="_blank"
-              rel="noreferrer"
-              :title="current.originUrl"
-              >{{ current.originUrl }}</a
-            >
-            <span class="qr__id" :title="current.id">{{ current.id }}</span>
-          </div>
-        </aside>
-      </main>
-
-      <!-- 底部动作：悬浮毛玻璃胶囊 Dock 风格 -->
-      <footer class="qr__dock">
-        <div class="qr__dock-capsule">
+        <!-- 侧边栏贴底操作栏 -->
+        <div class="qr__side-footer">
           <button
             type="button"
-            class="qr__dock-btn qr__dock-btn--rotate"
-            :class="{ 'is-active': currentRotation > 0 }"
-            :disabled="!current || !canRotate"
-            :title="rotateTitle"
-            @click="rotateCurrent"
-          >
-            <span class="qr__dock-arrow">⟳</span>
-            <span class="qr__dock-text">旋转</span>
-            <span v-if="currentRotation > 0" class="qr__dock-badge">{{ currentRotation }}°</span>
-            <kbd class="qr__dock-kbd">R</kbd>
-          </button>
-
-          <div class="qr__dock-sep"></div>
-
-          <button
-            type="button"
-            class="qr__dock-btn qr__dock-btn--skip"
+            class="qr__submit-btn"
             :disabled="!current"
-            title="忽略该素材并看下一张（快捷键：← 或 A）"
-            @click="actSkip"
-          >
-            <span class="qr__dock-arrow">←</span>
-            <span class="qr__dock-text">忽略</span>
-            <kbd class="qr__dock-kbd">A</kbd>
-          </button>
-
-          <div class="qr__dock-sep"></div>
-
-          <button
-            type="button"
-            class="qr__dock-btn qr__dock-btn--delete"
-            :disabled="!current"
-            title="删除该素材（快捷键：↓ 或 S）"
-            @click="actDelete"
-          >
-            <span class="qr__dock-arrow">↓</span>
-            <span class="qr__dock-text">删除</span>
-            <kbd class="qr__dock-kbd">S</kbd>
-          </button>
-
-          <div class="qr__dock-sep"></div>
-
-          <button
-            type="button"
-            class="qr__dock-btn qr__dock-btn--import"
-            :disabled="!current"
-            title="入库该素材（快捷键：→ 或 D）"
+            title="一键将该素材入库（快捷键：D 或 →）"
             @click="actImport"
           >
-            <span class="qr__dock-arrow">→</span>
-            <span class="qr__dock-text">入库</span>
-            <kbd class="qr__dock-kbd">D</kbd>
+            <span>入库素材</span>
+            <kbd class="qr__kbd-hint">D / →</kbd>
+          </button>
+          <button
+            type="button"
+            class="qr__delete-btn"
+            :disabled="!current"
+            title="删除该素材（快捷键：S 或 ↓）"
+            @click="actDelete"
+          >
+            <span>删除</span>
+            <kbd class="qr__kbd-hint">S / ↓</kbd>
           </button>
         </div>
-      </footer>
+      </aside>
     </div>
   </teleport>
 </template>
@@ -307,10 +419,11 @@ const DECK_MAX_WIDTH = 2000;
  */
 /** 入库攒够多少条立刻提交 */
 const IMPORT_BATCH = 10;
-/** 删除攒够多少条立刻提交 */
-const DELETE_BATCH = 10;
+/** 删除攒够多少条立刻提交（调高阈值，避免连续误删时直接被批次强行提交，留足撤销空间） */
+const DELETE_BATCH = 50;
 const IMPORT_DEBOUNCE = 800;
-const DELETE_DEBOUNCE = 1000;
+/** 删除提交防抖倒计时：从 1 秒大幅延长至 8 秒，为用户提供充裕的安全反悔窗口 */
+const DELETE_DEBOUNCE = 8000;
 /** 判定为滑动的位移阈值（px） */
 const SWIPE_THRESHOLD = 70;
 
@@ -383,6 +496,38 @@ function notify(text: string, tone: "info" | "success" | "warning" | "error" = "
 
 const current = computed(() => queue.value[0] ?? null);
 const canUndoDelete = computed(() => deleteQueue.value.length > 0);
+
+// ── 删除倒计时与进度管理 ────────────────────────────────────
+const deleteCountdown = ref(Math.round(DELETE_DEBOUNCE / 1000));
+const deleteProgressPercent = ref(100);
+let deleteInterval: ReturnType<typeof setInterval> | null = null;
+let deleteStartTime = 0;
+
+function clearDeleteCountdown(): void {
+  if (deleteInterval) {
+    clearInterval(deleteInterval);
+    deleteInterval = null;
+  }
+  deleteProgressPercent.value = 100;
+  deleteCountdown.value = Math.round(DELETE_DEBOUNCE / 1000);
+}
+
+function startDeleteCountdown(): void {
+  clearDeleteCountdown();
+  deleteStartTime = Date.now();
+  deleteCountdown.value = Math.round(DELETE_DEBOUNCE / 1000);
+  deleteProgressPercent.value = 100;
+
+  deleteInterval = setInterval(() => {
+    const elapsed = Date.now() - deleteStartTime;
+    const remaining = Math.max(0, DELETE_DEBOUNCE - elapsed);
+    deleteProgressPercent.value = Math.max(0, (remaining / DELETE_DEBOUNCE) * 100);
+    deleteCountdown.value = Math.max(1, Math.ceil(remaining / 1000));
+    if (remaining <= 0) {
+      clearDeleteCountdown();
+    }
+  }, 80);
+}
 
 /** 详情面板：换图后把滚动位置复位，否则新素材的字段会停在中间、前几项被顶出可视区 */
 const sideRef = ref<HTMLElement | null>(null);
@@ -600,19 +745,21 @@ function scheduleAutoRetry(): void {
 }
 
 /** 图片预解码调度器：负责「下一张随时可上屏」 */
-const deck = useImageDeck({ maxCache: 16 });
+const deck = useImageDeck({ maxCache: 36 });
 
 /**
- * 实际下载/上屏的图片地址。
- * 原本直接拿原图（几 MB、动辄上千万像素）解码，连点几张就会把主线程压出掉帧；
- * 现在按视口宽度让 COS 出图，清晰度对审核没有损失，解码量小一到两个数量级。
+ * 实际下载/上屏的图片地址按视口宽度离散量化出图，
+ * 采用 1200 / 1600 / 2000 档位消除微小视口抖动，
+ * 确保预热算出的 URL 与真正渲染的 URL 100% 相同，杜绝脱靶。
  */
 function pickDeckWidth(): number {
   if (typeof window === "undefined") return 1600;
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  // 画布大约占视口的 3/4，乘像素比就是这块屏真正需要多少宽
-  const cssWidth = Math.min(window.innerWidth, 1920);
-  return Math.max(900, Math.min(DECK_MAX_WIDTH, Math.round(cssWidth * dpr * 0.75)));
+  const cssWidth = window.innerWidth || 1600;
+  const target = cssWidth * dpr * 0.75;
+  if (target <= 1300) return 1200;
+  if (target <= 1700) return 1600;
+  return 2000;
 }
 
 const deckWidth = ref(pickDeckWidth());
@@ -623,15 +770,25 @@ function deckKeyOf(item: any): string {
 }
 
 /**
- * 预热策略：紧挨着的两张走立即通道（手快的人 200ms 就翻过去，只备一张必然跟不上），
- * 更远的丢进空闲帧慢慢来 —— 一次性并发拉一堆还是会把带宽摊薄，
- * 反而让紧邻的下一张变慢，这是「越预载越卡」的常见误区。
+ * 预热策略：紧挨着的 3 张走立即通道，
+ * 更远的丢进空闲帧慢慢来，兼顾即时性与带宽平滑。
  */
 function warmAhead(): void {
   const list = queue.value;
-  deck.warmNow(deckKeyOf(list[1]));
-  deck.warmNow(deckKeyOf(list[2]));
-  deck.warmIdle(list.slice(3, 3 + PRELOAD_AHEAD).map((item: any) => deckKeyOf(item)));
+  if (!list.length) return;
+  const cur = deckKeyOf(list[0]);
+  if (cur) deck.ensure(cur);
+
+  const nextSlice: string[] = [];
+  if (list[1]) nextSlice.push(deckKeyOf(list[1]));
+  if (list[2]) nextSlice.push(deckKeyOf(list[2]));
+  if (list[3]) nextSlice.push(deckKeyOf(list[3]));
+  if (nextSlice.length) deck.warmNow(nextSlice);
+
+  const idleSlice = list.slice(4, 4 + PRELOAD_AHEAD);
+  if (idleSlice.length) {
+    deck.warmIdle(idleSlice.map((item: any) => deckKeyOf(item)).filter(Boolean));
+  }
 }
 
 /** 数据层推进后的收尾：按需后台补货 + 预热（全异步，不阻塞点击反馈） */
@@ -643,16 +800,13 @@ function afterAdvance(): void {
 // ── 视觉层：图解码就绪才上屏 ────────────────────────────────
 /**
  * 真正渲染到画布上的图片地址。
- * 数据层切牌（queue.shift）是瞬时的，但这里必须等新图解码完成才替换：
- * 直接把未解码的大图交给 <img>，浏览器会在上屏那一帧同步解码几 MB 像素，
- * 表现就是「点了之后卡一下、闪一下白」。
  */
 const displayUrl = ref("");
-/** 新图还在解码：保留旧图 + 轻提示，绝不给用户一块白画布 */
+/** 新图还在解码：保留轻提示，绝不卡在旧图上 */
 const deckPending = ref(false);
 let deckSeq = 0;
 
-async function syncDeck(): Promise<void> {
+function syncDeck(): void {
   const target = deckKeyOf(current.value);
   const seq = ++deckSeq;
 
@@ -662,18 +816,20 @@ async function syncDeck(): Promise<void> {
     return;
   }
 
-  // 绝大多数情况下下一张早已在后台解码好，这里零延迟直接上屏
+  // 1. 0ms 瞬间直显目标地址，绝不卡在旧图上
+  displayUrl.value = target;
+
   if (deck.isReady(target)) {
-    displayUrl.value = target;
     deckPending.value = false;
     return;
   }
 
   deckPending.value = true;
-  await deck.awaitReady(target, DECK_WAIT_TIMEOUT);
-  if (seq !== deckSeq) return; // 期间用户又翻了，丢弃过期结果
-  displayUrl.value = target;
-  deckPending.value = false;
+  void deck.ensure(target).then(() => {
+    if (seq === deckSeq) {
+      deckPending.value = false;
+    }
+  });
 }
 
 watch(() => current.value?.url, syncDeck, { immediate: true });
@@ -751,7 +907,7 @@ function actDelete(): void {
   if (!item) return;
   deleteQueue.value.push(item);
   deletedCount.value += 1;
-  pushToast("已删除，可在顶部撤销", "warning");
+  pushToast("已移入待删除，按 Z 或点击可撤回", "warning");
   scheduleDeleteFlush();
   afterAdvance();
 }
@@ -810,11 +966,14 @@ let deleteTimer: ReturnType<typeof setTimeout> | null = null;
 function scheduleDeleteFlush(): void {
   if (deleteTimer) clearTimeout(deleteTimer);
   if (deleteQueue.value.length >= DELETE_BATCH) {
+    clearDeleteCountdown();
     void flushDeletes();
     return;
   }
+  startDeleteCountdown();
   deleteTimer = setTimeout(() => {
     deleteTimer = null;
+    clearDeleteCountdown();
     void flushDeletes();
   }, DELETE_DEBOUNCE);
 }
@@ -824,6 +983,7 @@ async function flushDeletes(): Promise<void> {
     clearTimeout(deleteTimer);
     deleteTimer = null;
   }
+  clearDeleteCountdown();
   if (inflightDelete) await inflightDelete;
   if (!deleteQueue.value.length) return;
 
@@ -858,13 +1018,40 @@ async function flushDeletes(): Promise<void> {
   }
 }
 
-/** 撤销只对「还没提交」的删除生效（COS 文件一旦真删无法恢复） */
+/** 撤销单张删除（在 8 秒倒计时内随时放回待审队列首位） */
 function undoLastDelete(): void {
   const item = deleteQueue.value.pop();
   if (!item) return;
   deletedCount.value = Math.max(0, deletedCount.value - 1);
   queue.value.unshift(item);
-  pushToast("已撤销删除", "success");
+  pushToast("已撤销删除，素材已放回待审队列", "success");
+
+  if (!deleteQueue.value.length) {
+    if (deleteTimer) {
+      clearTimeout(deleteTimer);
+      deleteTimer = null;
+    }
+    clearDeleteCountdown();
+  } else {
+    // 队列中还有其他待删除的素材，重新启动 8 秒倒计时，为用户继续撤回留足时间
+    scheduleDeleteFlush();
+  }
+}
+
+/** 批量全部撤回当前所有待删除素材 */
+function undoAllDeletes(): void {
+  if (!deleteQueue.value.length) return;
+  const count = deleteQueue.value.length;
+  const items = deleteQueue.value.splice(0, count);
+  deletedCount.value = Math.max(0, deletedCount.value - count);
+  // 按原顺序放回队首
+  queue.value.unshift(...items.reverse());
+  if (deleteTimer) {
+    clearTimeout(deleteTimer);
+    deleteTimer = null;
+  }
+  clearDeleteCountdown();
+  pushToast(`已全部撤回 ${count} 张待删除素材`, "success");
 }
 
 // ── 滑动交互 ────────────────────────────────────────────────
@@ -933,17 +1120,40 @@ function onKeydown(event: KeyboardEvent): void {
     return;
   }
 
+  // 快捷撤销：按 Z 或 Ctrl+Z / Cmd+Z（手滑秒级救回）
+  if (
+    event.key === "z" ||
+    event.key === "Z" ||
+    ((event.ctrlKey || event.metaKey) && (event.key === "z" || event.key === "Z"))
+  ) {
+    if (canUndoDelete.value) {
+      event.preventDefault();
+      undoLastDelete();
+      return;
+    }
+  }
+
   if (event.key === "ArrowUp" || event.key === "r" || event.key === "R") {
     event.preventDefault();
     rotateCurrent();
-  } else if (event.key === "ArrowLeft") {
+  } else if (
+    event.key === "ArrowLeft" ||
+    event.key === "a" ||
+    event.key === "A"
+  ) {
     event.preventDefault();
     actSkip();
-  } else if (event.key === "ArrowRight") {
+  } else if (
+    event.key === "ArrowRight" ||
+    event.key === "d" ||
+    event.key === "D"
+  ) {
     event.preventDefault();
     actImport();
   } else if (
     event.key === "ArrowDown" ||
+    event.key === "s" ||
+    event.key === "S" ||
     event.key === "Delete" ||
     event.key === "Backspace"
   ) {
@@ -959,6 +1169,7 @@ function close(): void {
 
 /** 关闭时把攒着的入库/删除一次性提交，避免留下未落地的操作 */
 async function teardown(): Promise<void> {
+  clearDeleteCountdown();
   if (importTimer) {
     clearTimeout(importTimer);
     importTimer = null;
@@ -1001,6 +1212,7 @@ onBeforeUnmount(() => {
   if (importTimer) clearTimeout(importTimer);
   if (deleteTimer) clearTimeout(deleteTimer);
   if (autoRetryTimer) clearTimeout(autoRetryTimer);
+  clearDeleteCountdown();
   void flushImports();
   void flushDeletes();
 });
@@ -1012,60 +1224,86 @@ onBeforeUnmount(() => {
   inset: 0;
   z-index: 3000;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  overflow: hidden;
   background: var(--app-content-bg-color, #f7f9fc);
+
+  /* 棋盘格：日间浅色 */
+  --qr-checker-color-1: #edf1f7;
+  --qr-checker-color-2: #ffffff;
+  /* 主色/警示色前景：深色模式下提亮，避免深底上发灰 */
+  --qr-primary-on-tint: var(--el-color-primary, #3b82f6);
+  --qr-warning-on-tint: color-mix(in srgb, var(--el-color-warning, #e6a23c) 62%, #000000);
 }
 
-/* ── 顶栏：极简大气 ── */
-.qr__bar {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 14px;
-  min-height: 48px;
-  padding: 8px 18px;
-  background: var(--app-content-surface-color, #ffffff);
-  border-bottom: 1px solid var(--app-content-border-color, rgba(148, 163, 184, 0.22));
-}
-
-.qr__bar-lead {
-  display: flex;
-  flex: 0 0 auto;
-  gap: 10px;
-  align-items: center;
+/* ── 左侧舞台包装器 ── */
+.qr__stage-wrap {
+  flex: 1 1 0;
   min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  background-image: repeating-conic-gradient(
+      var(--qr-checker-color-1) 0% 25%,
+      var(--qr-checker-color-2) 0% 50%
+    );
+  background-size: 20px 20px;
+  background-position: 50% 50%;
 }
 
-.qr__title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--el-text-color-primary, #0f172a);
-  letter-spacing: -0.2px;
+/* ── 极简悬浮顶条（无实体头部，悬浮毛玻璃胶囊） ── */
+.qr__floating-bar {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  right: 14px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  pointer-events: none;
 }
 
-.qr__badge {
-  padding: 1px 7px;
+.qr__floating-left,
+.qr__floating-right {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.qr__floating-progress {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--qr-primary-on-tint);
+  font-variant-numeric: tabular-nums;
+}
+
+.qr__floating-badge {
   font-size: 11px;
   color: var(--el-text-color-secondary, #64748b);
-  background: var(--el-fill-color-light, rgba(0, 0, 0, 0.04));
+}
+
+.qr__floating-close {
+  width: 24px;
+  height: 24px;
   border-radius: 4px;
-}
-
-.qr__progress {
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
+  border: none;
+  background: transparent;
   color: var(--el-text-color-secondary, #64748b);
-  white-space: nowrap;
-}
-
-.qr__bar-ops {
   display: flex;
-  flex: 1 1 auto;
-  flex-wrap: wrap;
-  gap: 12px;
   align-items: center;
-  justify-content: flex-end;
-  min-width: 0;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  transition: color 0.15s ease;
+
+  &:hover {
+    color: var(--el-text-color-primary, #0f172a);
+  }
 }
 
 /* 极简计数行（取代笨重边框tag） */
@@ -1091,7 +1329,6 @@ onBeforeUnmount(() => {
 
 .qr__stat-dot--import {
   background: #10b981;
-  box-shadow: 0 0 6px rgba(16, 185, 129, 0.5);
 }
 
 .qr__stat-dot--delete {
@@ -1129,11 +1366,47 @@ onBeforeUnmount(() => {
   background: transparent;
   border: 0;
   border-radius: 4px;
-  transition: color 0.15s, background-color 0.15s;
+  transition: color 0.15s ease;
 
   &:hover {
-    color: var(--el-color-primary, #3b82f6);
-    background: var(--el-fill-color-light, rgba(0, 0, 0, 0.04));
+    color: var(--qr-primary-on-tint);
+  }
+}
+
+/* 顶栏醒目撤销按钮（扁平：只留淡色底与警示色文字） */
+.qr__undo-top-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--qr-warning-on-tint);
+  background: color-mix(in srgb, var(--el-color-warning, #e6a23c) 14%, transparent);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+
+  &:hover {
+    background: color-mix(in srgb, var(--el-color-warning, #e6a23c) 22%, transparent);
+  }
+
+  .qr__undo-top-icon {
+    font-size: 13px;
+    font-weight: bold;
+  }
+
+  .qr__undo-top-badge {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--el-color-danger, #ef4444);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .qr__undo-top-sec {
+    font-size: 11px;
+    opacity: 0.8;
   }
 }
 
@@ -1173,31 +1446,26 @@ onBeforeUnmount(() => {
 }
 
 .qr__toast {
-  padding: 6px 16px;
+  padding: 6px 14px;
   font-size: 12px;
   font-weight: 500;
   color: #f1f5f9;
   white-space: nowrap;
   background: rgba(24, 24, 24, 0.94);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  border: none;
+  border-radius: 4px;
   animation: qr-toast-in 0.15s ease-out;
 
   &--success {
     color: #34d399;
-    border-color: rgba(52, 211, 153, 0.25);
   }
 
   &--warning {
     color: #fbbf24;
-    border-color: rgba(251, 191, 36, 0.25);
   }
 
   &--error {
     color: #f87171;
-    border-color: rgba(248, 113, 113, 0.25);
   }
 }
 
@@ -1220,7 +1488,7 @@ onBeforeUnmount(() => {
   min-height: 0;
 }
 
-/* 图片展示区：透明交替棋盘格背景 */
+/* 图片展示区：透明，棋盘格由外层舞台包装器提供 */
 .qr__stage {
   position: relative;
   z-index: 0;
@@ -1230,14 +1498,9 @@ onBeforeUnmount(() => {
   justify-content: center;
   min-width: 0;
   min-height: 0;
-  padding: 24px;
+  padding: 56px 20px 66px;
   overflow: hidden;
   cursor: grab;
-  background: repeating-conic-gradient(
-      #edf1f7 0% 25%,
-      #ffffff 0% 50%
-    )
-    50% / 20px 20px;
   touch-action: none;
   container-type: size;
 
@@ -1255,7 +1518,6 @@ onBeforeUnmount(() => {
     object-fit: contain;
     pointer-events: none;
     user-select: none;
-    filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.35));
     transition: transform 0.28s cubic-bezier(0.2, 0, 0, 1);
   }
 
@@ -1276,12 +1538,11 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px;
-  border-radius: 999px;
+  padding: 4px 10px;
+  border-radius: 4px;
   font-size: 12px;
   color: #e2e8f0;
   background: rgba(15, 23, 42, 0.72);
-  backdrop-filter: blur(8px);
   pointer-events: none;
   user-select: none;
 }
@@ -1314,10 +1575,9 @@ onBeforeUnmount(() => {
   font-size: 20px;
   font-weight: 600;
   letter-spacing: 2px;
-  border-radius: 8px;
+  border-radius: 6px;
   transform: translate(-50%, -50%);
   pointer-events: none;
-  backdrop-filter: blur(12px);
 
   &--import {
     color: #34d399;
@@ -1338,160 +1598,345 @@ onBeforeUnmount(() => {
   }
 }
 
-/* ── 信息面板：整宽铺开，不再居中限宽 ── */
+/* ── 右侧：常驻详情与操作面板 ── */
 .qr__side {
-  position: relative;
-  z-index: 1;
+  width: 390px;
+  flex-shrink: 0;
+  height: 100%;
   display: flex;
-  flex: 0 0 auto;
   flex-direction: column;
-  gap: 5px;
-  max-height: 100%;
-  min-width: 0;
   min-height: 0;
-  padding: 11px 20px 12px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
   background: var(--app-content-surface-color, #ffffff);
-  border-top: 1px solid var(--app-content-border-color, rgba(148, 163, 184, 0.22));
-}
-
-/* 标题 + 关键数值 + 次要信息排在同一行，按内容自然铺满 */
-.qr__side-head {
-  display: flex;
-  flex: 0 0 auto;
-  flex-wrap: wrap;
-  gap: 2px 26px;
-  align-items: baseline;
-}
-
-.qr__name {
-  flex: 0 1 auto;
-  max-width: 55%;
-  min-width: 0;
-  margin: 0;
+  border-left: 1px solid var(--app-content-border-color, rgba(148, 163, 184, 0.22));
   overflow: hidden;
+  z-index: 10;
+}
+
+.qr__side-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 14px 2px;
+}
+
+.qr__side-title {
   font-size: 14px;
   font-weight: 600;
   color: var(--el-text-color-primary, #0f172a);
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-/* 关键数值：11px 标签 + 17px 等宽数字 */
-.qr__specs {
-  display: flex;
-  flex: 0 0 auto;
-  gap: 22px;
-  align-items: baseline;
-}
-
-.qr__spec {
+.qr__side-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--el-text-color-secondary, #64748b);
   display: inline-flex;
-  gap: 6px;
-  align-items: baseline;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 15px;
+  transition: color 0.15s ease;
+
+  &:hover {
+    color: var(--el-color-danger, #ef4444);
+  }
 }
 
-.qr__spec-k {
+/* 详情滚动体：自上而下，轻盈呼吸感 */
+.qr__side-body {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px 14px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* 1. 素材标题与标识行：纯净少边框 */
+.qr__meta-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.qr__main-title {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--el-text-color-primary, #0f172a);
+  margin: 0;
+  word-break: break-all;
+}
+
+.qr__sub-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary, #64748b);
+}
+
+.qr__mono-id {
+  font-family: var(--el-font-family-mono, monospace);
+  font-weight: 600;
+  color: var(--qr-primary-on-tint);
+}
+
+.qr__meta-dot {
+  color: var(--el-border-color, #cbd5e1);
+}
+
+.qr__meta-text {
+  color: var(--el-text-color-secondary, #64748b);
+}
+
+.qr__pills-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 2px;
+}
+
+/* 状态标签：纯文字，无底色无描边 */
+.qr__pill {
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+
+  &--success {
+    color: var(--el-color-success, #10b981);
+  }
+
+  &--info {
+    color: var(--qr-primary-on-tint);
+  }
+
+  &--neutral {
+    color: var(--el-text-color-secondary, #64748b);
+  }
+}
+
+/* 2. 规格参数：纯文字指标行 */
+.qr__specs-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 4px 0;
+}
+
+.qr__spec-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.qr__spec-label {
   font-size: 11px;
   color: var(--el-text-color-secondary, #64748b);
 }
 
-.qr__spec-v {
-  font-size: 17px;
+.qr__spec-val {
+  font-size: 13px;
   font-weight: 600;
   color: var(--el-text-color-primary, #0f172a);
   font-variant-numeric: tabular-nums;
 }
 
-/* 次要信息：吃掉标题与数值之后的剩余宽度，项间用细竖线 */
-.qr__meta {
-  display: flex;
-  flex: 1 1 auto;
-  flex-wrap: wrap;
-  gap: 2px 16px;
-  align-items: baseline;
-  min-width: 0;
-  font-size: 12px;
-  color: var(--el-text-color-regular, #334155);
+.qr__spec-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--app-content-border-color, rgba(148, 163, 184, 0.2));
 }
 
-.qr__meta-item {
-  position: relative;
-  max-width: 45%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+/* 3. 补充信息（关键词/描述）：纯文字两列 */
+.qr__extra-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0;
+}
 
-  & + &::before {
-    position: absolute;
-    top: 0;
-    left: -8px;
-    width: 1px;
-    height: 13px;
-    background: var(--el-border-color, #cbd5e1);
-    content: "";
-    opacity: 0.7;
+.qr__extra-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.qr__extra-k {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--el-text-color-secondary, #64748b);
+  font-weight: 500;
+}
+
+.qr__extra-v {
+  color: var(--el-text-color-regular, #334155);
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+/* 4. 原始来源链接面板 */
+.qr__link-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0;
+}
+
+.qr__link-label {
+  font-size: 11px;
+  color: var(--el-text-color-secondary, #64748b);
+  font-weight: 500;
+}
+
+.qr__link-url {
+  font-size: 12px;
+  color: var(--qr-primary-on-tint);
+  word-break: break-all;
+  line-height: 1.4;
+
+  &:hover {
+    text-decoration: underline;
   }
 }
 
-.qr__note {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.55;
-  color: var(--el-text-color-regular, #334155);
-  overflow-wrap: anywhere;
-}
-
-.qr__meta-item--faint {
-  color: var(--el-text-color-secondary, #64748b);
-}
-
-/* 状态色块：绿=已处理，蓝=有透明通道，灰=未处理/普通格式 */
-.qr__chip {
-  padding: 1px 7px;
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 16px;
-  border: 1px solid transparent;
-  border-radius: 5px;
-}
-
-.qr__chip--ok {
-  color: #047857;
-  background: color-mix(in srgb, #10b981 13%, transparent);
-  border-color: color-mix(in srgb, #10b981 24%, transparent);
-}
-
-.qr__chip--info {
-  color: #1d4ed8;
-  background: color-mix(in srgb, #3b82f6 13%, transparent);
-  border-color: color-mix(in srgb, #3b82f6 24%, transparent);
-}
-
-.qr__chip--muted {
-  color: var(--el-text-color-secondary, #64748b);
-  background: var(--el-fill-color-light, #f1f5f9);
-  border-color: var(--el-border-color-lighter, rgb(148 163 184 / 24%));
-}
-
-.qr__note-k {
-  display: inline-block;
-  margin-right: 7px;
-  padding: 1px 6px;
-  font-size: 11px;
-  color: var(--el-text-color-secondary, #64748b);
-  background: var(--el-fill-color-light, #f1f5f9);
-  border-radius: 4px;
-}
-
-/* 末行：地址靠左长开，ID 靠右锚定，整行拉满 */
-.qr__tail {
+.qr__side-footer {
+  padding: 10px 14px 14px;
   display: flex;
-  gap: 18px;
-  align-items: baseline;
-  font-size: 11px;
+  align-items: center;
+  gap: 10px;
+}
+
+.qr__submit-btn {
+  flex: 1;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 6px;
+  border: none;
+  background: #10b981;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.16s ease, opacity 0.16s ease;
+
+  &:hover:not(:disabled) {
+    background: #059669;
+  }
+
+  &:disabled {
+    color: var(--el-text-color-placeholder, #a8abb2);
+    background: var(--el-fill-color, rgba(0, 0, 0, 0.06));
+    opacity: 1;
+    cursor: not-allowed;
+
+    .qr__kbd-hint {
+      color: inherit;
+    }
+  }
+}
+
+.qr__delete-btn {
+  height: 40px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--el-color-danger, #ef4444);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.16s ease, opacity 0.16s ease;
+
+  &:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--el-color-danger, #ef4444) 10%, transparent);
+  }
+
+  &:disabled {
+    color: var(--el-text-color-placeholder, #a8abb2);
+    cursor: not-allowed;
+  }
+}
+
+.qr__kbd-hint {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.75);
+  font-family: inherit;
+  font-weight: 600;
+
+  .qr__delete-btn & {
+    color: var(--el-text-color-placeholder, #94a3b8);
+  }
+}
+
+/* ── 无素材时的面板占位（骨架，无闪烁动效） ── */
+.qr__side-placeholder {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 6px;
+}
+
+.qr__ph {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.qr__ph-line {
+  display: block;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--el-fill-color-light, rgba(0, 0, 0, 0.04));
+
+  &--title {
+    width: 78%;
+    height: 16px;
+  }
+
+  &--meta {
+    width: 52%;
+    height: 10px;
+  }
+
+  &--short {
+    width: 40%;
+  }
+}
+
+.qr__ph-specs {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+}
+
+.qr__ph-cell {
+  flex: 1;
+  height: 30px;
+  border-radius: 3px;
+  background: var(--el-fill-color-light, rgba(0, 0, 0, 0.04));
+}
+
+.qr__side-hint {
+  margin: 0;
+  padding-top: 6px;
+  font-size: 12px;
+  color: var(--el-text-color-placeholder, #94a3b8);
 }
 
 .qr__link {
@@ -1554,6 +1999,17 @@ onBeforeUnmount(() => {
   }
 }
 
+.qr__state-btn--sub {
+  color: var(--el-text-color-regular, #475569);
+  background: transparent;
+  border: 1px solid var(--el-border-color, rgba(0, 0, 0, 0.12));
+
+  &:hover {
+    opacity: 1;
+    background: var(--el-fill-color-light, rgba(0, 0, 0, 0.04));
+  }
+}
+
 .qr__spinner {
   width: 26px;
   height: 26px;
@@ -1569,60 +2025,172 @@ onBeforeUnmount(() => {
   }
 }
 
-/* ── 底部动作：悬浮毛玻璃胶囊 Dock ── */
+/* ── 底部动作：贴底浮动 Dock（无容器，仅按钮） ── */
 .qr__dock {
+  position: absolute;
+  bottom: 16px;
+  left: 0;
+  right: 0;
   display: flex;
-  flex: 0 0 auto;
   justify-content: center;
   align-items: center;
-  padding: 14px 20px max(16px, env(safe-area-inset-bottom));
-  background: linear-gradient(to top, rgba(247, 249, 252, 0.96) 0%, rgba(247, 249, 252, 0.45) 60%, transparent 100%);
   pointer-events: none;
+  z-index: 10;
+}
+
+/* ── 右上角极简撤销浮条 ── */
+.qr__undo-bar {
+  position: absolute;
+  top: 56px;
+  right: 18px;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: rgba(15, 23, 42, 0.92);
+  border-radius: 4px;
+}
+
+.qr__undo-bar-progress {
+  height: 2px;
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+  transition: width 0.08s linear;
+}
+
+.qr__undo-bar-body {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+}
+
+.qr__undo-bar-dot {
+  width: 6px;
+  height: 6px;
+  background: #f59e0b;
+  border-radius: 50%;
+}
+
+.qr__undo-bar-text {
+  font-size: 12px;
+  color: #e2e8f0;
+  white-space: nowrap;
+
+  b {
+    color: #fbbf24;
+    font-weight: 700;
+  }
+
+  .qr__undo-bar-sec {
+    margin-left: 3px;
+    font-size: 11px;
+    color: #94a3b8;
+  }
+}
+
+.qr__undo-btn-act {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #1e293b;
+  background: #f59e0b;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: #fbbf24;
+  }
+
+  .qr__undo-btn-kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 14px;
+    height: 14px;
+    padding: 0 2px;
+    font-size: 9px;
+    font-family: inherit;
+    font-weight: 700;
+    color: #78350f;
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 2px;
+    line-height: 1;
+  }
+}
+
+.qr__undo-btn-all {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 6px;
+  font-size: 11px;
+  color: #94a3b8;
+  background: transparent;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.4);
+  }
+}
+
+/* 动效：右上角轻滑入 */
+.qr-undo-slide-enter-active,
+.qr-undo-slide-leave-active {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.qr-undo-slide-enter-from {
+  opacity: 0;
+  transform: translate(12px, -4px) scale(0.96);
+}
+
+.qr-undo-slide-leave-to {
+  opacity: 0;
+  transform: translate(8px, -2px) scale(0.98);
 }
 
 .qr__dock-capsule {
   pointer-events: auto;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 5px 6px;
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  border-radius: 999px;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12), 0 2px 6px rgba(15, 23, 42, 0.04);
+  gap: 8px;
 }
 
 .qr__dock-sep {
   width: 1px;
-  height: 18px;
-  background: rgba(148, 163, 184, 0.28);
+  height: 16px;
+  background: var(--el-border-color-lighter, rgba(148, 163, 184, 0.28));
 }
 
 .qr__dock-btn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  height: 36px;
-  padding: 0 16px;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  border: 1px solid transparent;
-  border-radius: 999px;
+  border: none;
+  border-radius: 4px;
   background: transparent;
   color: var(--el-text-color-regular, #475569);
-  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: color 0.14s ease, background-color 0.14s ease;
   white-space: nowrap;
-
-  &:active:not(:disabled) {
-    transform: scale(0.96);
-  }
 
   &:disabled {
     cursor: not-allowed;
-    opacity: 0.35;
+    opacity: 0.4;
   }
 }
 
@@ -1633,28 +2201,17 @@ onBeforeUnmount(() => {
 }
 
 .qr__dock-kbd {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 4px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 10px;
   font-weight: 600;
   line-height: 1;
   color: var(--el-text-color-secondary, #64748b);
-  background: rgba(15, 23, 42, 0.05);
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  border-radius: 4px;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
-/* 旋转按钮 (Light mode)：只是预览，所以保持幽灵态，转了角度才点亮 */
+/* 旋转：只是预览，转了角度才点亮 */
 .qr__dock-btn--rotate {
   &:hover:not(:disabled) {
     color: var(--el-text-color-primary, #0f172a);
-    background: rgb(15 23 42 / 6%);
 
     .qr__dock-arrow {
       opacity: 1;
@@ -1663,8 +2220,7 @@ onBeforeUnmount(() => {
   }
 
   &.is-active {
-    color: #4338ca;
-    background: rgb(99 102 241 / 10%);
+    color: var(--qr-primary-on-tint);
 
     .qr__dock-arrow {
       opacity: 1;
@@ -1673,20 +2229,15 @@ onBeforeUnmount(() => {
 }
 
 .qr__dock-badge {
-  padding: 1px 6px;
   font-size: 11px;
   font-weight: 600;
-  line-height: 1.4;
   font-variant-numeric: tabular-nums;
-  color: #4338ca;
-  background: rgb(99 102 241 / 12%);
-  border-radius: 999px;
+  color: var(--qr-primary-on-tint);
 }
 
-/* 忽略按钮交互 (Light mode) */
+/* 忽略 */
 .qr__dock-btn--skip:hover:not(:disabled) {
   color: var(--el-text-color-primary, #0f172a);
-  background: rgba(15, 23, 42, 0.06);
 
   .qr__dock-arrow {
     transform: translateX(-2px);
@@ -1694,83 +2245,61 @@ onBeforeUnmount(() => {
   }
 }
 
-/* 删除按钮 (Light mode) */
+/* 删除 */
 .qr__dock-btn--delete {
-  color: #dc2626;
+  color: var(--el-color-danger, #dc2626);
 
-  .qr__dock-kbd {
-    color: #dc2626;
-    background: rgba(239, 68, 68, 0.08);
-    border: 1px solid rgba(239, 68, 68, 0.22);
+  .qr__dock-arrow {
+    opacity: 1;
   }
 
   &:hover:not(:disabled) {
-    color: #ffffff;
-    background: #ef4444;
-    border-color: #ef4444;
-    box-shadow: 0 2px 12px rgba(239, 68, 68, 0.28);
+    background: color-mix(in srgb, var(--el-color-danger, #ef4444) 10%, transparent);
 
     .qr__dock-arrow {
       transform: translateY(2px);
-      opacity: 1;
-    }
-
-    .qr__dock-kbd {
-      color: #ffffff;
-      background: rgba(0, 0, 0, 0.2);
-      border-color: rgba(255, 255, 255, 0.3);
     }
   }
 }
 
-/* 入库按钮 (Light mode) */
+/* 入库：唯一实心 CTA */
 .qr__dock-btn--import {
   color: #ffffff;
   background: #10b981;
-  border-color: #10b981;
-  box-shadow: 0 2px 10px rgba(16, 185, 129, 0.25);
 
   .qr__dock-kbd {
-    color: #ffffff;
-    background: rgba(0, 0, 0, 0.18);
-    border-color: rgba(255, 255, 255, 0.28);
+    color: rgba(255, 255, 255, 0.78);
   }
 
   &:hover:not(:disabled) {
     background: #059669;
-    border-color: #059669;
-    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.4);
 
     .qr__dock-arrow {
       transform: translateX(2px);
       opacity: 1;
     }
   }
+
+  &:disabled {
+    color: var(--el-text-color-placeholder, #a8abb2);
+    background: var(--el-fill-color, rgba(0, 0, 0, 0.06));
+    opacity: 1;
+
+    .qr__dock-kbd {
+      color: inherit;
+    }
+  }
 }
 
-/* ── 黑夜模式 (Dark Mode) 全局自适应（使用系统默认纯正黑底，彻底去除深蓝偏色） ── */
+/* ── 黑夜模式：棋盘格与主题色已由 CSS 变量接管，这里只补少量固定色 ── */
 html.dark,
 html[class*="dark"] {
   .qr {
     background: var(--app-content-bg-color, #101010);
-  }
-
-  .qr__bar {
-    background: var(--app-content-surface-color, #151515);
-    border-bottom-color: var(--app-content-border-color, rgba(255, 255, 255, 0.08));
-  }
-
-  .qr__title {
-    color: #f0f2f5;
-  }
-
-  .qr__badge {
-    color: #909399;
-    background: rgba(255, 255, 255, 0.06);
-  }
-
-  .qr__progress {
-    color: #808695;
+    --qr-checker-color-1: #18191b;
+    --qr-checker-color-2: #101012;
+    --qr-primary-on-tint: color-mix(in srgb, var(--el-color-primary, #3b82f6) 50%, #ffffff);
+    --qr-warning-on-tint: color-mix(in srgb, var(--el-color-warning, #e6a23c) 35%, #ffffff);
   }
 
   .qr__stat-item {
@@ -1791,241 +2320,25 @@ html[class*="dark"] {
 
   .qr__text-btn {
     color: #9ca3af;
-
-    &:hover {
-      color: #60a5fa;
-      background: rgba(255, 255, 255, 0.06);
-    }
-  }
-
-  .qr__close {
-    color: #c0c4cc;
-
-    &:hover {
-      color: #ffffff;
-      background: rgba(255, 255, 255, 0.08);
-    }
-  }
-
-  .qr__stage {
-    background: repeating-conic-gradient(
-        #1c1c1c 0% 25%,
-        #121212 0% 50%
-      )
-      50% / 20px 20px;
-  }
-
-  .qr__side {
-    background: var(--app-content-surface-color, #151515);
-    border-top-color: var(--app-content-border-color, rgba(255, 255, 255, 0.08));
-  }
-
-  .qr__name {
-    color: #f0f2f5;
-  }
-
-  .qr__spec-k,
-  .qr__note-k {
-    color: #94a3b8;
-  }
-
-  .qr__spec-v {
-    color: #f0f2f5;
-  }
-
-  .qr__meta,
-  .qr__note {
-    color: #cbd5e1;
-  }
-
-  .qr__meta-item + .qr__meta-item::before {
-    background: rgb(255 255 255 / 18%);
-  }
-
-  .qr__link {
-    color: #60a5fa;
-  }
-
-  .qr__chip--ok {
-    color: #34d399;
-    border-color: color-mix(in srgb, #10b981 30%, transparent);
-  }
-
-  .qr__chip--info {
-    color: #60a5fa;
-    border-color: color-mix(in srgb, #3b82f6 30%, transparent);
-  }
-
-  .qr__chip--muted {
-    color: #94a3b8;
-    background: rgb(255 255 255 / 6%);
-    border-color: rgb(255 255 255 / 10%);
-  }
-
-  .qr__note-k {
-    color: #94a3b8;
-    background: rgb(255 255 255 / 6%);
-  }
-
-  .qr__id {
-    color: #94a3b8;
-  }
-
-  .qr__state-title {
-    color: #f0f2f5;
-  }
-
-  .qr__state-desc {
-    color: #94a3b8;
-  }
-
-  .qr__spinner {
-    border-color: rgba(255, 255, 255, 0.15);
-    border-top-color: var(--el-color-primary, #409eff);
-  }
-
-  .qr__dock {
-    background: linear-gradient(
-      to top,
-      rgba(16, 16, 16, 0.98) 0%,
-      rgba(16, 16, 16, 0.5) 60%,
-      transparent 100%
-    );
-  }
-
-  .qr__dock-capsule {
-    background: rgba(26, 26, 26, 0.94);
-    border-color: rgba(255, 255, 255, 0.12);
-    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.35);
   }
 
   .qr__dock-sep {
     background: rgba(255, 255, 255, 0.1);
   }
-
-  .qr__dock-btn {
-    color: #cbd5e1;
-  }
-
-  .qr__dock-kbd {
-    color: rgba(255, 255, 255, 0.7);
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.14);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-  }
-
-  .qr__dock-btn--skip:hover:not(:disabled) {
-    color: #ffffff;
-    background: rgba(255, 255, 255, 0.08);
-  }
-
-  .qr__dock-btn--rotate {
-    &:hover:not(:disabled) {
-      color: #fff;
-      background: rgb(255 255 255 / 8%);
-    }
-
-    &.is-active {
-      color: #a5b4fc;
-      background: rgb(99 102 241 / 18%);
-    }
-  }
-
-  .qr__dock-badge {
-    color: #c7d2fe;
-    background: rgb(99 102 241 / 24%);
-  }
-
-  .qr__dock-btn--delete {
-    color: #fca5a5;
-
-    .qr__dock-kbd {
-      color: #fca5a5;
-      background: rgba(239, 68, 68, 0.12);
-      border-color: rgba(239, 68, 68, 0.25);
-    }
-
-    &:hover:not(:disabled) {
-      color: #ffffff;
-      background: #ef4444;
-      border-color: #ef4444;
-      box-shadow: 0 2px 12px rgba(239, 68, 68, 0.35);
-
-      .qr__dock-kbd {
-        color: #ffffff;
-        background: rgba(0, 0, 0, 0.2);
-        border-color: rgba(255, 255, 255, 0.25);
-      }
-    }
-  }
-
-  .qr__dock-btn--import {
-    box-shadow: 0 2px 10px rgba(16, 185, 129, 0.3);
-
-    &:hover:not(:disabled) {
-      box-shadow: 0 4px 16px rgba(16, 185, 129, 0.45);
-    }
-  }
 }
 
 /* ── 移动端 / 窄屏适配 ── */
 @media (width <= 768px) {
-  .qr__bar {
-    flex-wrap: wrap;
-    row-gap: 6px;
-    min-height: 42px;
-    padding: 6px 12px;
-  }
-
-  .qr__bar-lead {
-    flex: 1 1 auto;
-  }
-
-  .qr__close {
-    order: 2;
-  }
-
-  .qr__bar-ops {
-    order: 3;
-    flex: 1 1 100%;
-    justify-content: flex-start;
-    row-gap: 6px;
-  }
-
   .qr__toasts {
-    top: 86px;
+    top: 64px;
   }
 
   .qr__stage {
-    padding: 12px;
-  }
-
-  .qr__side {
-    padding: 10px 14px 12px;
-  }
-
-  .qr__side-head {
-    gap: 2px 14px;
-  }
-
-  .qr__name {
-    max-width: 100%;
-  }
-
-  .qr__specs {
-    gap: 14px;
-  }
-
-  .qr__spec-v {
-    font-size: 15px;
-  }
-
-  .qr__meta-item {
-    max-width: 100%;
+    padding: 48px 12px 62px;
   }
 
   .qr__dock {
-    padding: 10px 12px max(10px, env(safe-area-inset-bottom));
+    bottom: 10px;
   }
 
   .qr__dock-capsule {
@@ -2033,7 +2346,6 @@ html[class*="dark"] {
     max-width: 420px;
     justify-content: space-between;
     gap: 2px;
-    padding: 4px;
   }
 
   .qr__dock-btn {
@@ -2049,14 +2361,13 @@ html[class*="dark"] {
     display: none;
   }
 
-  /* 多了一个按钮，窄屏把旋转按钮收紧一点，别让角度徽章把胶囊顶宽 */
+  /* 多了一个按钮，窄屏把旋转按钮收紧一点，别让角度数字把整排顶宽 */
   .qr__dock-btn--rotate {
     gap: 3px;
     padding: 0 6px;
   }
 
   .qr__dock-badge {
-    padding: 0 4px;
     font-size: 10px;
   }
 }

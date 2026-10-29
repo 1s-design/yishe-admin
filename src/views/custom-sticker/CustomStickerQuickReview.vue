@@ -1,93 +1,101 @@
 <template>
   <teleport to="body">
     <div v-if="visible" class="qr">
-      <!-- 顶栏：标题、进度、统计与快捷操作 -->
-      <!-- 顶栏：简洁信息与极简计数 -->
-      <header class="qr__bar">
-        <div class="qr__bar-lead">
-          <span class="qr__title">快捷审核</span>
-          <span class="qr__badge">自定义贴纸</span>
-          <span class="qr__progress">
-            {{ processedCount }}<template v-if="total"> / {{ total }}</template>
-          </span>
-        </div>
+      <!-- ================= 左侧：负责图片展示与舞台交互 ================= -->
+      <section class="qr__stage-wrap">
+        <!-- 极简悬浮顶条：无实体头栏，浮动毛玻璃轻量控件 -->
+        <header class="qr__floating-bar">
+          <div class="qr__floating-left">
+            <span class="qr__floating-progress">
+              {{ processedCount }}<template v-if="total"> / {{ total }}</template>
+            </span>
+            <span class="qr__floating-badge">自定义贴纸</span>
 
-        <div class="qr__bar-ops">
-          <div class="qr__stats">
-            <span class="qr__stat-item">
-              <i class="qr__stat-dot qr__stat-dot--copy"></i>
-              <span class="qr__stat-name">已复制</span>
-              <span class="qr__stat-val">{{ copiedCount }}</span>
-            </span>
-            <span class="qr__stat-divider">/</span>
-            <span class="qr__stat-item">
-              <i class="qr__stat-dot qr__stat-dot--delete"></i>
-              <span class="qr__stat-name">已删除</span>
-              <span class="qr__stat-val">{{ deletedCount }}</span>
-            </span>
-            <span class="qr__stat-divider">/</span>
-            <span class="qr__stat-item">
-              <i class="qr__stat-dot qr__stat-dot--rework"></i>
-              <span class="qr__stat-name">已返工</span>
-              <span class="qr__stat-val">{{ reworkedCount }}</span>
-            </span>
-            <span class="qr__stat-divider">/</span>
-            <span class="qr__stat-item">
-              <i class="qr__stat-dot qr__stat-dot--skip"></i>
-              <span class="qr__stat-name">已忽略</span>
-              <span class="qr__stat-val">{{ skippedCount }}</span>
-            </span>
+            <!-- 撤销删除胶囊 -->
+            <button
+              v-if="canUndoDelete"
+              type="button"
+              class="qr__undo-top-btn"
+              :title="`撤销删除（还有 ${deleteQueue.length} 张待删，快捷键：Z 或 Ctrl+Z）`"
+              @click="undoLastDelete"
+            >
+              <span class="qr__undo-top-icon">↺</span>
+              <span class="qr__undo-top-text">撤销删除</span>
+              <span class="qr__undo-top-badge">{{ deleteQueue.length }}</span>
+            </button>
+
+            <button
+              v-if="skippedCount"
+              type="button"
+              class="qr__text-btn"
+              title="把本次忽略的贴纸重新放回队列末尾"
+              @click="resetSkipped"
+            >
+              重置忽略
+            </button>
+            <button
+              type="button"
+              class="qr__text-btn"
+              title="重新从第一页加载"
+              @click="reload"
+            >
+              重新加载
+            </button>
           </div>
 
-          <div class="qr__ops-divider"></div>
+          <div class="qr__floating-right">
+            <div class="qr__stats">
+              <span class="qr__stat-item">
+                <i class="qr__stat-dot qr__stat-dot--copy"></i>
+                <span class="qr__stat-name">已复制</span>
+                <span class="qr__stat-val">{{ copiedCount }}</span>
+              </span>
+              <span class="qr__stat-divider">/</span>
+              <span class="qr__stat-item">
+                <i class="qr__stat-dot qr__stat-dot--delete"></i>
+                <span class="qr__stat-name">已删除</span>
+                <span class="qr__stat-val">{{ deletedCount }}</span>
+              </span>
+              <span class="qr__stat-divider">/</span>
+              <span class="qr__stat-item">
+                <i class="qr__stat-dot qr__stat-dot--rework"></i>
+                <span class="qr__stat-name">已返工</span>
+                <span class="qr__stat-val">{{ reworkedCount }}</span>
+              </span>
+              <span class="qr__stat-divider">/</span>
+              <span class="qr__stat-item">
+                <i class="qr__stat-dot qr__stat-dot--skip"></i>
+                <span class="qr__stat-name">已忽略</span>
+                <span class="qr__stat-val">{{ skippedCount }}</span>
+              </span>
+            </div>
 
-          <button
-            v-if="canUndoDelete"
-            type="button"
-            class="qr__text-btn"
-            title="撤销最近一次删除"
-            @click="undoLastDelete"
+            <!-- 当没有当前卡片时（已审核完毕或加载失败），左侧浮动条提供退出按钮 -->
+            <button
+              v-if="!current"
+              type="button"
+              class="qr__floating-close"
+              title="退出审核 (Esc)"
+              @click="close"
+            >
+              <el-icon><Close /></el-icon>
+            </button>
+          </div>
+        </header>
+
+        <!-- 层内轻提示 -->
+        <div class="qr__toasts">
+          <div
+            v-for="toast in toasts"
+            :key="toast.id"
+            class="qr__toast"
+            :class="`qr__toast--${toast.tone}`"
           >
-            撤销删除
-          </button>
-          <button
-            v-if="skippedCount"
-            type="button"
-            class="qr__text-btn"
-            title="把本次忽略的贴纸重新放回队列末尾"
-            @click="resetSkipped"
-          >
-            重置忽略
-          </button>
-          <button
-            type="button"
-            class="qr__text-btn"
-            title="重新从第一页加载"
-            @click="reload"
-          >
-            重新加载
-          </button>
+            {{ toast.text }}
+          </div>
         </div>
 
-        <button type="button" class="qr__close" title="关闭 (Esc)" @click="close">
-          <el-icon><Close /></el-icon>
-        </button>
-      </header>
-
-      <!-- 层内轻提示 -->
-      <div class="qr__toasts">
-        <div
-          v-for="toast in toasts"
-          :key="toast.id"
-          class="qr__toast"
-          :class="`qr__toast--${toast.tone}`"
-        >
-          {{ toast.text }}
-        </div>
-      </div>
-
-      <!-- 主体：居中图片与底部信息面板 -->
-      <main class="qr__main">
+        <!-- 舞台展示区 -->
         <div
           v-if="current"
           class="qr__stage"
@@ -100,11 +108,9 @@
           @pointercancel="onPointerCancel"
           @dblclick="openOriginal"
         >
-          <!-- 渲染的是 displayUrl 而不是 current.url：
-               它只在图片真正解码完成后才更新，避免上屏瞬间在主线程同步解码大图 -->
           <img v-if="displayUrl" :src="displayUrl" :alt="current.name || '自定义贴纸'" draggable="false" />
 
-          <!-- 新图还在解码：保留旧图 + 轻提示，绝不给一块白画布 -->
+          <!-- 新图还在解码：轻量角标提示 -->
           <div v-if="deckPending" class="qr__deck-pending">
             <span class="qr__deck-spinner"></span>
             <span class="qr__deck-text">加载下一张…</span>
@@ -129,127 +135,210 @@
         <div v-else class="qr__state">
           <p class="qr__state-title">已审核完全部自定义贴纸</p>
           <p class="qr__state-desc">
-            本次共处理 {{ processedCount }} 张（复制到素材库 {{ copiedCount }} · 彻底删除 {{ deletedCount }} · 忽略 {{ skippedCount }}）
+            本次共处理 {{ processedCount }} 张（复制到素材库 {{ copiedCount }} · 彻底删除 {{ deletedCount }} · 返工 {{ reworkedCount }} · 忽略 {{ skippedCount }}）
           </p>
-          <button type="button" class="qr__state-btn" @click="reload">重新加载</button>
+          <div class="mt-4 flex gap-3 justify-center">
+            <button type="button" class="qr__state-btn" @click="reload">重新加载</button>
+            <button type="button" class="qr__state-btn qr__state-btn--sub" @click="close">关闭退出</button>
+          </div>
         </div>
 
-        <aside v-if="current" ref="sideRef" class="qr__side">
-          <div class="qr__side-head">
-            <h3 class="qr__name" :title="current.name || ''">
+        <!-- 底部动作：悬浮毛玻璃胶囊 Dock 风格 -->
+        <footer class="qr__dock">
+          <div class="qr__dock-capsule">
+            <button
+              type="button"
+              class="qr__dock-btn qr__dock-btn--skip"
+              :disabled="!current"
+              title="忽略该贴纸并看下一张（快捷键：← 或 A）"
+              @click="actSkip"
+            >
+              <span class="qr__dock-arrow">←</span>
+              <span class="qr__dock-text">忽略</span>
+              <kbd class="qr__dock-kbd">A</kbd>
+            </button>
+
+            <div class="qr__dock-sep"></div>
+
+            <button
+              type="button"
+              class="qr__dock-btn qr__dock-btn--delete"
+              :disabled="!current"
+              title="彻底删除该贴纸（快捷键：↓ 或 S）"
+              @click="actDelete"
+            >
+              <span class="qr__dock-arrow">↓</span>
+              <span class="qr__dock-text">彻底删除</span>
+              <kbd class="qr__dock-kbd">S</kbd>
+            </button>
+
+            <div class="qr__dock-sep"></div>
+
+            <button
+              type="button"
+              class="qr__dock-btn qr__dock-btn--rework"
+              :disabled="!current"
+              title="对该贴纸提出微调意见并派发返工任务（快捷键：R）"
+              @click="openReworkDialog"
+            >
+              <span class="qr__dock-arrow">↺</span>
+              <span class="qr__dock-text">返工微调</span>
+              <kbd class="qr__dock-kbd">R</kbd>
+            </button>
+
+            <div class="qr__dock-sep"></div>
+
+            <button
+              type="button"
+              class="qr__dock-btn qr__dock-btn--copy"
+              :disabled="!current"
+              title="复制该贴纸到素材库（快捷键：→ 或 D）"
+              @click="actCopy"
+            >
+              <span class="qr__dock-arrow">→</span>
+              <span class="qr__dock-text">复制到素材库</span>
+              <kbd class="qr__dock-kbd">D</kbd>
+            </button>
+          </div>
+        </footer>
+      </section>
+
+      <!-- ================= 右侧：负责详情与操作面板 ================= -->
+      <aside v-if="current" class="qr__side">
+        <!-- 顶栏：极简标题 + 右上角专属关闭按钮 -->
+        <div class="qr__side-header">
+          <span class="qr__side-title">贴纸详情</span>
+          <button type="button" class="qr__side-close" title="退出审核 (Esc)" @click="close">
+            <el-icon><Close /></el-icon>
+          </button>
+        </div>
+
+        <!-- 详情滚动体：自上而下顺畅流式布局，轻背景，无多余边框 -->
+        <div ref="sideRef" class="qr__side-body">
+          <!-- 1. 贴纸标题与标识行 -->
+          <div class="qr__meta-section">
+            <h3 class="qr__main-title" :title="current.name || ''">
               {{ current.name || `贴纸 #${current.id}` }}
             </h3>
-            <div class="qr__specs">
-              <span class="qr__spec">
-                <span class="qr__spec-k">尺寸</span>
-                <span class="qr__spec-v">{{ dimensionText || "-" }}</span>
-              </span>
-              <span class="qr__spec">
-                <span class="qr__spec-k">比例</span>
-                <span class="qr__spec-v">{{ aspectText }}</span>
-              </span>
-              <span class="qr__spec">
-                <span class="qr__spec-k">格式</span>
-                <span class="qr__spec-v">{{ current.suffix ? current.suffix.toUpperCase() : "PNG" }}</span>
-              </span>
+
+            <div class="qr__sub-meta">
+              <span class="qr__mono-id">#{{ current.id }}</span>
+              <span class="qr__meta-dot">·</span>
+              <span class="qr__meta-text">{{ creatorText }}</span>
+              <span class="qr__meta-dot">·</span>
+              <span class="qr__meta-text">{{ createTimeText }}</span>
             </div>
 
-            <div class="qr__meta">
-              <span class="qr__meta-item">
-                <span class="qr__chip" :class="current.imported ? 'qr__chip--ok' : 'qr__chip--muted'">
-                  {{ current.imported ? "已复制" : "未复制" }}{{ current.imported && current.importedSticker?.code ? ` (${current.importedSticker.code})` : "" }}
-                </span>
+            <!-- 状态标签行：极简轻底色 Pill 胶囊 -->
+            <div class="qr__pills-group">
+              <span class="qr__pill" :class="current.imported ? 'qr__pill--success' : 'qr__pill--neutral'">
+                {{ current.imported ? "已复制到素材库" : "未复制入库" }}{{ current.imported && current.importedSticker?.code ? ` (${current.importedSticker.code})` : "" }}
               </span>
-              <span class="qr__meta-item">
-                <span class="qr__chip" :class="current.isShared ? 'qr__chip--info' : 'qr__chip--muted'">
-                  {{ current.isShared ? "已发布" : "未发布" }}
-                </span>
+              <span class="qr__pill" :class="current.isShared ? 'qr__pill--info' : 'qr__pill--neutral'">
+                {{ current.isShared ? "已发布" : "未发布" }}
               </span>
-              <span class="qr__meta-item" :title="creatorText">{{ creatorText }}</span>
-              <span class="qr__meta-item">
-                <span class="qr__chip qr__chip--muted">{{ current.folder || "根目录" }}</span>
+              <span v-if="current.folder" class="qr__pill qr__pill--neutral">
+                {{ current.folder }}
               </span>
-              <span class="qr__meta-item qr__meta-item--faint">{{ createTimeText }}</span>
             </div>
           </div>
 
-          <p class="qr__note">
-            <span class="qr__note-k qr__note-k--key">提示词</span>{{ promptText }}
-          </p>
-          <p v-if="negativePromptText" class="qr__note">
-            <span class="qr__note-k qr__note-k--key">负向提示词</span>{{ negativePromptText }}
-          </p>
-          <p v-if="current.keywords" class="qr__note">
-            <span class="qr__note-k">关键词</span>{{ current.keywords }}
-          </p>
-          <p v-if="current.description" class="qr__note">
-            <span class="qr__note-k">描述</span>{{ current.description }}
-          </p>
-
-          <div class="qr__tail">
-            <span class="qr__id" :title="current.id">{{ current.id }}</span>
+          <!-- 2. 规格参数：轻背景通栏指标条，无边框格子 -->
+          <div class="qr__specs-banner">
+            <div class="qr__spec-col">
+              <span class="qr__spec-label">尺寸</span>
+              <span class="qr__spec-val">{{ dimensionText || "-" }}</span>
+            </div>
+            <div class="qr__spec-divider"></div>
+            <div class="qr__spec-col">
+              <span class="qr__spec-label">比例</span>
+              <span class="qr__spec-val">{{ aspectText }}</span>
+            </div>
+            <div class="qr__spec-divider"></div>
+            <div class="qr__spec-col">
+              <span class="qr__spec-label">格式</span>
+              <span class="qr__spec-val">{{ current.suffix ? current.suffix.toUpperCase() : "PNG" }}</span>
+            </div>
           </div>
-        </aside>
-      </main>
 
-      <!-- 底部动作：悬浮毛玻璃胶囊 Dock 风格 -->
-      <footer class="qr__dock">
-        <div class="qr__dock-capsule">
+          <!-- 3. 提示词 Prompt：轻背景流式卡片，无生硬边框 -->
+          <div v-if="promptText && promptText !== '-'" class="qr__prompt-panel">
+            <div class="qr__panel-head">
+              <span class="qr__panel-title">提示词 Prompt</span>
+              <button
+                type="button"
+                class="qr__copy-action"
+                title="一键复制提示词"
+                @click="copyPromptToClipboard(promptText)"
+              >
+                <el-icon><CopyDocument /></el-icon>
+                <span>复制</span>
+              </button>
+            </div>
+            <p class="qr__prompt-text select-text">{{ promptText }}</p>
+          </div>
+
+          <!-- 4. 负向提示词 Negative Prompt（若有） -->
+          <div v-if="negativePromptText" class="qr__prompt-panel qr__prompt-panel--neg">
+            <div class="qr__panel-head">
+              <span class="qr__panel-title">负向提示词 Negative</span>
+              <button
+                type="button"
+                class="qr__copy-action"
+                title="一键复制负向词"
+                @click="copyPromptToClipboard(negativePromptText)"
+              >
+                <el-icon><CopyDocument /></el-icon>
+                <span>复制</span>
+              </button>
+            </div>
+            <p class="qr__prompt-text select-text">{{ negativePromptText }}</p>
+          </div>
+
+          <!-- 5. 关键词与描述（若有） -->
+          <div v-if="current.keywords || current.description" class="qr__extra-panel">
+            <div v-if="current.keywords" class="qr__extra-row">
+              <span class="qr__extra-k">关键词</span>
+              <span class="qr__extra-v select-text">{{ current.keywords }}</span>
+            </div>
+            <div v-if="current.description" class="qr__extra-row">
+              <span class="qr__extra-k">描述</span>
+              <span class="qr__extra-v select-text">{{ current.description }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 侧边栏贴底操作栏 -->
+        <div class="qr__side-footer">
           <button
             type="button"
-            class="qr__dock-btn qr__dock-btn--skip"
-            :disabled="!current"
-            title="忽略该贴纸并看下一张（快捷键：← 或 A）"
-            @click="actSkip"
-          >
-            <span class="qr__dock-arrow">←</span>
-            <span class="qr__dock-text">忽略</span>
-            <kbd class="qr__dock-kbd">A</kbd>
-          </button>
-
-          <div class="qr__dock-sep"></div>
-
-          <button
-            type="button"
-            class="qr__dock-btn qr__dock-btn--delete"
-            :disabled="!current"
-            title="彻底删除该贴纸（快捷键：↓ 或 S）"
-            @click="actDelete"
-          >
-            <span class="qr__dock-arrow">↓</span>
-            <span class="qr__dock-text">彻底删除</span>
-            <kbd class="qr__dock-kbd">S</kbd>
-          </button>
-
-          <div class="qr__dock-sep"></div>
-
-          <button
-            type="button"
-            class="qr__dock-btn qr__dock-btn--rework"
-            :disabled="!current"
-            title="对该贴纸提出微调意见并派发返工任务（快捷键：R）"
-            @click="openReworkDialog"
-          >
-            <span class="qr__dock-arrow">↺</span>
-            <span class="qr__dock-text">返工微调</span>
-            <kbd class="qr__dock-kbd">R</kbd>
-          </button>
-
-          <div class="qr__dock-sep"></div>
-
-          <button
-            type="button"
-            class="qr__dock-btn qr__dock-btn--copy"
-            :disabled="!current"
-            title="复制该贴纸到素材库（快捷键：→ 或 D）"
+            class="qr__submit-btn"
+            title="一键复制贴纸到素材库（快捷键：D 或 →）"
             @click="actCopy"
           >
-            <span class="qr__dock-arrow">→</span>
-            <span class="qr__dock-text">复制到素材库</span>
-            <kbd class="qr__dock-kbd">D</kbd>
+            <span>复制到素材库</span>
+            <kbd class="qr__kbd-hint">D / →</kbd>
+          </button>
+          <button
+            type="button"
+            class="qr__rework-side-btn"
+            title="返工微调（快捷键：R）"
+            @click="openReworkDialog"
+          >
+            <span>返工</span>
+            <kbd class="qr__kbd-hint qr__kbd-hint--purple">R</kbd>
+          </button>
+          <button
+            type="button"
+            class="qr__delete-btn"
+            title="彻底删除该贴纸（快捷键：S 或 ↓）"
+            @click="actDelete"
+          >
+            <span>删除</span>
+            <kbd class="qr__kbd-hint qr__kbd-hint--danger">S / ↓</kbd>
           </button>
         </div>
-      </footer>
+      </aside>
 
       <!-- 返工微调弹窗 -->
       <el-dialog
@@ -319,7 +408,7 @@
 <script setup lang="ts">
 import { computed, markRaw, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { ElMessage } from "element-plus";
-import { Close } from "@element-plus/icons-vue";
+import { Close, CopyDocument } from "@element-plus/icons-vue";
 import { CustomStickerApi, type CustomSticker } from "@/api/custom-sticker";
 import { formatTimestamp } from "@/common/date";
 import { useImageDeck } from "@/composables/useImageDeck";
@@ -502,6 +591,28 @@ const negativePromptText = computed(() => {
   return String(neg).trim();
 });
 
+async function copyPromptToClipboard(text: string) {
+  if (!text || text === "-") return;
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      throw new Error("fallback");
+    }
+    pushToast("提示词已复制到剪贴板", "success");
+  } catch {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+    pushToast("提示词已复制到剪贴板", "success");
+  }
+}
+
 const createTimeText = computed(() => {
   const row = current.value;
   if (!row?.createTime) return "-";
@@ -611,19 +722,21 @@ function scheduleAutoRetry(): void {
 }
 
 /** 图片预解码调度器：负责「下一张随时可上屏」 */
-const deck = useImageDeck({ maxCache: 16 });
+const deck = useImageDeck({ maxCache: 36 });
 
 /**
- * 实际下载/上屏的图片地址。
- * 原本直接拿原图（几 MB、动辄上千万像素）解码，连点几张就会把主线程压出掉帧；
- * 现在按视口宽度让 COS 出图，清晰度对审核没有损失，解码量小一到两个数量级。
+ * 实际下载/上屏的图片地址按视口宽度离散量化出图，
+ * 采用 1200 / 1600 / 2000 档位消除微小视口抖动，
+ * 确保预热算出的 URL 与真正渲染的 URL 100% 相同，杜绝脱靶。
  */
 function pickDeckWidth(): number {
   if (typeof window === "undefined") return 1600;
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  // 画布大约占视口的 3/4，乘像素比就是这块屏真正需要多少宽
-  const cssWidth = Math.min(window.innerWidth, 1920);
-  return Math.max(900, Math.min(DECK_MAX_WIDTH, Math.round(cssWidth * dpr * 0.75)));
+  const cssWidth = window.innerWidth || 1600;
+  const target = cssWidth * dpr * 0.75;
+  if (target <= 1300) return 1200;
+  if (target <= 1700) return 1600;
+  return 2000;
 }
 
 const deckWidth = ref(pickDeckWidth());
@@ -634,15 +747,25 @@ function deckKeyOf(item?: CustomSticker | null): string {
 }
 
 /**
- * 预热策略：紧挨着的两张走立即通道（手快的人 200ms 就翻过去，只备一张必然跟不上），
- * 更远的丢进空闲帧慢慢来 —— 一次性并发拉一堆还是会把带宽摊薄，
- * 反而让紧邻的下一张变慢，这是「越预载越卡」的常见误区。
+ * 预热策略：紧挨着的 3 张走立即通道，
+ * 更远的丢进空闲帧慢慢来，兼顾即时性与带宽平滑。
  */
 function warmAhead(): void {
   const list = queue.value;
-  deck.warmNow(deckKeyOf(list[1]));
-  deck.warmNow(deckKeyOf(list[2]));
-  deck.warmIdle(list.slice(3, 3 + PRELOAD_AHEAD).map((item) => deckKeyOf(item)));
+  if (!list.length) return;
+  const cur = deckKeyOf(list[0]);
+  if (cur) deck.ensure(cur);
+
+  const nextSlice: string[] = [];
+  if (list[1]) nextSlice.push(deckKeyOf(list[1]));
+  if (list[2]) nextSlice.push(deckKeyOf(list[2]));
+  if (list[3]) nextSlice.push(deckKeyOf(list[3]));
+  if (nextSlice.length) deck.warmNow(nextSlice);
+
+  const idleSlice = list.slice(4, 4 + PRELOAD_AHEAD);
+  if (idleSlice.length) {
+    deck.warmIdle(idleSlice.map((item) => deckKeyOf(item)).filter(Boolean));
+  }
 }
 
 /** 数据层推进后的收尾：按需后台补货 + 预热（全异步，不阻塞点击反馈） */
@@ -654,16 +777,13 @@ function afterAdvance(): void {
 // ── 视觉层：图解码就绪才上屏 ────────────────────────────────
 /**
  * 真正渲染到画布上的图片地址。
- * 数据层切牌（queue.shift）是瞬时的，但这里必须等新图解码完成才替换：
- * 直接把未解码的大图交给 <img>，浏览器会在上屏那一帧同步解码几 MB 像素，
- * 表现就是「点了之后卡一下、闪一下白」。
  */
 const displayUrl = ref("");
-/** 新图还在解码：保留旧图 + 轻提示，绝不给用户一块白画布 */
+/** 新图还在解码：保留轻提示，绝不卡在旧图上 */
 const deckPending = ref(false);
 let deckSeq = 0;
 
-async function syncDeck(): Promise<void> {
+function syncDeck(): void {
   const target = deckKeyOf(current.value);
   const seq = ++deckSeq;
 
@@ -673,18 +793,20 @@ async function syncDeck(): Promise<void> {
     return;
   }
 
-  // 绝大多数情况下下一张早已在后台解码好，这里零延迟直接上屏
+  // 1. 0ms 瞬间直显目标地址，绝不卡在旧图上
+  displayUrl.value = target;
+
   if (deck.isReady(target)) {
-    displayUrl.value = target;
     deckPending.value = false;
     return;
   }
 
   deckPending.value = true;
-  await deck.awaitReady(target, DECK_WAIT_TIMEOUT);
-  if (seq !== deckSeq) return; // 期间用户又翻了，丢弃过期结果
-  displayUrl.value = target;
-  deckPending.value = false;
+  void deck.ensure(target).then(() => {
+    if (seq === deckSeq) {
+      deckPending.value = false;
+    }
+  });
 }
 
 watch(() => current.value?.url, syncDeck, { immediate: true });
@@ -1070,60 +1192,87 @@ onBeforeUnmount(() => {
   inset: 0;
   z-index: 3000;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  overflow: hidden;
   background: var(--app-content-bg-color, #f7f9fc);
 }
 
-/* ── 顶栏：极简大气 ── */
-.qr__bar {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 14px;
-  min-height: 48px;
-  padding: 8px 18px;
-  background: var(--app-content-surface-color, #ffffff);
-  border-bottom: 1px solid var(--app-content-border-color, rgba(148, 163, 184, 0.22));
-}
-
-.qr__bar-lead {
-  display: flex;
-  flex: 0 0 auto;
-  gap: 10px;
-  align-items: center;
+/* ── 左侧舞台包装器 ── */
+.qr__stage-wrap {
+  flex: 1 1 0;
   min-width: 0;
-}
-
-.qr__title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--el-text-color-primary, #0f172a);
-  letter-spacing: -0.2px;
-}
-
-.qr__badge {
-  padding: 1px 7px;
-  font-size: 11px;
-  color: var(--el-text-color-secondary, #64748b);
-  background: var(--el-fill-color-light, rgba(0, 0, 0, 0.04));
-  border-radius: 4px;
-}
-
-.qr__progress {
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  color: var(--el-text-color-secondary, #64748b);
-  white-space: nowrap;
-}
-
-.qr__bar-ops {
+  height: 100%;
   display: flex;
-  flex: 1 1 auto;
-  flex-wrap: wrap;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ── 极简悬浮顶条（无实体头部，悬浮毛玻璃胶囊） ── */
+.qr__floating-bar {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  right: 14px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 12px;
+  pointer-events: none;
+}
+
+.qr__floating-left,
+.qr__floating-right {
+  pointer-events: auto;
+  display: inline-flex;
   align-items: center;
-  justify-content: flex-end;
-  min-width: 0;
+  gap: 10px;
+  padding: 5px 12px;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 999px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+}
+
+.qr__floating-progress {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--el-color-primary, #3b82f6);
+  background: color-mix(in srgb, var(--el-color-primary, #3b82f6) 12%, transparent);
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.qr__floating-badge {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--el-fill-color-light, rgba(0, 0, 0, 0.04));
+  color: var(--el-text-color-secondary, #64748b);
+}
+
+.qr__floating-close {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--el-text-color-secondary, #64748b);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.15s ease;
+
+  &:hover {
+    color: var(--el-text-color-primary, #0f172a);
+    background: rgba(0, 0, 0, 0.06);
+  }
 }
 
 /* 极简计数行（取代笨重边框tag） */
@@ -1391,173 +1540,383 @@ onBeforeUnmount(() => {
   }
 }
 
-/* ── 信息面板 ── */
+/* ── 右侧：负责详情与操作面板 ── */
 .qr__side {
-  position: relative;
-  z-index: 1;
+  width: 380px;
+  flex-shrink: 0;
+  height: 100%;
   display: flex;
-  flex: 0 0 auto;
   flex-direction: column;
-  gap: 5px;
-  max-height: 100%;
-  min-width: 0;
   min-height: 0;
-  padding: 11px 20px 12px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
   background: var(--app-content-surface-color, #ffffff);
-  border-top: 1px solid var(--app-content-border-color, rgba(148, 163, 184, 0.22));
-}
-
-/* 标题 + 关键数值 + 次要信息排在同一行，按内容自然铺满 */
-.qr__side-head {
-  display: flex;
-  flex: 0 0 auto;
-  flex-wrap: wrap;
-  gap: 2px 26px;
-  align-items: baseline;
-}
-
-.qr__name {
-  flex: 0 1 auto;
-  max-width: 55%;
-  min-width: 0;
-  margin: 0;
+  border-left: 1px solid var(--app-content-border-color, rgba(148, 163, 184, 0.22));
   overflow: hidden;
-  font-size: 14px;
+  z-index: 10;
+}
+
+.qr__side-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--app-content-border-color, rgba(148, 163, 184, 0.15));
+}
+
+.qr__side-title {
+  font-size: 15px;
   font-weight: 600;
   color: var(--el-text-color-primary, #0f172a);
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-/* 关键数值：11px 标签 + 17px 等宽数字 */
-.qr__specs {
-  display: flex;
-  flex: 0 0 auto;
-  gap: 22px;
-  align-items: baseline;
-}
-
-.qr__spec {
+.qr__side-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--app-content-border-color, rgba(148, 163, 184, 0.25));
+  background: var(--el-fill-color-light, rgba(0, 0, 0, 0.03));
+  color: var(--el-text-color-regular, #64748b);
   display: inline-flex;
-  gap: 6px;
-  align-items: baseline;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 15px;
+  transition: all 0.15s ease;
+
+  &:hover {
+    color: var(--el-color-danger, #ef4444);
+    border-color: rgba(239, 68, 68, 0.3);
+    background: rgba(239, 68, 68, 0.08);
+  }
 }
 
-.qr__spec-k {
+/* 详情滚动体：自上而下，轻盈呼吸感 */
+.qr__side-body {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* 1. 贴纸标题与标识行：纯净少边框 */
+.qr__meta-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.qr__main-title {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--el-text-color-primary, #0f172a);
+  margin: 0;
+  word-break: break-all;
+}
+
+.qr__sub-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary, #64748b);
+}
+
+.qr__mono-id {
+  font-family: var(--el-font-family-mono, monospace);
+  font-weight: 600;
+  color: var(--el-color-primary, #3b82f6);
+}
+
+.qr__meta-dot {
+  color: var(--el-border-color, #cbd5e1);
+}
+
+.qr__meta-text {
+  color: var(--el-text-color-secondary, #64748b);
+}
+
+.qr__pills-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.qr__pill {
+  padding: 2px 9px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  border-radius: 999px;
+
+  &--success {
+    color: #059669;
+    background: color-mix(in srgb, #10b981 12%, transparent);
+  }
+
+  &--info {
+    color: #2563eb;
+    background: color-mix(in srgb, #3b82f6 12%, transparent);
+  }
+
+  &--neutral {
+    color: var(--el-text-color-secondary, #64748b);
+    background: var(--el-fill-color-light, rgba(0, 0, 0, 0.04));
+  }
+}
+
+/* 2. 规格参数：轻背景通栏指标条，无生硬方格边框 */
+.qr__specs-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 10px 14px;
+  background: var(--el-fill-color-lighter, rgba(0, 0, 0, 0.025));
+  border-radius: 8px;
+}
+
+.qr__spec-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.qr__spec-label {
   font-size: 11px;
   color: var(--el-text-color-secondary, #64748b);
 }
 
-.qr__spec-v {
-  font-size: 17px;
+.qr__spec-val {
+  font-size: 13px;
   font-weight: 600;
   color: var(--el-text-color-primary, #0f172a);
   font-variant-numeric: tabular-nums;
 }
 
-/* 次要信息：吃掉标题与数值之后的剩余宽度，项间用细竖线 */
-.qr__meta {
-  display: flex;
-  flex: 1 1 auto;
-  flex-wrap: wrap;
-  gap: 2px 16px;
-  align-items: baseline;
-  min-width: 0;
-  font-size: 12px;
-  color: var(--el-text-color-regular, #334155);
+.qr__spec-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--app-content-border-color, rgba(148, 163, 184, 0.2));
 }
 
-.qr__meta-item {
-  position: relative;
-  max-width: 45%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+/* 3. 提示词与负向提示词面板：纯粹轻背景，无外边框 */
+.qr__prompt-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  background: var(--el-fill-color-lighter, rgba(0, 0, 0, 0.025));
+  border-radius: 8px;
 
-  & + &::before {
-    position: absolute;
-    top: 0;
-    left: -8px;
-    width: 1px;
-    height: 13px;
-    background: var(--el-border-color, #cbd5e1);
-    content: "";
-    opacity: 0.7;
+  &--neg {
+    background: color-mix(in srgb, #f87171 6%, transparent);
   }
 }
 
-.qr__note {
+.qr__panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.qr__panel-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--el-text-color-secondary, #64748b);
+  letter-spacing: 0.3px;
+}
+
+.qr__copy-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  font-size: 11px;
+  color: var(--el-color-primary, #3b82f6);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--el-color-primary, #3b82f6) 24%, transparent);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.14s ease;
+
+  &:hover {
+    color: #ffffff;
+    background: var(--el-color-primary, #3b82f6);
+    border-color: var(--el-color-primary, #3b82f6);
+  }
+}
+
+.qr__prompt-text {
   margin: 0;
   font-size: 13px;
-  line-height: 1.55;
+  line-height: 1.6;
   color: var(--el-text-color-regular, #334155);
-  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
-.qr__meta-item--faint {
-  color: var(--el-text-color-secondary, #64748b);
+/* 4. 补充信息（关键词/描述）：极简轻量 */
+.qr__extra-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--el-fill-color-lighter, rgba(0, 0, 0, 0.02));
+  border-radius: 8px;
 }
 
-/* 状态色块：绿=已入素材库，蓝=已发布/有透明通道，灰=未处理 */
-.qr__chip {
-  padding: 1px 7px;
+.qr__extra-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.qr__extra-k {
+  flex-shrink: 0;
   font-size: 11px;
+  color: var(--el-text-color-secondary, #64748b);
   font-weight: 500;
-  line-height: 16px;
-  border: 1px solid transparent;
-  border-radius: 5px;
 }
 
-.qr__chip--ok {
-  color: #047857;
-  background: color-mix(in srgb, #10b981 13%, transparent);
-  border-color: color-mix(in srgb, #10b981 24%, transparent);
+.qr__extra-v {
+  color: var(--el-text-color-regular, #334155);
+  line-height: 1.5;
+  word-break: break-word;
 }
 
-.qr__chip--info {
-  color: #1d4ed8;
-  background: color-mix(in srgb, #3b82f6 13%, transparent);
-  border-color: color-mix(in srgb, #3b82f6 24%, transparent);
+.qr__side-footer {
+  padding: 12px 18px;
+  border-top: 1px solid var(--app-content-border-color, rgba(148, 163, 184, 0.18));
+  background: var(--app-content-surface-color, #ffffff);
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.qr__chip--muted {
-  color: var(--el-text-color-secondary, #64748b);
-  background: var(--el-fill-color-light, #f1f5f9);
-  border-color: var(--el-border-color-lighter, rgb(148 163 184 / 24%));
-}
+.qr__submit-btn {
+  flex: 1;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 8px;
+  border: none;
+  background: #10b981;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  box-shadow: 0 2px 10px rgba(16, 185, 129, 0.28);
+  white-space: nowrap;
 
-.qr__note-k {
-  display: inline-block;
-  margin-right: 7px;
-  padding: 1px 6px;
-  font-size: 11px;
-  color: var(--el-text-color-secondary, #64748b);
-  background: var(--el-fill-color-light, #f1f5f9);
-  border-radius: 4px;
-
-  &--key {
-    color: var(--el-color-primary, #3b82f6);
-    background: color-mix(in srgb, var(--el-color-primary, #3b82f6) 10%, transparent);
+  &:hover {
+    background: #059669;
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
   }
 }
 
-/* 末行：ID 右锚，整行拉满 */
-.qr__tail {
-  display: flex;
-  gap: 18px;
-  align-items: baseline;
-  font-size: 11px;
+.qr__rework-side-btn {
+  height: 40px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border-radius: 8px;
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  background: rgba(168, 85, 247, 0.1);
+  color: #7c3aed;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  white-space: nowrap;
+
+  &:hover {
+    color: #ffffff;
+    background: #7c3aed;
+    border-color: #7c3aed;
+  }
 }
 
-.qr__id {
-  flex: 0 0 auto;
-  margin-left: auto;
-  font-family: var(--el-font-family-mono, monospace);
-  font-size: 11px;
-  color: var(--el-text-color-secondary, #64748b);
+.qr__delete-btn {
+  height: 40px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border-radius: 8px;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.08);
+  color: #dc2626;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  white-space: nowrap;
+
+  &:hover {
+    color: #ffffff;
+    background: #ef4444;
+    border-color: #ef4444;
+  }
+}
+
+.qr__kbd-hint {
+  font-size: 10px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.15);
+  color: #ffffff;
+  font-family: inherit;
+  font-weight: 600;
+
+  &--purple {
+    background: rgba(124, 58, 237, 0.25);
+    color: inherit;
+  }
+
+  &--danger {
+    background: rgba(239, 68, 68, 0.2);
+    color: inherit;
+  }
+}
+
+/* 底部 Dock 返工按钮 */
+.qr__dock-btn--rework {
+  color: #7c3aed;
+
+  .qr__dock-kbd {
+    color: #7c3aed;
+    background: rgba(168, 85, 247, 0.08);
+    border: 1px solid rgba(168, 85, 247, 0.22);
+  }
+
+  &:hover:not(:disabled) {
+    color: #ffffff;
+    background: #7c3aed;
+    border-color: #7c3aed;
+    box-shadow: 0 2px 12px rgba(124, 58, 237, 0.28);
+
+    .qr__dock-arrow {
+      transform: rotate(-90deg);
+      opacity: 1;
+    }
+
+    .qr__dock-kbd {
+      color: #ffffff;
+      background: rgba(0, 0, 0, 0.2);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+  }
 }
 
 /* ── 空/加载态 ── */
@@ -1827,51 +2186,54 @@ html[class*="dark"] {
       50% / 20px 20px;
   }
 
-  .qr__side {
-    background: var(--app-content-surface-color, #151515);
-    border-top-color: var(--app-content-border-color, rgba(255, 255, 255, 0.08));
+  .qr__floating-left,
+  .qr__floating-right {
+    background: rgba(22, 22, 22, 0.88);
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
   }
 
-  .qr__name {
+  .qr__side {
+    background: var(--app-content-surface-color, #151515);
+    border-left-color: var(--app-content-border-color, rgba(255, 255, 255, 0.08));
+  }
+
+  .qr__side-header {
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .qr__side-footer {
+    background: var(--app-content-surface-color, #151515);
+    border-top-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .qr__specs-banner,
+  .qr__prompt-panel,
+  .qr__extra-panel {
+    background: rgba(255, 255, 255, 0.035);
+  }
+
+  .qr__main-title {
     color: #f0f2f5;
   }
 
-  .qr__spec-k,
-  .qr__note-k {
+  .qr__spec-label,
+  .qr__panel-title,
+  .qr__extra-k {
     color: #94a3b8;
   }
 
-  .qr__spec-v {
+  .qr__spec-val {
     color: #f0f2f5;
   }
 
-  .qr__meta,
-  .qr__note {
+  .qr__prompt-text,
+  .qr__extra-v {
     color: #cbd5e1;
   }
 
-  .qr__meta-item + .qr__meta-item::before {
-    background: rgba(255, 255, 255, 0.18);
-  }
-
-  .qr__chip--ok {
-    color: #34d399;
-    border-color: color-mix(in srgb, #10b981 30%, transparent);
-  }
-
-  .qr__chip--info {
-    color: #60a5fa;
-    border-color: color-mix(in srgb, #3b82f6 30%, transparent);
-  }
-
-  .qr__chip--muted {
-    color: #94a3b8;
-    background: rgb(255 255 255 / 6%);
-    border-color: rgb(255 255 255 / 10%);
-  }
-
-  .qr__note-k {
-    background: rgb(255 255 255 / 6%);
+  .qr__spec-divider {
+    background: rgba(255, 255, 255, 0.08);
   }
 
   .qr__note-k--key {

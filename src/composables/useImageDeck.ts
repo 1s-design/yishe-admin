@@ -36,7 +36,7 @@ function pickIdle(): (cb: () => void) => void {
 }
 
 export function useImageDeck(options: UseImageDeckOptions = {}) {
-  const { maxCache = 12, warmTimeout = 6000 } = options;
+  const { maxCache = 36, warmTimeout = 6000 } = options;
   const idle = pickIdle();
 
   /** url -> 解码 Promise（true=已可上屏） */
@@ -107,16 +107,24 @@ export function useImageDeck(options: UseImageDeckOptions = {}) {
       el.onload = () => {
         // decode() 能确保像素已就绪、上屏时不再同步解码；不支持的浏览器退回 onload
         if (typeof el.decode === 'function') {
-          el.decode().then(
-            () => settle(true),
-            () => settle(true),
-          );
+          el.decode()
+            .then(() => settle(true))
+            .catch(() => settle(el.complete && el.naturalWidth > 0));
         } else {
           settle(true);
         }
       };
       el.onerror = () => settle(false);
       el.src = url;
+
+      // 浏览器若原生支持 decode()，可直接发起后台异步解码调度，无需等待主线程 onload 触发
+      if (typeof el.decode === 'function') {
+        el.decode()
+          .then(() => settle(true))
+          .catch(() => {
+            // 捕获解码异常，交由 onload/onerror 兜底
+          });
+      }
     });
 
     tasks.set(url, task);
@@ -129,6 +137,7 @@ export function useImageDeck(options: UseImageDeckOptions = {}) {
     if (!key) return Promise.resolve(false);
     const entry = cache.get(key);
     if (entry) entry.usedAt = Date.now();
+    if (ready.has(key)) return Promise.resolve(true);
     return start(key);
   }
 
@@ -154,8 +163,14 @@ export function useImageDeck(options: UseImageDeckOptions = {}) {
     ]);
   }
 
-  /** 立即抢占式预热（给「下一张」用） */
-  function warmNow(url?: string | null): void {
+  /** 立即抢占式预热（给紧邻的几张图用，支持单个 URL 或数组） */
+  function warmNow(url?: string | null | Array<string | null | undefined>): void {
+    if (Array.isArray(url)) {
+      for (const item of url) {
+        warmNow(item);
+      }
+      return;
+    }
     const key = normalize(url);
     if (!key || tasks.has(key)) return;
     void start(key);
