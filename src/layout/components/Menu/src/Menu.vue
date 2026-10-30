@@ -217,47 +217,82 @@ export default defineComponent({
     };
 
     const runningWorkflowCount = ref(0);
+    const scheduledWorkflowCount = ref(0);
+    const nextScheduledRunTime = ref("");
     const workflowRuntimeLoading = ref(false);
-    let workflowRuntimeTimer: ReturnType<typeof setInterval> | null = null;
+    const workflowRuntimeLoaded = ref(false);
+    let workflowRuntimeTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const WORKFLOW_RUNTIME_FAST_INTERVAL = 30_000;
+    const WORKFLOW_RUNTIME_IDLE_INTERVAL = 60_000;
+
     const refreshWorkflowRuntime = async () => {
-      if (workflowRuntimeLoading.value) return;
+      if (workflowRuntimeLoading.value || document.hidden) return;
       workflowRuntimeLoading.value = true;
       try {
         const response: any = await getWorkflowPageApi({ currentPage: 1, pageSize: 100 });
         const workflows = response?.list || response?.data?.list || [];
         runningWorkflowCount.value = workflows.filter((workflow: any) => workflow?.isRunning === true).length;
+
+        // 定时统计：只认“已启用工作流”上“启用中”的 cron 触发器，用于菜单角标与下次运行提示。
+        const scheduledRuns = workflows
+          .filter((workflow: any) => workflow?.isEnabled !== false)
+          .flatMap((workflow: any) =>
+            (Array.isArray(workflow?.triggers) ? workflow.triggers : [])
+              .filter((trigger: any) => trigger?.type === "cron" && trigger?.enabled !== false)
+              .map((trigger: any) => ({
+                workflowId: workflow.id,
+                nextRunTime: trigger?.nextRunTime || "",
+              })),
+          );
+        scheduledWorkflowCount.value = new Set(scheduledRuns.map((run) => run.workflowId)).size;
+        nextScheduledRunTime.value =
+          scheduledRuns
+            .map((run) => run.nextRunTime)
+            .filter(Boolean)
+            .sort()[0] || "";
+        workflowRuntimeLoaded.value = true;
       } catch {
         // 菜单状态是辅助信息，查询失败不影响路由和工作流执行。
       } finally {
         workflowRuntimeLoading.value = false;
       }
     };
-    // 只在工作流相关页面时才轮询
-    const startWorkflowRuntimePolling = () => {
-      if (workflowRuntimeTimer) return;
-      void refreshWorkflowRuntime();
-      workflowRuntimeTimer = setInterval(() => void refreshWorkflowRuntime(), 30_000);
-    };
-    const stopWorkflowRuntimePolling = () => {
-      if (workflowRuntimeTimer) {
-        clearInterval(workflowRuntimeTimer);
+
+    const scheduleWorkflowRuntimeRefresh = (delay: number) => {
+      if (workflowRuntimeTimer) clearTimeout(workflowRuntimeTimer);
+      workflowRuntimeTimer = setTimeout(async () => {
         workflowRuntimeTimer = null;
-      }
+        await refreshWorkflowRuntime();
+        // 有任务在跑或停留在工作流页面时加快刷新，其余页面放慢以降低列表查询频率。
+        const fast =
+          runningWorkflowCount.value > 0 || currentRoute.value.path.startsWith("/workflow");
+        scheduleWorkflowRuntimeRefresh(
+          fast ? WORKFLOW_RUNTIME_FAST_INTERVAL : WORKFLOW_RUNTIME_IDLE_INTERVAL,
+        );
+      }, delay);
     };
-    // 监听路由变化，只在工作流相关页面时轮询
+
+    // 菜单角标需要在任意页面都能反映运行/定时状态，所以全局轮询；标签页隐藏时不发请求。
+    scheduleWorkflowRuntimeRefresh(0);
+    const handleWorkflowRuntimeVisibility = () => {
+      if (!document.hidden) void refreshWorkflowRuntime();
+    };
+    document.addEventListener("visibilitychange", handleWorkflowRuntimeVisibility);
+    // 进入工作流相关页面时立即刷新，避免角标滞后一轮。
     watch(
       () => currentRoute.value.path,
       (path) => {
-        if (path.startsWith('/workflow')) {
-          startWorkflowRuntimePolling();
-        } else {
-          stopWorkflowRuntimePolling();
-        }
+        if (path.startsWith("/workflow")) void refreshWorkflowRuntime();
       },
       { immediate: true }
     );
     onBeforeUnmount(() => {
-      stopWorkflowRuntimePolling();
+      if (workflowRuntimeTimer) {
+        clearTimeout(workflowRuntimeTimer);
+        workflowRuntimeTimer = null;
+      }
+      document.removeEventListener("visibilitychange", handleWorkflowRuntimeVisibility);
     });
 
     const menuStatusRouteMap: Record<string, string> = {
@@ -620,23 +655,67 @@ export default defineComponent({
       });
     };
 
-    const renderWorkflowRuntimeBadge = (routePath: string) => {
-      if (routePath !== "/workflow/index") return undefined;
-      if (workflowRuntimeLoading.value && runningWorkflowCount.value === 0) {
+    const formatWorkflowNextRun = (iso: string) => {
+      if (!iso) return "";
+      const date = new Date(iso);
+      if (Number.isNaN(date.getTime())) return "";
+      return date.toLocaleString("zh-CN", {
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    };
+
+    const resolveWorkflowRuntimeTitle = () => {
+      const parts: string[] = [];
+      if (runningWorkflowCount.value > 0) {
+        parts.push(`当前有 ${runningWorkflowCount.value} 个工作流正在运行`);
+      }
+      if (scheduledWorkflowCount.value > 0) {
+        const next = formatWorkflowNextRun(nextScheduledRunTime.value);
+        parts.push(
+          `${scheduledWorkflowCount.value} 个定时工作流已启用${next ? `，下次 ${next}` : ""}`,
+        );
+      }
+      return parts.join("；");
+    };
+
+    const renderWorkflowRuntimeBadge = (
+      routePath: string,
+      options?: { groupCollapsed?: boolean },
+    ) => {
+      const isGroup = routePath === "/workflow";
+      const isEntry = routePath === "/workflow/index";
+      if (!isGroup && !isEntry) return undefined;
+      // 分组展开时子菜单已经带角标，标题行不再重复占位。
+      if (isGroup && !options?.groupCollapsed) return undefined;
+      if (workflowRuntimeLoading.value && !workflowRuntimeLoaded.value) {
         return renderMenuStatusHint(
           <span class={`${prefixCls}__status-loader`} />,
           "正在获取工作流运行状态",
         );
       }
-      if (runningWorkflowCount.value <= 0) return undefined;
-      return renderMenuStatusHint(
-        <span class={`${prefixCls}__workflow-running-badge`}>
-          <span class={`${prefixCls}__workflow-running-loader`}>
-            {runningWorkflowCount.value}
-          </span>
-        </span>,
-        `当前有 ${runningWorkflowCount.value} 个工作流正在运行`,
-      );
+      if (runningWorkflowCount.value > 0) {
+        return renderMenuStatusHint(
+          <span class={`${prefixCls}__workflow-running-badge`}>
+            <span class={`${prefixCls}__workflow-running-loader`}>
+              {runningWorkflowCount.value}
+            </span>
+          </span>,
+          resolveWorkflowRuntimeTitle(),
+        );
+      }
+      if (scheduledWorkflowCount.value > 0) {
+        return renderMenuStatusHint(
+          <span class={`${prefixCls}__workflow-scheduled-badge`}>
+            <Icon icon="ep:timer" size={10} />
+            {scheduledWorkflowCount.value}
+          </span>,
+          resolveWorkflowRuntimeTitle(),
+        );
+      }
+      return undefined;
     };
 
     const renderAiAssistantRuntimeBadge = (routePath: string) => {
@@ -1037,6 +1116,7 @@ export default defineComponent({
                       ) : undefined}
                       <span class={`${prefixCls}__section-title`}>{t(route.meta?.title as string)}</span>
                     </div>
+                    {renderWorkflowRuntimeBadge(routePath, { groupCollapsed: !expanded })}
                     <Icon
                       class={`${prefixCls}__section-arrow`}
                       icon={expanded ? "ep:arrow-up" : "ep:arrow-down"}
@@ -2066,6 +2146,23 @@ $prefix-cls: #{$namespace}-menu;
       inset: -2px;
       animation: status-ring-spin 0.8s linear infinite;
     }
+  }
+
+  // 定时任务角标：时钟 + 数量，静态展示，避免和“运行中”动态角标抢注意力。
+  &__workflow-scheduled-badge {
+    display: inline-flex;
+    height: 18px;
+    padding: 0 6px;
+    margin-left: var(--left-menu-status-dot-margin-left);
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1;
+    color: #0e9f6e;
+    background: rgb(16 185 129 / 10%);
+    border-radius: 9px;
+    gap: 3px;
+    align-items: center;
+    justify-content: center;
   }
 }
 
