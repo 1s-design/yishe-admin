@@ -244,7 +244,13 @@
                           class="ratio-input"
                           @keyup.enter="applyCustomAspectRatio"
                         />
-                        <el-select v-model="customRatioTolerance" size="small" class="tolerance-select">
+                        <el-select
+                          v-model="customRatioTolerance"
+                          size="small"
+                          class="tolerance-select"
+                          popper-class="ratio-tolerance-dropdown"
+                          :teleported="false"
+                        >
                           <el-option
                             v-for="opt in TOLERANCE_OPTIONS"
                             :key="opt.value"
@@ -1283,6 +1289,19 @@ markCrawlerMaterialVisited();
 
 .crawler-size-shape-dropdown .el-select-dropdown__list {
   padding: 4px 0;
+}
+
+/* 精确比例容差下拉：紧凑行高 */
+.ratio-tolerance-dropdown .el-select-dropdown__list {
+  padding: 4px;
+}
+
+.ratio-tolerance-dropdown .el-select-dropdown__item {
+  height: 28px;
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+  line-height: 28px;
 }
 
 .crawler-size-shape-dropdown .size-option {

@@ -214,6 +214,8 @@
                             filterable
                             allow-create
                             default-first-option
+                            popper-class="ratio-tolerance-dropdown"
+                            :teleported="false"
                           >
                             <el-option
                               v-for="opt in TOLERANCE_OPTIONS"
@@ -12793,19 +12795,19 @@ h1 {
 }
 
 /* 选中状态 */
-:deep(.el-select-dropdown__item.is-selected) .size-thumb {
+:deep(.custom-aspect-ratio-select .el-select-dropdown__item.is-selected .size-thumb) {
   border-color: var(--el-color-primary);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--el-color-primary) 20%, transparent);
 }
 
-:deep(.el-select-dropdown__item:hover) .size-thumb {
+:deep(.custom-aspect-ratio-select .el-select-dropdown__item:hover .size-thumb) {
   border-color: var(--el-color-primary);
   transform: scale(1.05);
   transition: transform 0.2s;
 }
 
 /* 确保选项内容不被截断 - 增加高度和内边距 */
-:deep(.el-select-dropdown__item) {
+:deep(.custom-aspect-ratio-select .el-select-dropdown__item) {
   display: flex;
   height: auto;
   min-height: 50px;
@@ -12815,14 +12817,14 @@ h1 {
 }
 
 /* 选项组标题样式 */
-:deep(.el-select-group__title) {
+:deep(.custom-aspect-ratio-select .el-select-group__title) {
   padding: 8px 14px;
   font-weight: 600;
   color: var(--el-text-color-regular);
 }
 
 /* 确保选项容器有足够空间 */
-:deep(.el-select-dropdown__list) {
+:deep(.custom-aspect-ratio-select .el-select-dropdown__list) {
   padding: 4px 0;
 }
 
@@ -13638,5 +13640,20 @@ h1 {
       gap: 8px;
     }
   }
+}
+</style>
+
+<!-- 精确比例容差下拉：紧凑行高，避免继承尺寸下拉的放大行高 -->
+<style>
+.ratio-tolerance-dropdown .el-select-dropdown__list {
+  padding: 4px;
+}
+
+.ratio-tolerance-dropdown .el-select-dropdown__item {
+  height: 28px;
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+  line-height: 28px;
 }
 </style>
