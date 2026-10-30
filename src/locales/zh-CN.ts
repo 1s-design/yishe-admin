@@ -3254,6 +3254,7 @@ export default {
     appendImageInvalid: '附加图片地址格式不正确，支持 urlA|urlB 随机语法',
     titleOutputStruct: 'AI 返回结构',
     addSku: '添加 SKU',
+    copySku: '复制',
     skuStockLabel: '库存',
     skuStockPlaceholder: '库存',
     skuStockFixed: '固定',

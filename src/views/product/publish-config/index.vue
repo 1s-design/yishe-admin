@@ -946,6 +946,17 @@ function removeSkuItem(fieldKey: string, index: number) {
   platformConfigData.value[fieldKey] = nextList;
 }
 
+function copySkuItem(fieldKey: string, index: number) {
+  if (!Array.isArray(platformConfigData.value?.[fieldKey])) return;
+  const source = platformConfigData.value[fieldKey][index];
+  if (!source) return;
+  // 深拷贝一份完整配置插到当前项后面，用户只需微调差异字段
+  const cloned = JSON.parse(JSON.stringify(source));
+  const nextList = [...platformConfigData.value[fieldKey]];
+  nextList.splice(index + 1, 0, cloned);
+  platformConfigData.value[fieldKey] = nextList;
+}
+
 function moveSkuItem(fieldKey: string, index: number, direction: -1 | 1) {
   if (!Array.isArray(platformConfigData.value?.[fieldKey])) return;
   const targetIndex = index + direction;
@@ -2534,6 +2545,13 @@ onMounted(() => {
                               :placeholder="t('publishConfig.skuSearchTitlePlaceholder')"
                               class="publish-config-sku-list__remark"
                             />
+                            <el-button
+                              text
+                              type="primary"
+                              @click="copySkuItem(String(field.key), Number(index))"
+                            >
+                              {{ t('publishConfig.copySku') }}
+                            </el-button>
                             <el-button
                               text
                               type="danger"

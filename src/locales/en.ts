@@ -3260,6 +3260,7 @@ export default {
     appendImageInvalid: 'Invalid URL format, supports urlA|urlB random syntax',
     titleOutputStruct: 'AI Output Structure',
     addSku: 'Add SKU',
+    copySku: 'Copy',
     skuStockLabel: 'Stock',
     skuStockPlaceholder: 'Stock',
     skuStockFixed: 'Fixed',
