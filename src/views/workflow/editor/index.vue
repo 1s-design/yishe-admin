@@ -495,7 +495,7 @@ const onDrop = (event: DragEvent) => {
   const rawData = event.dataTransfer?.getData("application/vueflow-node-data");
   if (!type || !canvasRef.value) return;
 
-  let defaultData = {};
+  let defaultData: Record<string, any> = {};
   if (rawData) {
     try {
       defaultData = JSON.parse(rawData);
@@ -531,7 +531,8 @@ const onDrop = (event: DragEvent) => {
       type: type,
       capabilityType: type,
       variableKey: createWorkflowVariableKey(type, nodes.value as Node[]),
-      config: { ...defaultData },
+      // 服务端 manifest 的 defaultData 会包一层 config，和点击添加保持同一解包规则。
+      config: { ...(defaultData?.config || defaultData) },
       ...(isHotsearchDrop ? { platform: platformKeyDrop } : {}),
     },
   };
@@ -1109,6 +1110,28 @@ const statusText = computed(() => {
 @import url("@vue-flow/core/dist/theme-default.css");
 @import url("@vue-flow/controls/dist/style.css");
 @import url("@vue-flow/minimap/dist/style.css");
+
+/*
+ * Vue Flow 主题会给 default/input/output 节点套一层白底、深色描边、10px 内边距和
+ * 固定 150px 宽的外壳。工作流节点全部由自定义组件渲染，"default" 只是 DefaultNode
+ * 的类型名，这层外壳会露出第二层白底、把卡片挤得偏左（内层 min-width 190px 溢出到
+ * 右侧，只剩左上能看到白边）。这里把外壳还原为纯容器。
+ */
+.wf-canvas .vue-flow__node-default {
+  width: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+  text-align: inherit;
+}
+
+.wf-canvas .vue-flow__node-default.selectable:hover,
+.wf-canvas .vue-flow__node-default.selected {
+  box-shadow: none;
+}
 
 /*
  * 画布节点的视觉基线：不同采集/工具节点过去各自只有 100~140px 的最小宽度，

@@ -17,7 +17,8 @@ const emit = defineEmits<{
 
 const searchQuery = ref("");
 const activeCategory = ref<string>("all");
-const { byType, load: loadServerManifest } = useWorkflowNodeManifest();
+const { byType, serverOnlyCapabilities, load: loadServerManifest } =
+  useWorkflowNodeManifest();
 
 onMounted(() => {
   loadServerManifest();
@@ -42,11 +43,8 @@ const availableCapabilities = computed(() => {
         }
       : item;
   });
-  // 调试：检查节点描述
-  console.log('[NodeLibraryPanel] 总节点数:', registry.length);
-  const sample = registry.find(n => n.type === 'techcrunchrss_search');
-  console.log('[NodeLibraryPanel] techcrunchrss_search 示例:', sample);
-  return registry;
+  // 服务端新增、前端 registry 尚未登记的节点同样纳入能力库。
+  return [...registry, ...serverOnlyCapabilities.value];
 });
 
 const filteredCapabilities = computed(() => {

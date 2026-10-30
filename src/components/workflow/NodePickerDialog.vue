@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import { Search, Close } from "@element-plus/icons-vue";
+import { Icon } from "@/components/Icon";
 import {
   SYSTEM_NODE_REGISTRY,
   NODE_CATEGORIES,
@@ -23,13 +24,14 @@ const emit = defineEmits<{
 
 const searchQuery = ref("");
 const activeCategory = ref("all");
-const { byType, load: loadServerManifest } = useWorkflowNodeManifest();
+const { byType, serverOnlyCapabilities, load: loadServerManifest } =
+  useWorkflowNodeManifest();
 onMounted(() => {
   loadServerManifest();
 });
 
-const availableCapabilities = computed(() =>
-  SYSTEM_NODE_REGISTRY.filter(
+const availableCapabilities = computed(() => [
+  ...SYSTEM_NODE_REGISTRY.filter(
     (item) =>
       !UNAVAILABLE_WORKFLOW_NODE_TYPES.has(item.type) &&
       (!byType.value.get(item.type) || byType.value.get(item.type)?.executable !== false),
@@ -45,7 +47,9 @@ const availableCapabilities = computed(() =>
         }
       : item;
   }),
-);
+  // 服务端新增、前端 registry 尚未登记的节点直接追加，避免新节点在节点库中“消失”。
+  ...serverOnlyCapabilities.value,
+]);
 
 const filteredCapabilities = computed(() => {
   return availableCapabilities.value.filter((item) => {
@@ -155,6 +159,12 @@ const handleClose = () => {
               <div class="np-card__media">
                 <div class="np-card__icon-wrap">
                   <img v-if="cap.iconImage" :src="cap.iconImage" class="np-card__icon-img" />
+                  <Icon
+                    v-else-if="cap.icon"
+                    :icon="cap.icon"
+                    :size="22"
+                    :color="cap.color"
+                  />
                   <span v-else class="np-card__icon-text" :style="{ color: cap.color }">{{
                     cap.name?.charAt(0) || "?"
                   }}</span>

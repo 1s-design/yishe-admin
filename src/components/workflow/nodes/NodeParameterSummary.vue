@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import type { NodeIOSchemaField } from "@/views/workflow/editor/config/node-manifest";
 
-const props = defineProps<{ data?: { config?: Record<string, any> } }>();
+const props = defineProps<{
+  data?: { config?: Record<string, any> };
+  /** 可选：节点 manifest 的输入 Schema。有值时用它补全字段名/选项文案与展示顺序。 */
+  schema?: NodeIOSchemaField[];
+}>();
 const LABELS: Record<string, string> = {
   keyword: "关键词",
   query: "查询",
@@ -91,38 +96,76 @@ const VALUE_LABELS: Record<string, string> = {
   reply: "热门",
   server: "服务端",
   client: "客户端",
+  true: "开启",
+  false: "关闭",
+  skip: "跳过本轮",
+  fail: "节点失败",
+  hotsearch: "全部热搜",
+  news: "全部资讯",
 };
-const entries = computed(() =>
-  Object.entries(props.data?.config || {})
-    .filter(
-      ([key, value]) =>
-        LABELS[key] &&
-        value !== undefined &&
-        value !== null &&
-        value !== "" &&
-        ![
-          "code",
-          "body",
-          "headers",
-          "conditions",
-          "cases",
-          "systemPrompt",
-          "userPrompt",
-          "metadata",
-        ].includes(key),
-    )
+
+const HIDDEN_KEYS = new Set([
+  "code",
+  "body",
+  "headers",
+  "conditions",
+  "cases",
+  "systemPrompt",
+  "userPrompt",
+  "metadata",
+]);
+
+const schemaMap = computed(
+  () => new Map((props.schema || []).map((field) => [field.field, field])),
+);
+
+const entries = computed(() => {
+  const config = props.data?.config || {};
+  const used = new Set<string>();
+  const keys: string[] = [];
+  // 有 Schema 时按 Schema 顺序展示，保证服务端定义的字段（如 pool/concurrency）优先露出；
+  // 无 Schema 的旧节点保持原有“按 config 顺序 + 内置字段名”的行为。
+  for (const field of props.schema || []) {
+    if (field?.field in config && !used.has(field.field)) {
+      keys.push(field.field);
+      used.add(field.field);
+    }
+  }
+  for (const key of Object.keys(config)) {
+    if (!used.has(key) && LABELS[key]) {
+      keys.push(key);
+      used.add(key);
+    }
+  }
+
+  return keys
+    .filter((key) => !HIDDEN_KEYS.has(key))
+    .filter((key) => {
+      const value = config[key];
+      return value !== undefined && value !== null && value !== "" && value !== false;
+    })
     .slice(0, 4)
-    .map(([key, value]) => {
-      let text = Array.isArray(value)
-        ? `[${value.length}]`
-        : typeof value === "object"
-          ? "{…}"
-          : VALUE_LABELS[String(value)] || String(value);
+    .map((key) => {
+      const field = schemaMap.value.get(key);
+      const label = LABELS[key] || field?.label;
+      if (!label) return null;
+      const raw = config[key];
+      const optionLabel = field?.options?.find(
+        (option) => String(option.value) === String(raw),
+      )?.label;
+      let text =
+        optionLabel ||
+        (Array.isArray(raw)
+          ? `[${raw.length}]`
+          : typeof raw === "object"
+            ? "{…}"
+            : VALUE_LABELS[String(raw)] || String(raw));
       const fullText = text;
       if (text.length > 28) text = `${text.slice(0, 25)}…`;
-      return { key: LABELS[key] || key, value: text, fullText };
-    }),
-);
+      return { key: label, value: text, fullText };
+    })
+    .filter((item): item is { key: string; value: string; fullText: string } => !!item);
+});
 </script>
 
 <template>
