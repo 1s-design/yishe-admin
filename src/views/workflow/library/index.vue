@@ -248,7 +248,6 @@ onMounted(() => {
           class="wf-card"
           @click="handleImport(item, true)"
         >
-          <div class="wf-card__bg"></div>
           <div class="wf-card__hero">
             <header class="wf-card__hero-header">
               <span class="wf-card__import-count" title="导入引用次数">
@@ -436,8 +435,6 @@ onMounted(() => {
 
 .wf-card {
   position: relative;
-  border: none;
-  border-radius: 8px;
   z-index: 1;
   overflow: hidden;
   display: flex;
@@ -445,52 +442,33 @@ onMounted(() => {
   align-items: stretch;
   justify-content: flex-start;
   min-height: 200px;
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  background: var(--app-content-surface-color);
+  border: 1px solid var(--app-content-border-color);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--el-text-color-primary) 6%, transparent);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
   cursor: pointer;
-  box-shadow:
-    8px 8px 24px color-mix(in srgb, var(--el-text-color-primary) 10%, transparent),
-    -4px -4px 16px rgba(255, 255, 255, 0.8);
 
   &:hover {
-    transform: translateY(-3px);
-    box-shadow:
-      12px 12px 32px color-mix(in srgb, var(--el-text-color-primary) 14%, transparent),
-      -6px -6px 20px rgba(255, 255, 255, 0.9);
+    border-color: color-mix(in srgb, var(--el-color-primary) 32%, var(--app-content-border-color));
+    box-shadow: 0 12px 28px color-mix(in srgb, var(--el-text-color-primary) 12%, transparent);
+    transform: translateY(-2px);
   }
 
   html.dark & {
-    box-shadow:
-      4px 4px 16px rgba(0, 0, 0, 0.3),
-      0 1px 4px rgba(0, 0, 0, 0.1) !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 
     &:hover {
-      box-shadow:
-        6px 6px 24px rgba(0, 0, 0, 0.6),
-        0 2px 8px rgba(0, 0, 0, 0.4) !important;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
     }
-  }
-
-  /* Inner bg layer */
-  &__bg {
-    position: absolute;
-    top: 5px;
-    left: 5px;
-    right: 5px;
-    bottom: 5px;
-    z-index: 2;
-    background: var(--app-content-surface-color);
-    border-radius: 10px;
-    overflow: hidden;
-    outline: 2px solid var(--app-content-surface-color);
-    pointer-events: none;
   }
 
   /* Hero section */
   &__hero {
     position: relative;
-    z-index: 3;
-    background: transparent;
-    border-radius: 8px 8px 0 0;
     padding: 16px 16px 14px;
     flex: 1;
   }
@@ -576,7 +554,6 @@ onMounted(() => {
   /* Footer section */
   &__footer {
     position: relative;
-    z-index: 3;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -584,6 +561,7 @@ onMounted(() => {
     flex-wrap: nowrap;
     padding: 12px 16px;
     gap: 12px;
+    border-top: 1px solid color-mix(in srgb, var(--app-content-border-color) 65%, transparent);
   }
 
   &__info {

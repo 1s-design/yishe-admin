@@ -310,9 +310,6 @@ const handleClearHistory = async () => {
           { 'wf-card--running': item.isRunning && !hasLatestExecutionFailure(item) },
           { 'wf-card--disabled': !item.isEnabled }
         ]" @click="openEditor(item)">
-          <!-- 动态边框只表达实时执行状态；定时配置由“定时中”标签表达。 -->
-          <div v-if="item.isRunning && !hasLatestExecutionFailure(item)" class="wf-card__blob wf-card__blob--running"></div>
-          <div class="wf-card__bg"></div>
           <div class="wf-card__hero">
             <header class="wf-card__hero-header">
               <span :class="[
@@ -453,41 +450,6 @@ const handleClearHistory = async () => {
   }
 }
 
-@keyframes wf-glow-pulse {
-
-  0%,
-  100% {
-    box-shadow: 0 0 12px color-mix(in srgb, var(--el-color-primary) 40%, transparent);
-  }
-
-  50% {
-    box-shadow: 0 0 24px color-mix(in srgb, var(--el-color-primary) 60%, transparent);
-  }
-}
-
-@keyframes wf-blob-bounce {
-  0% {
-    transform: translate(-100%, -100%) translate3d(0, 0, 0);
-  }
-
-  25% {
-    transform: translate(-100%, -100%) translate3d(100%, 0, 0);
-  }
-
-  50% {
-    transform: translate(-100%, -100%) translate3d(100%, 100%, 0);
-  }
-
-  75% {
-    transform: translate(-100%, -100%) translate3d(0, 100%, 0);
-  }
-
-  100% {
-    transform: translate(-100%, -100%) translate3d(0, 0, 0);
-  }
-}
-
-
 .wf-page {
   min-height: calc(100vh - 120px);
   padding: 10px 0 0;
@@ -536,8 +498,6 @@ const handleClearHistory = async () => {
 
 .wf-card {
   position: relative;
-  border: none;
-  border-radius: 8px;
   z-index: 1;
   overflow: hidden;
   display: flex;
@@ -545,74 +505,33 @@ const handleClearHistory = async () => {
   align-items: stretch;
   justify-content: flex-start;
   min-height: 200px;
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  background: var(--app-content-surface-color);
+  border: 1px solid var(--app-content-border-color);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--el-text-color-primary) 6%, transparent);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
   cursor: pointer;
-  box-shadow:
-    8px 8px 24px color-mix(in srgb, var(--el-text-color-primary) 10%, transparent),
-    -4px -4px 16px rgba(255, 255, 255, 0.8);
 
   &:hover {
-    transform: translateY(-3px);
-    box-shadow:
-      12px 12px 32px color-mix(in srgb, var(--el-text-color-primary) 14%, transparent),
-      -6px -6px 20px rgba(255, 255, 255, 0.9);
+    border-color: color-mix(in srgb, var(--el-color-primary) 32%, var(--app-content-border-color));
+    box-shadow: 0 12px 28px color-mix(in srgb, var(--el-text-color-primary) 12%, transparent);
+    transform: translateY(-2px);
   }
 
   html.dark & {
-    box-shadow:
-      4px 4px 16px rgba(0, 0, 0, 0.3),
-      0 1px 4px rgba(0, 0, 0, 0.1) !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 
     &:hover {
-      box-shadow:
-        6px 6px 24px rgba(0, 0, 0, 0.6),
-        0 2px 8px rgba(0, 0, 0, 0.4) !important;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
     }
   }
-
-  /* Blob: dynamic border effect (visible in the 5px gap around bg) */
-  &__blob {
-    position: absolute;
-    z-index: 1;
-    top: 50%;
-    left: 50%;
-    width: 100%;
-    height: 160%;
-    border-radius: 50%;
-    background-color: color-mix(in srgb, var(--el-color-primary) 60%, transparent);
-    opacity: 0.7;
-    filter: blur(10px);
-    animation: wf-blob-bounce 4s infinite ease;
-    pointer-events: none;
-  }
-
-  .wf-card__blob--running {
-    background-color: color-mix(in srgb, #22c55e 68%, transparent);
-  }
-
-  /* Inner bg layer: covers center, leaves 5px border gap */
-  &__bg {
-    position: absolute;
-    top: 5px;
-    left: 5px;
-    right: 5px;
-    bottom: 5px;
-    z-index: 2;
-    background: var(--app-content-surface-color);
-    border-radius: 10px;
-    overflow: hidden;
-    outline: 2px solid var(--app-content-surface-color);
-    pointer-events: none;
-  }
-
-
 
   /* Hero section */
   &__hero {
     position: relative;
-    z-index: 3;
-    background: transparent;
-    border-radius: 8px 8px 0 0;
     padding: 16px 16px 14px;
     flex: 1;
   }
@@ -731,7 +650,6 @@ const handleClearHistory = async () => {
   /* Footer section */
   &__footer {
     position: relative;
-    z-index: 3;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -739,6 +657,7 @@ const handleClearHistory = async () => {
     flex-wrap: nowrap;
     padding: 12px 16px;
     gap: 12px;
+    border-top: 1px solid color-mix(in srgb, var(--app-content-border-color) 65%, transparent);
   }
 
   &__info {
@@ -796,10 +715,25 @@ const handleClearHistory = async () => {
 
 /* Status variants */
 .wf-card--running {
+  border-color: color-mix(in srgb, #22c55e 42%, var(--app-content-border-color));
   box-shadow:
-    0 0 15px color-mix(in srgb, #22c55e 30%, transparent),
-    8px 8px 24px color-mix(in srgb, var(--el-text-color-primary) 10%, transparent),
-    -4px -4px 16px color-mix(in srgb, #ffffff, transparent);
+    0 0 0 1px color-mix(in srgb, #22c55e 16%, transparent),
+    0 10px 24px color-mix(in srgb, #22c55e 14%, transparent);
+
+  &:hover {
+    border-color: color-mix(in srgb, #22c55e 60%, var(--app-content-border-color));
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, #22c55e 22%, transparent),
+      0 12px 30px color-mix(in srgb, #22c55e 18%, transparent);
+  }
+}
+
+.wf-card--scheduled {
+  border-color: color-mix(in srgb, #f59e0b 34%, var(--app-content-border-color));
+
+  &:hover {
+    border-color: color-mix(in srgb, #f59e0b 52%, var(--app-content-border-color));
+  }
 }
 
 .wf-card--disabled {
@@ -810,10 +744,6 @@ const handleClearHistory = async () => {
     opacity: 0.65;
     filter: grayscale(0.7);
     transform: none;
-  }
-
-  .wf-card__blob {
-    display: none;
   }
 }
 
@@ -864,37 +794,18 @@ const handleClearHistory = async () => {
 }
 
 :global(html.dark) {
-  .wf-card--scheduled {
-    border-color: color-mix(in srgb, #fbbf24 25%, var(--app-content-border-color));
-
-    &:hover {
-      border-color: color-mix(in srgb, #fbbf24 45%, var(--app-content-border-color));
-    }
+  .wf-card__badge--on,
+  .wf-card__badge--running {
+    color: #86efac;
   }
 
-  .wf-card--running {
-    border-color: color-mix(in srgb, #22c55e 30%, var(--app-content-border-color));
-
-    &:hover {
-      border-color: color-mix(in srgb, #22c55e 50%, var(--app-content-border-color));
-    }
+  .wf-card__badge--scheduled,
+  .wf-card__cron {
+    color: #fcd34d;
   }
 
-  .wf-tag {
-    &--cron {
-      color: #fcd34d;
-      background: color-mix(in srgb, #fbbf24 12%, transparent);
-    }
-
-    &--running {
-      color: #86efac;
-      background: color-mix(in srgb, #4ade80 12%, transparent);
-    }
-
-    &--on {
-      color: #86efac;
-      background: color-mix(in srgb, #4ade80 12%, transparent);
-    }
+  .wf-card__badge--failed {
+    color: #fca5a5;
   }
 }
 </style>
