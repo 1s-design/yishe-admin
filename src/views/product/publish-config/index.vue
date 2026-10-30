@@ -79,7 +79,7 @@ const gridOptions = computed(() => ({
   },
   columns: [
     { type: "checkbox", width: 48, fixed: "left" as const },
-    { field: "name", title: t("publishConfig.configName"), minWidth: 220, headerAlign: "left" as const, slots: { default: "nameSlot" } },
+    { field: "name", title: t("publishConfig.configName"), minWidth: 480, headerAlign: "left" as const, slots: { default: "nameSlot" } },
     {
       field: "taskType",
       title: t("publishConfig.taskType"),

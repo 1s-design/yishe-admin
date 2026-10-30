@@ -281,7 +281,7 @@
 
               <el-col class="list-page-search-form__col--wide" :xs="24" :sm="12" :md="12" :lg="5" :xl="5">
                 <el-form-item :label="t('material.time')">
-                  <DateRangePicker @change="
+                  <DateRangePicker v-model="queryDateRange" @change="
                     (val) => {
                       queryParams.startTime = val.start;
                       queryParams.endTime = val.end;
@@ -336,6 +336,9 @@
             <div class="list-page-search-form__actions material-index-search-form__actions">
               <el-button size="small" type="primary" :icon="Search" :loading="loading" @click="getList">
                 {{ t('material.search') }}
+              </el-button>
+              <el-button size="small" :icon="RefreshLeft" :disabled="loading" @click="resetQuery">
+                {{ t('common.reset') }}
               </el-button>
               <el-button size="small" type="success" plain :icon="Picture" :loading="similarImageSubmitting"
                 @click="openSimilarImageDialog()">
@@ -438,22 +441,7 @@
                 </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item @click="() => openMaterialPublishQuickReview('recent')">
-                      <el-icon class="mr-1"><Shop /></el-icon>
-                      <span>商品快速审核 (最近优先)</span>
-                    </el-dropdown-item>
-                    <el-dropdown-item @click="() => openMaterialPublishQuickReview('oldest')">
-                      <el-icon class="mr-1"><Calendar /></el-icon>
-                      <span>商品快速审核 (最早优先)</span>
-                    </el-dropdown-item>
-                    <el-dropdown-item @click="() => openMaterialPublishQuickReview('random')">
-                      <el-icon class="mr-1"><MagicStick /></el-icon>
-                      <span>商品快速审核 (随机图片)</span>
-                    </el-dropdown-item>
-                    <el-dropdown-item divided @click="() => openMaterialPublishQuickReview('recent', true)">
-                      <el-icon class="mr-1"><Operation /></el-icon>
-                      <span>商品快速审核 (按当前筛选)</span>
-                    </el-dropdown-item>
+         
                     <el-dropdown-item @click="() => openPsdSetDialog(false)">
                       <span>{{ t('material.createPsSet') }}</span>
                     </el-dropdown-item>
@@ -470,6 +458,22 @@
                       <span>{{ addToGroupButtonText }}</span>
                     </el-dropdown-item>
                   </el-dropdown-menu>
+                             <el-dropdown-item @click="() => openMaterialPublishQuickReview('recent')">
+                      <el-icon class="mr-1"><Shop /></el-icon>
+                      <span>商品快速审核 (最近优先)</span>
+                    </el-dropdown-item>
+                    <el-dropdown-item @click="() => openMaterialPublishQuickReview('oldest')">
+                      <el-icon class="mr-1"><Calendar /></el-icon>
+                      <span>商品快速审核 (最早优先)</span>
+                    </el-dropdown-item>
+                    <el-dropdown-item @click="() => openMaterialPublishQuickReview('random')">
+                      <el-icon class="mr-1"><MagicStick /></el-icon>
+                      <span>商品快速审核 (随机图片)</span>
+                    </el-dropdown-item>
+                    <el-dropdown-item divided @click="() => openMaterialPublishQuickReview('recent', true)">
+                      <el-icon class="mr-1"><Operation /></el-icon>
+                      <span>商品快速审核 (按当前筛选)</span>
+                    </el-dropdown-item>
                 </template>
               </el-dropdown>
               <span v-if="ids.length" class="selected-count">
@@ -656,7 +660,7 @@
               </el-select>
             </el-form-item>
             <el-form-item :label="t('material.queryByTime')">
-              <DateRangePicker @change="
+              <DateRangePicker v-model="queryDateRange" @change="
                 (val) => {
                   queryParams.startTime = val.start;
                   queryParams.endTime = val.end;
@@ -665,6 +669,7 @@
             </el-form-item>
           </el-form>
           <template #footer>
+            <el-button @click="resetQuery">{{ t('common.reset') }}</el-button>
             <el-button @click="filterDialogVisible = false">{{ t('material.cancel') }}</el-button>
             <el-button type="primary" @click="onMobileFilterSubmit">{{ t('material.confirm') }}</el-button>
           </template>
@@ -829,25 +834,15 @@
                       </template>
                     </el-table-column>
 
-                    <!-- 平台列 -->
-                    <el-table-column prop="platform" :label="t('material.platform')" width="110" align="center" show-overflow-tooltip>
-                      <template #default="{ row }">
-                        <span v-if="row.platform" class="platform-badge" :style="getPublishConfigPlatformBadgeStyle(row.platform)">
-                          {{ row.platform }}
-                        </span>
-                        <span v-else class="text-secondary text-xs">-</span>
-                      </template>
-                    </el-table-column>
-
-                    <!-- 配置名称 -->
-                    <el-table-column prop="name" :label="t('material.taskConfigName')" min-width="360" show-overflow-tooltip>
+                    <!-- 配置名称：完整展示，长名称换行不截断 -->
+                    <el-table-column prop="name" :label="t('material.taskConfigName')" min-width="360">
                       <template #default="{ row }">
                         <div class="config-table-title-cell">
-                          <div class="flex items-center gap-1.5">
-                            <span class="font-medium text-sm text-[var(--el-text-color-primary)] truncate" :title="row.name">
+                          <div class="flex items-start gap-1.5">
+                            <span class="config-name-full font-medium text-sm text-[var(--el-text-color-primary)]">
                               {{ row.name || t('material.unnamedConfig') }}
                             </span>
-                            <el-tag size="small" type="primary" effect="plain" class="scale-90 origin-left shrink-0">
+                            <el-tag size="small" type="primary" effect="plain" class="scale-90 origin-left shrink-0 config-name-tag">
                               {{ getTaskTypeLabel(row?.taskType || derivePublishTaskTypeByPlatform(row?.platform), row?.platform) }}
                             </el-tag>
                           </div>
@@ -1244,99 +1239,121 @@
         <el-dialog
           v-model="publishConfigDetailVisible"
           :title="t('material.configDetail')"
-          width="640px"
+          width="720px"
           align-center
           append-to-body
           destroy-on-close
           class="publish-config-detail-modal"
         >
-          <div v-loading="publishConfigDetailLoading" class="py-1">
-            <el-descriptions v-if="currentPublishConfigDetail" :column="2" border size="small">
-              <el-descriptions-item :label="t('material.taskConfigName')" :span="2">
-                <span class="font-semibold text-sm text-[var(--el-text-color-primary)]">
+          <div v-loading="publishConfigDetailLoading" class="cfg-detail">
+            <template v-if="currentPublishConfigDetail">
+              <!-- 标题 + 状态标签：一行看完 -->
+              <div class="cfg-detail-head">
+                <div class="cfg-detail-name">
                   {{ currentPublishConfigDetail.name || t('material.unnamedConfig') }}
-                </span>
-              </el-descriptions-item>
-
-              <el-descriptions-item :label="t('material.platform')">
-                <span
-                  v-if="currentPublishConfigDetail.platform"
-                  class="platform-badge"
-                  :style="getPublishConfigPlatformBadgeStyle(currentPublishConfigDetail.platform)"
-                >
-                  {{ currentPublishConfigDetail.platform }}
-                </span>
-                <span v-else class="text-secondary">-</span>
-              </el-descriptions-item>
-
-              <el-descriptions-item :label="t('material.taskType')">
-                <el-tag size="small" type="primary" effect="plain">
-                  {{ getTaskTypeLabel(currentPublishConfigDetail.taskType || derivePublishTaskTypeByPlatform(currentPublishConfigDetail.platform), currentPublishConfigDetail.platform) }}
-                </el-tag>
-              </el-descriptions-item>
-
-              <el-descriptions-item :label="t('material.usableStatus')">
-                <el-tag :type="isMaterialPublishConfigUsable(currentPublishConfigDetail) ? 'success' : 'danger'" size="small">
-                  {{ isMaterialPublishConfigUsable(currentPublishConfigDetail) ? t('material.usable') : t('material.unusable') }}
-                </el-tag>
-              </el-descriptions-item>
-
-              <el-descriptions-item :label="t('material.boundPsdTemplate')">
-                <div v-if="isMaterialPublishConfigUsable(currentPublishConfigDetail)" class="flex items-center gap-1.5">
-                  <el-tag size="small" type="success" effect="plain">PSD</el-tag>
-                  <span class="font-medium text-xs text-[var(--el-text-color-regular)]">
-                    {{ getPublishConfigTemplateName(currentPublishConfigDetail) }}
-                  </span>
                 </div>
-                <span v-else class="text-[var(--el-color-danger)] font-medium text-xs">
-                  {{ t('material.notBound') }}
-                </span>
-              </el-descriptions-item>
-
-              <el-descriptions-item :label="t('material.vendorAndProduct')">
-                <span v-if="getPublishConfigConfigData(currentPublishConfigDetail)?.vendorName || getPublishConfigConfigData(currentPublishConfigDetail)?.vendorCode">
-                  {{ getPublishConfigConfigData(currentPublishConfigDetail).vendorName || getPublishConfigConfigData(currentPublishConfigDetail).vendorCode }}
-                </span>
-                <span v-else class="text-secondary">-</span>
-              </el-descriptions-item>
-
-              <el-descriptions-item :label="t('material.targetShops')">
-                <div v-if="currentPublishConfigDetail.shops?.length" class="flex items-center gap-1 flex-wrap">
-                  <el-tag v-for="shop in currentPublishConfigDetail.shops" :key="shop.id" size="small" effect="plain">
-                    {{ shop.shopName || t('material.shop') }}
+                <div class="cfg-detail-badges">
+                  <span
+                    v-if="publishConfigDetailPlatform"
+                    class="platform-badge"
+                    :style="getPublishConfigPlatformBadgeStyle(publishConfigDetailPlatform)"
+                  >
+                    {{ publishConfigDetailPlatformLabel }}
+                  </span>
+                  <el-tag v-if="publishConfigDetailTaskTypeLabel" size="small" type="primary" effect="plain">
+                    {{ publishConfigDetailTaskTypeLabel }}
+                  </el-tag>
+                  <el-tag
+                    :type="isMaterialPublishConfigUsable(currentPublishConfigDetail) ? 'success' : 'danger'"
+                    size="small"
+                    effect="plain"
+                  >
+                    {{ isMaterialPublishConfigUsable(currentPublishConfigDetail) ? t('material.usable') : t('material.unusable') }}
                   </el-tag>
                 </div>
-                <span v-else class="text-secondary">-</span>
-              </el-descriptions-item>
-
-              <el-descriptions-item :label="t('material.configDescription')" :span="2">
-                <span class="text-xs text-[var(--el-text-color-regular)]">
-                  {{ currentPublishConfigDetail.description || '-' }}
-                </span>
-              </el-descriptions-item>
-
-              <el-descriptions-item v-if="currentPublishConfigDetail.createTime" :label="t('common.createTime')">
-                <span class="text-xs text-secondary">{{ formatTimestamp(currentPublishConfigDetail.createTime) }}</span>
-              </el-descriptions-item>
-
-              <el-descriptions-item v-if="currentPublishConfigDetail.updateTime" :label="t('common.updateTime')">
-                <span class="text-xs text-secondary">{{ formatTimestamp(currentPublishConfigDetail.updateTime) }}</span>
-              </el-descriptions-item>
-            </el-descriptions>
-
-            <!-- 平台参数详情 -->
-            <div v-if="currentPublishConfigDetail && hasVisibleConfigParameters(currentPublishConfigDetail)" class="mt-3">
-              <div class="text-xs font-medium text-[var(--el-text-color-regular)] mb-1.5 flex items-center gap-1">
-                <el-icon><Operation /></el-icon>
-                <span>平台配置参数</span>
               </div>
-              <div class="bg-[var(--el-fill-color-light)] p-2.5 rounded text-xs space-y-1 max-h-[200px] overflow-y-auto border border-[var(--el-border-color-lighter)] font-mono">
-                <div v-for="(val, key) in getDisplayableConfigData(currentPublishConfigDetail)" :key="key" class="flex items-start gap-2">
-                  <span class="text-secondary shrink-0 font-sans">{{ key }}:</span>
-                  <span class="text-[var(--el-text-color-regular)] break-all">{{ typeof val === 'object' ? JSON.stringify(val) : String(val) }}</span>
+
+              <!-- 基础信息：只保留有值的行 -->
+              <el-descriptions :column="2" border size="small" class="cfg-detail-desc">
+                <el-descriptions-item :label="t('material.boundPsdTemplate')" :span="2">
+                  <div v-if="isMaterialPublishConfigUsable(currentPublishConfigDetail)" class="flex items-center gap-1.5">
+                    <el-tag size="small" type="success" effect="plain">PSD</el-tag>
+                    <span class="cfg-detail-strong">{{ getPublishConfigTemplateName(currentPublishConfigDetail) }}</span>
+                  </div>
+                  <span v-else class="cfg-detail-missing">{{ t('material.notBound') }}</span>
+                </el-descriptions-item>
+
+                <el-descriptions-item :label="t('material.vendorAndProduct')">
+                  <span v-if="publishConfigDetailVendor" class="cfg-detail-value">{{ publishConfigDetailVendor }}</span>
+                  <span v-else class="cfg-detail-empty">-</span>
+                </el-descriptions-item>
+
+                <el-descriptions-item :label="t('material.targetShops')">
+                  <div v-if="currentPublishConfigDetail.shops?.length" class="flex items-center gap-1 flex-wrap">
+                    <el-tag v-for="shop in currentPublishConfigDetail.shops" :key="shop.id" size="small" effect="plain">
+                      {{ shop.shopName || t('material.shop') }}
+                    </el-tag>
+                  </div>
+                  <span v-else class="cfg-detail-empty">-</span>
+                </el-descriptions-item>
+
+                <el-descriptions-item v-if="currentPublishConfigDetail.description" :label="t('material.configDescription')" :span="2">
+                  <span class="cfg-detail-desc-text">{{ currentPublishConfigDetail.description }}</span>
+                </el-descriptions-item>
+
+                <el-descriptions-item v-if="currentPublishConfigDetail.createTime" :label="t('common.createTime')">
+                  <span class="cfg-detail-time">{{ formatTimestamp(currentPublishConfigDetail.createTime) }}</span>
+                </el-descriptions-item>
+                <el-descriptions-item v-if="currentPublishConfigDetail.updateTime" :label="t('common.updateTime')">
+                  <span class="cfg-detail-time">{{ formatTimestamp(currentPublishConfigDetail.updateTime) }}</span>
+                </el-descriptions-item>
+              </el-descriptions>
+
+              <!-- 平台参数：按字段中文名结构化展示 -->
+              <div class="cfg-params">
+                <div class="cfg-params-title">
+                  <el-icon><Operation /></el-icon>
+                  <span>平台配置参数</span>
+                  <span class="cfg-params-count">{{ publishConfigDetailParams.length }}</span>
                 </div>
+
+                <div v-if="publishConfigDetailParams.length" class="cfg-params-list">
+                  <div v-for="param in publishConfigDetailParams" :key="param.key" class="cfg-param-row">
+                    <div class="cfg-param-label" :title="param.key">{{ param.label }}</div>
+                    <div class="cfg-param-value">
+                      <el-tag
+                        v-if="param.kind === 'switch'"
+                        size="small"
+                        :type="param.text === '开启' ? 'success' : 'info'"
+                        effect="plain"
+                      >
+                        {{ param.text }}
+                      </el-tag>
+                      <template v-else-if="param.kind === 'select'">
+                        <span class="cfg-param-text">{{ param.text }}</span>
+                        <span v-if="param.hint" class="cfg-param-hint">{{ param.hint }}</span>
+                      </template>
+                      <ul v-else-if="param.kind === 'urls'" class="cfg-param-urls">
+                        <li v-for="(url, urlIndex) in param.urls" :key="urlIndex">
+                          <a :href="url" target="_blank" rel="noopener noreferrer" :title="url">{{ url }}</a>
+                        </li>
+                      </ul>
+                      <template v-else-if="param.kind === 'json'">
+                        <div class="cfg-param-json-head">
+                          <span class="cfg-param-text">{{ param.text }}</span>
+                          <el-button link type="primary" size="small" @click="toggleConfigParamExpanded(param.key)">
+                            {{ configParamExpanded[param.key] ? '收起原始数据' : '查看原始数据' }}
+                          </el-button>
+                        </div>
+                        <pre v-if="configParamExpanded[param.key]" class="cfg-param-json">{{ stringifyConfigParam(param.raw) }}</pre>
+                      </template>
+                      <span v-else class="cfg-param-text">{{ param.text }}</span>
+                    </div>
+                  </div>
+                </div>
+                <div v-else class="cfg-params-empty">该发布配置未设置平台参数</div>
               </div>
-            </div>
+            </template>
           </div>
           <template #footer>
             <el-button size="small" @click="publishConfigDetailVisible = false">{{ t('common.close') }}</el-button>
@@ -3553,7 +3570,16 @@ import ImageSizeFilter, { type ImageSizeFilterValue } from "@/components/ImageSi
 import ImageGroupView from "../imageGroup/index.vue";
 import { imageGroupApi, type ImageGroupItem } from "@/api/imageGroup";
 import { FOLDER_FILTER } from "@/constants/folder";
-import { derivePublishTaskTypeByPlatform, getTaskTypeLabel } from "@/config/task-types";
+import {
+  derivePublishTaskTypeByPlatform,
+  getTaskTypeLabel,
+  PLATFORM_LABEL_MAP,
+  resolveTaskTypePlatform,
+} from "@/config/task-types";
+import {
+  getPlatformConfig,
+  type FieldConfig,
+} from "@/views/product/publish-config/task-types/publish-product/platform-configs";
 import { useServiceHealthState } from "@/services/serviceHealthState";
 
 const userStore = useUserStore();
@@ -3740,6 +3766,9 @@ const customRatioTolerance = ref(5);
 
 // 像素尺寸筛选（宽/高，精确或范围）
 const sizeFilter = ref<ImageSizeFilterValue>({});
+
+// 时间范围选择器显示值（重置筛选时需同步清空控件）
+const queryDateRange = ref<number[]>([]);
 
 /** 像素尺寸筛选变化：回到第一页重新查询 */
 function handleSizeFilterChange() {
@@ -5666,6 +5695,35 @@ function handleQuery() {
 }
 
 function resetQuery() {
+  Object.assign(queryParams, {
+    currentPage: 1,
+    keyword: "",
+    searchText: "",
+    sortingFields: "createTime DESC",
+    startTime: "",
+    endTime: "",
+    suffix: [],
+    id: "",
+    url: "",
+    phash: "",
+    phashMode: "range",
+    isCustom: "",
+    isInfringement: "",
+    isCutout: "",
+    seamless: "",
+    sizeShape: [],
+    minAspectRatio: undefined,
+    maxAspectRatio: undefined,
+    targetAspectRatio: undefined,
+    aspectRatioTolerance: undefined,
+    random: false,
+    publishUsageConfigId: [],
+  });
+  queryDateRange.value = [];
+  sizeFilter.value = {};
+  customRatioInput.value = "";
+  customRatioTolerance.value = 5;
+  filterDialogVisible.value = false;
   getList();
 }
 
@@ -6749,6 +6807,7 @@ const currentProductConfigDetail = ref<any>(null);
 
 async function handleViewPublishConfigDetail(row: any) {
   if (!row) return;
+  configParamExpanded.value = {};
   currentPublishConfigDetail.value = { ...row };
   publishConfigDetailVisible.value = true;
   if (row.id) {
@@ -6775,11 +6834,6 @@ function handleViewProductConfigDetail(row: any) {
   productConfigDetailVisible.value = true;
 }
 
-function hasVisibleConfigParameters(config: any): boolean {
-  const data = getDisplayableConfigData(config);
-  return Boolean(data && Object.keys(data).length > 0);
-}
-
 function getDisplayableConfigData(config: any): Record<string, any> {
   const data = getPublishConfigConfigData(config);
   if (!data || typeof data !== "object") return {};
@@ -6791,6 +6845,164 @@ function getDisplayableConfigData(config: any): Record<string, any> {
   }
   return result;
 }
+
+/* ---------------- 发布配置详情：结构化参数展示 ---------------- */
+
+type ConfigParamKind = "text" | "switch" | "select" | "urls" | "json";
+
+interface ConfigParamRow {
+  key: string;
+  label: string;
+  kind: ConfigParamKind;
+  text: string;
+  hint?: string;
+  urls?: string[];
+  raw?: any;
+}
+
+const configParamExpanded = ref<Record<string, boolean>>({});
+
+function toggleConfigParamExpanded(key: string) {
+  configParamExpanded.value = {
+    ...configParamExpanded.value,
+    [key]: !configParamExpanded.value[key],
+  };
+}
+
+function stringifyConfigParam(value: any): string {
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value ?? "");
+  }
+}
+
+function isBlankConfigValue(value: any): boolean {
+  if (value === undefined || value === null || value === "") return true;
+  if (Array.isArray(value)) return value.length === 0;
+  if (typeof value === "object") return Object.keys(value).length === 0;
+  return false;
+}
+
+function isPrimitiveList(value: any): boolean {
+  return Array.isArray(value) && value.length > 0 && value.every((item) => typeof item !== "object" && item !== null);
+}
+
+function summarizeStructuredValue(value: any): string {
+  if (Array.isArray(value)) return `${value.length} 项`;
+  if (value && typeof value === "object") return `${Object.keys(value).length} 个字段`;
+  return String(value ?? "");
+}
+
+function parseJsonMaybe(value: any): any {
+  if (typeof value !== "string") return null;
+  const text = value.trim();
+  if (!text.startsWith("{") && !text.startsWith("[")) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+function buildConfigParamRow(field: FieldConfig, value: any): ConfigParamRow {
+  const base = { key: field.key, label: field.label };
+
+  if (field.type === "switch") {
+    const on = value === true || value === 1 || value === "1" || value === "true";
+    return { ...base, kind: "switch", text: on ? "开启" : "关闭" };
+  }
+
+  if (field.type === "select" || field.type === "radio") {
+    const option = (field.options || []).find((item) => String(item.value) === String(value));
+    const optionLabel = option ? String(option.label) : "";
+    return {
+      ...base,
+      kind: "select",
+      text: optionLabel || String(value),
+      hint: optionLabel && optionLabel !== String(value) ? String(value) : undefined,
+    };
+  }
+
+  if (field.type === "url-list") {
+    const list = (Array.isArray(value) ? value : [value])
+      .map((item) => (typeof item === "string" ? item : String(item?.url || "")))
+      .filter(Boolean);
+    return { ...base, kind: "urls", text: `${list.length} 个链接`, urls: list, raw: value };
+  }
+
+  const parsed = field.type === "textarea" ? parseJsonMaybe(value) : null;
+  if (parsed) {
+    return { ...base, kind: "json", text: summarizeStructuredValue(parsed), raw: parsed };
+  }
+
+  if (field.type === "sku-list" || field.type === "vendor-products") {
+    return { ...base, kind: "json", text: summarizeStructuredValue(value), raw: value };
+  }
+
+  if (Array.isArray(value) || (value && typeof value === "object")) {
+    if (isPrimitiveList(value)) {
+      return { ...base, kind: "text", text: value.join("、") };
+    }
+    return { ...base, kind: "json", text: summarizeStructuredValue(value), raw: value };
+  }
+
+  return { ...base, kind: "text", text: String(value) };
+}
+
+const publishConfigDetailPlatform = computed(() =>
+  String(
+    currentPublishConfigDetail.value?.platform ||
+      resolveTaskTypePlatform(currentPublishConfigDetail.value?.taskType) ||
+      "",
+  ).trim(),
+);
+
+const publishConfigDetailPlatformLabel = computed(() => {
+  const platform = publishConfigDetailPlatform.value;
+  return platform ? PLATFORM_LABEL_MAP[platform] || platform : "";
+});
+
+const publishConfigDetailTaskTypeLabel = computed(() => {
+  const detail = currentPublishConfigDetail.value;
+  if (!detail) return "";
+  const taskType = detail.taskType || derivePublishTaskTypeByPlatform(publishConfigDetailPlatform.value);
+  return getTaskTypeLabel(taskType, publishConfigDetailPlatform.value);
+});
+
+const publishConfigDetailVendor = computed(() => {
+  const configData = getPublishConfigConfigData(currentPublishConfigDetail.value);
+  return String(configData?.vendorName || configData?.vendorCode || "").trim();
+});
+
+const publishConfigDetailParams = computed<ConfigParamRow[]>(() => {
+  const detail = currentPublishConfigDetail.value;
+  if (!detail) return [];
+
+  const data = getDisplayableConfigData(detail);
+  const platformConfig = publishConfigDetailPlatform.value
+    ? getPlatformConfig(publishConfigDetailPlatform.value)
+    : null;
+  const fields = platformConfig?.fields || [];
+
+  // templateBinding 已在「绑定 PSD 模板」展示；vendorName/vendorCode 已在「关联厂家」展示
+  const consumed = new Set<string>(["templateBinding", "vendorName", "vendorCode"]);
+  const rows: ConfigParamRow[] = [];
+
+  for (const field of fields) {
+    consumed.add(field.key);
+    const value = data[field.key];
+    if (isBlankConfigValue(value)) continue;
+    rows.push(buildConfigParamRow(field, value));
+  }
+
+  for (const [key, value] of Object.entries(data)) {
+    if (consumed.has(key) || isBlankConfigValue(value)) continue;
+    rows.push(buildConfigParamRow({ key, label: key, type: "input" }, value));
+  }
+
+  return rows;
+});
 
 function formatTimestamp(val: any) {
   if (!val) return "-";
@@ -12139,6 +12351,242 @@ h1 {
   flex-direction: column;
   gap: 2px;
   min-width: 0;
+}
+
+/* 配置名称完整展示：允许换行，不省略 */
+.config-name-full {
+  display: block;
+  min-width: 0;
+  line-height: 1.45;
+  word-break: break-word;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.config-el-table :deep(.cell:has(.config-name-full)) {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.config-name-tag {
+  margin-top: 1px;
+  flex-shrink: 0;
+}
+
+/* ---------------- 发布配置详情 ---------------- */
+.cfg-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cfg-detail-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cfg-detail-name {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--el-text-color-primary);
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.cfg-detail-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.cfg-detail-badges .platform-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+  border: 1px solid;
+  border-radius: 6px;
+}
+
+.cfg-detail-desc :deep(.el-descriptions__label) {
+  width: 96px;
+  white-space: nowrap;
+}
+
+.cfg-detail-strong {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+  word-break: break-word;
+}
+
+.cfg-detail-value {
+  font-size: 13px;
+  color: var(--el-text-color-regular);
+  word-break: break-word;
+}
+
+.cfg-detail-missing {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--el-color-danger);
+}
+
+.cfg-detail-empty {
+  color: var(--el-text-color-placeholder);
+}
+
+.cfg-detail-desc-text {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--el-text-color-regular);
+  word-break: break-word;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.cfg-detail-time {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.cfg-params {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.cfg-params-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--el-text-color-regular);
+}
+
+.cfg-params-count {
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  color: var(--el-text-color-secondary);
+  background: var(--el-fill-color);
+  border-radius: 8px;
+}
+
+.cfg-params-list {
+  max-height: 300px;
+  padding: 2px 10px;
+  overflow-y: auto;
+  background: var(--el-fill-color-lighter);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+}
+
+.cfg-param-row {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--el-border-color-lighter);
+}
+
+.cfg-param-row:last-child {
+  border-bottom: none;
+}
+
+.cfg-param-label {
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--el-text-color-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cfg-param-value {
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--el-text-color-primary);
+}
+
+.cfg-param-text {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.cfg-param-hint {
+  margin-left: 6px;
+  font-family: var(--el-font-family-mono, monospace);
+  font-size: 11px;
+  color: var(--el-text-color-placeholder);
+}
+
+.cfg-param-urls {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.cfg-param-urls li {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cfg-param-urls a {
+  font-size: 12px;
+  color: var(--el-color-primary);
+  text-decoration: none;
+}
+
+.cfg-param-urls a:hover {
+  text-decoration: underline;
+}
+
+.cfg-param-json-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.cfg-param-json {
+  max-height: 220px;
+  padding: 8px 10px;
+  margin: 6px 0 0;
+  overflow: auto;
+  font-family: var(--el-font-family-mono, monospace);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--el-text-color-regular);
+  white-space: pre;
+  background: var(--el-bg-color);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 6px;
+}
+
+.cfg-params-empty {
+  padding: 16px;
+  font-size: 12px;
+  color: var(--el-text-color-placeholder);
+  text-align: center;
+  border: 1px dashed var(--el-border-color-lighter);
+  border-radius: 8px;
 }
 
 .custom-platform-tag {
