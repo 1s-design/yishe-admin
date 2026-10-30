@@ -57,14 +57,6 @@ const remainingRouter: AppRouteRecordRaw[] = [
         },
       },
       {
-        path: "hotsearch-overview",
-        component: () => import("@/views/Home/HotSearchOverview.vue"),
-        name: "HotsearchOverview",
-        meta: {
-          title: "router.hotsearchOverview",
-        },
-      },
-      {
         path: "tools/index",
         component: () => import("@/views/Home/Tools/Index.vue"),
         name: "ToolsIndex",

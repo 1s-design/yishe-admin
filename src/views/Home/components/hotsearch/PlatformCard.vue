@@ -111,7 +111,9 @@ const trendClass = (trend: string) => {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  min-width: 0;
   padding: 14px 16px 12px;
+  overflow: hidden;
   cursor: pointer;
   background: var(--el-bg-color);
   border: 1px solid var(--el-border-color-lighter);
@@ -236,6 +238,7 @@ const trendClass = (trend: string) => {
   gap: 8px;
   align-items: baseline;
   min-width: 0;
+  overflow: hidden;
 }
 
 .hs-card__rank {
@@ -256,7 +259,7 @@ const trendClass = (trend: string) => {
 
 .hs-card__main {
   display: flex;
-  flex: 1;
+  flex: 1 1 0;
   flex-direction: column;
   gap: 3px;
   min-width: 0;
@@ -289,36 +292,50 @@ a.hs-card__title:hover {
 
 .hs-card__badges {
   display: inline-flex;
-  flex-shrink: 0;
+  flex: 0 0 auto;
   gap: 4px;
   align-self: center;
+  max-width: 30%;
+  overflow: hidden;
 }
 
 .hs-card__tag {
   height: 15px;
+  max-width: 76px;
   padding: 0 4px;
+  overflow: hidden;
   font-size: 10px;
   line-height: 15px;
   color: var(--hs-accent, var(--el-color-primary));
+  text-overflow: ellipsis;
+  white-space: nowrap;
   background: color-mix(in srgb, var(--hs-accent, var(--el-color-primary)) 9%, transparent);
   border-radius: 3px;
 }
 
 .hs-card__heat {
-  flex-shrink: 0;
+  max-width: 28%;
+  overflow: hidden;
   font-size: 11px;
   line-height: 1.5;
   color: var(--el-text-color-placeholder);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
   font-variant-numeric: tabular-nums;
 }
 
 .hs-card__badge {
-  flex-shrink: 0;
   height: 15px;
+  max-width: 60px;
   padding: 0 4px;
+  overflow: hidden;
   font-size: 10px;
   line-height: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   border-radius: 3px;
+  flex-shrink: 0;
 
   &.is-hot {
     color: var(--el-color-danger);

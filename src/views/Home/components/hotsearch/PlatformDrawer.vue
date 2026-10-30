@@ -241,7 +241,9 @@ const trendClass = (trend: string) => {
   display: flex;
   gap: 10px;
   align-items: baseline;
+  min-width: 0;
   padding: 10px 8px;
+  overflow: hidden;
   border-bottom: 1px solid var(--el-border-color-extra-light);
 
   &:last-child {
@@ -295,19 +297,27 @@ a.hs-drawer__name:hover {
 
 .hs-drawer__heat {
   flex-shrink: 0;
+  max-width: 30%;
+  overflow: hidden;
   font-size: 11.5px;
   line-height: 1.5;
   color: var(--el-text-color-placeholder);
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 
 .hs-drawer__badge {
-  flex-shrink: 0;
   height: 15px;
+  max-width: 60px;
   padding: 0 4px;
+  overflow: hidden;
   font-size: 10px;
   line-height: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   border-radius: 3px;
+  flex-shrink: 0;
 
   &.is-hot {
     color: var(--el-color-danger);

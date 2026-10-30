@@ -1,83 +1,90 @@
 <template>
   <ContentWrap :plain="true">
-    <ListPageLayout class="hotsearch-history-page">
-      <template #filter>
-        <div class="list-page-filter list-page-filter--flat">
-          <el-form :model="queryParams" label-position="top" class="list-page-search-form">
-            <el-row :gutter="12" class="list-page-search-form__row">
-              <el-col class="list-page-search-form__col--base" :xs="24" :sm="12" :md="8" :lg="6">
-                <el-form-item label="类型">
-                  <el-select v-model="queryParams.module" size="small" clearable placeholder="全部" @change="handleSearch">
-                    <el-option v-for="m in moduleList" :key="m.module" :label="m.label" :value="m.module" />
-                  </el-select>
-                </el-form-item>
-              </el-col>
-              <el-col class="list-page-search-form__col--base" :xs="24" :sm="12" :md="8" :lg="6">
-                <el-form-item label="平台">
-                  <el-select v-model="queryParams.platform" size="small" clearable filterable placeholder="全部平台" @change="handleSearch">
-                    <el-option v-for="p in platforms" :key="p.platformKey" :label="p.platformName" :value="p.platformKey" />
-                  </el-select>
-                </el-form-item>
-              </el-col>
-            </el-row>
-            <div class="list-page-search-form__actions">
-              <el-button size="small" type="primary" :icon="Search" :loading="loading" @click="handleSearch">查询</el-button>
-              <el-button size="small" :disabled="loading" @click="handleReset">重置</el-button>
-              <el-button size="small" :icon="Refresh" :loading="refreshing" @click="handleRefresh">刷新缓存</el-button>
-              <el-button
-                size="small"
-                type="danger"
-                :disabled="!selectedIds.length"
-                @click="handleBatchDelete"
-              >
-                批量删除{{ selectedIds.length ? ` (${selectedIds.length})` : '' }}
-              </el-button>
+    <el-tabs v-model="activeTab" class="hotsearch-page">
+      <el-tab-pane label="概览" name="overview" lazy>
+        <HotSearchOverview />
+      </el-tab-pane>
+      <el-tab-pane label="采集记录" name="history" lazy>
+        <ListPageLayout class="hotsearch-history-page">
+          <template #filter>
+            <div class="list-page-filter list-page-filter--flat">
+              <el-form :model="queryParams" label-position="top" class="list-page-search-form">
+                <el-row :gutter="12" class="list-page-search-form__row">
+                  <el-col class="list-page-search-form__col--base" :xs="24" :sm="12" :md="8" :lg="6">
+                    <el-form-item label="类型">
+                      <el-select v-model="queryParams.module" size="small" clearable placeholder="全部" @change="handleSearch">
+                        <el-option v-for="m in moduleList" :key="m.module" :label="m.label" :value="m.module" />
+                      </el-select>
+                    </el-form-item>
+                  </el-col>
+                  <el-col class="list-page-search-form__col--base" :xs="24" :sm="12" :md="8" :lg="6">
+                    <el-form-item label="平台">
+                      <el-select v-model="queryParams.platform" size="small" clearable filterable placeholder="全部平台" @change="handleSearch">
+                        <el-option v-for="p in platforms" :key="p.platformKey" :label="p.platformName" :value="p.platformKey" />
+                      </el-select>
+                    </el-form-item>
+                  </el-col>
+                </el-row>
+                <div class="list-page-search-form__actions">
+                  <el-button size="small" type="primary" :icon="Search" :loading="loading" @click="handleSearch">查询</el-button>
+                  <el-button size="small" :disabled="loading" @click="handleReset">重置</el-button>
+                  <el-button size="small" :icon="Refresh" :loading="refreshing" @click="handleRefresh">刷新缓存</el-button>
+                  <el-button
+                    size="small"
+                    type="danger"
+                    :disabled="!selectedIds.length"
+                    @click="handleBatchDelete"
+                  >
+                    批量删除{{ selectedIds.length ? ` (${selectedIds.length})` : '' }}
+                  </el-button>
+                </div>
+              </el-form>
             </div>
-          </el-form>
-        </div>
-      </template>
+          </template>
 
-      <template #table>
-        <div class="list-page-panel list-page-panel--flat list-page-table-panel list-page-table-panel--flat">
-          <div class="list-page-table-panel__body">
-            <div class="common-table">
-              <vxe-grid
-                v-bind="gridOptions"
-                :data="dataList"
-                :loading="loading"
-                @checkbox-change="handleCheckboxChange"
-                @checkbox-all="handleCheckboxAllChange"
-              >
-                <template #module_default="{ row }">
-                  <el-tag size="small" :type="row.module === 'news' ? 'warning' : 'primary'">
-                    {{ row.module === 'news' ? '资讯' : '热搜' }}
-                  </el-tag>
-                </template>
+          <template #table>
+            <div class="list-page-panel list-page-panel--flat list-page-table-panel list-page-table-panel--flat">
+              <div class="list-page-table-panel__body">
+                <div class="common-table">
+                  <vxe-grid
+                    v-bind="gridOptions"
+                    :data="dataList"
+                    :loading="loading"
+                    @checkbox-change="handleCheckboxChange"
+                    @checkbox-all="handleCheckboxAllChange"
+                  >
+                    <template #module_default="{ row }">
+                      <el-tag size="small" :type="row.module === 'news' ? 'warning' : 'primary'">
+                        {{ row.module === 'news' ? '资讯' : '热搜' }}
+                      </el-tag>
+                    </template>
 
-                <template #collectedAt_default="{ row }">
-                  {{ formatTime(row.collectedAt) }}
-                </template>
+                    <template #collectedAt_default="{ row }">
+                      {{ formatTime(row.collectedAt) }}
+                    </template>
 
-                <template #action_default="{ row }">
-                  <el-button link type="primary" size="small" @click="handleView(row)">查看</el-button>
-                </template>
-              </vxe-grid>
+                    <template #action_default="{ row }">
+                      <el-button link type="primary" size="small" @click="handleView(row)">查看</el-button>
+                    </template>
+                  </vxe-grid>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      </template>
+          </template>
 
-      <template #pagination>
-        <div class="list-page-panel list-page-panel--flat list-page-table-panel__pagination list-page-table-panel__pagination--flat">
-          <pagination
-            :total="total"
-            v-model:page="queryParams.currentPage"
-            v-model:limit="queryParams.pageSize"
-            @pagination="getList"
-          />
-        </div>
-      </template>
-    </ListPageLayout>
+          <template #pagination>
+            <div class="list-page-panel list-page-panel--flat list-page-table-panel__pagination list-page-table-panel__pagination--flat">
+              <pagination
+                :total="total"
+                v-model:page="queryParams.currentPage"
+                v-model:limit="queryParams.pageSize"
+                @pagination="getList"
+              />
+            </div>
+          </template>
+        </ListPageLayout>
+      </el-tab-pane>
+    </el-tabs>
 
     <!-- 详情弹窗 -->
     <el-dialog v-model="detailVisible" :title="detailTitle" width="800px" destroy-on-close>
@@ -100,12 +107,13 @@
 </template>
 
 <script setup lang="ts" name="HotSearch">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh } from '@element-plus/icons-vue'
 import ContentWrap from '@/components/ContentWrap/src/ContentWrap.vue'
 import ListPageLayout from '@/components/ListPageLayout/index.vue'
 import Pagination from '@/components/Pagination/index.vue'
+import HotSearchOverview from './HotSearchOverview.vue'
 import { commonGridOptions, buildTimeColumn, buildOperationColumn } from '@/common/table'
 import {
   getSnapshots,
@@ -120,6 +128,8 @@ import {
 
 defineOptions({ name: 'HotSearch' })
 
+const activeTab = ref<'overview' | 'history'>('overview')
+const historyReady = ref(false)
 const loading = ref(false)
 const refreshing = ref(false)
 const dataList = ref<HotsearchSnapshot[]>([])
@@ -263,16 +273,56 @@ const handleView = (row: HotsearchSnapshot) => {
   detailVisible.value = true
 }
 
-onMounted(() => {
+const ensureHistory = () => {
+  if (historyReady.value) return
+  historyReady.value = true
   loadModules()
   loadPlatforms()
   getList()
+}
+
+watch(activeTab, (tab) => {
+  if (tab === 'history') ensureHistory()
+})
+
+onMounted(() => {
+  if (activeTab.value === 'history') ensureHistory()
 })
 </script>
 
 <style scoped lang="scss">
+.hotsearch-page {
+  :deep(.el-tabs__header) {
+    padding: 8px 20px 0;
+    margin: 0;
+    border-bottom: 1px solid var(--el-border-color-lighter);
+  }
+
+  :deep(.el-tabs__nav-wrap::after) {
+    display: none;
+  }
+}
+
 .hotsearch-history-page {
   height: 100%;
+}
+
+@media (width <= 1024px) {
+  .hotsearch-page :deep(.el-tabs__header) {
+    padding: 8px 16px 0;
+  }
+}
+
+@media (width <= 768px) {
+  .hotsearch-page :deep(.el-tabs__header) {
+    padding: 8px 12px 0;
+  }
+}
+
+@media (width <= 480px) {
+  .hotsearch-page :deep(.el-tabs__header) {
+    padding: 8px 10px 0;
+  }
 }
 
 .item-link {

@@ -225,7 +225,6 @@ export default {
     workplace: 'Workspace',
     home: 'Home',
     hotSearch: 'Hot Search',
-    hotsearchOverview: 'Hot Search Overview',
     tools: 'Tools',
     statistics: 'Statistics',
     vectorSearch: 'Vector Database',

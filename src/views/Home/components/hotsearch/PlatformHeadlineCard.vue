@@ -109,7 +109,9 @@ const ageLabel = computed(() => {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  min-width: 0;
   padding: 14px 16px 12px;
+  overflow: hidden;
   cursor: pointer;
   background: var(--el-bg-color);
   border: 1px solid var(--el-border-color-lighter);
@@ -204,7 +206,9 @@ const ageLabel = computed(() => {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
   padding: 10px 12px;
+  overflow: hidden;
   background: color-mix(in srgb, var(--hs-accent, var(--el-color-primary)) 5%, transparent);
   border-radius: 6px;
 }
@@ -227,17 +231,24 @@ a.hs-hl__lead-title:hover {
 }
 
 .hs-hl__lead-meta {
-  display: inline-flex;
-  gap: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
   align-items: center;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .hs-hl__tag {
   height: 15px;
+  max-width: 120px;
   padding: 0 4px;
+  overflow: hidden;
   font-size: 10px;
   line-height: 15px;
   color: var(--hs-accent, var(--el-color-primary));
+  text-overflow: ellipsis;
+  white-space: nowrap;
   background: color-mix(in srgb, var(--hs-accent, var(--el-color-primary)) 10%, transparent);
   border-radius: 3px;
 }
@@ -256,6 +267,7 @@ a.hs-hl__lead-title:hover {
   gap: 8px;
   align-items: baseline;
   min-width: 0;
+  overflow: hidden;
 }
 
 .hs-hl__rank {
@@ -284,10 +296,14 @@ a.hs-hl__title:hover {
 }
 
 .hs-hl__heat {
-  flex-shrink: 0;
+  max-width: 30%;
+  overflow: hidden;
   font-size: 11px;
   line-height: 1.5;
   color: var(--el-text-color-placeholder);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
   font-variant-numeric: tabular-nums;
 }
 
