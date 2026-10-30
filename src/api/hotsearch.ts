@@ -132,6 +132,120 @@ export interface HotsearchModuleInfo {
   snapshotCount: number
 }
 
+// ── 概览（源定义驱动的通用展示） ──────────────────────
+
+export interface HotsearchKeyword {
+  word: string
+  score: number
+  hitCount: number
+  platforms: string[]
+  platformNames: string[]
+  sampleTitles: string[]
+  bestRank: number
+  relevance?: number
+}
+
+export interface HotsearchOverviewFieldMap {
+  rank: string
+  title: string
+  heat: string
+  trend: string
+  link: string
+  subtitle: string
+}
+
+export interface HotsearchOverviewOutputField {
+  key: string
+  type: string
+  label: string
+}
+
+export interface HotsearchOverviewDisplay {
+  fields: HotsearchOverviewFieldMap
+  output: HotsearchOverviewOutputField[]
+  topN: number
+  icon?: string
+  accent?: string
+  layout?: 'list' | 'compact'
+  renderer?: string
+  badges?: string[]
+}
+
+export interface HotsearchOverviewPlatform {
+  platformKey: string
+  platformName: string
+  group: string
+  collectedAt: string | null
+  ageMinutes: number | null
+  stale: boolean
+  itemCount: number
+  display: HotsearchOverviewDisplay
+  top: Record<string, any>[]
+}
+
+export interface HotsearchOverviewGroup {
+  key: string
+  label: string
+  order: number
+  platforms: HotsearchOverviewPlatform[]
+}
+
+export interface HotsearchOverviewResult {
+  module: string
+  windowMinutes: number
+  generatedAt: string
+  freshness: {
+    latestCollectedAt: string | null
+    ageMinutes: number | null
+    stale: boolean
+  }
+  stats: {
+    platformCount: number
+    itemCount: number
+  }
+  groups: HotsearchOverviewGroup[]
+  keywords: HotsearchKeyword[]
+}
+
+export interface HotsearchOverviewPlatformResult {
+  platformKey: string
+  platformName: string
+  group: string
+  collectedAt: string | null
+  ageMinutes: number | null
+  stale: boolean
+  itemCount: number
+  display: HotsearchOverviewDisplay
+  items: Record<string, any>[]
+}
+
+/**
+ * 热搜概览：平台分组 + Top N + 展示契约 + 趋势词
+ */
+export const getHotsearchOverview = (params?: {
+  module?: string
+  sinceMinutes?: number
+  perPlatform?: number
+  keywordLimit?: number
+}) => {
+  return request.get<HotsearchOverviewResult>({ url: '/hotsearch/overview', params })
+}
+
+/**
+ * 概览抽屉：单平台完整榜单
+ */
+export const getHotsearchOverviewPlatform = (params: {
+  platformKey: string
+  module?: string
+  sinceMinutes?: number
+  limit?: number
+}) => {
+  return request.get<HotsearchOverviewPlatformResult>({
+    url: '/hotsearch/overview/platform',
+    params
+  })
+}
+
 /**
  * 获取模块类型列表（动态）
  */

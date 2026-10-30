@@ -227,6 +227,7 @@ export default {
     workplace: '工作台',
     home: '首页',
     hotSearch: '热搜',
+    hotsearchOverview: '热搜概览',
     tools: '工具',
     statistics: '数据统计',
     vectorSearch: '向量库',
