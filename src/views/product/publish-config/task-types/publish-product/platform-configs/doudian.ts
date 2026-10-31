@@ -6,7 +6,8 @@ export const doudianPlatformConfig: PlatformConfig = {
   description: '抖店平台配置',
   supportVideo: true,
   supportImage: true,
-  titleMaxLength: 60,
+  // 抖店长标题上限 60 字符 = 30 个汉字（1 个汉字/Emoji 计 2 字符）
+  titleMaxLength: 30,
   fields: [
     {
       key: 'copyId',
