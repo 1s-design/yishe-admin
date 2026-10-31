@@ -1103,6 +1103,26 @@ html.dark .el-popper.is-light {
   color: var(--el-text-color-primary, #e5eaf3) !important;
 }
 
+/* is-dark tooltip（el-tooltip 默认 effect）底色取自 --el-text-color-primary，
+   暗色主题下该变量是浅色，会把浮层渲染成白块；这里统一改成浮层表面色并同步箭头 */
+.el-popper.is-dark > .el-popper__arrow::before {
+  background: var(--el-text-color-primary) !important;
+  border-color: var(--el-text-color-primary) !important;
+}
+
+html.dark .el-popper.is-dark {
+  --el-popper-bg-color-dark: var(--app-content-surface-color, var(--el-bg-color-overlay, #1d1e1f));
+  background: var(--app-content-surface-color, var(--el-bg-color-overlay, #1d1e1f)) !important;
+  border-color: var(--ep-cover-border-color, rgba(255, 255, 255, 0.08)) !important;
+  color: var(--el-text-color-primary, #e5eaf3) !important;
+  box-shadow: var(--el-box-shadow-light) !important;
+}
+
+html.dark .el-popper.is-dark > .el-popper__arrow::before {
+  background: var(--app-content-surface-color, var(--el-bg-color-overlay, #1d1e1f)) !important;
+  border-color: var(--ep-cover-border-color, rgba(255, 255, 255, 0.08)) !important;
+}
+
 /* 2. 内层菜单容器（dropdown / menu / panel）：去除多余边框与独立背景，继承圆角并平滑裁切 */
 :is(
   .el-select-dropdown,

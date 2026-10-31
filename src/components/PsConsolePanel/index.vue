@@ -62,7 +62,7 @@
                 </span>
               </div>
               <div class="compact-info__item">
-                <span class="compact-info__label">Photoshop</span>
+                <span class="compact-info__label">{{ selectedClientEngineLabel }}</span>
                 <span class="compact-info__value">
                   <span class="status-chip" :class="`is-${selectedPsApplicationStatus.tone}`">
                     <span class="status-chip__dot" />
@@ -208,6 +208,7 @@
                   <el-button
                     type="primary"
                     :loading="loadingMap.startPhotoshop"
+                    :disabled="selectedClientIsPhotonOnly"
                     @click="
                       dispatchPsCommand(
                         'startPhotoshop',
@@ -219,6 +220,7 @@
                   >
                   <el-button
                     :loading="loadingMap.restartPhotoshop"
+                    :disabled="selectedClientIsPhotonOnly"
                     @click="
                       dispatchPsCommand(
                         'restartPhotoshop',
@@ -231,6 +233,7 @@
                   <el-button
                     type="danger"
                     :loading="loadingMap.stopPhotoshop"
+                    :disabled="selectedClientIsPhotonOnly"
                     @click="
                       dispatchPsCommand(
                         'stopPhotoshop',
@@ -270,7 +273,7 @@
                     </span>
                   </div>
                   <div class="compact-info__item">
-                    <span class="compact-info__label">Photoshop</span>
+                    <span class="compact-info__label">{{ selectedClientEngineLabel }}</span>
                     <span class="compact-info__value">
                       <span class="status-chip" :class="`is-${selectedPsApplicationStatus.tone}`">
                         <span class="status-chip__dot" />
@@ -1055,6 +1058,11 @@ const customOptionsTemplates: Record<string, Record<string, any>> = {
 const getPhotoshopService = (client: any) =>
   client.clientInfo?.services?.["ps-automation"] || client.clientInfo?.services?.photoshop || null;
 
+const isPhotonOnlyService = (service?: any) =>
+  !!service &&
+  service?.details?.photonReady === true &&
+  service?.details?.photoshopReady !== true;
+
 const isPsAutomationActivelyBusy = (psAutomation?: Record<string, any> | null) => {
   if (!psAutomation || psAutomation.running !== true) {
     return false;
@@ -1095,7 +1103,13 @@ const resolvePsRuntimeDisplay = (service?: any) => {
 
   const details = service?.details || {};
   const connected = !!service.connected;
-  const available = !!(service.available || details?.photoshopReady === true);
+  const photonReady = details?.photonReady === true;
+  const photonOnly = photonReady && details?.photoshopReady !== true;
+  const available = !!(
+    service.available ||
+    details?.photoshopReady === true ||
+    photonReady
+  );
   const busy = !!service.busy;
   const hasError = hasPsServiceError(service);
   const photoshopRunning = !!(
@@ -1132,7 +1146,10 @@ const resolvePsRuntimeDisplay = (service?: any) => {
   const applicationStatus = busy
     ? { text: t('psConsole.running'), tone: "warning" as ClientNodeBadge["tone"] }
     : available || photoshopStatus === "ready"
-      ? { text: t('psConsole.available'), tone: "success" as ClientNodeBadge["tone"] }
+      ? {
+          text: photonOnly ? t('psConsole.photonAvailable') : t('psConsole.available'),
+          tone: "success" as ClientNodeBadge["tone"],
+        }
       : connected && (photoshopStatus === "starting" || photoshopRunning)
         ? { text: t('psConsole.starting'), tone: "warning" as ClientNodeBadge["tone"] }
         : connected
@@ -1271,9 +1288,14 @@ const getPsBridgeService = (client: any) => {
 
   const busy = isPsServiceBusy(client, service);
   const details = service?.details || {};
+  const engineReady = !!(
+    service?.available ||
+    details?.photoshopReady ||
+    details?.photonReady
+  );
   const normalizedState = busy
     ? "busy"
-    : service?.available || details?.photoshopReady
+    : engineReady
       ? "idle"
       : service?.state === "error"
         ? "error"
@@ -1288,7 +1310,7 @@ const getPsBridgeService = (client: any) => {
       ...details,
       photoshopStatus:
         !busy && String(details?.photoshopStatus || "").toLowerCase() === "busy"
-          ? service?.available || details?.photoshopReady
+          ? engineReady
             ? "ready"
             : "starting"
           : details?.photoshopStatus,
@@ -1568,6 +1590,18 @@ const selectedPsApplicationStatus = computed(
       text: "-",
       tone: "info" as ClientNodeBadge["tone"],
     },
+);
+
+const selectedClientEngineLabel = computed(() => {
+  const details = getPhotoshopService(selectedClient.value)?.details || {};
+  if (details?.photoshopReady === true) return "Photoshop";
+  if (details?.photonReady === true || details?.photonInstalled === true) {
+    return "Photon";
+  }
+  return "Photoshop";
+});
+const selectedClientIsPhotonOnly = computed(() =>
+  isPhotonOnlyService(getPhotoshopService(selectedClient.value)),
 );
 
 const finishAction = (action?: string | null) => {

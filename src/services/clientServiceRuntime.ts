@@ -26,6 +26,7 @@ export function isClientServiceRuntimeAvailable(runtime?: ClientServiceRuntimeLi
     safeRuntime.connected ||
     status === "connected" ||
     safeRuntime.details?.photoshopReady === true ||
+    safeRuntime.details?.photonReady === true ||
     safeRuntime.details?.serviceStatus === "connected" ||
     safeRuntime.details?.serviceHealthy === true
   );

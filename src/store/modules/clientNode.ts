@@ -213,6 +213,10 @@ const mergeServiceRuntime = (
     photoshopRunning: nextDetails.photoshopRunning ?? prevDetails.photoshopRunning,
     photoshopReady: nextDetails.photoshopReady ?? prevDetails.photoshopReady,
     photoshopStatus: nextDetails.photoshopStatus ?? prevDetails.photoshopStatus,
+    photonReady: nextDetails.photonReady ?? prevDetails.photonReady,
+    photonInstalled: nextDetails.photonInstalled ?? prevDetails.photonInstalled,
+    photonStatus: nextDetails.photonStatus ?? prevDetails.photonStatus,
+    engine: nextDetails.engine ?? prevDetails.engine,
     queueCount: nextDetails.queueCount ?? prevDetails.queueCount,
     activeJobsCount: nextDetails.activeJobsCount ?? prevDetails.activeJobsCount,
     activeJobId: nextDetails.activeJobId ?? prevDetails.activeJobId,
@@ -230,7 +234,10 @@ const mergeServiceRuntime = (
     next.pluginKey === "ps-automation" ||
     prev.pluginKey === "ps-automation";
 
-  if (isPhotoshop && mergedDetails.photoshopReady === true) {
+  if (
+    isPhotoshop &&
+    (mergedDetails.photoshopReady === true || mergedDetails.photonReady === true)
+  ) {
     if (merged.available === undefined || merged.available === false) {
       merged.available = true;
     }

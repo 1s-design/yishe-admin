@@ -2793,6 +2793,9 @@ function isPhotoshopRuntimeErrorMessage(message: unknown) {
     "可用",
     "等待 photoshop 启动",
     "等待 ps 就绪",
+    "等待 photon",
+    "photon 就绪",
+    "photon 可用",
   ];
   if (positiveHints.some((hint) => text.includes(hint))) {
     return false;
@@ -2800,6 +2803,7 @@ function isPhotoshopRuntimeErrorMessage(message: unknown) {
 
   const explicitErrorHints = [
     "ps 自动化连接异常",
+    "出图服务连接异常",
     "network error",
     "econnrefused",
     "econnreset",
@@ -2809,7 +2813,9 @@ function isPhotoshopRuntimeErrorMessage(message: unknown) {
     "timed out",
     "socket hang up",
     "ps 处理服务未启动",
+    "出图服务未启动",
     "photoshop 处理请求超时",
+    "photon cli",
     "状态检测失败",
     "状态检测暂时未响应",
     "处理服务异常",
@@ -2826,7 +2832,10 @@ function isPhotoshopRuntimeErrorMessage(message: unknown) {
     text.includes("ps 自动化") ||
     text.includes("photoshop") ||
     text.includes("localhost:1595") ||
-    text.includes("ps 处理服务");
+    text.includes("ps 处理服务") ||
+    text.includes("photon") ||
+    text.includes("出图服务") ||
+    text.includes("出图引擎");
 
   return !!(
     hasPhotoshopSignal &&
@@ -2857,7 +2866,7 @@ function resolvePhotoshopServiceIssue(service: any) {
   if (isPhotoshopServiceReady(service)) {
     return {
       kind: "ready" as const,
-      reason: message || t("psdSet.psReady"),
+      reason: message || (isPhotonOnlyService(service) ? t("psdSet.photonReadyReason") : t("psdSet.psReady")),
     };
   }
 
@@ -2895,11 +2904,19 @@ function resolvePhotoshopServiceIssue(service: any) {
   };
 }
 
+function isPhotonOnlyService(service: any) {
+  return service?.details?.photonReady === true && service?.details?.photoshopReady !== true;
+}
+
 function isPhotoshopServiceReady(service: any) {
   if (!service) {
     return false;
   }
-  if (service?.available === true || service?.details?.photoshopReady === true) {
+  if (
+    service?.available === true ||
+    service?.details?.photoshopReady === true ||
+    service?.details?.photonReady === true
+  ) {
     return true;
   }
   const state = String(service?.state || service?.status || "").toLowerCase();
@@ -2999,7 +3016,11 @@ function getDispatchClientPsStatus(client: any) {
 
   const issue = resolvePhotoshopServiceIssue(service);
   if (issue.kind === "ready") {
-    return { text: t("psdSet.enabled"), tone: "success", reason: issue.reason };
+    return {
+      text: isPhotonOnlyService(service) ? t("psdSet.photonReady") : t("psdSet.enabled"),
+      tone: "success",
+      reason: issue.reason,
+    };
   }
   if (issue.kind === "error") {
     return { text: t("psdSet.abnormal"), tone: "danger", reason: issue.reason };
@@ -3313,9 +3334,9 @@ const psdSetAutoDispatchTargetHint = computed(() => {
     const status = t("queue.targetClientOffline");
     return t("psdSet.clientStatusPendingHint", { status, pendingText });
   }
-  const psService = getClientPhotoshopService(client);
-  if (!psService || psService.status === "error") {
-    const status = t("psdSet.serviceNotReady");
+  const unavailableReason = getDispatchClientUnavailableReason(client);
+  if (unavailableReason) {
+    const status = unavailableReason;
     return t("psdSet.clientStatusPendingHint", { status, pendingText });
   }
   const status = t("psdSet.clientReady");
