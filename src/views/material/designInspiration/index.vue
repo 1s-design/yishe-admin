@@ -537,7 +537,7 @@
           <el-form-item label="自动挂机">
             <el-switch
               v-model="form.autoEnabled"
-              active-text="参与 1s 自动工位制作"
+              active-text="参与 设计工具 自动工位制作"
               inactive-text="暂停自动制作"
             />
           </el-form-item>
@@ -549,7 +549,7 @@
                 list-type="picture-card"
                 :auto-upload="false"
                 :multiple="true"
-                :limit="12"
+                :limit="100"
                 accept="image/png,image/jpeg,image/jpg,image/webp,image/gif"
                 :on-preview="handleImagePreview"
                 class="inspiration-image-upload"
@@ -557,7 +557,7 @@
                 <el-icon><Plus /></el-icon>
               </el-upload>
               <div class="inspiration-image-upload__tip">
-                支持上传多张参考图/风格图（最多12张）。
+                支持上传多张参考图/风格图（最多100张）。
               </div>
             </div>
           </el-form-item>

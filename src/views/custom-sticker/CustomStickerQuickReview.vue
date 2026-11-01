@@ -1043,11 +1043,18 @@ async function submitRework(): Promise<void> {
   submittingRework.value = true;
   try {
     const cur = current.value;
-    await CustomStickerApi.triggerRework({
+    const res: any = await CustomStickerApi.triggerRework({
       sourceStickerId: cur.id,
       inspirationId: (cur as any).inspirationId || undefined,
       feedbackPrompt: feedback,
     });
+
+    // 拦截器只按 code 放行，业务失败（success:false）会原样返回，必须显式检查
+    const payload = res?.data ?? res;
+    if (payload?.success === false) {
+      ElMessage.error(payload?.message || "派发返工任务失败");
+      return;
+    }
 
     const item = queue.value.shift();
     if (item) {
