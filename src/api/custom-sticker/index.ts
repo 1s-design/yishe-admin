@@ -17,6 +17,10 @@ export interface CustomSticker {
   width?: number | null
   height?: number | null
   aspectRatio?: number | null
+  /** 文件体积（字节），与素材库 fileSize 对应 */
+  fileSize?: number | null
+  /** 是否抠图（透明背景），与素材库 isCutout 对应 */
+  isCutout?: boolean | null
   folderId?: string | null
   folder?: string | null
   imported?: boolean
@@ -34,6 +38,8 @@ export interface CustomSticker {
   sourceCustomStickerId?: string | null
   sourceUserId?: number | null
   shareType?: 'shared' | 'copy' | null
+  /** 是否被管理员标记为模板 */
+  isTemplate?: boolean
   meta?: Record<string, any> | null
   createTime?: string
   updateTime?: string
@@ -46,6 +52,12 @@ export interface CustomStickerPageParams {
   searchText?: string
   shareState?: string
   importState?: string
+  /** 模板筛选：template 仅模板 / not-template 非模板 */
+  templateState?: string
+  /** 排序方式：latest 最近（默认）/ earliest 最早 / random 随机（同 seed 分页稳定） */
+  sort?: 'latest' | 'earliest' | 'random'
+  /** 随机排序种子，同一次随机审核内保持不变 */
+  seed?: number
 }
 
 export interface CustomStickerPageResult {
@@ -69,6 +81,12 @@ export const CustomStickerApi = {
 
   batchMove: (data: { ids: string[]; folderId: string | null }) =>
     request.post<{ success: boolean; movedCount: number }>({ url: '/custom-sticker/batch-move', data }),
+
+  batchMarkTemplate: (data: { ids: string[]; isTemplate?: boolean }) =>
+    request.post<{ success: boolean; updatedCount: number; isTemplate: boolean }>({
+      url: '/custom-sticker/batch-mark-template',
+      data,
+    }),
 
   publishToResourceCenter: (data: { customStickerId: string; category?: string; description?: string }) =>
     request.post({ url: '/custom-sticker/share-to-resource-center', data }),

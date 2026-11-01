@@ -11,6 +11,34 @@
             </span>
             <span class="qr__floating-badge">自定义贴纸</span>
 
+            <!-- 审核范围：切换后从头重新取数 -->
+            <div class="qr__filter-group">
+              <el-select
+                v-model="reviewImportScope"
+                size="small"
+                class="qr__filter-select"
+                popper-class="qr-filter-popper"
+                title="按素材库状态筛选待审核素材"
+                @change="applyReviewFilterChange"
+              >
+                <el-option label="库状态：全部" value="all" />
+                <el-option label="只看未复制" value="not-imported" />
+                <el-option label="只看已复制" value="imported" />
+              </el-select>
+              <el-select
+                v-model="reviewSort"
+                size="small"
+                class="qr__filter-select"
+                popper-class="qr-filter-popper"
+                :title="reviewSort === 'random' ? '随机顺序（每次切换都会重新抽样）' : '按贴纸创建时间排序'"
+                @change="applyReviewFilterChange"
+              >
+                <el-option label="排序：最新" value="latest" />
+                <el-option label="排序：最早" value="earliest" />
+                <el-option label="排序：随机" value="random" />
+              </el-select>
+            </div>
+
             <!-- 撤销删除胶囊 -->
             <button
               v-if="canUndoDelete"
@@ -108,7 +136,13 @@
           @pointercancel="onPointerCancel"
           @dblclick="openOriginal"
         >
-          <img v-if="displayUrl" :src="displayUrl" :alt="current.name || '自定义贴纸'" draggable="false" />
+          <img
+            v-if="displayUrl"
+            :src="displayUrl"
+            :alt="current.name || '自定义贴纸'"
+            draggable="false"
+            decoding="async"
+          />
 
           <!-- 新图还在解码：轻量角标提示 -->
           <div v-if="deckPending" class="qr__deck-pending">
@@ -451,15 +485,15 @@ const emit = defineEmits<{
 /** 每次向后台拉取多少条数据 */
 const PAGE_SIZE = 50;
 /** 队列剩余多少条时在后台自动补货（留足缓冲，用户感觉不到加载） */
-const PREFETCH_THRESHOLD = 32;
-/** 空闲帧里最多预热后面几张图（紧挨着的两张走立即通道） */
-const PRELOAD_AHEAD = 6;
+const PREFETCH_THRESHOLD = 40;
+/** 空闲帧里最多预热后面几张图（紧挨着的几张走立即通道） */
+const PRELOAD_AHEAD = 10;
 /**
- * 切换到下一张时，最多愿意等它解码多久。
- * 超时就照切不误 —— 宁可极偶尔白一下，也不能让用户点了没反应。
- * 现在上屏的是按视口出图的 webp，几百毫秒足够下载 + 解码完。
+ * 切换到下一张时，如果新图还没解码完，最多「保留上一张」这么久再强切。
+ * 时间很短：预热命中时根本不会走到这里；只在漏预热时避免一帧空白，
+ * 又不会让极速审核出现「画面滞后于已审核内容」。
  */
-const DECK_WAIT_TIMEOUT = 500;
+const DECK_WAIT_TIMEOUT = 120;
 /** 出图宽度上限：再宽对「要不要复制到素材库」的判断没有增益，只多花带宽和解码时间 */
 const DECK_MAX_WIDTH = 2000;
 /**
@@ -498,6 +532,35 @@ const nextOffset = ref(0);
  */
 const pendingDeleteOffset = ref(0);
 const seenIds = ref<Set<string>>(new Set());
+
+// ── 审核范围筛选（审核中可随时切换，切换后从头重新取数）─────────────
+type ReviewImportScope = "all" | "not-imported" | "imported";
+type ReviewSort = "latest" | "earliest" | "random";
+
+function pickRandomSeed(): number {
+  return Math.floor(Math.random() * 4294967295);
+}
+
+function normalizeImportScope(value: any): ReviewImportScope {
+  return value === "imported" || value === "not-imported" ? value : "all";
+}
+
+function normalizeReviewSort(value: any): ReviewSort {
+  return value === "earliest" || value === "random" ? value : "latest";
+}
+
+const reviewImportScope = ref<ReviewImportScope>(normalizeImportScope(props.query?.importState));
+const reviewSort = ref<ReviewSort>(normalizeReviewSort(props.query?.sort));
+/** 随机排序的种子：同一次随机审核内不变，翻页才不会重复或漏审 */
+const randomSeed = ref(pickRandomSeed());
+
+/** 审核实际使用的查询条件 = 列表页透传条件 + 审核内筛选 */
+const reviewQuery = ref<Record<string, any>>({
+  ...(props.query || {}),
+  importState: reviewImportScope.value === "all" ? undefined : reviewImportScope.value,
+  sort: reviewSort.value,
+  seed: reviewSort.value === "random" ? randomSeed.value : undefined,
+});
 
 // ── 统计计数 ──────────────────────────────────────────────────
 const copiedCount = ref(0);
@@ -658,13 +721,16 @@ async function fetchNext(): Promise<void> {
         const pageNo = Math.floor(offset / PAGE_SIZE) + 1;
         const drop = offset % PAGE_SIZE;
 
+        const q = reviewQuery.value;
         const res: any = await CustomStickerApi.getAdminPage({
           page: pageNo,
           pageSize: PAGE_SIZE,
-          searchText: props.query?.searchText || undefined,
-          folderId: props.query?.folderId,
-          shareState: props.query?.shareState,
-          importState: props.query?.importState,
+          searchText: q?.searchText || undefined,
+          folderId: q?.folderId,
+          shareState: q?.shareState,
+          importState: q?.importState,
+          sort: q?.sort,
+          seed: q?.seed,
         });
 
         const list: CustomSticker[] = Array.isArray(res?.items)
@@ -681,11 +747,11 @@ async function fetchNext(): Promise<void> {
           // 先占位：不满足筛选条件的也算消费过，避免下一页反复遇到同一批记录
           seenIds.value.add(id);
 
-          // 如果外部过滤了发布状态或素材库状态，客户端同步过滤
-          if (props.query?.shareState === "shared" && !item.isShared) return false;
-          if (props.query?.shareState === "unshared" && item.isShared) return false;
-          if (props.query?.importState === "imported" && !item.imported) return false;
-          if (props.query?.importState === "not-imported" && item.imported) return false;
+          // 列表页透传的发布状态/素材库状态，客户端同步过滤
+          if (q?.shareState === "shared" && !item.isShared) return false;
+          if (q?.shareState === "unshared" && item.isShared) return false;
+          if (q?.importState === "imported" && !item.imported) return false;
+          if (q?.importState === "not-imported" && item.imported) return false;
 
           return true;
         });
@@ -765,7 +831,7 @@ function deckKeyOf(item?: CustomSticker | null): string {
 }
 
 /**
- * 预热策略：紧挨着的 3 张走立即通道，
+ * 预热策略：紧挨着的 4 张走立即通道，
  * 更远的丢进空闲帧慢慢来，兼顾即时性与带宽平滑。
  */
 function warmAhead(): void {
@@ -778,9 +844,10 @@ function warmAhead(): void {
   if (list[1]) nextSlice.push(deckKeyOf(list[1]));
   if (list[2]) nextSlice.push(deckKeyOf(list[2]));
   if (list[3]) nextSlice.push(deckKeyOf(list[3]));
+  if (list[4]) nextSlice.push(deckKeyOf(list[4]));
   if (nextSlice.length) deck.warmNow(nextSlice);
 
-  const idleSlice = list.slice(4, 4 + PRELOAD_AHEAD);
+  const idleSlice = list.slice(5, 5 + PRELOAD_AHEAD);
   if (idleSlice.length) {
     deck.warmIdle(idleSlice.map((item) => deckKeyOf(item)).filter(Boolean));
   }
@@ -811,19 +878,23 @@ function syncDeck(): void {
     return;
   }
 
-  // 1. 0ms 瞬间直显目标地址，绝不卡在旧图上
-  displayUrl.value = target;
-
+  // 已解码完成：0ms 直接切上屏，不等待、不闪烁
   if (deck.isReady(target)) {
+    displayUrl.value = target;
     deckPending.value = false;
     return;
   }
 
+  // 未解码：先保留上一张（直接换 src 会先白一帧 + 主线程同步解码大图，
+  // 这正是「点了之后卡一下」的来源），最多等 DECK_WAIT_TIMEOUT 再强切
   deckPending.value = true;
-  void deck.ensure(target).then(() => {
-    if (seq === deckSeq) {
-      deckPending.value = false;
-    }
+  void Promise.race([
+    deck.ensure(target),
+    new Promise<boolean>((resolve) => setTimeout(() => resolve(false), DECK_WAIT_TIMEOUT)),
+  ]).then(() => {
+    if (seq !== deckSeq) return;
+    displayUrl.value = target;
+    deckPending.value = false;
   });
 }
 
@@ -855,6 +926,33 @@ function retry(): void {
   loadError.value = "";
   autoRetryLeft = 2;
   void fetchNext();
+}
+
+/** 是否在审核内手动改过筛选：改过就不再被列表页条件覆盖 */
+let filtersTouched = false;
+
+function buildReviewQuery(): Record<string, any> {
+  return {
+    ...(props.query || {}),
+    importState: reviewImportScope.value === "all" ? undefined : reviewImportScope.value,
+    sort: reviewSort.value,
+    seed: reviewSort.value === "random" ? randomSeed.value : undefined,
+  };
+}
+
+/** 首次进入时沿用列表页筛选条件 */
+function syncReviewFiltersFromProps(): void {
+  if (filtersTouched) return;
+  reviewImportScope.value = normalizeImportScope(props.query?.importState);
+  reviewQuery.value = buildReviewQuery();
+}
+
+/** 审核内筛选变更：重建查询条件并从第一页重新取数 */
+function applyReviewFilterChange(): void {
+  filtersTouched = true;
+  if (reviewSort.value === "random") randomSeed.value = pickRandomSeed();
+  reviewQuery.value = buildReviewQuery();
+  reload();
 }
 
 function reload(): void {
@@ -1177,7 +1275,11 @@ watch(
   (visible) => {
     if (visible) {
       wasVisible = true;
-      if (!queue.value.length && !finished.value && !inflightFetch) void fetchNext();
+      if (!queue.value.length && !inflightFetch) {
+        // 队列为空说明是新一轮审核：沿用列表页最新筛选（审核内改过筛选则保留）
+        syncReviewFiltersFromProps();
+        reload();
+      }
       return;
     }
     if (!wasVisible) return;
@@ -1290,6 +1392,31 @@ onBeforeUnmount(() => {
 .qr__floating-badge {
   font-size: 11px;
   color: var(--el-text-color-secondary, #64748b);
+}
+
+/* 审核范围筛选：三个紧凑下拉，保持悬浮条轻量 */
+.qr__filter-group {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.qr__filter-select {
+  width: 124px;
+
+  :deep(.el-select__wrapper) {
+    min-height: 26px;
+    padding: 0 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    background: color-mix(in srgb, var(--el-color-primary, #3b82f6) 6%, transparent);
+  }
+}
+
+/* 筛选下拉挂在 body 上，必须高于 .qr 全屏层的 3000，否则会被整层盖住看不到 */
+:global(.qr-filter-popper.el-popper) {
+  z-index: 3200 !important;
 }
 
 .qr__floating-close {

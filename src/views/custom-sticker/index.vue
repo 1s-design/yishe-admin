@@ -37,6 +37,15 @@
                   </el-select>
                 </el-form-item>
               </el-col>
+              <el-col class="list-page-search-form__col--narrow" :xs="24" :sm="12" :md="6" :lg="4" :xl="3">
+                <el-form-item label="模板">
+                  <el-select v-model="queryParams.templateState" size="small" @change="handleSearch">
+                    <el-option label="全部" value="all" />
+                    <el-option label="仅模板" value="template" />
+                    <el-option label="非模板" value="not-template" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
             </el-row>
             <div class="list-page-search-form__actions">
               <el-button size="small" type="primary" :icon="Search" :loading="loading" @click="handleSearch">搜索</el-button>
@@ -105,6 +114,28 @@
               >
                 发布到素材中心 ({{ selectedIds.length }})
               </el-button>
+              <el-dropdown
+                trigger="click"
+                :disabled="loading || !selectedIds.length"
+                @command="(cmd: 'mark' | 'unmark') => handleBatchMarkTemplate(cmd === 'mark')"
+              >
+                <el-button size="small" :icon="Star" :disabled="loading || !selectedIds.length">
+                  模板标记 ({{ selectedIds.length }})
+                  <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="mark">
+                      <el-icon><Star /></el-icon>
+                      <span>标记为模板</span>
+                    </el-dropdown-item>
+                    <el-dropdown-item command="unmark">
+                      <el-icon><Star /></el-icon>
+                      <span>取消模板标记</span>
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
             </div>
           </el-form>
         </div>
@@ -162,8 +193,31 @@
                 <template #nameSlot="{ row }">
                   <div class="name-cell">
                     <span class="name-cell__title">{{ row.name || '未命名贴纸' }}</span>
-                    <span class="name-cell__meta">{{ row.width || '-' }} × {{ row.height || '-' }} · {{ row.suffix || 'png' }}</span>
+                    <span class="name-cell__meta">{{ row.suffix ? row.suffix.toUpperCase() : 'PNG' }}</span>
                   </div>
+                </template>
+                <template #sizeSlot="{ row }">
+                  <div class="size-cell">
+                    <span class="size-cell__px">{{ row.width || '-' }} × {{ row.height || '-' }}</span>
+                    <span class="size-cell__ratio">{{ formatAspectRatio(row.aspectRatio) }}</span>
+                  </div>
+                </template>
+                <template #fileSizeSlot="{ row }">
+                  <span class="time-cell">{{ formatFileSize(row.fileSize) }}</span>
+                </template>
+                <template #cutoutSlot="{ row }">
+                  <el-tag v-if="row.isCutout === true" type="success" size="small" effect="plain">抠图</el-tag>
+                  <el-tag v-else-if="row.isCutout === false" type="info" size="small" effect="plain">非抠图</el-tag>
+                  <span v-else class="size-cell__ratio">-</span>
+                </template>
+                <template #templateSlot="{ row }">
+                  <el-tag
+                    :type="row.isTemplate ? 'warning' : 'info'"
+                    :effect="row.isTemplate ? 'dark' : 'plain'"
+                    size="small"
+                  >
+                    {{ row.isTemplate ? '模板' : '非模板' }}
+                  </el-tag>
                 </template>
                 <template #folderSlot="{ row }"><span>{{ row.folder || '未分组' }}</span></template>
                 <template #importSlot="{ row }">
@@ -216,6 +270,9 @@
                     <el-button type="primary" link size="small">操作</el-button>
                     <template #dropdown>
                       <el-dropdown-menu>
+                        <el-dropdown-item command="toggleTemplate">
+                          <el-icon><Star /></el-icon>{{ row.isTemplate ? '取消模板标记' : '标记为模板' }}
+                        </el-dropdown-item>
                         <el-dropdown-item command="detail"><el-icon><View /></el-icon>查看设计数据</el-dropdown-item>
                         <el-dropdown-item command="copyToLibrary" :disabled="row.imported">
                           <el-icon><CopyDocument /></el-icon>{{ row.imported ? '已复制到素材库' : '复制到素材库' }}
@@ -536,6 +593,7 @@ import {
   Right,
   Search,
   Share,
+  Star,
   Upload,
   View,
   Aim,
@@ -590,6 +648,7 @@ const queryParams = reactive({
   folderId: FOLDER_FILTER.ALL as string | null,
   shareState: 'all',
   importState: 'all',
+  templateState: 'all',
 })
 
 const quickReviewQuery = computed(() => ({
@@ -597,6 +656,7 @@ const quickReviewQuery = computed(() => ({
   searchText: queryParams.searchText || undefined,
   shareState: queryParams.shareState !== 'all' ? queryParams.shareState : undefined,
   importState: queryParams.importState !== 'all' ? queryParams.importState : undefined,
+  templateState: queryParams.templateState !== 'all' ? queryParams.templateState : undefined,
 }))
 
 const keywordList = computed(() => {
@@ -652,10 +712,14 @@ const gridOptions = computed(() => ({
     { type: 'checkbox', width: 44, align: 'center', reserve: true },
     { title: '预览', width: 128, align: 'center', slots: { default: 'previewSlot' } },
     { title: '名称', minWidth: 180, slots: { default: 'nameSlot' } },
+    { title: '尺寸 / 比例', width: 132, slots: { default: 'sizeSlot' } },
+    { title: '大小', width: 92, align: 'center', slots: { default: 'fileSizeSlot' } },
+    { title: '抠图', width: 84, align: 'center', slots: { default: 'cutoutSlot' } },
     { title: '文件夹', minWidth: 130, slots: { default: 'folderSlot' } },
     { title: '所属用户', width: 150, slots: { default: 'ownerSlot' } },
     { title: '素材库', width: 140, align: 'center', slots: { default: 'importSlot' } },
     { title: '素材中心', width: 100, align: 'center', slots: { default: 'shareSlot' } },
+    { title: '模板', width: 96, align: 'center', slots: { default: 'templateSlot' } },
     { title: '创建时间', width: 164, slots: { default: 'createTimeSlot' } },
     { title: '最近更新', width: 164, slots: { default: 'timeSlot' } },
     buildOperationColumn('operationSlot'),
@@ -688,6 +752,7 @@ async function loadData() {
       folderId: convertFolderIdToApiParam(queryParams.folderId),
       shareState: queryParams.shareState !== 'all' ? queryParams.shareState : undefined,
       importState: queryParams.importState !== 'all' ? queryParams.importState : undefined,
+      templateState: queryParams.templateState !== 'all' ? queryParams.templateState : undefined,
     })
     rows.value = result?.items || []
     total.value = result?.total || 0
@@ -796,7 +861,7 @@ async function submitUserTransfer() {
 }
 
 function handleSearch() { queryParams.page = 1; loadData() }
-function handleReset() { queryParams.searchText = ''; queryParams.shareState = 'all'; queryParams.importState = 'all'; queryParams.page = 1; loadData() }
+function handleReset() { queryParams.searchText = ''; queryParams.shareState = 'all'; queryParams.importState = 'all'; queryParams.templateState = 'all'; queryParams.page = 1; loadData() }
 function handleFolderChange(payload: { folderId: string | null }) { queryParams.folderId = payload.folderId || FOLDER_FILTER.ALL; queryParams.page = 1; loadData() }
 function handleCheckboxChange(event: any) { const records = Array.isArray(event.records) ? event.records : []; const reserves = Array.isArray(event.reserves) ? event.reserves : []; selectedIds.value = Array.from(new Set([...records, ...reserves].map((item: any) => String(item.id)))) }
 
@@ -870,6 +935,7 @@ async function copyToLibrary(item: CustomSticker) {
 }
 
 function handleOperation(command: string, row: CustomSticker) {
+  if (command === 'toggleTemplate') toggleTemplate(row)
   if (command === 'detail') openDetail(row)
   if (command === 'publish') openPublish(row)
   if (command === 'share') openUserTransferDialog('share', row)
@@ -877,6 +943,39 @@ function handleOperation(command: string, row: CustomSticker) {
   if (command === 'move') openUserTransferDialog('move', row)
   if (command === 'copyToLibrary') copyToLibrary(row)
   if (command === 'delete') handleDelete(row)
+}
+
+async function toggleTemplate(row: CustomSticker) {
+  const isTemplate = !row.isTemplate
+  try {
+    await CustomStickerApi.batchMarkTemplate({ ids: [row.id], isTemplate })
+    ElMessage.success(isTemplate ? '已标记为模板' : '已取消模板标记')
+    await loadData()
+  } catch (error: any) {
+    ElMessage.error(error?.message || '模板标记失败')
+  }
+}
+
+async function handleBatchMarkTemplate(isTemplate: boolean) {
+  const ids = [...selectedIds.value]
+  if (!ids.length) return
+  const actionLabel = isTemplate ? '标记为模板' : '取消模板标记'
+  try {
+    await ElMessageBox.confirm(
+      `确认将选中的 ${ids.length} 个自定义贴纸${actionLabel}吗？`,
+      `${actionLabel}确认`,
+      { confirmButtonText: '确认', cancelButtonText: '取消', type: 'warning' },
+    )
+  } catch {
+    return
+  }
+  try {
+    const res = await CustomStickerApi.batchMarkTemplate({ ids, isTemplate })
+    ElMessage.success(`已${actionLabel} ${res?.updatedCount ?? ids.length} 个自定义贴纸`)
+    await loadData()
+  } catch (error: any) {
+    ElMessage.error(error?.message || `${actionLabel}失败`)
+  }
 }
 
 async function handleBatchCopyToLibrary() {
@@ -1011,6 +1110,36 @@ function formatTime(value?: string | Date) {
   return value ? dayjs(value).format('YYYY-MM-DD HH:mm') : '-'
 }
 
+/** 常见宽高比，命中 2% 误差内就显示约定写法 */
+const ASPECT_PRESETS: Array<[number, string]> = [
+  [1, '1:1'],
+  [4 / 3, '4:3'],
+  [3 / 4, '3:4'],
+  [3 / 2, '3:2'],
+  [2 / 3, '2:3'],
+  [16 / 9, '16:9'],
+  [9 / 16, '9:16'],
+  [21 / 9, '21:9'],
+  [2, '2:1'],
+  [1 / 2, '1:2'],
+  [5 / 4, '5:4'],
+  [4 / 5, '4:5']
+]
+
+function formatAspectRatio(value?: number | null) {
+  if (!value || !Number.isFinite(value) || value <= 0) return '-'
+  const hit = ASPECT_PRESETS.find(([ratio]) => Math.abs(value - ratio) / ratio < 0.02)
+  if (hit) return hit[1]
+  return value >= 1 ? `${value.toFixed(2)}:1` : `1:${(1 / value).toFixed(2)}`
+}
+
+function formatFileSize(bytes?: number | null) {
+  if (!bytes || bytes <= 0) return '-'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(2)} MB`
+}
+
 loadData()
 </script>
 
@@ -1074,6 +1203,24 @@ loadData()
   &__meta {
     color: var(--el-text-color-secondary);
     font-size: 12px;
+  }
+}
+
+.size-cell {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+
+  &__px {
+    font-size: 13px;
+    color: var(--el-text-color-primary);
+    white-space: nowrap;
+  }
+
+  &__ratio {
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
   }
 }
 
