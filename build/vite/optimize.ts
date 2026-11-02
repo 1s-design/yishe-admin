@@ -113,7 +113,35 @@ const include = [
   'element-plus/es/components/segmented/style/css',
   '@element-plus/icons-vue',
   'element-plus/es/components/footer/style/css',
-  'element-plus/es/components/empty/style/css'
+  'element-plus/es/components/empty/style/css',
+  // ===== 以下为懒加载路由中的重型依赖 =====
+  // 提前预构建，避免开发时首次访问对应页面触发
+  // "new dependencies optimized" 导致的整页刷新和卡顿
+  'xlsx',
+  'mathjs',
+  'codemirror',
+  '@codemirror/view',
+  '@codemirror/state',
+  '@codemirror/commands',
+  '@codemirror/language',
+  '@codemirror/autocomplete',
+  '@codemirror/theme-one-dark',
+  '@vue-flow/core',
+  '@vue-flow/background',
+  '@vue-flow/controls',
+  '@vue-flow/minimap',
+  'socket.io-client',
+  'sortablejs',
+  'vuedraggable',
+  'vue-json-pretty',
+  'marked',
+  'jsencrypt',
+  'bpmn-js',
+  'diagram-js',
+  'steady-xml',
+  'min-dash',
+  'ali-oss',
+  'cos-js-sdk-v5'
 ]
 
 const exclude = ['@iconify/json']

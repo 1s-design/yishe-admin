@@ -533,6 +533,103 @@ const nextOffset = ref(0);
 const pendingDeleteOffset = ref(0);
 const seenIds = ref<Set<string>>(new Set());
 
+/**
+ * ── 删除墓碑（防「删了又出现」的核心）──────────────────────────
+ *
+ * 删除是异步的：提交前后补货请求可能已经把同一条记录又拉回队列；
+ * 而且同一张图往往存在多条记录（快捷共享复用 url / 复制副本 / 素材中心导入），
+ * 删掉一条，兄弟记录还在。
+ *
+ * 只要删过的图再出现一次，审核员就会再点一次「复制到素材库」，素材库就多一张重复素材。
+ * 所以本地维护两份墓碑：记录 id + 图片内容键。命中即永久不再进队列。
+ * 持久化到 localStorage（7 天 TTL），刷新页面也不会把删掉的图放回来。
+ */
+const TOMBSTONE_STORAGE_KEY = "yishe:custom-sticker-review:tombstone";
+const TOMBSTONE_TTL = 7 * 24 * 60 * 60 * 1000;
+const TOMBSTONE_MAX = 2000;
+
+interface TombstoneStore {
+  ids: Record<string, number>;
+  keys: Record<string, number>;
+}
+
+/** 图片内容键：剥掉域名与 COS 处理参数，只留对象路径 */
+function normalizeImageKey(url?: string | null): string {
+  const raw = String(url || "").trim();
+  if (!raw) return "";
+  const withoutQuery = raw.split("?")[0].split("#")[0];
+  const afterHost = withoutQuery.replace(/^[a-z]+:\/\/[^/]+\//i, "");
+  return afterHost.toLowerCase();
+}
+
+function pruneTombstone(source: Record<string, number> | undefined): Record<string, number> {
+  const now = Date.now();
+  const next: Record<string, number> = {};
+  Object.entries(source || {}).forEach(([key, time]) => {
+    if (key && typeof time === "number" && now - time < TOMBSTONE_TTL) next[key] = time;
+  });
+  return next;
+}
+
+function loadTombstones(): TombstoneStore {
+  try {
+    const raw = localStorage.getItem(TOMBSTONE_STORAGE_KEY);
+    if (!raw) return { ids: {}, keys: {} };
+    const parsed = JSON.parse(raw) as TombstoneStore;
+    return { ids: pruneTombstone(parsed?.ids), keys: pruneTombstone(parsed?.keys) };
+  } catch {
+    return { ids: {}, keys: {} };
+  }
+}
+
+const initialTombstone = loadTombstones();
+const deletedIds = new Set<string>(Object.keys(initialTombstone.ids));
+const deletedImageKeys = new Set<string>(Object.keys(initialTombstone.keys));
+
+let tombstoneSaveTimer: ReturnType<typeof setTimeout> | null = null;
+
+function persistTombstones(): void {
+  if (tombstoneSaveTimer) return;
+  tombstoneSaveTimer = setTimeout(() => {
+    tombstoneSaveTimer = null;
+    try {
+      const now = Date.now();
+      const ids: Record<string, number> = {};
+      const keys: Record<string, number> = {};
+      Array.from(deletedIds).slice(-TOMBSTONE_MAX).forEach((id) => (ids[id] = now));
+      Array.from(deletedImageKeys).slice(-TOMBSTONE_MAX).forEach((key) => (keys[key] = now));
+      localStorage.setItem(TOMBSTONE_STORAGE_KEY, JSON.stringify({ ids, keys }));
+    } catch {
+      // 隐私模式 / 配额满：忽略持久化失败，内存墓碑依旧生效
+    }
+  }, 300);
+}
+
+function rememberDeleted(item: CustomSticker | null | undefined): void {
+  const id = String(item?.id ?? "");
+  if (id) deletedIds.add(id);
+  const key = normalizeImageKey(item?.url);
+  if (key) deletedImageKeys.add(key);
+  persistTombstones();
+}
+
+/** 撤销删除：把墓碑一起撤掉，否则这张图以后再也进不了队列 */
+function forgetDeleted(item: CustomSticker | null | undefined): void {
+  const id = String(item?.id ?? "");
+  if (id) deletedIds.delete(id);
+  const key = normalizeImageKey(item?.url);
+  if (key) deletedImageKeys.delete(key);
+  persistTombstones();
+}
+
+/** 是否属于「已删除」：同 id，或同一张图（同 url 对象路径）的兄弟记录 */
+function isTombstoned(item: CustomSticker | null | undefined): boolean {
+  const id = String(item?.id ?? "");
+  if (id && deletedIds.has(id)) return true;
+  const key = normalizeImageKey(item?.url);
+  return !!key && deletedImageKeys.has(key);
+}
+
 // ── 审核范围筛选（审核中可随时切换，切换后从头重新取数）─────────────
 type ReviewImportScope = "all" | "not-imported" | "imported";
 type ReviewSort = "latest" | "earliest" | "random";
@@ -729,6 +826,7 @@ async function fetchNext(): Promise<void> {
           folderId: q?.folderId,
           shareState: q?.shareState,
           importState: q?.importState,
+          templateState: q?.templateState,
           sort: q?.sort,
           seed: q?.seed,
         });
@@ -746,6 +844,9 @@ async function fetchNext(): Promise<void> {
           if (!id || seenIds.value.has(id)) return false;
           // 先占位：不满足筛选条件的也算消费过，避免下一页反复遇到同一批记录
           seenIds.value.add(id);
+
+          // 删过的东西绝不允许再回到队列：否则会被当成新贴纸再次复制到素材库
+          if (isTombstoned(item)) return false;
 
           // 列表页透传的发布状态/素材库状态，客户端同步过滤
           if (q?.shareState === "shared" && !item.isShared) return false;
@@ -962,6 +1063,9 @@ function reload(): void {
   skippedItems.value = [];
   skippedCount.value = 0;
   nextOffset.value = 0;
+  // 切筛选/重开审核时若有删除仍在飞行中，偏移补偿量必须一起归零，
+  // 否则下一次取数会从一个错误的位置开始（漏素材或原地打转）
+  pendingDeleteOffset.value = 0;
   total.value = 0;
   finished.value = false;
   loadError.value = "";
@@ -984,8 +1088,25 @@ function actSkip(): void {
 }
 
 function actCopy(): void {
-  const item = queue.value.shift();
+  const item = queue.value[0];
   if (!item) return;
+
+  // 双重保险：队列里理论上不会再有删过的图，但补货竞态下万一混进来，
+  // 这里必须拦住，绝不能把它再复制一次到素材库。
+  if (isTombstoned(item)) {
+    queue.value.shift();
+    pushToast("这张图已删除，已自动跳过", "warning");
+    afterAdvance();
+    return;
+  }
+  if (item.imported) {
+    queue.value.shift();
+    pushToast("已在素材库中，跳过重复复制", "info");
+    afterAdvance();
+    return;
+  }
+
+  queue.value.shift();
   copyQueue.value.push(item);
   copiedCount.value += 1;
   item.imported = true;
@@ -997,6 +1118,8 @@ function actCopy(): void {
 function actDelete(): void {
   const item = queue.value.shift();
   if (!item) return;
+  // 出队顺序记墓碑：即使后面删除接口失败/重试，这张图也不会再回到审核队列被二次复制
+  rememberDeleted(item);
   deleteQueue.value.push(item);
   deletedCount.value += 1;
   pushToast("已彻底删除，可在顶部撤销", "warning");
@@ -1093,20 +1216,38 @@ async function flushCopies(): Promise<void> {
   if (!copyQueue.value.length) return;
 
   const items = copyQueue.value.splice(0, copyQueue.value.length);
+  // 提交前再筛一遍：删过的、同一 id 重复进队的，都不允许发到后台，
+  // 从源头杜绝「素材库里出现同一张图多份」
+  const submitted = new Set<string>();
+  const pending = items.filter((item) => {
+    const id = String(item?.id ?? "");
+    if (!id || submitted.has(id) || isTombstoned(item)) return false;
+    submitted.add(id);
+    return true;
+  });
+  if (pending.length !== items.length) {
+    copiedCount.value = Math.max(0, copiedCount.value - (items.length - pending.length));
+  }
+  if (!pending.length) return;
+
   try {
-    const ids = items.map((item) => String(item.id));
+    const ids = pending.map((item) => String(item.id));
     const res = await CustomStickerApi.batchCopyToStickerLibrary({ ids });
     if (res?.failed?.length) {
       notify(`部分贴纸复制失败：${res.failed.map((f) => f.message).join("; ")}`, "warning");
     }
   } catch (error: any) {
-    copiedCount.value = Math.max(0, copiedCount.value - items.length);
+    copiedCount.value = Math.max(0, copiedCount.value - pending.length);
     notify(`复制到素材库失败：${error?.message || "未知错误"}`, "error");
   }
 }
 
 // ── 彻底删除提交（积攒批量提交）───────────────────────────────
 let deleteTimer: ReturnType<typeof setTimeout> | null = null;
+/** 删除失败的重试队列：失败条目绝不回队列，只在这里静默重试 */
+const deleteRetryQueue: Array<{ item: CustomSticker; attempts: number }> = [];
+let deleteRetryTimer: ReturnType<typeof setTimeout> | null = null;
+const DELETE_MAX_ATTEMPTS = 3;
 
 function scheduleDeleteFlush(): void {
   if (deleteTimer) clearTimeout(deleteTimer);
@@ -1118,6 +1259,32 @@ function scheduleDeleteFlush(): void {
     deleteTimer = null;
     void flushDeletes();
   }, DELETE_DEBOUNCE);
+}
+
+/**
+ * 删除失败后的重试。
+ * 失败意味着记录还在库里，但已经出队并打了墓碑：这一轮不会再出现、也不会被二次复制，
+ * 这里在后台补删，避免「看起来删了、其实还在」。
+ */
+function scheduleDeleteRetry(): void {
+  if (deleteRetryTimer || !deleteRetryQueue.length) return;
+  deleteRetryTimer = setTimeout(() => {
+    deleteRetryTimer = null;
+    const pending = deleteRetryQueue.splice(0, deleteRetryQueue.length);
+    const giveUp = pending.filter((entry) => entry.attempts >= DELETE_MAX_ATTEMPTS);
+    const retry = pending.filter((entry) => entry.attempts < DELETE_MAX_ATTEMPTS);
+
+    if (giveUp.length) {
+      notify(
+        `有 ${giveUp.length} 张贴纸多次删除失败，已从审核队列隐藏，请到列表页手动删除`,
+        "error",
+      );
+    }
+    if (retry.length) {
+      deleteQueue.value.unshift(...retry.map((entry) => entry.item));
+      void flushDeletes();
+    }
+  }, 3000);
 }
 
 async function flushDeletes(): Promise<void> {
@@ -1136,18 +1303,33 @@ async function flushDeletes(): Promise<void> {
 
   inflightDelete = (async () => {
     try {
-      await CustomStickerApi.batchDelete({
+      const res: any = await CustomStickerApi.batchDelete({
         ids: items.map((item) => String(item.id)),
       });
+      // 后端按「图片」维度删除：同一张图被共享/复制/导入出来的兄弟记录会一起清掉，
+      // 否则它们会在下一轮审核里再次出现，被当成新贴纸复制进素材库。
+      const extra = Number(res?.deletedCount || 0) - count;
+      if (extra > 0) {
+        pushToast(`已连同 ${extra} 张同图副本一起删除`, "info");
+      }
       // 删除已落库：把临时预判固化成永久偏移修正，
       // 之后新发起的补货用不到预判量了，一并释放。
       pendingDeleteOffset.value = Math.max(0, pendingDeleteOffset.value - count);
       nextOffset.value = Math.max(0, nextOffset.value - count);
     } catch (error: any) {
-      deletedCount.value = Math.max(0, deletedCount.value - count);
-      notify(`删除失败：${error?.message || "未知错误"}`, "error");
-      // 删除失败 = 数据还在库里，把预判的偏移还回去，避免跳过素材
+      // 数据还在库里，把偏移预判还回去，避免跳过素材
       pendingDeleteOffset.value = Math.max(0, pendingDeleteOffset.value - count);
+      // 关键：不把条目放回队列（否则就是「删了又出现」，还会被再复制一次素材库），
+      // 墓碑保留 + 后台重试；这里也不再回滚 deletedCount，避免统计与去重状态自相矛盾。
+      items.forEach((item) => {
+        const existing = deleteRetryQueue.find(
+          (entry) => String(entry.item.id) === String(item.id),
+        );
+        if (existing) existing.attempts += 1;
+        else deleteRetryQueue.push({ item, attempts: 1 });
+      });
+      notify(`删除失败，正在后台自动重试：${error?.message || "未知错误"}`, "warning");
+      scheduleDeleteRetry();
     }
   })();
 
@@ -1160,7 +1342,12 @@ async function flushDeletes(): Promise<void> {
 
 function undoLastDelete(): void {
   const item = deleteQueue.value.pop();
-  if (!item) return;
+  if (!item) {
+    // 已经提交给后台了，撤销不了；明确告知，避免用户以为撤销成功
+    notify("这批删除已提交，无法撤销", "warning");
+    return;
+  }
+  forgetDeleted(item);
   deletedCount.value = Math.max(0, deletedCount.value - 1);
   queue.value.unshift(item);
   pushToast("已撤销删除", "success");
@@ -1307,7 +1494,9 @@ onBeforeUnmount(() => {
   if (deckResizeTimer) clearTimeout(deckResizeTimer);
   if (copyTimer) clearTimeout(copyTimer);
   if (deleteTimer) clearTimeout(deleteTimer);
+  if (deleteRetryTimer) clearTimeout(deleteRetryTimer);
   if (autoRetryTimer) clearTimeout(autoRetryTimer);
+  if (tombstoneSaveTimer) clearTimeout(tombstoneSaveTimer);
   void flushCopies();
   void flushDeletes();
 });

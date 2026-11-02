@@ -478,7 +478,10 @@ async function uploadSingleFile(fileItem: FileUploadItem) {
   min-height: 0;
   overflow-y: auto;
   flex: 1;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  /* 行高按内容撑开，避免文件多时卡片被压扁导致下方输入框看不见 */
+  grid-auto-rows: max-content;
+  align-items: start;
   gap: 12px;
   align-content: start;
 }
@@ -627,8 +630,6 @@ async function uploadSingleFile(fileItem: FileUploadItem) {
 
 .preview-details {
   display: flex;
-  flex: 1;
-  min-height: 0;
   flex-direction: column;
   gap: 10px;
   padding: 12px;
@@ -636,8 +637,6 @@ async function uploadSingleFile(fileItem: FileUploadItem) {
 
 .preview-fields {
   display: flex;
-  flex: 1;
-  min-height: 0;
   flex-direction: column;
   gap: 8px;
 }

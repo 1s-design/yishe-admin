@@ -58,7 +58,11 @@ import {
   // ElFormItem,
   // ElOption
 } from 'element-plus'
-import FcDesigner from '@form-create/designer'
+// 性能说明：@form-create/designer（可视化设计器）体积很大，
+// 当前没有任何模板使用 <fc-designer>，不再全局注册。
+// 如某个页面需要使用，请在该页面内局部引入：
+//   import FcDesigner from '@form-create/designer'
+//   app.use(FcDesigner) / components: { FcDesigner }
 import formCreate from '@form-create/element-ui'
 import install from '@form-create/element-ui/auto-import'
 
@@ -129,5 +133,4 @@ export const setupFormCreate = (app: App<Element>) => {
   })
   formCreate.use(install)
   app.use(formCreate)
-  app.use(FcDesigner)
 }
