@@ -3484,12 +3484,11 @@ async function handleConfirmPublishDispatch() {
 
 async function handleConfirmAutoDispatchTarget() {
   const selectedRow = selectedAutoDispatchClientRow.value;
-  if (!selectedRow?.selectable) {
+
+  // 抖店任务的目标环境由「发布配置里勾选的执行环境 + 该环境当前登录的店铺」决定，
+  // 这里只需要指定由哪个客户端领取，不再预选浏览器环境。
+  if (!selectedRow?.clientId) {
     ElMessage.warning(t('queue.selectAcceptableClientEnv'));
-    return;
-  }
-  if (!selectedRow.profileId) {
-    ElMessage.warning(t('queue.selectBrowserEnv'));
     return;
   }
 
@@ -3497,12 +3496,13 @@ async function handleConfirmAutoDispatchTarget() {
   publishTaskAutoDispatchLoading.value = true;
   try {
     const selectedClient = browserAutomationClients.value.find(
-      (client) => client.id === selectedRow.clientId,
+      (client) => client.id === selectedRow?.clientId,
     );
     const { setting, triggerResult } = await enablePublishTaskAutoDispatch({
-      clientId: selectedRow.clientId,
+      clientId: selectedRow?.clientId || "",
       machineCode: getClientMachineCode(selectedClient) || undefined,
-      profileId: selectedRow.profileId,
+      profileId: undefined,
+      shopRoutedDispatch: true,
       filter: buildAutoDispatchFilterFromForm(),
     });
     applyPublishTaskAutoDispatchSettingState(setting);
@@ -4396,6 +4396,28 @@ onUnmounted(() => {
 });
 </script>
 <style lang="less" scoped>
+.publish-dispatch-shop-routing {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 6px 2px 2px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #606266;
+}
+
+.publish-dispatch-shop-routing__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.publish-dispatch-shop-routing__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #303133;
+}
+
 .queue-page.list-page-layout {
   gap: 10px;
   padding: 8px 0 0;

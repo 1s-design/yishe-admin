@@ -60,6 +60,28 @@
           </div>
         </template>
 
+        <template #executionSlot="{ row }">
+          <div v-if="row.executionProfiles?.length" class="shop-execution-tags">
+            <el-tag
+              v-for="item in row.executionProfiles.slice(0, 2)"
+              :key="item.profileId"
+              size="small"
+              type="success"
+              effect="plain"
+            >
+              {{ item.profileName || item.profileId }}
+            </el-tag>
+            <el-tooltip
+              v-if="row.executionProfiles.length > 2"
+              :content="row.executionProfiles.map((i: any) => i.profileName || i.profileId).join('、')"
+              placement="top"
+            >
+              <span class="shop-execution-tags__more">+{{ row.executionProfiles.length - 2 }}</span>
+            </el-tooltip>
+          </div>
+          <span v-else class="text-xs text-[var(--el-text-color-secondary)]">未绑定（任意环境可执行）</span>
+        </template>
+
         <template #createTimeSlot="{ row }">
           <span class="table-time-text">{{ formatDate(row.createTime) }}</span>
         </template>
@@ -135,6 +157,7 @@ const gridOptions = ref({
     { title: t('shop.name'), field: 'name', minWidth: 180 },
     { title: t('shop.logo'), field: 'logo', width: 100, slots: { default: 'logoSlot' } },
     { title: t('shop.carousel'), field: 'carousel', width: 180, slots: { default: 'carouselSlot' } },
+    { title: '执行环境', field: 'executionProfiles', minWidth: 200, slots: { default: 'executionSlot' } },
     { title: t('common.description'), field: 'description', minWidth: 240, showOverflow: 'tooltip' },
     { ...buildTimeColumn(t('common.createTime'), 'createTime', 180), slots: { default: 'createTimeSlot' } },
     buildOperationColumn('operationSlot')
@@ -222,5 +245,18 @@ onMounted(() => {
 
 :deep(.shop-page .list-page-filter--flat) {
   padding-bottom: 10px;
+}
+
+.shop-execution-tags {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.shop-execution-tags__more {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  cursor: default;
 }
 </style>

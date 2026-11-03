@@ -8,6 +8,8 @@ import {
   createPublishConfigApi,
   updatePublishConfigApi,
   deletePublishConfigApi,
+  getDoudianShopsApi,
+  type PlatformShopItem,
 } from "@/api/product/publishConfig";
 import ContentWrap from "@/components/ContentWrap/src/ContentWrap.vue";
 import ListPageLayout from "@/components/ListPageLayout/index.vue";
@@ -360,6 +362,60 @@ const form = reactive({
   taskType: "",
   description: "",
   isActive: true,
+  /**
+   * 抖店专用：配置绑定的店铺（店铺模块的 shop.id）。
+   *
+   * 这里只绑定"发到哪个店"，不绑定环境；
+   * 该店铺允许在哪些浏览器环境执行，由店铺自己维护，
+   * 执行时按店铺反查环境，所以店铺换机器、加环境都不用改配置。
+   */
+  shopId: "",
+  shopName: "",
+});
+
+/** 店铺选项：来自「店铺管理」的店铺列表 */
+const shopOptions = ref<PlatformShopItem[]>([]);
+const shopLoading = ref(false);
+
+const isDoudianPublishConfig = computed(
+  () => resolveTaskTypePlatform(form.taskType) === "doudian",
+);
+
+const loadDoudianShops = async (force = false) => {
+  if (shopLoading.value) return;
+  if (!force && shopOptions.value.length) return;
+  shopLoading.value = true;
+  try {
+    const res: any = await getDoudianShopsApi();
+    const list = Array.isArray(res?.list) ? res.list : Array.isArray(res) ? res : [];
+    shopOptions.value = list;
+  } catch (error) {
+    console.warn("[publish-config] 加载抖店店铺失败", error);
+    shopOptions.value = [];
+  } finally {
+    shopLoading.value = false;
+  }
+};
+
+const handleShopChange = (shopId: string) => {
+  const matched = shopOptions.value.find((item) => item.shopId === shopId);
+  form.shopName = matched?.shopName || "";
+};
+
+
+const formatShopOptionLabel = (item: PlatformShopItem) => {
+  const name = item.shopName || `店铺 ${item.shopId}`;
+  const envText = item.executionProfileIds?.length
+    ? `已绑 ${item.executionProfileIds.length} 个环境`
+    : "未绑环境（任意环境可执行）";
+  return `${name} · ${envText}`;
+};
+
+/** 切到抖店时按需拉取店铺列表 */
+watch(isDoudianPublishConfig, (value) => {
+  if (value) {
+    void loadDoudianShops();
+  }
 });
 
 // ──────────────────────────────────────────────────────────
@@ -1329,6 +1385,8 @@ const handleAdd = () => {
   form.taskType = "";
   form.description = "";
   form.isActive = true;
+  form.shopId = "";
+  form.shopName = "";
   titleConfigForm.mode = "ai";
   titleConfigForm.fixedTitle = "";
   titleConfigForm.templateContent = "";
@@ -1348,6 +1406,8 @@ const handleEdit = async (row: any) => {
   form.taskType = row.taskType || derivePublishTaskTypeByPlatform(row.platform);
   form.description = row.description;
   form.isActive = row.isActive;
+  form.shopId = row.shopId || "";
+  form.shopName = row.shopName || "";
 
   const configData = row.configData || {};
   titleConfigForm.mode =
@@ -1414,6 +1474,12 @@ const submitForm = async () => {
       return;
     }
 
+    // 抖店：一个配置必须且只能绑定一个店铺，未绑定不允许保存
+    if (resolvedPlatform === "doudian" && !form.shopId) {
+      ElMessage.error("抖店发布配置必须绑定店铺：请选择该配置要发往的店铺");
+      return;
+    }
+
     if (supportsFixedTitle.value && titleConfigForm.mode === "fixed") {
       const fixedTitle = titleConfigForm.fixedTitle?.trim() || "";
       if (!fixedTitle) {
@@ -1445,6 +1511,9 @@ const submitForm = async () => {
       platform: resolvedPlatform,
       description: form.description,
       isActive: form.isActive,
+      // 抖店：绑定店铺（其他平台不传，服务端自动忽略）
+      shopId: resolvedPlatform === "doudian" ? form.shopId : undefined,
+      shopName: resolvedPlatform === "doudian" ? form.shopName || undefined : undefined,
       configData: {
         ...formattedConfigData,
         titleTemplate: titleConfigForm.templateContent?.trim() || undefined,
@@ -1490,6 +1559,9 @@ const handleCopy = async (row: any) => {
   form.taskType = row.taskType || derivePublishTaskTypeByPlatform(row.platform);
   form.description = row.description;
   form.isActive = row.isActive;
+  // 复制配置保留店铺绑定，店铺是配置的业务属性
+  form.shopId = row.shopId || "";
+  form.shopName = row.shopName || "";
 
   const configData = row.configData || {};
   titleConfigForm.mode =
@@ -1829,6 +1901,34 @@ onMounted(() => {
                         :value="item.value"
                       />
                     </el-select>
+                  </el-form-item>
+                </el-col>
+                <el-col
+                  v-if="isDoudianPublishConfig"
+                  :span="8"
+                  class="publish-config-basic-col"
+                >
+                  <el-form-item label="绑定店铺" prop="shopId">
+                    <el-select
+                      v-model="form.shopId"
+                      filterable
+                      clearable
+                      :loading="shopLoading"
+                      no-data-text="还没有店铺，请先到「店铺管理」创建店铺并绑定执行环境"
+                      placeholder="选择该配置要发往的店铺"
+                      style="width: 100%"
+                      @change="handleShopChange"
+                    >
+                      <el-option
+                        v-for="item in shopOptions"
+                        :key="item.shopId"
+                        :label="formatShopOptionLabel(item)"
+                        :value="item.shopId"
+                      />
+                    </el-select>
+                    <div style="font-size: 12px; color: #909399; line-height: 1.4; margin-top: 4px">
+                      一个配置只能绑定一个店铺。具体在哪些浏览器环境执行，由「店铺管理」里该店铺绑定的执行环境决定，这里不需要重复配置。
+                    </div>
                   </el-form-item>
                 </el-col>
                 <el-col :span="6" class="publish-config-basic-col publish-config-basic-col--switch">

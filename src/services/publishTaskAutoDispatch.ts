@@ -6,6 +6,15 @@ export interface PublishTaskAutoDispatchSetting {
   autoDispatchClientId: string;
   autoDispatchMachineCode: string;
   autoDispatchProfileId: string;
+  /**
+   * 店铺路由模式（抖店）。
+   *
+   * 开启后不再要求"某个固定客户端 + 某个固定环境"来领任务，
+   * 而是由服务端按「任务绑定的店铺」去找「当前登录了该店铺的环境」。
+   * 于是两个店铺分别登在两个环境（甚至两台设备）时，
+   * 各自的环境都能领到自己店铺的任务，互不串店。
+   */
+  shopRoutedDispatch: boolean;
   autoDispatchFilter: PublishTaskAutoDispatchFilter;
 }
 
@@ -40,6 +49,7 @@ const normalizePublishTaskAutoDispatchSetting = (value?: any): PublishTaskAutoDi
   autoDispatchClientId: String(value?.autoDispatchClientId || "").trim(),
   autoDispatchMachineCode: String(value?.autoDispatchMachineCode || "").trim(),
   autoDispatchProfileId: String(value?.autoDispatchProfileId || "").trim(),
+  shopRoutedDispatch: value?.shopRoutedDispatch === true,
   autoDispatchFilter: normalizePublishTaskAutoDispatchFilter(value?.autoDispatchFilter),
 });
 
@@ -56,7 +66,9 @@ export const loadPublishTaskAutoDispatchSetting = async () => {
 export const enablePublishTaskAutoDispatch = async (target: {
   clientId: string;
   machineCode?: string | null;
-  profileId: string;
+  /** 店铺路由模式下可不选环境：环境由「店铺当前登录在哪」运行时决定 */
+  profileId?: string;
+  shopRoutedDispatch?: boolean;
   filter?: Partial<PublishTaskAutoDispatchFilter>;
 }) => {
   const nextSetting = normalizePublishTaskAutoDispatchSetting({
@@ -64,6 +76,7 @@ export const enablePublishTaskAutoDispatch = async (target: {
     autoDispatchClientId: target.clientId,
     autoDispatchMachineCode: target.machineCode,
     autoDispatchProfileId: target.profileId,
+    shopRoutedDispatch: target.shopRoutedDispatch,
     autoDispatchFilter: target.filter,
   });
 
@@ -73,7 +86,8 @@ export const enablePublishTaskAutoDispatch = async (target: {
       autoSchedulingEnabled: true,
       autoDispatchClientId: nextSetting.autoDispatchClientId,
       autoDispatchMachineCode: nextSetting.autoDispatchMachineCode || undefined,
-      autoDispatchProfileId: nextSetting.autoDispatchProfileId,
+      autoDispatchProfileId: nextSetting.autoDispatchProfileId || undefined,
+      shopRoutedDispatch: nextSetting.shopRoutedDispatch,
       autoDispatchFilter: nextSetting.autoDispatchFilter,
     },
   });
@@ -82,7 +96,9 @@ export const enablePublishTaskAutoDispatch = async (target: {
     success: true,
     dispatched: false,
     reason: "trigger-scheduled",
-    message: "已保存自动执行设置并开启，目标客户端会使用指定浏览器环境领取待执行任务",
+    message: nextSetting.shopRoutedDispatch
+      ? "已开启店铺路由自动执行：任务会按绑定店铺派给当前登录该店铺的环境"
+      : "已保存自动执行设置并开启，目标客户端会使用指定浏览器环境领取待执行任务",
   };
   void triggerPublishTaskAutoDispatch().catch(() => undefined);
 
@@ -96,6 +112,7 @@ export const disablePublishTaskAutoDispatch = async (currentSetting?: {
   clientId?: string | null;
   machineCode?: string | null;
   profileId?: string | null;
+  shopRoutedDispatch?: boolean;
   filter?: Partial<PublishTaskAutoDispatchFilter> | null;
 }) => {
   const nextSetting = normalizePublishTaskAutoDispatchSetting({
@@ -103,6 +120,7 @@ export const disablePublishTaskAutoDispatch = async (currentSetting?: {
     autoDispatchClientId: currentSetting?.clientId,
     autoDispatchMachineCode: currentSetting?.machineCode,
     autoDispatchProfileId: currentSetting?.profileId,
+    shopRoutedDispatch: currentSetting?.shopRoutedDispatch,
     autoDispatchFilter: currentSetting?.filter,
   });
 
@@ -113,6 +131,7 @@ export const disablePublishTaskAutoDispatch = async (currentSetting?: {
       autoDispatchClientId: nextSetting.autoDispatchClientId || undefined,
       autoDispatchMachineCode: nextSetting.autoDispatchMachineCode || undefined,
       autoDispatchProfileId: nextSetting.autoDispatchProfileId || undefined,
+      shopRoutedDispatch: nextSetting.shopRoutedDispatch,
       autoDispatchFilter: nextSetting.autoDispatchFilter,
     },
   });
