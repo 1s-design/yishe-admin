@@ -28,6 +28,10 @@ export interface ShopExecutionEnvironment {
   machineCode: string | null;
   clientLabel: string;
   clientOnline: boolean;
+  /** 该设备最后一次心跳时间，用于同日名环境去重排序 */
+  lastOnlineAt?: string | null;
+  /** 全局唯一键：clientId::profileId（profileId 只在单机内唯一） */
+  environmentKey?: string;
   profileId: string;
   profileName: string;
   profileExists: boolean;

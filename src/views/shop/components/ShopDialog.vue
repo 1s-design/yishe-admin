@@ -66,7 +66,7 @@
       <div class="group-title">发布执行</div>
       <el-form-item label="执行环境">
         <el-select
-          v-model="selectedProfileIds"
+          v-model="selectedEnvKeys"
           multiple
           filterable
           clearable
@@ -79,22 +79,26 @@
         >
           <el-option
             v-for="item in availableEnvironments"
-            :key="item.profileId"
+            :key="environmentKeyOf(item)"
             :label="formatEnvLabel(item)"
-            :value="item.profileId"
+            :value="environmentKeyOf(item)"
           />
         </el-select>
 
         <div class="env-bar">
           <span class="env-summary">{{ envSummaryText }}</span>
           <div v-if="selectedEnvironments.length" class="env-list">
-            <span v-for="env in selectedEnvironments" :key="env.profileId" class="env-item">
+            <span
+              v-for="env in selectedEnvironments"
+              :key="environmentKeyOf(env)"
+              class="env-item"
+            >
               <i class="env-dot" :class="envDotClass(env)"></i>
               <span class="env-name" :title="`${env.clientLabel} · ${env.profileName}`">
                 {{ env.clientLabel }} · {{ env.profileName }}
               </span>
               <span class="env-state">{{ envStatusText(env) }}</span>
-              <el-icon class="env-remove" @click="removeEnv(env.profileId)">
+              <el-icon class="env-remove" @click="removeEnv(environmentKeyOf(env))">
                 <Close />
               </el-icon>
             </span>
@@ -144,42 +148,87 @@ const formData = reactive({
   platform: 'doudian',
 })
 
-/** 勾选的执行环境 profileId */
-const selectedProfileIds = ref<string[]>([])
+/**
+ * 勾选的执行环境，存的是「设备 + 环境」复合键。
+ *
+ * profileId 只在单台机器内唯一：换过机器码的旧设备记录会和新设备上报
+ * 同一个 profileId（同一个 user-data 目录），只按 profileId 做选中值的话，
+ * 选中其中一个，同值的另一个选项也会跟着高亮。
+ */
+const selectedEnvKeys = ref<string[]>([])
 const environments = ref<ShopExecutionEnvironment[]>([])
 const envLoading = ref(false)
+
+/** 复合唯一键：clientId::profileId，无 clientId 时退化 legacy::profileId */
+const environmentKeyOf = (item: {
+  clientId?: string | null
+  profileId?: string | null
+  environmentKey?: string | null
+}) => {
+  const profileId = String(item?.profileId || '').trim()
+  if (!profileId) return ''
+  const clientId = String(item?.clientId || '').trim()
+  return clientId ? `${clientId}::${profileId}` : `legacy::${profileId}`
+}
+
+/** 从复合键里取回 profileId */
+const profileIdOfKey = (key: string) => {
+  const parts = String(key || '').split('::')
+  return (parts.length > 1 ? parts[1] : parts[0] || '').trim()
+}
+
+/**
+ * 把店铺已绑定的环境映射成候选列表里的键。
+ * 老数据可能没存 clientId、或存的设备已被清理，这时退到同 profileId 里
+ * 最优先的那台（在线优先），避免保存时把绑定写回已经不存在的设备。
+ */
+const resolveStoredKey = (item: any) => {
+  const profileId = String(
+    typeof item === 'string' ? item : item?.profileId || ''
+  ).trim()
+  if (!profileId) return ''
+  const storedClientId = typeof item === 'string' ? '' : String(item?.clientId || '').trim()
+  const rawKey = storedClientId ? `${storedClientId}::${profileId}` : `legacy::${profileId}`
+  const live = environments.value
+  if (live.some((env) => environmentKeyOf(env) === rawKey)) return rawKey
+  const sameProfile = live.filter((env) => env.profileId === profileId)
+  if (!sameProfile.length) return rawKey
+  const best = sameProfile.find((env) => env.clientOnline) || sameProfile[0]
+  return environmentKeyOf(best)
+}
 
 /**
  * 候选环境：全部列出，已勾选但当前不在清单里的（环境被删/换机器）也保留，
  * 否则一保存就会把历史绑定悄悄丢掉。
  */
 const availableEnvironments = computed(() => {
-  const picked = new Set(selectedProfileIds.value)
   const list = environments.value.filter((item) => item.profileExists !== false)
-  for (const profileId of picked) {
-    if (!list.some((item) => item.profileId === profileId)) {
-      list.push({
-        clientId: null,
-        machineCode: null,
-        clientLabel: '（未上报设备）',
-        clientOnline: false,
-        profileId,
-        profileName: profileId,
-        profileExists: true,
-        isActiveProfile: false,
-        instanceRunning: false,
-        busy: false,
-        currentTaskId: null,
-      })
-    }
+  const seen = new Set(list.map((item) => environmentKeyOf(item)))
+  for (const key of selectedEnvKeys.value) {
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    list.push({
+      clientId: key.includes('::') ? key.split('::')[0] : null,
+      machineCode: null,
+      clientLabel: '（未上报设备）',
+      clientOnline: false,
+      environmentKey: key,
+      profileId: profileIdOfKey(key),
+      profileName: profileIdOfKey(key),
+      profileExists: true,
+      isActiveProfile: false,
+      instanceRunning: false,
+      busy: false,
+      currentTaskId: null,
+    })
   }
   return list
 })
 
 /** 已选环境，按勾选顺序展示 */
 const selectedEnvironments = computed(() =>
-  selectedProfileIds.value
-    .map((profileId) => availableEnvironments.value.find((item) => item.profileId === profileId))
+  selectedEnvKeys.value
+    .map((key) => availableEnvironments.value.find((item) => environmentKeyOf(item) === key))
     .filter(Boolean) as ShopExecutionEnvironment[]
 )
 
@@ -210,8 +259,8 @@ const formatEnvLabel = (item: ShopExecutionEnvironment) => {
   return `${item.clientLabel} · ${item.profileName}（${envStatusText(item)}）`
 }
 
-const removeEnv = (profileId: string) => {
-  selectedProfileIds.value = selectedProfileIds.value.filter((id) => id !== profileId)
+const removeEnv = (envKey: string) => {
+  selectedEnvKeys.value = selectedEnvKeys.value.filter((key) => key !== envKey)
 }
 
 const loadEnvironments = async () => {
@@ -229,7 +278,7 @@ const loadEnvironments = async () => {
 
 /** 切换平台后旧平台的环境不再有效，清空重选 */
 const onPlatformChange = () => {
-  selectedProfileIds.value = []
+  selectedEnvKeys.value = []
   environments.value = []
   void loadEnvironments()
 }
@@ -242,6 +291,7 @@ const open = async (id?: number) => {
   dialogVisible.value = true
   dialogTitle.value = id ? t('shop.editShop') : t('shop.addShop')
   resetForm()
+  let storedProfiles: any[] = []
   if (id) {
     formLoading.value = true
     try {
@@ -252,19 +302,16 @@ const open = async (id?: number) => {
       formData.logo = res?.logo || ''
       formData.carousel = Array.isArray(res?.carousel) ? res.carousel : []
       formData.platform = res?.platform || 'doudian'
-      selectedProfileIds.value = Array.isArray(res?.executionProfiles)
-        ? res.executionProfiles
-            .map((item: any) =>
-              typeof item === 'string' ? item : String(item?.profileId || ''),
-            )
-            .filter(Boolean)
-        : []
+      storedProfiles = Array.isArray(res?.executionProfiles) ? res.executionProfiles : []
     } finally {
       formLoading.value = false
     }
   }
-  // 先拿到店铺平台再拉环境，避免编辑非抖店店铺时用默认平台的环境清单
-  void loadEnvironments()
+  // 先拿到实时环境清单，才能把绑定的环境还原成「设备 + 环境」的正确选项
+  await loadEnvironments()
+  selectedEnvKeys.value = storedProfiles
+    .map((item) => resolveStoredKey(item))
+    .filter(Boolean)
 }
 
 const resetForm = () => {
@@ -274,7 +321,7 @@ const resetForm = () => {
   formData.logo = ''
   formData.carousel = []
   formData.platform = 'doudian'
-  selectedProfileIds.value = []
+  selectedEnvKeys.value = []
 }
 
 const submitForm = async () => {
@@ -284,10 +331,12 @@ const submitForm = async () => {
     if (valid) {
       formLoading.value = true
       try {
-        const executionProfiles = selectedProfileIds.value.map((profileId) => {
-          const matched = environments.value.find((item) => item.profileId === profileId)
+        const executionProfiles = selectedEnvKeys.value.map((envKey) => {
+          const matched = availableEnvironments.value.find(
+            (item) => environmentKeyOf(item) === envKey
+          )
           return {
-            profileId,
+            profileId: matched?.profileId || profileIdOfKey(envKey),
             profileName: matched?.profileName || undefined,
             clientId: matched?.clientId || undefined,
             machineCode: matched?.machineCode || undefined,
