@@ -1,5 +1,5 @@
 import { reactive } from "vue";
-import { AgentAdminApi, type AgentTask } from "@/api/agent";
+import { AgentAdminApi } from "@/api/agent";
 
 export interface AgentRunTaskInfo {
   id: string;
@@ -19,7 +19,12 @@ interface AgentRunSnapshot {
   updatedAt: string;
 }
 
-const POLL_INTERVAL_MS = 10_000;
+/**
+ * 轮询节奏：有任务在跑时 10s（要跟进度），空闲时 30s（只看角标）。
+ * 页面隐藏时不请求，回到前台由下一次 tick 自动补上。
+ */
+const POLL_INTERVAL_ACTIVE_MS = 10_000;
+const POLL_INTERVAL_IDLE_MS = 30_000;
 
 export const agentRunState = reactive<AgentRunSnapshot>({
   initialized: false,
@@ -32,7 +37,7 @@ export const agentRunState = reactive<AgentRunSnapshot>({
 });
 
 let pendingRefresh: Promise<void> | null = null;
-let pollingTimer: ReturnType<typeof setInterval> | null = null;
+let pollingTimer: ReturnType<typeof setTimeout> | null = null;
 let initializationStarted = false;
 
 function statusLabel(st: string) {
@@ -50,38 +55,26 @@ export const refreshAgentRunState = async () => {
   pendingRefresh = (async () => {
     agentRunState.loading = true;
     try {
-      const [counts, running, waiting, defs] = await Promise.all([
-        AgentAdminApi.taskStatusCounts().catch(() => ({} as Record<string, number>)),
-        AgentAdminApi.tasks({ status: "running", pageSize: 8 }).catch(() => ({
-          items: [] as AgentTask[],
-        })),
-        AgentAdminApi.tasks({ status: "waiting_approval", pageSize: 8 }).catch(() => ({
-          items: [] as AgentTask[],
-        })),
-        AgentAdminApi.definitions().catch(() => []),
-      ]);
-      const runItems = ((running as any)?.items || []) as AgentTask[];
-      const waitItems = ((waiting as any)?.items || []) as AgentTask[];
-      const defList = ((defs as any)?.data ?? defs) as any[];
-      const dutyOn = Array.isArray(defList)
-        ? defList.filter((a) => a?.dutyMode === "duty" && a?.enabled !== false).length
-        : 0;
+      // 单请求取齐：计数 + 在跑任务 + 待审批 + 值守数（服务端聚合，约 200B）
+      const summary = await AgentAdminApi.runtimeSummary(8);
+      const counts = summary?.counts || {};
+      const running = summary?.running || [];
+      const waiting = summary?.waiting || [];
 
-      agentRunState.running = Number(counts?.running || 0) || runItems.length;
+      agentRunState.running = Number(counts.running || 0) || running.length;
       agentRunState.waiting =
-        Number(counts?.waiting_approval || 0) +
-          Number(counts?.waiting_input || 0) ||
-        waitItems.length;
-      agentRunState.dutyOn = dutyOn;
-      agentRunState.tasks = [...runItems, ...waitItems].slice(0, 8).map((t) => ({
+        Number(counts.waiting_approval || 0) + Number(counts.waiting_input || 0) ||
+        waiting.length;
+      agentRunState.dutyOn = Number(summary?.dutyOn || 0);
+      agentRunState.tasks = [...running, ...waiting].slice(0, 8).map((t) => ({
         id: t.id,
         agentName: t.agentName || "智能体",
-        title: t.title || String(t.prompt || "").slice(0, 28),
+        title: t.title || "",
         status: t.status,
         statusLabel: statusLabel(t.status),
       }));
     } catch {
-      /* keep last snapshot */
+      /* 保留上次快照，网络抖动不打断轮询 */
     } finally {
       agentRunState.initialized = true;
       agentRunState.loading = false;
@@ -92,14 +85,43 @@ export const refreshAgentRunState = async () => {
   return pendingRefresh;
 };
 
+function scheduleNextPoll() {
+  if (pollingTimer) clearTimeout(pollingTimer);
+  const busy = agentRunState.running + agentRunState.waiting > 0;
+  const delay = busy ? POLL_INTERVAL_ACTIVE_MS : POLL_INTERVAL_IDLE_MS;
+  pollingTimer = setTimeout(async () => {
+    if (!(typeof document !== "undefined" && document.hidden)) {
+      await refreshAgentRunState();
+    }
+    scheduleNextPoll();
+  }, delay);
+}
+
+/**
+ * 回到前台时立即补一次并重置节奏。
+ * 后台标签页不发请求（省流量），但用户切回来时数据不能是陈旧的。
+ */
+function bindVisibilityRefresh() {
+  if (typeof document === "undefined") return;
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) return;
+    void refreshAgentRunState();
+    scheduleNextPoll();
+  });
+}
+
 export const ensureAgentRunStateInitialized = () => {
   if (initializationStarted) return;
   initializationStarted = true;
+  bindVisibilityRefresh();
   void refreshAgentRunState();
-  pollingTimer = setInterval(() => {
-    if (typeof document !== "undefined" && document.hidden) return;
-    void refreshAgentRunState();
-  }, POLL_INTERVAL_MS);
+  scheduleNextPoll();
+};
+
+export const stopAgentRunStatePolling = () => {
+  if (pollingTimer) clearTimeout(pollingTimer);
+  pollingTimer = null;
+  initializationStarted = false;
 };
 
 export const resolveAgentRunTooltip = () => {

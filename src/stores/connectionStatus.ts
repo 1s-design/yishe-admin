@@ -278,6 +278,8 @@ const startClientConnectionCheck = () => {
   }
   void refreshMyClients();
   checkClientConnectionTimer = setInterval(() => {
+    // 后台标签页不轮询：连接状态由 websocket 事件驱动，定时器只做兜底
+    if (typeof document !== "undefined" && document.hidden) return;
     void refreshMyClients();
   }, CLIENT_REFRESH_POLL_INTERVAL_MS);
 };

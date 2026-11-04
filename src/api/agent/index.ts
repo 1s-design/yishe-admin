@@ -222,8 +222,42 @@ export const AgentAdminApi = {
   taskStatusCounts() {
     return request.get({ url: '/agent/tasks/status-counts' }) as Promise<Record<string, number>>
   },
+  /**
+   * 运行态汇总：菜单角标轮询专用。
+   * 一次请求拿齐「状态计数 + 在跑任务 + 值守数」，避免每轮打 4 个接口
+   * （其中 /agent/definitions 单次 15KB，是此前 80%+ 请求的来源）。
+   */
+  runtimeSummary(limit = 8) {
+    return request.get({ url: '/agent/tasks/runtime-summary', params: { limit } }) as Promise<{
+      counts: Record<string, number>
+      running: Array<{
+        id: string
+        agentName?: string | null
+        title?: string | null
+        status: string
+        updatedAt?: string | null
+      }>
+      waiting: Array<{
+        id: string
+        agentName?: string | null
+        title?: string | null
+        status: string
+        updatedAt?: string | null
+      }>
+      dutyOn: number
+    }>
+  },
   taskDetail(id: string) {
     return request.get({ url: `/agent/tasks/${id}` }) as Promise<AgentTask>
+  },
+  /** 任务详情指纹（轮询专用：状态+事件数+更新时间，变化时再拉完整详情） */
+  taskDetailSummary(id: string) {
+    return request.get({ url: `/agent/tasks/${id}/detail-summary` }) as Promise<{
+      id: string
+      status: AgentTask['status']
+      updatedAt: string
+      worklogCount: number
+    }>
   },
   approveTask(id: string) {
     return request.post({ url: `/agent/tasks/${id}/approve` }) as Promise<AgentTask>

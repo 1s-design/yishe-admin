@@ -1747,14 +1747,38 @@ function useStarterPrompt(text: string) {
 }
 
 // ── 轮询任务状态 ──────────────────────────────────────────
+/**
+ * 轮询优化：定时器只拉轻量指纹（状态+事件数+更新时间，~200B），
+ * 指纹变化时才拉完整详情（含整份 worklog）。原地等待的轮次
+ * 不再重复传输整份执行流日志。
+ */
+let pollSignature = ''
+
+function detailSignatureOf(task: any) {
+  const worklogCount = Array.isArray(task?.worklog) ? task.worklog.length : 0
+  return `${task?.status ?? ''}:${worklogCount}:${task?.updatedAt ?? ''}`
+}
+
 function startPolling() {
   stopPolling()
+  pollSignature = detailSignatureOf(currentTask.value)
   pollTimer = setInterval(async () => {
     if (!currentTask.value?.id) return stopPolling()
     try {
+      const summary: any = await AgentAdminApi.taskDetailSummary(currentTask.value.id)
+      const s = (summary?.data ?? summary) as {
+        status: string
+        updatedAt?: string
+        worklogCount: number
+      }
+      const sig = `${s.status}:${s.worklogCount}:${s.updatedAt ?? ''}`
+      if (sig === pollSignature && ['pending', 'running'].includes(s.status)) {
+        return
+      }
       const res: any = await AgentAdminApi.taskDetail(currentTask.value.id)
       const fresh = (res?.data ?? res) as AgentTask
       currentTask.value = fresh
+      pollSignature = detailSignatureOf(fresh)
       if (!['pending', 'running'].includes(fresh.status)) {
         stopPolling()
       }

@@ -96,6 +96,7 @@
 import { onMounted, ref, reactive } from "vue";
 import { Refresh } from "@element-plus/icons-vue";
 import { AgentRunApi } from "@/api/agentRun";
+import { refreshAgentRunState } from "@/services/agentRunState";
 import type { AgentRunListItem, AgentRunStatus, AgentRunStatusCounts } from "@/api/agentRun";
 import RunDetail from "./RunDetail.vue";
 
@@ -191,6 +192,8 @@ function getStageClass(run: AgentRunListItem, idx: number): string {
 
 onMounted(() => {
   fetchRuns();
+  // 打开任务页时刷新一次全局快照（菜单角标/顶部状态），平时由单一定时器维护
+  void refreshAgentRunState();
 });
 </script>
 

@@ -69,6 +69,17 @@ const normalizeActivePsdSetItem = (item: any): ActivePsdSetSummaryItem | null =>
   }
 }
 
+let visibilityRefreshBound = false
+const bindVisibilityRefresh = () => {
+  if (visibilityRefreshBound || typeof document === 'undefined') return
+  visibilityRefreshBound = true
+  document.addEventListener('visibilitychange', () => {
+    // 后台不轮询，回到前台立刻补一次，避免用户看到过期进度
+    if (document.hidden) return
+    if (activeSummaryPollingTimer) void refreshActiveSummary(true)
+  })
+}
+
 const syncActiveSummaryPolling = () => {
   const nextPollingMs =
     activePsdSetIds.value.length > 0 || activePsdSets.value.length > 0
@@ -86,8 +97,11 @@ const syncActiveSummaryPolling = () => {
 
   activeSummaryPollingMs = nextPollingMs
   activeSummaryPollingTimer = setInterval(() => {
+    // 后台标签页不轮询：切回来时由 visibilitychange 补一次
+    if (typeof document !== "undefined" && document.hidden) return
     void refreshActiveSummary(true)
   }, nextPollingMs)
+  bindVisibilityRefresh()
 }
 
 const syncMergedActiveSummary = () => {

@@ -109,7 +109,10 @@ export async function refreshCrawlerMaterialState() {
 export function startCrawlerMaterialPolling(intervalMs = 60_000) {
   if (pollTimer) return;
   void refreshCrawlerMaterialState();
-  pollTimer = setInterval(() => void refreshCrawlerMaterialState(), intervalMs);
+  pollTimer = setInterval(() => {
+    if (typeof document !== "undefined" && document.hidden) return;
+    void refreshCrawlerMaterialState();
+  }, intervalMs);
 }
 
 export function stopCrawlerMaterialPolling() {

@@ -251,6 +251,8 @@ const startServiceHealthPolling = (key: ServiceHealthKey) => {
 
   const interval = serviceHealthDefinitions[key].pollIntervalMs || DEFAULT_POLL_INTERVAL_MS;
   const timer = window.setInterval(() => {
+    // 后台标签页不轮询：健康数据只在用户看得见时才有意义
+    if (typeof document !== "undefined" && document.hidden) return;
     void refreshServiceHealth(key, { silent: true });
   }, interval);
   pollingTimers.set(key, timer);

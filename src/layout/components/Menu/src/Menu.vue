@@ -38,7 +38,6 @@ import {
 import {
   agentRunState,
   ensureAgentRunStateInitialized,
-  refreshAgentRunState,
   resolveAgentRunTooltip,
 } from "@/services/agentRunState";
 import {
@@ -758,8 +757,9 @@ export default defineComponent({
       if (routePath !== "/ai/agent") {
         return undefined;
       }
+      // 注意：这里是渲染函数，每次重渲染都会执行，绝不能发请求。
+      // 只做一次初始化（内部有幂等守卫），数据刷新交给 services/agentRunState 的单一定时器。
       ensureAgentRunStateInitialized();
-      void refreshAgentRunState();
       // 工作中智能体数：按任务归属智能体去重（同一智能体并发多任务不重复计数）
       const busyAgentNames = new Set(
         (agentRunState.tasks || []).map((t) => t.agentName).filter(Boolean),

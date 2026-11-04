@@ -96,6 +96,17 @@ const normalizeRuntimeItem = (item: any): NormalizedPublishTaskRuntimeItem | nul
   };
 };
 
+let visibilityRefreshBound = false;
+const bindVisibilityRefresh = () => {
+  if (visibilityRefreshBound || typeof document === "undefined") return;
+  visibilityRefreshBound = true;
+  document.addEventListener("visibilitychange", () => {
+    // 后台不轮询，回到前台立刻补一次，避免用户看到过期进度
+    if (document.hidden) return;
+    if (activeSummaryPollingTimer) void refreshSummary(true);
+  });
+};
+
 const syncActiveSummaryPolling = () => {
   const shouldPoll =
     activeTasks.value.length > 0 ||
@@ -114,8 +125,11 @@ const syncActiveSummaryPolling = () => {
   }
 
   activeSummaryPollingTimer = setInterval(() => {
+    // 后台标签页不轮询：切回来时由 visibilitychange 补一次
+    if (typeof document !== "undefined" && document.hidden) return;
     void refreshSummary(true);
   }, ACTIVE_PUBLISH_TASK_POLLING_MS);
+  bindVisibilityRefresh();
 };
 
 const syncMergedActiveTasks = () => {
