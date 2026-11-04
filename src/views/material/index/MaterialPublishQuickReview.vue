@@ -290,6 +290,14 @@
                 <span class="pqr__stat-name">已忽略</span>
                 <span class="pqr__stat-val">{{ skippedCount }}</span>
               </span>
+              <template v-if="deletedCount">
+                <span class="pqr__stat-divider">/</span>
+                <span class="pqr__stat-item">
+                  <i class="pqr__stat-dot pqr__stat-dot--delete"></i>
+                  <span class="pqr__stat-name">已删除</span>
+                  <span class="pqr__stat-val">{{ deletedCount }}</span>
+                </span>
+              </template>
             </div>
 
             <div class="pqr__ops-divider"></div>
@@ -424,6 +432,19 @@
             >
               <span class="pqr__dock-text">忽略 / 下一张</span>
               <kbd class="pqr__dock-kbd">空格 / →</kbd>
+            </button>
+
+            <div class="pqr__dock-sep"></div>
+
+            <button
+              type="button"
+              class="pqr__dock-btn pqr__dock-btn--danger"
+              :disabled="!current || loadingBatch"
+              title="彻底删除当前素材（从素材库移除）。快捷键：Delete / X；确认框内 Enter = 确认删除、Esc = 取消；按住 Shift 跳过确认"
+              @click="actDelete"
+            >
+              <span class="pqr__dock-text">删除这张</span>
+              <kbd class="pqr__dock-kbd pqr__dock-kbd--danger">Del / X</kbd>
             </button>
 
             <div class="pqr__dock-sep"></div>
@@ -605,10 +626,10 @@ import {
   Operation,
   Refresh,
 } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { convertFolderIdToApiParam } from '@/constants/folder'
 import { stickerPsdSetApi } from '@/api/stickerPsdSet'
-import { getMaterialList } from '@/api/material'
+import { getMaterialList, deleteAssetLibrary } from '@/api/material'
 import { useImageDeck } from '@/composables/useImageDeck'
 import { getReviewImageUrl } from '@/utils/image'
 import { useAppStore } from '@/store/modules/app'
@@ -1067,12 +1088,62 @@ function buildQueryPayload(mode: QuickReviewMode, page = 1) {
   return params
 }
 
+/** 单页取数条数（与 buildQueryPayload 中的 pageSize 保持一致） */
+const REVIEW_PAGE_SIZE = 50
+/**
+ * 已拉取到的「原始位次」。
+ * 审核中删除素材会让库内数据整体前移，直接按 page+1 取数就会每删一张漏一张；
+ * 这里记录原始位次，取数时用 deletedOffset 换算成库内真实位次（页码 + 页内偏移）。
+ */
+const fetchCursor = ref(0)
+
+/** 取一页原始数据：页内偏移跳过 + 滤掉已删除的墓碑记录 */
+async function callBatchApi(mode: QuickReviewMode, page: number, skipInPage = 0) {
+  const res: any = await getMaterialList(buildQueryPayload(mode, page))
+  const rawList: any[] = res?.list || []
+  const sliced = skipInPage > 0 ? rawList.slice(skipInPage) : rawList
+  const items = sliced.filter((item: any) => !deletedIds.value.has(String(item?.id ?? '')))
+  return { items, rawCount: rawList.length, pageFull: rawList.length >= REVIEW_PAGE_SIZE }
+}
+
+/**
+ * 从当前游标继续拉取一批素材（连续翻页补足到 target 条）。
+ * 删除补偿 + 墓碑过滤都在这里统一处理，翻页与后台静默补货共用同一条链路。
+ */
+async function pullNext(mode: QuickReviewMode, target = REVIEW_PAGE_SIZE): Promise<any[]> {
+  // 随机模式与位次无关，取一页随机数据即可
+  if (mode === 'random') {
+    const page = Math.floor(Math.random() * 20) + 1
+    const res = await callBatchApi(mode, page)
+    return res.items
+  }
+  let cursor = Math.max(0, fetchCursor.value - deletedOffset.value)
+  let realPage = Math.floor(cursor / REVIEW_PAGE_SIZE) + 1
+  let skipInPage = cursor % REVIEW_PAGE_SIZE
+  const out: any[] = []
+  // 最多顺延 6 页，避免极端删除量下无限请求
+  for (let guard = 0; guard < 6; guard++) {
+    const res = await callBatchApi(mode, realPage, skipInPage)
+    out.push(...res.items)
+    // 本页实际消费的原始条数（含被墓碑滤掉的，它们同样是「看过不再要」的数据）
+    fetchCursor.value += Math.max(0, res.rawCount - skipInPage)
+    if (out.length >= target || !res.pageFull) break
+    realPage += 1
+    skipInPage = 0
+  }
+  return out
+}
+
 async function fetchBatch(mode: QuickReviewMode, page = 1) {
   loadingBatch.value = true
   try {
-    const params = buildQueryPayload(mode, page)
-    const res: any = await getMaterialList(params)
-    const list = res?.list || []
+    // page <= 1 表示从头开始（首次打开 / 切换模式 / 改筛选），游标与删除补偿一起归零：
+    // 从头拉取的数据本就不含已删项，若只清游标，补偿量会一直扣减导致重复取数
+    if (page <= 1 && mode !== 'random') {
+      fetchCursor.value = 0
+      deletedOffset.value = 0
+    }
+    const list = await pullNext(mode)
     if (list.length > 0) {
       deck.reset()
       queue.value = mode === 'random' ? sortQueueItems(list, 'random') : list
@@ -1123,12 +1194,8 @@ async function fetchBatch(mode: QuickReviewMode, page = 1) {
 }
 
 function loadNextBatch() {
-  if (activeMode.value === 'random') {
-    batchPage.value = Math.floor(Math.random() * 20) + 1
-  } else {
-    batchPage.value += 1
-  }
-  fetchBatch(activeMode.value, batchPage.value)
+  // page > 1 表示「继续补货」，内部按 fetchCursor + 删除补偿取数
+  fetchBatch(activeMode.value, 2)
 }
 
 // ==================== 队列与索引状态 ====================
@@ -1140,6 +1207,31 @@ const createdMaterialCount = ref(0)
 const createdTaskCount = ref(0)
 const skippedCount = ref(0)
 const creating = ref(false)
+
+// ── 删除素材（快速审核内一键删除不合格/重复素材）────────────────
+const deletedCount = ref(0)
+/**
+ * 已删除素材的 id 墓碑：删除是异步的，后台补货/翻页可能把同一条又拉回队列，
+ * 命中墓碑的直接从批次里滤掉，避免「删了又出现」再被误操作。
+ */
+const deletedIds = ref<Set<string>>(new Set())
+/**
+ * 本次审核累计删除条数。删除会让库内数据整体前移，
+ * 跨页取数时必须把已删条数从偏移里扣回，否则每删一张就会漏掉一张素材。
+ */
+const deletedOffset = ref(0)
+/**
+ * 删除确认框是否打开。
+ * 全局 keydown 监听挂在 window 的 capture 阶段，会先于 ElMessageBox 拿到按键；
+ * 不显式标记的话，确认框里敲回车会落到「一键创建任务」上（本该是确认删除）。
+ */
+const confirmOpen = ref(false)
+/**
+ * 删除确认刚按过回车后的冷却时间戳。
+ * 弹窗一关 confirmOpen 就归 false，长按回车的后续 keydown 会一路落到
+ * 「一键创建任务」上（删完立刻建任务），用短冷却挡掉这种连续触发。
+ */
+let deleteEnterCooldown = 0
 
 /** 已经由本审核流程创建过任务的素材ID与配置ID组合 */
 const optimisticRecordKeys = ref<Set<string>>(new Set())
@@ -1296,13 +1388,8 @@ async function checkAndPrefetchQueue(): Promise<void> {
 
   inflightPrefetch = (async () => {
     try {
-      const nextPage = batchPage.value + 1
-      const params = buildQueryPayload(activeMode.value, nextPage)
-
-      const res: any = await getMaterialList(params)
-      const list = Array.isArray(res?.list) ? res.list : []
+      const list = await pullNext(activeMode.value)
       if (list.length > 0) {
-        batchPage.value = nextPage
         const existingIds = new Set(queue.value.map((item: any) => String(item.id)))
         const fresh = list.filter((item: any) => !existingIds.has(String(item.id)))
         if (fresh.length > 0) {
@@ -1499,6 +1586,15 @@ function syncCurrentMaterial() {
 }
 
 watch(currentIndex, () => {
+  // 命中墓碑的记录（同图兄弟 / 补货竞态拉回的已删项）直接略过，不再展示给审核员
+  let i = currentIndex.value
+  while (i < queue.value.length && deletedIds.value.has(String(queue.value[i]?.id ?? ''))) {
+    i++
+  }
+  if (i !== currentIndex.value) {
+    currentIndex.value = i
+    return
+  }
   syncCurrentMaterial()
 })
 
@@ -1624,6 +1720,103 @@ function actCreateAndNext() {
     })
 }
 
+/** 图片内容键：剥掉域名后的 query/hash，用来识别「同一张图的多条记录」 */
+function normalizeImageKey(url?: string | null): string {
+  const raw = String(url || '').trim()
+  if (!raw) return ''
+  return raw.split('?')[0].split('#')[0]
+}
+
+/**
+ * 收集本次要一起删除的记录 id。
+ * 同一张图在库里常有多条记录（复制副本 / 素材中心导入 / 快捷共享复用 url），
+ * 只删一条，下次补货还会把兄弟记录拉回来，审核员就得再删一次。
+ */
+function collectSameImageIds(item: any): string[] {
+  const ids = new Set<string>()
+  const selfId = String(item?.id ?? '')
+  if (selfId) ids.add(selfId)
+  const key = normalizeImageKey(item?.url)
+  if (!key) return [...ids]
+  queue.value.forEach((it: any) => {
+    const otherId = String(it?.id ?? '')
+    if (otherId && normalizeImageKey(it?.url) === key) ids.add(otherId)
+  })
+  return [...ids]
+}
+
+/**
+ * 删除当前素材（彻底从素材库删除）。
+ * 交互口径与「忽略 / 一键创建」一致：先乐观切到下一张，接口在后台飞；
+ * 失败再回滚索引与计数，让审核节奏不被网络往返打断。
+ */
+async function actDelete(e?: MouseEvent | KeyboardEvent) {
+  if (!current.value) return
+  const item = current.value
+  const id = String(item.id || '')
+  if (!id) return
+
+  const displayName = item.name || item.code || id
+  const targetIds = collectSameImageIds(item)
+  // 按住 Shift 直接删（熟练审核员连删时用），否则弹确认防误删
+  if (!e?.shiftKey) {
+    // 弹确认期间把快捷键让位给对话框：Enter = 确认删除，Esc = 取消
+    confirmOpen.value = true
+    try {
+      await ElMessageBox.confirm(
+        `确认删除素材「${displayName}」？删除后会从素材库移除，提示：按住 Shift 可跳过本确认。`,
+        '删除素材',
+        {
+          confirmButtonText: '确认删除（Enter）',
+          cancelButtonText: '取消（Esc）',
+          type: 'warning',
+          confirmButtonClass: 'el-button--danger',
+          // 面板 z-index 2500，MessageBox 默认 2000 出头会被盖住（看起来像点了没反应）
+          customClass: 'pqr-delete-confirm',
+          distinguishCancelAndClose: true
+        }
+      )
+    } catch {
+      return
+    } finally {
+      confirmOpen.value = false
+    }
+  }
+
+  // 1. 乐观推进：立刻切下一张，审核手感不受接口耗时影响（支持连删）
+  deletedCount.value++
+  // 分页补偿按「记录条数」记，而不是按图片张数（同图多记录会一起删）
+  deletedOffset.value += targetIds.length
+  targetIds.forEach((tid) => deletedIds.value.add(tid))
+  currentIndex.value++
+
+  if (currentIndex.value >= queue.value.length && !props.hasUserSelection && !loadingBatch.value) {
+    loadNextBatch()
+  }
+
+  // 2. 后台派发删除请求（含同一张图的其他记录）
+  deleteAssetLibrary({ ids: targetIds })
+    .then(() => {
+      const extra = targetIds.length > 1 ? `（含同图 ${targetIds.length - 1} 条重复记录）` : ''
+      ElMessage.success({
+        message: `已删除「${displayName}」${extra}`,
+        duration: 1600,
+        grouping: true
+      })
+      invalidateMaterialRelations(id)
+    })
+    .catch((err: any) => {
+      // 3. 失败回滚：撤回计数与墓碑，并把这张素材插回队列当前位次。
+      //    （连删时 currentIndex 可能已前移多次，直接回退索引会错位）
+      deletedCount.value = Math.max(0, deletedCount.value - 1)
+      deletedOffset.value = Math.max(0, deletedOffset.value - targetIds.length)
+      targetIds.forEach((tid) => deletedIds.value.delete(tid))
+      const pos = Math.min(currentIndex.value, queue.value.length)
+      queue.value.splice(pos, 0, item)
+      ElMessage.error(err?.message || '删除失败，素材已放回队列')
+    })
+}
+
 function restoreSkipped() {
   if (!skippedQueue.value.length) return
   queue.value.push(...skippedQueue.value)
@@ -1640,9 +1833,48 @@ function close() {
   emit('reviewed')
 }
 
+/**
+ * 点击当前打开的 MessageBox 按钮（confirm / cancel）。
+ * ElMessageBox 是函数式调用、拿不到组件实例，只能按 DOM 找；
+ * 可见性用 getClientRects() 判断（overlay 是 position:fixed，offsetParent 恒为 null）。
+ * 按钮顺序固定：取消在前、确认在后，用下标取，避免 type / class 差异选错按钮。
+ */
+function clickMessageBoxButton(action: 'confirm' | 'cancel'): boolean {
+  const box = Array.from(document.querySelectorAll<HTMLElement>('.el-message-box'))
+    .filter((el) => el.getClientRects().length > 0)
+    .pop()
+  if (!box) return false
+  const scope = box.querySelector<HTMLElement>('.el-message-box__btns') || box
+  const btns = Array.from(scope.querySelectorAll<HTMLElement>('button'))
+  if (!btns.length) return false
+  const btn = action === 'confirm' ? btns[btns.length - 1] : btns[0]
+  btn.click()
+  return true
+}
+
 // ==================== 快捷键分发 ====================
 function handleKeydown(e: KeyboardEvent) {
   if (!props.visible) return
+
+  // 0. 删除确认框优先级最高（高于「一键创建任务」）：
+  //    Enter = 确认删除，Esc = 取消（不退整页审核）。
+  //    全局监听在 capture 阶段，必须在这里先拦下来，否则 Enter 会被 actCreateAndNext 抢走。
+  if (confirmOpen.value) {
+    if (e.key === 'Enter' || e.code === 'Enter' || e.code === 'NumpadEnter') {
+      e.preventDefault()
+      e.stopPropagation()
+      if (clickMessageBoxButton('confirm')) deleteEnterCooldown = Date.now() + 300
+      return
+    }
+    if (e.key === 'Escape' || e.code === 'Escape') {
+      e.preventDefault()
+      e.stopPropagation()
+      clickMessageBoxButton('cancel')
+      return
+    }
+    // 其余按键（Delete / X / 方向键）在弹窗期间一律不响应，避免连删穿到弹窗上
+    return
+  }
 
   const activeEl = document.activeElement
   if (
@@ -1667,11 +1899,28 @@ function handleKeydown(e: KeyboardEvent) {
   // 2. 一键创建选中的发布任务并看下一张：Enter / NumpadEnter
   if (e.key === 'Enter' || e.code === 'Enter' || e.code === 'NumpadEnter') {
     e.preventDefault()
+    // 刚在删除确认框里按过回车：300ms 内不再响应，避免长按回车连成「删完就建任务」
+    if (Date.now() < deleteEnterCooldown) return
     actCreateAndNext()
     return
   }
 
-  // 3. 忽略 / 下一张（当前不处理，直接进入下一张素材）：
+  // 3. 删除当前素材（彻底从素材库移除）：Delete / Backspace / X
+  //    放在忽略之前判断，避免被「忽略」键位吞掉
+  if (
+    e.code === 'Delete' ||
+    e.key === 'Delete' ||
+    e.code === 'Backspace' ||
+    e.key === 'Backspace' ||
+    e.key === 'x' ||
+    e.key === 'X'
+  ) {
+    e.preventDefault()
+    actDelete(e)
+    return
+  }
+
+  // 4. 忽略 / 下一张（当前不处理，直接进入下一张素材）：
   // 覆盖：空格键(Space)、向右箭头(ArrowRight)、向右(D/d)、跳过/向下(S/s)、向下箭头(ArrowDown)、历史忽略键(A/a)
   if (
     e.code === 'Space' ||
@@ -2169,6 +2418,10 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
 
   &--skip {
     background: var(--el-text-color-placeholder);
+  }
+
+  &--delete {
+    background: var(--el-color-danger);
   }
 }
 
@@ -2819,6 +3072,16 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
       color: #ffffff;
     }
   }
+
+  /* 删除：危险操作走红色文字，hover 才有淡红底，避免误点 */
+  &--danger {
+    color: var(--el-color-danger);
+
+    &:hover:not(:disabled) {
+      color: var(--el-color-danger);
+      background: var(--el-color-danger-light-9);
+    }
+  }
 }
 
 .pqr__dock-kbd {
@@ -2832,6 +3095,11 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
 
   &--primary {
     color: rgba(255, 255, 255, 0.78);
+  }
+
+  &--danger {
+    color: var(--el-color-danger);
+    opacity: 0.7;
   }
 }
 
@@ -2964,5 +3232,18 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
     width: calc(100vw - 24px) !important;
     max-width: calc(100vw - 24px) !important;
   }
+}
+</style>
+
+<!-- 快速审核面板 z-index 2500，Element Plus 弹层起步 2000 会被面板整体盖住：
+     确认框 / toast 弹了也看不见，表现为「点了没反应」。
+     用 :has 精确抬升删除确认框；toast 全局抬到面板之上（消息本就应置顶）。 -->
+<style lang="scss">
+.el-overlay:has(.pqr-delete-confirm) {
+  z-index: 2600 !important;
+}
+
+.el-message {
+  z-index: 2700 !important;
 }
 </style>

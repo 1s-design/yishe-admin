@@ -352,13 +352,7 @@
                   :key="`${row.id}_p${queryParams.currentPage}`"
                   :src="row.url"
                   :alt="row.name || '素材图片'"
-                  style="
-                    width: 120px;
-                    height: auto;
-                    cursor: pointer;
-                    background: #f5f5f5;
-                    object-fit: contain;
-                  "
+                  class="material-thumb png-checker-bg"
                   loading="lazy"
                   @click="openImagePreview(row.url, row.name)"
                 />
@@ -436,7 +430,7 @@
                   :key="`${row.id}_origin_p${queryParams.currentPage}`"
                   :src="row.originUrl"
                   :alt="row.name || '原始图片'"
-                  class="origin-url-cell__img"
+                  class="origin-url-cell__img png-checker-bg"
                   loading="lazy"
                   @click="openImagePreview(row.originUrl, row.name)"
                 />
@@ -1194,6 +1188,32 @@ markCrawlerMaterialVisited();
 .dimension-cell__ratio {
   color: var(--el-text-color-secondary);
   font-size: 12px;
+}
+
+/* PNG 双色格子底：透明区域露出格子，不透明图自然盖住，一眼可辨是否为抠图 */
+.png-checker-bg {
+  background-color: #fff;
+  background-image: conic-gradient(
+    #dcdcdc 25%,
+    #fff 0 50%,
+    #dcdcdc 0 75%,
+    #fff 0
+  );
+  background-size: 12px 12px;
+  background-position: 0 0;
+  background-repeat: repeat;
+}
+
+/* 列表主缩略图 */
+.material-thumb {
+  display: block;
+  width: 120px;
+  height: auto;
+  min-height: 32px;
+  cursor: pointer;
+  object-fit: contain;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 4%);
 }
 
 /* 原始地址列：图片与链接上下布局 */
