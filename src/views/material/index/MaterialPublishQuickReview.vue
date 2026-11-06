@@ -452,13 +452,13 @@
             <button
               type="button"
               class="pqr__dock-btn pqr__dock-btn--primary"
-              :disabled="!current || !selectedConfigIds.length || creating || loadingBatch"
+              :disabled="!current || !selectedVisibleConfigIds.length || loadingBatch"
               title="一键直接创建任务并自动切换下一张（快捷键：↵ Enter）"
               @click="actCreateAndNext"
             >
               <span class="pqr__dock-text">
                 一键创建
-                <template v-if="selectedConfigIds.length">({{ selectedConfigIds.length }})</template>
+                <template v-if="selectedVisibleConfigIds.length">({{ selectedVisibleConfigIds.length }})</template>
               </span>
               <kbd class="pqr__dock-kbd pqr__dock-kbd--primary">Enter ↵</kbd>
             </button>
@@ -487,6 +487,28 @@
           </button>
         </div>
 
+        <div class="pqr__config-search">
+          <el-icon aria-hidden="true"><Search /></el-icon>
+          <input
+            v-model="configSearch"
+            type="search"
+            aria-label="搜索发布配置"
+            placeholder="搜索配置名称或平台"
+            autocomplete="off"
+            :spellcheck="false"
+          />
+          <button
+            v-if="configSearch"
+            type="button"
+            class="pqr__config-search-clear"
+            aria-label="清空配置搜索"
+            title="清空搜索"
+            @click="configSearch = ''"
+          >
+            <el-icon aria-hidden="true"><Close /></el-icon>
+          </button>
+        </div>
+
         <!-- 快捷操作栏：仅选匹配 / 全选 -->
         <div class="pqr__side-subbar">
           <div class="pqr__side-actions">
@@ -503,13 +525,19 @@
             <button
               type="button"
               class="pqr__action-link"
-              :disabled="loadingBatch || !current"
+              :disabled="loadingBatch || !current || !displayConfigs.length"
               @click="toggleSelectAll"
             >
-              {{ isAllSelected ? '取消全选' : '全选所有' }}
+              {{ isAllSelected ? '取消全选' : (configSearchKeyword ? '全选当前' : '全选所有') }}
             </button>
           </div>
-          <span class="pqr__side-sub-count">已选 {{ selectedConfigIds.length }} 项</span>
+          <span
+            class="pqr__side-sub-count"
+            :title="hiddenSelectedCount ? `${hiddenSelectedCount} 项已勾选但被搜索词隐藏，不会创建任务` : ''"
+            >已选 {{ selectedVisibleConfigIds.length }} 项<em v-if="hiddenSelectedCount" class="pqr__side-sub-hidden">
+              · {{ hiddenSelectedCount }} 项已隐藏</em
+            ></span
+          >
         </div>
 
         <!-- 配置列表：按契合度与近似比例从高到低从上到下排序 -->
@@ -591,6 +619,9 @@
               </div>
             </template>
           </template>
+          <div v-else-if="current && configSearchKeyword && !loadingBatch" class="pqr__side-empty" role="status">
+            无匹配配置
+          </div>
           <div v-else-if="!loadingBatch" class="pqr__side-empty">
             <el-empty description="暂无可配置素材" :image-size="64" />
           </div>
@@ -598,16 +629,18 @@
 
         <!-- 侧边栏底部提交栏（贴底） -->
         <div class="pqr__side-footer">
+          <div v-if="createQueue.length" class="pqr__create-pending" role="status">
+            后台创建中 · 待派发 {{ createQueue.length }} 单
+          </div>
           <el-button
             type="primary"
             class="pqr__submit"
-            :disabled="!current || !selectedConfigIds.length || creating || loadingBatch"
-            :loading="creating"
+            :disabled="!current || !selectedVisibleConfigIds.length || loadingBatch"
             title="一键创建选中的发布任务并看下一张 (快捷键：↵ Enter)"
             @click="actCreateAndNext"
           >
-            <span>{{ current && selectedConfigIds.length ? `一键创建并看下一张 (${selectedConfigIds.length})` : (loadingBatch ? '正在加载配置...' : (current ? '请勾选配置' : '暂无可配置素材')) }}</span>
-            <kbd v-if="current && selectedConfigIds.length" class="pqr__kbd-hint">↵ Enter</kbd>
+            <span>{{ current && selectedVisibleConfigIds.length ? `一键创建并看下一张 (${selectedVisibleConfigIds.length})` : (loadingBatch ? '正在加载配置...' : (current ? '请勾选配置' : '暂无可配置素材')) }}</span>
+            <kbd v-if="current && selectedVisibleConfigIds.length" class="pqr__kbd-hint">↵ Enter</kbd>
           </el-button>
         </div>
       </aside>
@@ -622,9 +655,9 @@ import {
   ArrowRight,
   Check,
   Close,
-  Filter,
   Operation,
   Refresh,
+  Search,
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { convertFolderIdToApiParam } from '@/constants/folder'
@@ -1206,7 +1239,12 @@ const skippedQueue = ref<any[]>([])
 const createdMaterialCount = ref(0)
 const createdTaskCount = ref(0)
 const skippedCount = ref(0)
-const creating = ref(false)
+/**
+ * 待派发的创建请求队列。回车只负责入队并立刻切下一张，
+ * 网络请求在后台串行跑，审核员永远不需要等某一张的接口。
+ */
+const createQueue = ref<{ stickerId: string; configIds: string[] }[]>([])
+let createDraining = false
 
 // ── 删除素材（快速审核内一键删除不合格/重复素材）────────────────
 const deletedCount = ref(0)
@@ -1241,8 +1279,6 @@ const current = computed(() => queue.value[currentIndex.value] || null)
 // ==================== 预加载与大图解码配置 ====================
 /** 空闲帧里最多预热后面几张大图（紧挨着的 3 张走立即通道） */
 const PRELOAD_AHEAD = 9
-/** 出图宽度上限：兼顾高清画质与解码性能，避免过大原图占满主线程 */
-const DECK_MAX_WIDTH = 2000
 /** 队列剩余多少张素材时在后台无感补货下一批 */
 const PREFETCH_THRESHOLD = 15
 
@@ -1409,7 +1445,10 @@ async function checkAndPrefetchQueue(): Promise<void> {
 }
 
 // ==================== 当前素材的配置匹配与勾选 ====================
+const configSearch = ref('')
+const configSearchKeyword = computed(() => configSearch.value.trim().toLowerCase())
 const selectedConfigIds = ref<string[]>([])
+let selectionTouched = false
 const matchResult = ref<QuickPublishMatchResult>({
   imageWidth: 0,
   imageHeight: 0,
@@ -1422,15 +1461,28 @@ const matchResult = ref<QuickPublishMatchResult>({
   errors: []
 })
 
-/** 展示全部配置项：匹配项排在最前并默认勾选，不匹配项按近似比例从上到下排序（支持随时手动勾选） */
 const displayConfigs = computed<MatchedPublishConfigItem[]>(() => {
-  return matchResult.value?.allConfigs || []
+  const all = matchResult.value?.allConfigs || []
+  const keyword = configSearchKeyword.value
+  if (!keyword) return all
+  return all.filter((item) =>
+    `${item.name} ${item.platform || ''} ${formatPlatform(item.platform)}`.toLowerCase().includes(keyword)
+  )
 })
+
+const selectedVisibleConfigIds = computed(() => {
+  const visibleIds = new Set(
+    displayConfigs.value.filter((item) => !isItemPublished(item.id)).map((item) => item.id)
+  )
+  return selectedConfigIds.value.filter((id) => visibleIds.has(id))
+})
+
+/** 已勾选但被搜索词隐藏的配置数：这些不会进入创建请求，需要明确提示 */
+const hiddenSelectedCount = computed(() => selectedConfigIds.value.length - selectedVisibleConfigIds.value.length)
 
 /** 推荐匹配的数量（排除已发布的） */
 const matchedCount = computed(() => {
-  const all = matchResult.value?.allConfigs || []
-  return all.filter((item) => item.isMatched && !isItemPublished(item.id)).length
+  return displayConfigs.value.filter((item) => item.isMatched && !isItemPublished(item.id)).length
 })
 
 function isItemPublished(configId: string): boolean {
@@ -1504,6 +1556,7 @@ function initQueue() {
 
 function syncCurrentMaterial() {
   const sticker = current.value
+  selectionTouched = false
   if (!sticker) {
     displayUrl.value = ''
     deckPending.value = false
@@ -1571,12 +1624,13 @@ function syncCurrentMaterial() {
             errors: Array.isArray(res.errors) ? res.errors : []
           }
 
-          // 重新根据最新发布历史，确保默认只勾选「匹配且未发布」的配置
-          const boundIdSet = new Set((res.publishedMatches || []).map((m) => m.id))
-          const autoCheckIds = (res.allConfigs || [])
-            .filter((m) => m.isMatched && !boundIdSet.has(m.id) && !optimisticRecordKeys.value.has(`${stickerId}:${m.id}`))
-            .map((m) => m.id)
-          selectedConfigIds.value = autoCheckIds
+          const availableConfigs = matchResult.value.allConfigs.filter((item) => !isItemPublished(item.id))
+          if (selectionTouched) {
+            const availableIds = new Set(availableConfigs.map((item) => item.id))
+            selectedConfigIds.value = selectedConfigIds.value.filter((id) => availableIds.has(id))
+          } else {
+            selectedConfigIds.value = availableConfigs.filter((item) => item.isMatched).map((item) => item.id)
+          }
         }
       })
       .catch((err) => {
@@ -1605,6 +1659,7 @@ function handleCardClick(item: MatchedPublishConfigItem) {
 }
 
 function toggleConfig(id: string) {
+  selectionTouched = true
   const idx = selectedConfigIds.value.indexOf(id)
   if (idx > -1) {
     selectedConfigIds.value.splice(idx, 1)
@@ -1615,6 +1670,7 @@ function toggleConfig(id: string) {
 
 /** 快捷按钮：仅勾选推荐匹配项（清空不匹配项） */
 function selectOnlyMatched() {
+  selectionTouched = true
   const matchedIds = displayConfigs.value
     .filter((item) => item.isMatched && !isItemPublished(item.id))
     .map((item) => item.id)
@@ -1623,6 +1679,7 @@ function selectOnlyMatched() {
 }
 
 function toggleSelectAll() {
+  selectionTouched = true
   if (isAllSelected.value) {
     selectedConfigIds.value = []
   } else {
@@ -1644,11 +1701,6 @@ function actPrev() {
   }
 }
 
-/** 下一张：等同于忽略当前不处理，直接进入下一张素材 */
-function actNext() {
-  actSkip()
-}
-
 /** 忽略当前素材：当前不处理，记录忽略，直接进入下一张 */
 function actSkip() {
   if (!current.value) return
@@ -1664,15 +1716,12 @@ function actSkip() {
 
 /** 一键创建选中的发布任务并看下一张 */
 function actCreateAndNext() {
-  if (!current.value) return
-  if (!selectedConfigIds.value.length || creating.value) {
-    actSkip()
-    return
-  }
+  if (!current.value || loadingBatch.value) return
+  const targetConfigIds = [...selectedVisibleConfigIds.value]
+  if (!targetConfigIds.length) return
 
   const sticker = current.value
   const stickerId = String(sticker.id || '')
-  const targetConfigIds = [...selectedConfigIds.value]
   const count = targetConfigIds.length
 
   // 1. 乐观更新
@@ -1688,36 +1737,44 @@ function actCreateAndNext() {
     grouping: true
   })
 
-  // 2. 秒切下一张
+  // 2. 入队后台派发：上一张的接口还没回来也不挡这一张
+  createQueue.value.push({ stickerId, configIds: targetConfigIds })
+  void drainCreateQueue()
+
+  // 3. 秒切下一张
   currentIndex.value++
 
   // 若已到达当前队列末尾且为全库/分类模式，自动拉取下一批无感续航
   if (currentIndex.value >= queue.value.length && !props.hasUserSelection && !loadingBatch.value) {
     loadNextBatch()
   }
+}
 
-  // 3. 后台静默派发
-  creating.value = true
-  stickerPsdSetApi
-    .batchCreateByPublishConfig({
-      stickerIds: [stickerId],
-      publishConfigIds: targetConfigIds
-    })
-    .then(() => {
-      invalidatePublishBindingsCache(stickerId)
-      invalidateMaterialRelations(stickerId)
-    })
-    .catch((err: any) => {
-      targetConfigIds.forEach((cfgId) => {
-        optimisticRecordKeys.value.delete(`${stickerId}:${cfgId}`)
+/** 串行消费创建队列：一次只压一个请求，失败只回滚这一单，不影响后续 */
+async function drainCreateQueue() {
+  if (createDraining) return
+  createDraining = true
+  while (createQueue.value.length) {
+    const job = createQueue.value[0]
+    try {
+      await stickerPsdSetApi.batchCreateByPublishConfig({
+        stickerIds: [job.stickerId],
+        publishConfigIds: job.configIds
+      })
+      invalidatePublishBindingsCache(job.stickerId)
+      invalidateMaterialRelations(job.stickerId)
+    } catch (err: any) {
+      job.configIds.forEach((cfgId) => {
+        optimisticRecordKeys.value.delete(`${job.stickerId}:${cfgId}`)
       })
       createdMaterialCount.value = Math.max(0, createdMaterialCount.value - 1)
-      createdTaskCount.value = Math.max(0, createdTaskCount.value - count)
+      createdTaskCount.value = Math.max(0, createdTaskCount.value - job.configIds.length)
       ElMessage.error(err?.message || '发布任务创建失败，已回滚')
-    })
-    .finally(() => {
-      creating.value = false
-    })
+    } finally {
+      if (createQueue.value[0] === job) createQueue.value.shift()
+    }
+  }
+  createDraining = false
 }
 
 /** 图片内容键：剥掉域名后的 query/hash，用来识别「同一张图的多条记录」 */
@@ -1879,7 +1936,8 @@ function handleKeydown(e: KeyboardEvent) {
   const activeEl = document.activeElement
   if (
     activeEl &&
-    (activeEl.tagName === 'INPUT' ||
+    (activeEl.closest('.pqr__config-search') ||
+      activeEl.tagName === 'INPUT' ||
       activeEl.tagName === 'TEXTAREA' ||
       (activeEl as HTMLElement).isContentEditable)
   ) {
@@ -2712,6 +2770,70 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   }
 }
 
+.pqr__config-search {
+  display: flex;
+  height: 36px;
+  padding: 0 10px;
+  color: var(--el-text-color-placeholder);
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+
+  &:focus-within {
+    border-color: var(--pqr-primary-on-tint);
+    box-shadow: 0 0 0 2px var(--pqr-primary-tint);
+  }
+
+  input {
+    width: 100%;
+    min-width: 0;
+    padding: 0;
+    font: inherit;
+    font-size: 13px;
+    color: var(--el-text-color-primary);
+    background: transparent;
+    border: none;
+    outline: none;
+
+    &::placeholder {
+      color: var(--el-text-color-placeholder);
+    }
+
+    &::-webkit-search-cancel-button {
+      appearance: none;
+    }
+  }
+}
+
+.pqr__config-search-clear {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--el-text-color-secondary);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+
+  &:hover {
+    color: var(--el-text-color-primary);
+    background: var(--el-fill-color);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--pqr-primary-on-tint);
+    outline-offset: 2px;
+  }
+}
+
 .pqr__side-subbar {
   display: flex;
   align-items: center;
@@ -2742,6 +2864,11 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
 .pqr__side-sub-count {
   font-size: 11px;
   color: var(--el-text-color-secondary);
+}
+
+.pqr__side-sub-hidden {
+  font-style: normal;
+  color: var(--el-color-warning);
 }
 
 .pqr__config-scroll {
@@ -3006,6 +3133,13 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   padding: 10px 0 14px;
 }
 
+.pqr__create-pending {
+  padding: 0 0 6px;
+  font-size: 11px;
+  color: var(--el-text-color-secondary);
+  text-align: center;
+}
+
 .pqr__submit {
   width: 100%;
   height: 40px;
@@ -3192,6 +3326,10 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
     border-top: 1px solid var(--app-content-border-color, var(--el-border-color-lighter));
     padding: 10px 14px 0;
     gap: 8px;
+  }
+
+  .pqr__config-search input {
+    font-size: 16px;
   }
 
   .pqr__side-footer {

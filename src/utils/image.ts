@@ -64,9 +64,9 @@ export function getPreviewImageUrl(url: string | null | undefined, options: Imag
       if (width && height) {
         params.push(`thumbnail/${width}x${height}`)
       } else if (width) {
-        params.push(`thumbnail/x${width}`)
+        params.push(`thumbnail/${width}x`)
       } else if (height) {
-        params.push(`thumbnail/${height}x`)
+        params.push(`thumbnail/x${height}`)
       }
     } else {
       if (width && height) {
@@ -152,13 +152,7 @@ export function isImageProcessableUrl(url: string | null | undefined): boolean {
   }
 }
 
-/**
- * 逐张浏览大图（快速审核、画廊）用的地址：按目标宽度出图并转 webp。
- *
- * 审核面板原本直接下载并解码原图，几 MB / 上千万像素的图片是「连点几张就卡」的主因；
- * 出图宽度按视口给足，肉眼看不出差别，体积和解码时间通常只有原图的几十分之一。
- * GIF 不转格式，否则动图会被定住。非 COS 地址原样返回。
- */
+// 同时限制宽高，避免超宽或超长图超出预览所需的解码尺寸。
 export function getReviewImageUrl(url: string | null | undefined, width = 1600): string {
   if (!url || typeof url !== 'string') {
     return ''
@@ -170,6 +164,7 @@ export function getReviewImageUrl(url: string | null | undefined, width = 1600):
   const keepAnimation = /\.gif(\?|#|$)/i.test(url)
   const processed = getPreviewImageUrl(url, {
     width,
+    height: width,
     quality: keepAnimation ? undefined : 85,
     format: keepAnimation ? undefined : 'webp',
     ignoreError: true,
@@ -181,7 +176,7 @@ export function getReviewImageUrl(url: string | null | undefined, width = 1600):
 
 /**
  * 获取更激进压缩的快速预览图 URL，适合列表、弹窗缩略图等场景。
- * 默认产出类似：?imageMogr2/thumbnail/x200/quality/80/format/webp/size-limit/200k!/ignore-error/1
+ * 默认产出类似：?imageMogr2/thumbnail/200x/quality/80/format/webp/size-limit/200k!/ignore-error/1
  */
 export function getFastPreviewImageUrl(
   url: string | null | undefined,
