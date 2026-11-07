@@ -415,6 +415,26 @@ export const updateTaskExecutionReadiness = (
   );
 };
 
+// 批量审核媒体发布任务（仅 publish-media-*；approve=通过，reject=驳回）
+export const reviewPublishTasks = (
+  ids: string[],
+  action: "approve" | "reject",
+  reason?: string,
+) => {
+  return request.post<{
+    success: boolean;
+    message: string;
+    data: {
+      total: number;
+      reviewed: number;
+      skipped: Array<{ id: string; reason: string }>;
+    };
+  }>({
+    url: "/queue/messages/publish-review",
+    data: { ids, action, reason },
+  });
+};
+
 // 清空队列
 export const clearQueue = (queue: string) => {
   return request.delete({ url: `/queue/clear`, params: { queue } });

@@ -214,11 +214,9 @@ import {
 } from '@/api/vendor'
 import { createImageViewer } from '@/components/ImageViewer'
 import { uploadToCOS } from '@/api/cos'
-import { useUserStore } from '@/store/modules/user'
 
 const emit = defineEmits(['success'])
 
-const userStore = useUserStore()
 const formLoading = ref(false)
 const dialogVisible = ref(false)
 const formRef = ref<FormInstance>()
@@ -377,15 +375,10 @@ const uploadPendingImages = async () => {
   for (const file of imageFileList.value) {
     if (!file.raw) continue
 
-    const account = (userStore.user as any)?.account || userStore.user?.name || 'anonymous'
-    const date = new Date().toISOString().slice(0, 10)
-    const ext = file.name.includes('.') ? file.name.substring(file.name.lastIndexOf('.')) : ''
-    const filename = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`
-    const cosPath = `vendor-product/${date}/${account}/${filename}`
-
+    // 统一走 buildCOSKey：users/{userId}_{account}/vendor-product/{YYYYMMDD}/{ts}_{filename}
     const result = await uploadToCOS({
       file: file.raw as File,
-      path: cosPath,
+      category: 'vendor-product',
     })
     uploadedUrls.set(file, (result as any)?.url || result)
   }

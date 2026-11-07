@@ -197,17 +197,15 @@
 
 <script setup lang="ts">
 import type { UploadProps, UploadUserFile } from 'element-plus'
-import { computed, reactive, ref, unref } from 'vue'
+import { reactive, ref, unref } from 'vue'
 import { ElMessage, ElNotification } from 'element-plus'
 import { Delete, Plus, TopRight } from '@element-plus/icons-vue'
-import { createVendor, getVendorDetail, updateVendor, type CustomAttribute, type Vendor, type VendorShopUrl } from '@/api/vendor'
+import { createVendor, getVendorDetail, updateVendor, type CustomAttribute, type Vendor } from '@/api/vendor'
 import { createImageViewer } from '@/components/ImageViewer'
 import { uploadToCOS } from '@/api/cos'
-import { useUserStore } from '@/store/modules/user'
 
 const emit = defineEmits(['success'])
 
-const userStore = useUserStore()
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
 const formLoading = ref(false)
@@ -250,11 +248,6 @@ const formData = reactive<{
 const formRules = {
   name: [{ required: true, message: '请输入厂家名称', trigger: 'blur' }],
 }
-
-const userAccount = computed(
-  () =>
-    (userStore.user as any)?.account || userStore.user?.shortName || userStore.user?.name || 'anonymous',
-)
 
 const revokeLocalPreviewUrls = () => {
   imageFileList.value.forEach((file) => {
@@ -410,24 +403,16 @@ const handleImagePreview: UploadProps['onPreview'] = (file) => {
   })
 }
 
-const buildVendorUploadPath = (file: File) => {
-  const account = userAccount.value || 'anonymous'
-  const date = new Date().toISOString().slice(0, 10)
-  const ext = file.name.includes('.') ? file.name.substring(file.name.lastIndexOf('.')) : ''
-  const filename = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`
-  return `vendor/${date}/${account}/${filename}`
-}
-
 const uploadNewImages = async () => {
   const pendingFiles = imageFileList.value.filter((file) => file.raw)
   if (!pendingFiles.length) return []
 
   const uploadTasks = pendingFiles.map(async (file) => {
     const rawFile = file.raw as File
-    const cosPath = buildVendorUploadPath(rawFile)
+    // 统一走 buildCOSKey：users/{userId}_{account}/vendor/{YYYYMMDD}/{ts}_{filename}
     const result = await uploadToCOS({
       file: rawFile,
-      path: cosPath,
+      category: 'vendor',
     })
     return (result as any)?.url || result
   })

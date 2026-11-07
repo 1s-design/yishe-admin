@@ -233,6 +233,33 @@
               </el-button>
               <el-button
                 size="small"
+                type="success"
+                :disabled="!selectedReviewableMediaIds.length"
+                :loading="batchReviewApproveLoading"
+                @click="handleBatchReviewPublishTasks('approve')"
+              >
+                {{
+                  selectedReviewableMediaIds.length
+                    ? `${t('queue.batchReviewApprove')} (${selectedReviewableMediaIds.length})`
+                    : t('queue.batchReviewApprove')
+                }}
+              </el-button>
+              <el-button
+                size="small"
+                type="danger"
+                plain
+                :disabled="!selectedReviewableMediaIds.length"
+                :loading="batchReviewRejectLoading"
+                @click="handleBatchReviewPublishTasks('reject')"
+              >
+                {{
+                  selectedReviewableMediaIds.length
+                    ? `${t('queue.batchReviewReject')} (${selectedReviewableMediaIds.length})`
+                    : t('queue.batchReviewReject')
+                }}
+              </el-button>
+              <el-button
+                size="small"
                 type="warning"
                 :disabled="!ids.length"
                 :loading="batchResetPendingLoading"
@@ -482,6 +509,19 @@
                         <span class="queue-conclusion__text">{{ row._ui?.conclusionText || "-" }}</span>
                       </span>
                     </div>
+                  </template>
+
+                  <template #publishReviewDefaultSlot="{ row }">
+                    <span
+                      v-if="isPublishMediaTaskRow(row)"
+                      class="queue-status-pill"
+                      :class="`queue-review-pill--${row._ui?.reviewStatus || 'none'}`"
+                      :title="row._ui?.reviewReason || ''"
+                    >
+                      <i class="queue-status-pill__dot"></i>
+                      <span class="queue-status-pill__value">{{ row._ui?.reviewText || "-" }}</span>
+                    </span>
+                    <span v-else class="text-secondary">-</span>
                   </template>
 
                   <template #statusDetailDefaultSlot="{ row }">
@@ -1112,6 +1152,7 @@ import {
   updateTaskData,
   updateTaskStatus,
   batchResetPublishTasksToPending,
+  reviewPublishTasks,
   type QueueExecutionReadinessStatusFilter,
   type QueueMessage,
   type QueueStats,
@@ -1395,6 +1436,16 @@ const gridOptions = ref({
       },
     },
     {
+      // 媒体任务人工审核列：商品行显示 -，媒体行显示 未审核/已通过/已驳回 徽标
+      title: t('queue.reviewStatus'),
+      field: "publishReview",
+      width: 96,
+      showOverflow: false,
+      slots: {
+        default: "publishReviewDefaultSlot",
+      },
+    },
+    {
       // 通用「状态明细」列：列本身对所有任务生效，单元格内容按任务家族渲染——
       // 商品发布行显示 套图状态+标题状态 两个徽标，其他家族暂无专属状态则显示 -
       title: t('queue.statusDetail'),
@@ -1449,6 +1500,7 @@ function decorateQueueRow(row: QueueMessage): QueueMessage {
   const dispatchMeta = getPublishDispatchMeta(row) || {};
   const rowStatus = String(row?.status || "");
   const isRowFinished = rowStatus === "completed" || rowStatus === "failed";
+  const review = getPublishReviewInfo(row);
   (row as any)._ui = {
     conclusionKey: conclusion.key,
     conclusionText: conclusion.text,
@@ -1460,10 +1512,41 @@ function decorateQueueRow(row: QueueMessage): QueueMessage {
     ),
     psdStatus: getPsdSetStatusInfo(row),
     titleStatus: getTitleStatusInfo(row),
+    reviewStatus: review.status,
+    reviewText: review.text,
+    reviewReason: review.reason,
     createdAtText: formatQueueDateTime(row.createdAt),
     createdAtFull: formatQueueFullTime(row.createdAt),
   };
   return markRaw(row);
+}
+
+/**
+ * 媒体任务人工审核状态（metadata.publishReview）。
+ * 商品任务/无审核字段返回 none（列表显示 -，不受审核拦截）。
+ */
+function getPublishReviewInfo(row?: QueueMessage | null): {
+  status: "pending" | "approved" | "rejected" | "none";
+  text: string;
+  reason: string;
+} {
+  const review =
+    row?.metadata?.publishReview &&
+    typeof row.metadata.publishReview === "object"
+      ? row.metadata.publishReview
+      : null;
+  const status = String(review?.status || "").trim();
+  const reason = String(review?.reason || "").trim();
+  if (status === "pending") {
+    return { status: "pending", text: t("queue.reviewPending"), reason };
+  }
+  if (status === "approved") {
+    return { status: "approved", text: t("queue.reviewApproved"), reason };
+  }
+  if (status === "rejected") {
+    return { status: "rejected", text: t("queue.reviewRejected"), reason };
+  }
+  return { status: "none", text: "-", reason: "" };
 }
 
 const dataSource = ref<QueueMessage[]>([]);
@@ -1476,6 +1559,10 @@ const statusSubmitLoading = ref(false);
 const dataUpdateSubmitting = ref(false);
 const deleteLoading = ref(false);
 const batchResetPendingLoading = ref(false);
+const batchReviewApproveLoading = ref(false);
+const batchReviewRejectLoading = ref(false);
+/** 当前勾选中可审核的媒体任务 ID（跨页 reserve 行也算） */
+const selectedReviewableMediaIds = ref<string[]>([]);
 const batchRegenerateLoading = ref(false);
 const publishTaskAutoDispatchEnabled = ref(false);
 const publishTaskAutoDispatchLoading = ref(false);
@@ -3107,6 +3194,7 @@ function clearSelectedRows() {
   gridRef.value?.clearCheckboxRow?.();
   gridRef.value?.clearCheckboxReserve?.();
   ids.value = [];
+  selectedReviewableMediaIds.value = [];
 }
 
 // 从表格侧同步全量勾选（含 reserve 跨页保留），避免 ids 只记录当前页
@@ -3118,13 +3206,18 @@ function syncSelectedIdsFromGrid() {
   ];
   const seen = new Set<string>();
   const next: string[] = [];
+  const mediaIds: string[] = [];
   for (const row of rows) {
     const id = String(row?.id || "").trim();
     if (!id || seen.has(id)) continue;
     seen.add(id);
     next.push(id);
+    if (isPublishMediaFamily(row?.type)) {
+      mediaIds.push(id);
+    }
   }
   ids.value = next;
+  selectedReviewableMediaIds.value = mediaIds;
 }
 
 // 复选框变化
@@ -3134,7 +3227,11 @@ function checkboxChange(e: any) {
     syncSelectedIdsFromGrid();
     return;
   }
-  ids.value = (e.records || []).map((item: any) => item.id);
+  const records: any[] = e.records || [];
+  ids.value = records.map((item: any) => item.id);
+  selectedReviewableMediaIds.value = records
+    .filter((item: any) => isPublishMediaFamily(item?.type))
+    .map((item: any) => String(item.id));
 }
 
 function checkboxAllChange(e: any) {
@@ -3143,7 +3240,11 @@ function checkboxAllChange(e: any) {
     syncSelectedIdsFromGrid();
     return;
   }
-  ids.value = (e.records || []).map((item: any) => item.id);
+  const records: any[] = e.records || [];
+  ids.value = records.map((item: any) => item.id);
+  selectedReviewableMediaIds.value = records
+    .filter((item: any) => isPublishMediaFamily(item?.type))
+    .map((item: any) => String(item.id));
 }
 
 function getSelectedQueueRows() {
@@ -3918,6 +4019,66 @@ function handleDelete(row?: QueueMessage) {
       }
     })
     .catch(() => {});
+}
+
+/**
+ * 批量审核媒体发布任务（通过/驳回）。
+ * 只有媒体任务（publish-media-*）参与审核；商品任务在选中行里会被自动忽略。
+ */
+async function handleBatchReviewPublishTasks(action: "approve" | "reject") {
+  const loadingRef = action === "approve" ? batchReviewApproveLoading : batchReviewRejectLoading;
+  if (loadingRef.value) return;
+  const targetIds = [...selectedReviewableMediaIds.value];
+  if (!targetIds.length) {
+    return ElMessage.warning(t("queue.noMediaTaskToReview"));
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      action === "approve"
+        ? t("queue.confirmReviewApprove", { count: targetIds.length })
+        : t("queue.confirmReviewReject", { count: targetIds.length }),
+      action === "approve" ? t("queue.batchReviewApprove") : t("queue.batchReviewReject"),
+      {
+        type: "warning",
+        confirmButtonText: t("queue.confirm"),
+        cancelButtonText: t("queue.cancel"),
+      },
+    );
+
+    loadingRef.value = true;
+    const response: any = await reviewPublishTasks(targetIds, action);
+    const data = response?.data || response || {};
+    const reviewed = Number(data.reviewed ?? 0);
+    const skipped: Array<{ id: string; reason: string }> = Array.isArray(data.skipped)
+      ? data.skipped
+      : [];
+
+    if (action === "approve") {
+      ElMessage.success(t("queue.reviewApproveSuccess", { count: reviewed }));
+    } else {
+      ElMessage.success(t("queue.reviewRejectSuccess", { count: reviewed }));
+    }
+    if (skipped.length) {
+      ElMessage.warning(
+        t("queue.reviewSkippedWarning", { count: skipped.length }) +
+          skipped
+            .slice(0, 3)
+            .map((item) => `${item.id}(${item.reason})`)
+            .join("、"),
+      );
+    }
+
+    clearSelectedRows();
+    await getList();
+  } catch (error: any) {
+    if (error === "cancel" || error?.message === "cancel") return;
+    ElMessage.error(
+      action === "approve" ? t("queue.reviewApproveFailed") : t("queue.reviewRejectFailed"),
+    );
+  } finally {
+    loadingRef.value = false;
+  }
 }
 
 async function handleBatchResetPublishTasksToPending() {
@@ -5604,6 +5765,27 @@ html.dark .queue-page :deep(.queue-selected-count__clear) {
 }
 
 .queue-page :deep(.queue-status-pill--info) {
+  color: var(--el-text-color-regular);
+  background: var(--el-fill-color-light);
+}
+
+/* 媒体任务人工审核徽标：未审核=警示橙、已通过=成功绿、已驳回=危险红 */
+.queue-page :deep(.queue-review-pill--pending) {
+  color: var(--el-color-warning);
+  background: color-mix(in srgb, var(--el-color-warning) 12%, transparent);
+}
+
+.queue-page :deep(.queue-review-pill--approved) {
+  color: var(--el-color-success);
+  background: color-mix(in srgb, var(--el-color-success) 12%, transparent);
+}
+
+.queue-page :deep(.queue-review-pill--rejected) {
+  color: var(--el-color-danger);
+  background: color-mix(in srgb, var(--el-color-danger) 12%, transparent);
+}
+
+.queue-page :deep(.queue-review-pill--none) {
   color: var(--el-text-color-regular);
   background: var(--el-fill-color-light);
 }
