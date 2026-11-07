@@ -84,15 +84,15 @@ const emit = defineEmits(['update:modelValue', 'files-change'])
 const localFiles = ref([])
 const isDragging = ref(false)
 
-// 获取预览URL
-const getPreviewUrl = (file) => {
-  if (file.url) {
-    return file.url
+// 预览 URL 在选文件时创建一次并复用，避免每次渲染都新建 blob URL
+const getPreviewUrl = (file) => file.url || file.previewUrl || ''
+
+// 释放创建时保存的那个 URL 引用
+const releasePreviewUrl = (file) => {
+  if (file?.previewUrl) {
+    window.URL.revokeObjectURL(file.previewUrl)
+    file.previewUrl = null
   }
-  if (file.raw) {
-    return window.URL.createObjectURL(file.raw)
-  }
-  return ''
 }
 
 // 计算预览列表
@@ -116,7 +116,8 @@ const handleChange = (file) => {
   localFiles.value.push({
     id: `file-${Date.now()}-${Math.random()}`,
     raw: file.raw,
-    url: null
+    url: null,
+    previewUrl: window.URL.createObjectURL(file.raw)
   })
 
   // 通知父组件文件列表已更新
@@ -126,10 +127,7 @@ const handleChange = (file) => {
 // 删除文件
 const removeFile = (index) => {
   const file = localFiles.value[index]
-  // 如果是本地预览的图片，需要释放URL
-  if (file.raw && !file.url) {
-    window.URL.revokeObjectURL(getPreviewUrl(file))
-  }
+  releasePreviewUrl(file)
   localFiles.value.splice(index, 1)
   
   // 更新 modelValue，只保留已上传的图片URL
@@ -186,21 +184,13 @@ watch(() => props.modelValue, updateLocalFiles)
 
 // 组件卸载时清理所有创建的URL
 onUnmounted(() => {
-  localFiles.value.forEach(file => {
-    if (file.raw && !file.url) {
-      window.URL.revokeObjectURL(getPreviewUrl(file))
-    }
-  })
+  localFiles.value.forEach(file => releasePreviewUrl(file))
 })
 
 // 添加 reset 方法
 const reset = () => {
   // 清理所有本地预览URL
-  localFiles.value.forEach(file => {
-    if (file.raw && !file.url) {
-      window.URL.revokeObjectURL(getPreviewUrl(file))
-    }
-  })
+  localFiles.value.forEach(file => releasePreviewUrl(file))
   // 重置本地文件列表
   localFiles.value = []
   // 重置父组件的值

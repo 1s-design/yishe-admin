@@ -4929,6 +4929,8 @@ export default {
   queue: {
     taskId: 'Task ID',
     placeholderQueryAll: 'Leave empty to query all',
+    searchKeyword: 'Keyword',
+    searchKeywordPlaceholder: 'Search task description (contains match)',
     taskType: 'Task Type',
     allTypes: 'All Types',
     publishCategory: 'Publish Category',
@@ -5203,6 +5205,7 @@ export default {
     selectTaskToReset: 'Select the platform tasks to reset',
     noPublishTaskSelected: 'No platform publish tasks in the selected data',
     confirmBatchReset: 'Confirm resetting the {count} selected platform tasks to not run? Running tasks will be skipped automatically.',
+    confirmBatchResetAll: 'Confirm resetting all {count} platform tasks under the current filter to not run? This is not limited to the current page; running tasks will be skipped automatically.',
     resetSkipped: 'Reset {updated}, skipped {skipped}',
     resetPlatformTasks: 'Reset {count} platform tasks',
     noTaskToReset: 'No platform tasks to reset',

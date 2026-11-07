@@ -4923,6 +4923,8 @@ export default {
   queue: {
     taskId: '任务 ID',
     placeholderQueryAll: '留空则查询全部',
+    searchKeyword: '关键词搜索',
+    searchKeywordPlaceholder: '输入任务描述关键词，包含即匹配',
     taskType: '任务类型',
     allTypes: '全部类型',
     publishCategory: '发布分类',
@@ -5197,6 +5199,7 @@ export default {
     selectTaskToReset: '请选择要重置的平台任务',
     noPublishTaskSelected: '选中的数据里没有平台发布任务',
     confirmBatchReset: '确认将选中的 {count} 条平台任务重置为未运行吗？执行中的任务会自动跳过。',
+    confirmBatchResetAll: '确认将当前筛选条件下的全部 {count} 条平台任务重置为未运行吗？不受列表分页条数限制，执行中的任务会自动跳过。',
     resetSkipped: '已重置 {updated} 条，跳过 {skipped} 条',
     resetPlatformTasks: '已重置 {count} 条平台任务',
     noTaskToReset: '没有可重置的平台任务',
