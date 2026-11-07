@@ -24,6 +24,11 @@ export interface PublishTaskAutoDispatchFilter {
   excludeKeywords: string[];
   createdAfter: string;
   createdBefore: string;
+  /**
+   * 执行店铺白名单（shop.id）。空 = 不限。
+   * 只约束有店铺归属的任务，其他平台任务不受影响。
+   */
+  shopIds: string[];
 }
 
 const normalizeStringArray = (value?: any): string[] => {
@@ -42,6 +47,7 @@ const normalizePublishTaskAutoDispatchFilter = (value?: any): PublishTaskAutoDis
   excludeKeywords: normalizeStringArray(value?.excludeKeywords),
   createdAfter: String(value?.createdAfter || "").trim(),
   createdBefore: String(value?.createdBefore || "").trim(),
+  shopIds: normalizeStringArray(value?.shopIds),
 });
 
 const normalizePublishTaskAutoDispatchSetting = (value?: any): PublishTaskAutoDispatchSetting => ({

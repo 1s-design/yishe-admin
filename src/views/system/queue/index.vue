@@ -1057,6 +1057,24 @@
                 />
               </el-select>
             </el-form-item>
+            <el-form-item :label="t('queue.executeShops')">
+              <el-select
+                v-model="autoDispatchFilterForm.shopIds"
+                multiple
+                collapse-tags
+                collapse-tags-tooltip
+                clearable
+                filterable
+                :placeholder="t('queue.allShops')"
+              >
+                <el-option
+                  v-for="opt in autoDispatchShopOptions"
+                  :key="opt.id"
+                  :label="opt.name"
+                  :value="opt.id"
+                />
+              </el-select>
+            </el-form-item>
             <el-form-item :label="t('queue.createdAt')">
               <el-date-picker
                 v-model="autoDispatchFilterDateRange"
@@ -1191,6 +1209,7 @@ import {
   type PublishTaskAutoDispatchFilter,
   type PublishTaskAutoDispatchSetting,
 } from "@/services/publishTaskAutoDispatch";
+import { getShopList } from "@/api/shop";
 import { getClientServiceRuntime } from "@/store/modules/clientNode";
 import PublishDispatchTargetTable from "./components/PublishDispatchTargetTable.vue";
 import TaskStatsDialog from "./components/TaskStatsDialog.vue";
@@ -1581,10 +1600,14 @@ const autoDispatchTargetClientId = ref("");
 const autoDispatchTargetProfileId = ref("");
 const autoDispatchFilterForm = reactive({
   taskTypes: [] as string[],
+  shopIds: [] as string[],
   includeKeywordsText: "",
   excludeKeywordsText: "",
 });
 const autoDispatchFilterDateRange = ref<[string, string] | []>([]);
+/** 自动执行可选的店铺（只列抖店，其他平台没有店铺维度） */
+const autoDispatchShopOptions = ref<Array<{ id: string; name: string }>>([]);
+let autoDispatchShopOptionsLoaded = false;
 let publishTaskRuntimeReloadTimer: ReturnType<typeof setTimeout> | null = null;
 let publishTaskCountersRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 let publishTaskMenuRuntimeSyncTimer: ReturnType<typeof setTimeout> | null = null;
@@ -3495,6 +3518,38 @@ function joinAutoDispatchKeywords(value?: string[] | null) {
     .join("，");
 }
 
+/** 自动执行可选的抖店店铺列表（懒加载，只拉一次） */
+async function loadAutoDispatchShopOptions() {
+  if (autoDispatchShopOptionsLoaded) {
+    return;
+  }
+  try {
+    const data: any = await getShopList();
+    const rows = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
+    autoDispatchShopOptions.value = rows
+      .filter((item: any) => {
+        const platform = String(item?.platform || "doudian")
+          .trim()
+          .toLowerCase();
+        return platform === "doudian";
+      })
+      .map((item: any) => ({
+        id: String(item?.id ?? "").trim(),
+        name: String(item?.name || item?.id || "").trim(),
+      }))
+      .filter((item: { id: string }) => !!item.id);
+    autoDispatchShopOptionsLoaded = true;
+  } catch {
+    // 店铺列表拉取失败时保留已保存的取值，不阻塞配置保存
+  }
+}
+
+function getAutoDispatchShopLabel(shopId: string) {
+  const normalized = String(shopId || "").trim();
+  const matched = autoDispatchShopOptions.value.find((item) => item.id === normalized);
+  return matched?.name || normalized;
+}
+
 function buildAutoDispatchFilterFromForm(): PublishTaskAutoDispatchFilter {
   const [createdAfter = "", createdBefore = ""] = Array.isArray(autoDispatchFilterDateRange.value)
     ? autoDispatchFilterDateRange.value
@@ -3502,6 +3557,9 @@ function buildAutoDispatchFilterFromForm(): PublishTaskAutoDispatchFilter {
 
   return {
     taskTypes: autoDispatchFilterForm.taskTypes
+      .map((item) => String(item || "").trim())
+      .filter(Boolean),
+    shopIds: autoDispatchFilterForm.shopIds
       .map((item) => String(item || "").trim())
       .filter(Boolean),
     includeKeywords: splitAutoDispatchKeywordText(autoDispatchFilterForm.includeKeywordsText),
@@ -3515,6 +3573,9 @@ function applyAutoDispatchFilterToForm(filter?: Partial<PublishTaskAutoDispatchF
   autoDispatchFilterForm.taskTypes = Array.isArray(filter?.taskTypes)
     ? filter.taskTypes.map((item) => String(item || "").trim()).filter(Boolean)
     : [];
+  autoDispatchFilterForm.shopIds = Array.isArray(filter?.shopIds)
+    ? filter.shopIds.map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
   autoDispatchFilterForm.includeKeywordsText = joinAutoDispatchKeywords(filter?.includeKeywords);
   autoDispatchFilterForm.excludeKeywordsText = joinAutoDispatchKeywords(filter?.excludeKeywords);
   const createdAfter = String(filter?.createdAfter || "").trim();
@@ -3526,11 +3587,15 @@ function applyAutoDispatchFilterToForm(filter?: Partial<PublishTaskAutoDispatchF
 function getAutoDispatchFilterSummary(filter?: Partial<PublishTaskAutoDispatchFilter> | null) {
   const parts: string[] = [];
   const taskTypeCount = Array.isArray(filter?.taskTypes) ? filter.taskTypes.length : 0;
+  const shopCount = Array.isArray(filter?.shopIds) ? filter.shopIds.length : 0;
   const includeCount = Array.isArray(filter?.includeKeywords) ? filter.includeKeywords.length : 0;
   const excludeCount = Array.isArray(filter?.excludeKeywords) ? filter.excludeKeywords.length : 0;
 
   if (taskTypeCount > 0) {
     parts.push(t('queue.taskTypeCount', { count: taskTypeCount }));
+  }
+  if (shopCount > 0) {
+    parts.push(t('queue.shopCount', { count: shopCount }));
   }
   if (includeCount > 0) {
     parts.push(t('queue.includesCount', { count: includeCount }));
@@ -3555,6 +3620,9 @@ function getAutoDispatchFilterDetail(filter?: Partial<PublishTaskAutoDispatchFil
   const taskTypes = Array.isArray(filter?.taskTypes)
     ? filter.taskTypes.map((item) => String(item || "").trim()).filter(Boolean)
     : [];
+  const shopIds = Array.isArray(filter?.shopIds)
+    ? filter.shopIds.map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
   const includeKeywords = Array.isArray(filter?.includeKeywords)
     ? filter.includeKeywords.map((item) => String(item || "").trim()).filter(Boolean)
     : [];
@@ -3567,6 +3635,11 @@ function getAutoDispatchFilterDetail(filter?: Partial<PublishTaskAutoDispatchFil
   return [
     t('queue.filterTaskTypes', {
       value: taskTypes.length ? taskTypes.map(getAutoDispatchTaskTypeLabel).join("、") : t('queue.all'),
+    }),
+    t('queue.filterShops', {
+      value: shopIds.length
+        ? shopIds.map(getAutoDispatchShopLabel).join("、")
+        : t('queue.all'),
     }),
     t('queue.filterCreatedTime', {
       start: createdAfter || t('queue.unlimited'),
@@ -3621,7 +3694,11 @@ async function handleOpenPublishDispatchDialog() {
 async function handleOpenAutoDispatchTargetDialog() {
   autoDispatchTargetDialogLoading.value = true;
   try {
-    await Promise.all([refreshClientNodes(), loadPublishTaskAutoDispatchSettingState()]);
+    await Promise.all([
+      refreshClientNodes(),
+      loadPublishTaskAutoDispatchSettingState(),
+      loadAutoDispatchShopOptions(),
+    ]);
     syncAutoDispatchTargetSelection();
   } finally {
     autoDispatchTargetDialogLoading.value = false;
@@ -4656,6 +4733,7 @@ onMounted(() => {
     refreshClientNodes(),
     refreshPublishTaskTypeOptions(),
     loadPublishTaskAutoDispatchSettingState(),
+    loadAutoDispatchShopOptions(),
     refreshPublishTaskRuntime(),
   ]);
   websocketClient.events.on("publishTaskRuntime", applyPublishTaskRuntimeEvent);
