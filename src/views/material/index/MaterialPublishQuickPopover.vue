@@ -506,8 +506,14 @@ function handleQuickCreate() {
       fullDataLoadedStickerId = ''
     })
     .catch((err: any) => {
-      targetConfigIds.forEach((id) => optimisticCreatedConfigIds.value.delete(id))
-      ElMessage.error(err?.message || '一键创建发布任务失败，已回滚')
+      const errMsg = String(err?.message || '')
+      // 全部配置都已制作过属于幂等跳过，不按失败回滚
+      if (errMsg.includes('制作过')) {
+        ElMessage.warning(errMsg)
+      } else {
+        targetConfigIds.forEach((id) => optimisticCreatedConfigIds.value.delete(id))
+        ElMessage.error(errMsg || '一键创建发布任务失败，已回滚')
+      }
     })
     .finally(() => {
       creating.value = false

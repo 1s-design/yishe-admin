@@ -158,6 +158,10 @@ export const getTaskList = (params: {
   /** 发布任务家族：product=商品发布，media=媒体发布 */
   family?: "product" | "media";
   id?: string;
+  /** 任务描述关键词模糊搜索 */
+  keyword?: string;
+  /** 失败原因（error）关键词模糊搜索，与 keyword 独立 */
+  errorKeyword?: string;
   executionReadinessStatus?: QueueExecutionReadinessStatusFilter;
   sortField?: "createdAt" | "updatedAt" | "processedAt";
   sortOrder?: "ASC" | "DESC";
@@ -194,6 +198,13 @@ export const getTaskList = (params: {
   }
   if (!queryParams.createdBefore) {
     delete queryParams.createdBefore;
+  }
+  // 描述搜索与失败原因搜索相互独立，空值不传递，避免后端误判
+  if (!queryParams.keyword || !String(queryParams.keyword).trim()) {
+    delete queryParams.keyword;
+  }
+  if (!queryParams.errorKeyword || !String(queryParams.errorKeyword).trim()) {
+    delete queryParams.errorKeyword;
   }
   return request.get({ url: `/queue/messages`, params: queryParams });
 };
@@ -368,7 +379,14 @@ export const updateTaskStatus = (
   return request.post({ url: "/queue/message/status", data: { type, messageId, status, error } });
 };
 
-export const batchResetPublishTasksToPending = (ids: string[]) => {
+export const batchResetPublishTasksToPending = (
+  ids: string[],
+  scope?: {
+    status?: string;
+    types?: string[];
+    family?: "product" | "media";
+  },
+) => {
   return request.post<{
     success: boolean;
     message: string;
@@ -379,7 +397,7 @@ export const batchResetPublishTasksToPending = (ids: string[]) => {
     };
   }>({
     url: "/queue/messages/status-batch/pending",
-    data: { ids },
+    data: scope ? { ids, scope } : { ids },
   });
 };
 

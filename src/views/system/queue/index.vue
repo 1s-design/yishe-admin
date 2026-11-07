@@ -31,6 +31,44 @@
                 :lg="6"
                 :xl="6"
               >
+                <el-form-item :label="t('queue.searchKeyword')">
+                  <el-input
+                    v-model="queryParams.keyword"
+                    size="small"
+                    clearable
+                    :placeholder="t('queue.searchKeywordPlaceholder')"
+                    @keyup.enter="handleQueryChange"
+                    @clear="handleQueryChange"
+                  />
+                </el-form-item>
+              </el-col>
+              <el-col
+                class="list-page-search-form__col--base"
+                :xs="24"
+                :sm="12"
+                :md="8"
+                :lg="6"
+                :xl="6"
+              >
+                <el-form-item :label="t('queue.searchErrorKeyword')">
+                  <el-input
+                    v-model="queryParams.errorKeyword"
+                    size="small"
+                    clearable
+                    :placeholder="t('queue.searchErrorKeywordPlaceholder')"
+                    @keyup.enter="handleQueryChange"
+                    @clear="handleQueryChange"
+                  />
+                </el-form-item>
+              </el-col>
+              <el-col
+                class="list-page-search-form__col--base"
+                :xs="24"
+                :sm="12"
+                :md="8"
+                :lg="6"
+                :xl="6"
+              >
                 <el-form-item :label="t('queue.taskType')">
                   <el-select
                     v-model="queryParams.types"
@@ -187,7 +225,8 @@
                 size="small"
                 type="danger"
                 :icon="Delete"
-                :disabled="!ids.length"
+                :disabled="!ids.length || deleteLoading"
+                :loading="deleteLoading"
                 @click="handleDelete(null)"
               >
                 {{ ids.length ? `${t('queue.batchDelete')} (${ids.length})` : t('queue.batchDelete') }}
@@ -1233,6 +1272,8 @@ const defaultQueueQueryFilters = {
   types: [] as string[],
   family: "" as "" | "product" | "media",
   id: "",
+  keyword: "",
+  errorKeyword: "",
   sortType: "createdAt_DESC",
   createdDateRange: null as [string, string] | null,
 };
@@ -1255,6 +1296,8 @@ const queryParams = reactive({
       ? queueQueryFilterStorage.value.family
       : "",
   id: String(queueQueryFilterStorage.value.id || ""),
+  keyword: String(queueQueryFilterStorage.value.keyword || ""),
+  errorKeyword: String(queueQueryFilterStorage.value.errorKeyword || ""),
   sortType: queueQueryFilterStorage.value.sortType || defaultQueueQueryFilters.sortType,
   createdDateRange: queueQueryFilterStorage.value.createdDateRange || null,
 });
@@ -2905,6 +2948,8 @@ async function getList(options?: unknown) {
       types: getSelectedQueryTypes().length > 0 ? getSelectedQueryTypes() : undefined,
       family: (queryParams.family as "product" | "media" | "") || undefined,
       id: queryParams.id?.trim() || undefined,
+      keyword: queryParams.keyword?.trim() || undefined,
+      errorKeyword: queryParams.errorKeyword?.trim() || undefined,
       sortField: sortField as "createdAt" | "updatedAt" | "processedAt",
       sortOrder: sortOrder as "ASC" | "DESC",
       includeTotal: !silent,
@@ -3002,6 +3047,8 @@ function handleResetQuery() {
   queryParams.types = [];
   queryParams.family = "";
   queryParams.id = "";
+  queryParams.keyword = "";
+  queryParams.errorKeyword = "";
   queryParams.sortType = defaultQueueQueryFilters.sortType;
   queryParams.createdDateRange = null;
 
@@ -3061,7 +3108,11 @@ async function refreshStats() {
         total: Number(statsData.total) || 0,
       };
       stats.value = nextStats;
-      if (!queryParams.id?.trim()) {
+      if (
+        !queryParams.id?.trim() &&
+        !queryParams.keyword?.trim() &&
+        !queryParams.errorKeyword?.trim()
+      ) {
         const statusTotal =
           queryParams.status && queryParams.status in nextStats
             ? Number(nextStats[queryParams.status]) || 0
@@ -3081,18 +3132,68 @@ function clearSelectedRows() {
   ids.value = [];
 }
 
+// 从表格侧同步全量勾选（含 reserve 跨页保留），避免 ids 只记录当前页
+function syncSelectedIdsFromGrid() {
+  const grid: any = gridRef.value;
+  const rows: any[] = [
+    ...(grid?.getCheckboxRecords?.() || []),
+    ...(grid?.getCheckboxReserveRecords?.() || []),
+  ];
+  const seen = new Set<string>();
+  const next: string[] = [];
+  for (const row of rows) {
+    const id = String(row?.id || "").trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    next.push(id);
+  }
+  ids.value = next;
+}
+
 // 复选框变化
 function checkboxChange(e: any) {
+  const grid: any = gridRef.value;
+  if (typeof grid?.getCheckboxRecords === "function") {
+    syncSelectedIdsFromGrid();
+    return;
+  }
   ids.value = (e.records || []).map((item: any) => item.id);
 }
 
 function checkboxAllChange(e: any) {
+  const grid: any = gridRef.value;
+  if (typeof grid?.getCheckboxRecords === "function") {
+    syncSelectedIdsFromGrid();
+    return;
+  }
   ids.value = (e.records || []).map((item: any) => item.id);
 }
 
 function getSelectedQueueRows() {
   const selectedIdSet = new Set(ids.value.map((id) => String(id || "").trim()).filter(Boolean));
-  return dataSource.value.filter((row) => selectedIdSet.has(String(row.id || "").trim()));
+  const inPageRows = dataSource.value.filter((row) =>
+    selectedIdSet.has(String(row.id || "").trim()),
+  );
+  // 表格开启了 reserve（跨页保留勾选），必须把表格侧的全量勾选记录一起取回。
+  // 否则 ids 里跨页保留的任务会被 dataSource（只有当前页）过滤掉，
+  // 出现「选了很多却只提交了本页」的问题。
+  const grid: any = gridRef.value;
+  const gridRows: any[] = [
+    ...(grid?.getCheckboxRecords?.() || []),
+    ...(grid?.getCheckboxReserveRecords?.() || []),
+  ];
+  if (!gridRows.length) {
+    return inPageRows;
+  }
+  const seen = new Set<string>();
+  const rows: any[] = [];
+  for (const row of [...inPageRows, ...gridRows]) {
+    const id = String(row?.id || "").trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    rows.push(row);
+  }
+  return rows;
 }
 
 // 任务类型清空处理
@@ -3859,14 +3960,18 @@ function handleDelete(row?: QueueMessage) {
   if (!userStore.user?.isAdmin) {
     return ElMessage.warning(t('queue.noPermissionDelete'));
   }
-  let delIds: string[] = [];
+  let targets: QueueMessage[] = [];
   if (row) {
-    delIds = [row.id];
-  } else if (!ids.value.length) {
-    return ElMessage.warning(t('queue.selectDataToDelete'));
+    targets = [row];
   } else {
-    delIds = [...ids.value];
+    // 用表格全量勾选（含跨页保留），避免跨页选中的任务在 dataSource 里找不到而被静默跳过
+    const selectedRows = getSelectedQueueRows() as QueueMessage[];
+    if (!selectedRows.length) {
+      return ElMessage.warning(t('queue.selectDataToDelete'));
+    }
+    targets = selectedRows;
   }
+  const delIds = targets.map((item) => item.id);
 
   ElMessageBox.confirm(t('queue.confirmDeleteData', { count: delIds.length }), t('queue.deleteTip'), {
     confirmButtonText: t('queue.confirm'),
@@ -3876,11 +3981,9 @@ function handleDelete(row?: QueueMessage) {
     .then(async () => {
       try {
         deleteLoading.value = true;
-        for (const id of delIds) {
-          const task = dataSource.value.find((t) => t.id === id);
-          if (task) {
-            await deleteTask(task.queue, id);
-          }
+        for (const target of targets) {
+          const task = dataSource.value.find((item) => item.id === target.id) || target;
+          await deleteTask(task.queue, target.id);
         }
         ElMessage.success(t('queue.deleteSuccess'));
         await getList();
@@ -3907,9 +4010,20 @@ async function handleBatchResetPublishTasksToPending() {
     return ElMessage.warning(t('queue.noPublishTaskSelected'));
   }
 
+  // 表头「全选」只覆盖当前页；当筛选总数大于当前页条数时，按筛选条件整体重置，
+  // 避免用户以为选了全部、实际每次只提交了一页（例如每页 100 条）。
+  const filterStatus = queryParams.status;
+  const filterTotal = Number(total.value) || 0;
+  const pageRowCount = dataSource.value.length;
+  const resetWholeFilter =
+    !!filterStatus && pageRowCount > 0 && publishRows.length >= pageRowCount && filterTotal > pageRowCount;
+  const targetCount = resetWholeFilter ? filterTotal : publishRows.length;
+
   try {
     await ElMessageBox.confirm(
-      t('queue.confirmBatchReset', { count: publishRows.length }),
+      resetWholeFilter
+        ? t('queue.confirmBatchResetAll', { count: targetCount })
+        : t('queue.confirmBatchReset', { count: targetCount }),
       t('queue.batchResetToPending'),
       {
         type: "warning",
@@ -3919,7 +4033,13 @@ async function handleBatchResetPublishTasksToPending() {
     );
 
     batchResetPendingLoading.value = true;
-    const response: any = await batchResetPublishTasksToPending(publishRows.map((row) => row.id));
+    const response: any = resetWholeFilter
+      ? await batchResetPublishTasksToPending([], {
+          status: filterStatus,
+          types: getSelectedQueryTypes().length ? getSelectedQueryTypes() : undefined,
+          family: (queryParams.family as "product" | "media") || undefined,
+        })
+      : await batchResetPublishTasksToPending(publishRows.map((row) => row.id));
     const payload = response?.data?.data ?? response?.data ?? response;
     const updated = Number(payload?.updated) || 0;
     const skipped = Array.isArray(payload?.skipped) ? payload.skipped : [];
@@ -4399,6 +4519,8 @@ function resetDataUpdateForm() {
 watch(
   () => ({
     id: queryParams.id,
+    keyword: queryParams.keyword,
+    errorKeyword: queryParams.errorKeyword,
     types: [...queryParams.types],
     family: queryParams.family,
     status: queryParams.status,
@@ -4410,6 +4532,8 @@ watch(
   (newValue) => {
     queueQueryFilterStorage.value = {
       id: newValue.id || "",
+      keyword: newValue.keyword || "",
+      errorKeyword: newValue.errorKeyword || "",
       types: newValue.types,
       family: newValue.family as "" | "product" | "media",
       status: newValue.status,

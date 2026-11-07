@@ -2,7 +2,7 @@
   <teleport to="body">
     <div v-if="visible" class="qr">
       <!-- ================= 左侧：负责图片展示与舞台交互 ================= -->
-      <section class="qr__stage-wrap">
+      <section class="qr__stage-wrap" :class="{ 'qr__stage-wrap--undo': canUndoDelete }">
         <!-- 极简悬浮顶条：无多余实底头栏，浮动毛玻璃轻量控件 -->
         <header class="qr__floating-bar">
           <div class="qr__floating-left">
@@ -10,20 +10,6 @@
               {{ processedCount }}<template v-if="total"> / {{ total }}</template>
             </span>
             <span class="qr__floating-badge">采集素材</span>
-
-            <!-- 撤销删除胶囊 -->
-            <button
-              v-if="canUndoDelete"
-              type="button"
-              class="qr__undo-top-btn"
-              :title="`撤销删除（还有 ${deleteQueue.length} 张待删，快捷键：Z 或 Ctrl+Z）`"
-              @click="undoLastDelete"
-            >
-              <span class="qr__undo-top-icon">↺</span>
-              <span class="qr__undo-top-text">撤销删除</span>
-              <span class="qr__undo-top-badge">{{ deleteQueue.length }}</span>
-              <span class="qr__undo-top-sec">{{ deleteCountdown }}s</span>
-            </button>
 
             <button
               v-if="skippedCount"
@@ -78,35 +64,36 @@
           </div>
         </header>
 
-        <!-- 右上角极简撤销浮条（带精炼进度条与快捷键提示） -->
-        <transition name="qr-undo-slide">
-          <div v-if="canUndoDelete" class="qr__undo-bar" role="alert">
-            <div class="qr__undo-bar-body">
-              <span class="qr__undo-bar-dot"></span>
-              <span class="qr__undo-bar-text">
-                待删 <b>{{ deleteQueue.length }}</b> 张
-                <span class="qr__undo-bar-sec">({{ deleteCountdown }}s)</span>
-              </span>
-              <button
-                type="button"
-                class="qr__undo-btn-act"
-                title="撤销最近一张误删素材（快捷键：Z 或 Ctrl+Z）"
-                @click="undoLastDelete"
-              >
-                <span>↺ 撤回</span>
-                <kbd class="qr__undo-btn-kbd">Z</kbd>
-              </button>
-              <button
-                v-if="deleteQueue.length > 1"
-                type="button"
-                class="qr__undo-btn-all"
-                title="全部恢复回待审队列"
-                @click="undoAllDeletes"
-              >
-                全部
-              </button>
-            </div>
-            <div class="qr__undo-bar-progress" :style="{ width: `${deleteProgressPercent}%` }"></div>
+        <!-- 撤销删除：贴 Dock 上方居中的单枚胶囊，拇指可达且不压顶栏与素材中心 -->
+        <transition name="qr-undo-rise">
+          <div v-if="canUndoDelete" class="qr__undo" role="status">
+            <span class="qr__undo-dot" aria-hidden="true"></span>
+            <span class="qr__undo-text">待删 <b>{{ deleteQueue.length }}</b> 张</span>
+            <span class="qr__undo-sec">{{ deleteCountdown }}s</span>
+            <span class="qr__undo-split" aria-hidden="true"></span>
+            <button
+              type="button"
+              class="qr__undo-act"
+              title="撤销最近一张误删素材（快捷键：Z 或 Ctrl+Z）"
+              @click="undoLastDelete"
+            >
+              <span class="qr__undo-icon" aria-hidden="true">↺</span>撤回<kbd class="qr__undo-kbd">Z</kbd>
+            </button>
+            <button
+              v-if="deleteQueue.length > 1"
+              type="button"
+              class="qr__undo-all"
+              title="全部恢复回待审队列"
+              @click="undoAllDeletes"
+            >
+              全部
+            </button>
+            <span
+              :key="deleteCountdownKey"
+              class="qr__undo-progress"
+              :style="{ animationDuration: `${DELETE_DEBOUNCE}ms` }"
+              aria-hidden="true"
+            ></span>
           </div>
         </transition>
 
@@ -124,7 +111,7 @@
 
         <!-- 舞台展示区 -->
         <div
-          v-if="current"
+          v-if="shownItem"
           class="qr__stage"
           :class="{ 'qr__stage--settle': !dragging, 'qr__stage--quarter': isQuarterTurn }"
           :style="stageStyle"
@@ -138,15 +125,20 @@
           <img
             v-if="displayUrl"
             :src="displayUrl"
-            :alt="current.name || '素材图片'"
+            :alt="shownItem.name || '素材图片'"
             :style="imageStyle"
+            decoding="async"
             draggable="false"
           />
+          <div v-if="imageError" class="qr__image-error" role="status">
+            <span>图片加载失败</span>
+            <button type="button" class="qr__state-btn" @click.stop="syncDeck">重试</button>
+            <button type="button" class="qr__state-btn qr__state-btn--sub" @click.stop="actSkip">忽略</button>
+          </div>
 
-          <!-- 新图解码中提示 -->
-          <div v-if="deckPending" class="qr__deck-pending">
-            <span class="qr__deck-spinner"></span>
-            <span class="qr__deck-text">加载下一张…</span>
+          <!-- 补货/解码中：只留一条顶部细光线，不遮画面也不闪白字 -->
+          <div v-if="stageBusy" class="qr__stage-busy" aria-hidden="true">
+            <span></span>
           </div>
 
           <div v-if="swipeHint" class="qr__hint" :class="`qr__hint--${swipeHint}`">
@@ -183,7 +175,7 @@
               type="button"
               class="qr__dock-btn qr__dock-btn--rotate"
               :class="{ 'is-active': currentRotation > 0 }"
-              :disabled="!current || !canRotate"
+              :disabled="!canReview || !canRotate"
               :title="rotateTitle"
               @click="rotateCurrent"
             >
@@ -198,7 +190,7 @@
             <button
               type="button"
               class="qr__dock-btn qr__dock-btn--skip"
-              :disabled="!current"
+              :disabled="!canSkip"
               title="忽略该素材并看下一张（快捷键：← 或 A）"
               @click="actSkip"
             >
@@ -212,7 +204,7 @@
             <button
               type="button"
               class="qr__dock-btn qr__dock-btn--delete"
-              :disabled="!current"
+              :disabled="!canReview"
               title="删除该素材（快捷键：↓ 或 S）"
               @click="actDelete"
             >
@@ -226,7 +218,7 @@
             <button
               type="button"
               class="qr__dock-btn qr__dock-btn--import"
-              :disabled="!current"
+              :disabled="!canReview"
               title="入库该素材（快捷键：→ 或 D）"
               @click="actImport"
             >
@@ -250,31 +242,31 @@
 
         <!-- 详情滚动体：自上而下顺畅流式布局，轻背景，无多余边框 -->
         <div ref="sideRef" class="qr__side-body">
-          <template v-if="current">
+          <template v-if="shownItem">
             <!-- 1. 素材标题与标识行 -->
             <div class="qr__meta-section">
-              <h3 class="qr__main-title" :title="current.name || ''">
-                {{ current.name || `素材 #${current.id}` }}
+              <h3 class="qr__main-title" :title="shownItem.name || ''">
+                {{ shownItem.name || `素材 #${shownItem.id}` }}
               </h3>
 
               <div class="qr__sub-meta">
-                <span class="qr__mono-id">#{{ current.id }}</span>
+                <span class="qr__mono-id">#{{ shownItem.id }}</span>
                 <span class="qr__meta-dot">·</span>
-                <span class="qr__meta-text">{{ current.source || '采集素材' }}</span>
+                <span class="qr__meta-text">{{ shownItem.source || '采集素材' }}</span>
                 <span class="qr__meta-dot">·</span>
                 <span class="qr__meta-text">{{ createTimeText }}</span>
               </div>
 
               <!-- 状态标签行：纯文字，无底色 -->
               <div class="qr__pills-group">
-                <span class="qr__pill" :class="current.isCutout ? 'qr__pill--success' : 'qr__pill--neutral'">
-                  {{ current.isCutout ? "已抠图" : "未抠图" }}
+                <span class="qr__pill" :class="shownItem.isCutout ? 'qr__pill--success' : 'qr__pill--neutral'">
+                  {{ shownItem.isCutout ? "已抠图" : "未抠图" }}
                 </span>
-                <span v-if="current.suffix" class="qr__pill" :class="isTransparent ? 'qr__pill--info' : 'qr__pill--neutral'">
+                <span v-if="shownItem.suffix" class="qr__pill" :class="isTransparent ? 'qr__pill--info' : 'qr__pill--neutral'">
                   {{ isTransparent ? "透明通道" : "常规底色" }}
                 </span>
-                <span v-if="current.shareType" class="qr__pill qr__pill--neutral">
-                  {{ current.shareType === 'shared' ? '共享' : '私有' }}
+                <span v-if="shownItem.shareType" class="qr__pill qr__pill--neutral">
+                  {{ shownItem.shareType === 'shared' ? '共享' : '私有' }}
                 </span>
               </div>
             </div>
@@ -298,33 +290,33 @@
               <div class="qr__spec-divider"></div>
               <div class="qr__spec-col">
                 <span class="qr__spec-label">格式</span>
-                <span class="qr__spec-val">{{ current.suffix ? current.suffix.toUpperCase() : "PNG" }}</span>
+                <span class="qr__spec-val">{{ shownItem.suffix ? shownItem.suffix.toUpperCase() : "PNG" }}</span>
               </div>
             </div>
 
             <!-- 3. 关键词与描述（若有） -->
-            <div v-if="current.keywords || current.description" class="qr__extra-panel">
-              <div v-if="current.keywords" class="qr__extra-row">
+            <div v-if="shownItem.keywords || shownItem.description" class="qr__extra-panel">
+              <div v-if="shownItem.keywords" class="qr__extra-row">
                 <span class="qr__extra-k">关键词</span>
-                <span class="qr__extra-v select-text">{{ current.keywords }}</span>
+                <span class="qr__extra-v select-text">{{ shownItem.keywords }}</span>
               </div>
-              <div v-if="current.description" class="qr__extra-row">
+              <div v-if="shownItem.description" class="qr__extra-row">
                 <span class="qr__extra-k">描述</span>
-                <span class="qr__extra-v select-text">{{ current.description }}</span>
+                <span class="qr__extra-v select-text">{{ shownItem.description }}</span>
               </div>
             </div>
 
             <!-- 4. 来源链接（若有） -->
-            <div v-if="current.originUrl" class="qr__link-panel">
+            <div v-if="shownItem.originUrl" class="qr__link-panel">
               <span class="qr__link-label">原始来源链接</span>
               <a
                 class="qr__link-url"
-                :href="current.originUrl"
+                :href="shownItem.originUrl"
                 target="_blank"
                 rel="noreferrer"
-                :title="current.originUrl"
+                :title="shownItem.originUrl"
               >
-                {{ current.originUrl }}
+                {{ shownItem.originUrl }}
               </a>
             </div>
           </template>
@@ -349,7 +341,7 @@
           <button
             type="button"
             class="qr__submit-btn"
-            :disabled="!current"
+            :disabled="!canReview"
             title="一键将该素材入库（快捷键：D 或 →）"
             @click="actImport"
           >
@@ -359,7 +351,7 @@
           <button
             type="button"
             class="qr__delete-btn"
-            :disabled="!current"
+            :disabled="!canReview"
             title="删除该素材（快捷键：S 或 ↓）"
             @click="actDelete"
           >
@@ -373,7 +365,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, markRaw, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, markRaw, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from "vue";
 import { ElMessage } from "element-plus";
 import { Close } from "@element-plus/icons-vue";
 import { CrawlerMaterialApi } from "@/api/crawler-material";
@@ -398,20 +390,9 @@ const emit = defineEmits<{
   (e: "reviewed"): void;
 }>();
 
-/** 每次向接口取多少条（一次多拿，避免频繁补货造成断流） */
 const PAGE_SIZE = 50;
-/** 队列剩余多少条就后台补货：留足缓冲，用户感觉不到加载 */
-const PREFETCH_THRESHOLD = 32;
-/** 空闲帧里最多预热后面几张图（紧挨着的两张走立即通道） */
-const PRELOAD_AHEAD = 6;
-/**
- * 切换到下一张时，最多愿意等它解码多久。
- * 超时就照切不误 —— 宁可极偶尔白一下，也不能让用户点了没反应。
- * 现在上屏的是按视口出图的 webp，几百毫秒足够下载 + 解码完。
- */
-const DECK_WAIT_TIMEOUT = 500;
-/** 出图宽度上限：再宽对「要不要入库」的判断没有增益，只多花带宽和解码时间 */
-const DECK_MAX_WIDTH = 2000;
+const PREFETCH_THRESHOLD = 40;
+const PRELOAD_AHEAD = 12;
 /**
  * 攒批提交的参数刻意调小了。
  * 批越大单次接口越慢（后台要处理几十条），返回前会一直占着连接，
@@ -477,15 +458,32 @@ const deleteQueue = ref<any[]>([]);
 const TOAST_DURATION = 1600;
 const toasts = ref<Array<{ id: number; text: string; tone: string }>>([]);
 let toastSeq = 0;
+const toastTimers = new Map<number, ReturnType<typeof setTimeout>>();
 
 function pushToast(text: string, tone: "info" | "success" | "warning" | "error" = "info"): void {
-  const id = ++toastSeq;
-  toasts.value.push({ id, text, tone });
-  if (toasts.value.length > 3) toasts.value.shift();
-  setTimeout(() => {
-    const index = toasts.value.findIndex((item) => item.id === id);
-    if (index >= 0) toasts.value.splice(index, 1);
-  }, TOAST_DURATION);
+  // 连续快速审核时同一句提示会连发：复用最后一枚并顺延消失时间，
+  // 避免每点一次就新建节点、重放入场动画（高频下这是可见的掉帧来源）
+  const last = toasts.value[toasts.value.length - 1];
+  const id = last && last.text === text ? last.id : ++toastSeq;
+  if (id !== last?.id) {
+    toasts.value.push({ id, text, tone });
+    if (toasts.value.length > 3) {
+      const dropped = toasts.value.shift();
+      if (dropped) {
+        clearTimeout(toastTimers.get(dropped.id));
+        toastTimers.delete(dropped.id);
+      }
+    }
+  }
+  clearTimeout(toastTimers.get(id));
+  toastTimers.set(
+    id,
+    setTimeout(() => {
+      toastTimers.delete(id);
+      const index = toasts.value.findIndex((item) => item.id === id);
+      if (index >= 0) toasts.value.splice(index, 1);
+    }, TOAST_DURATION),
+  );
 }
 
 /** 面板开着走层内提示，面板已关闭（提交落尾）才用全局提示 */
@@ -495,11 +493,22 @@ function notify(text: string, tone: "info" | "success" | "warning" | "error" = "
 }
 
 const current = computed(() => queue.value[0] ?? null);
+const frame = shallowRef<{ item: any; url: string } | null>(null);
+const shownItem = computed(() => frame.value?.item ?? current.value);
+const displayUrl = computed(() => frame.value?.url ?? "");
+const deckPending = ref(false);
+const imageError = ref(false);
+const framePainted = ref(false);
+const canReview = computed(() =>
+  props.visible && framePainted.value && !deckPending.value &&
+  !!current.value && frame.value?.item === current.value,
+);
+const canSkip = computed(() => canReview.value || (props.visible && !!current.value && imageError.value));
 const canUndoDelete = computed(() => deleteQueue.value.length > 0);
 
 // ── 删除倒计时与进度管理 ────────────────────────────────────
 const deleteCountdown = ref(Math.round(DELETE_DEBOUNCE / 1000));
-const deleteProgressPercent = ref(100);
+const deleteCountdownKey = ref(0);
 let deleteInterval: ReturnType<typeof setInterval> | null = null;
 let deleteStartTime = 0;
 
@@ -508,60 +517,56 @@ function clearDeleteCountdown(): void {
     clearInterval(deleteInterval);
     deleteInterval = null;
   }
-  deleteProgressPercent.value = 100;
   deleteCountdown.value = Math.round(DELETE_DEBOUNCE / 1000);
 }
 
 function startDeleteCountdown(): void {
   clearDeleteCountdown();
   deleteStartTime = Date.now();
-  deleteCountdown.value = Math.round(DELETE_DEBOUNCE / 1000);
-  deleteProgressPercent.value = 100;
+  deleteCountdownKey.value += 1;
 
   deleteInterval = setInterval(() => {
     const elapsed = Date.now() - deleteStartTime;
     const remaining = Math.max(0, DELETE_DEBOUNCE - elapsed);
-    deleteProgressPercent.value = Math.max(0, (remaining / DELETE_DEBOUNCE) * 100);
     deleteCountdown.value = Math.max(1, Math.ceil(remaining / 1000));
-    if (remaining <= 0) {
-      clearDeleteCountdown();
-    }
-  }, 80);
+    if (remaining <= 0) clearDeleteCountdown();
+  }, 1000);
 }
 
 /** 详情面板：换图后把滚动位置复位，否则新素材的字段会停在中间、前几项被顶出可视区 */
 const sideRef = ref<HTMLElement | null>(null);
 
 watch(
-  () => current.value?.id,
+  () => shownItem.value?.id,
   () => {
+    onPointerCancel();
     if (sideRef.value) sideRef.value.scrollTop = 0;
   },
   { flush: "post" },
 );
 
 const dimensionText = computed(() => {
-  const row = current.value;
+  const row = shownItem.value;
   if (!row?.width || !row?.height) return "";
   return `${row.width}×${row.height}`;
 });
 
 const aspectText = computed(() => {
-  const row = current.value;
+  const row = shownItem.value;
   if (!row?.aspectRatio) return "-";
   return Number(row.aspectRatio).toFixed(2);
 });
 
 const fileSizeText = computed(() => {
-  const row = current.value;
+  const row = shownItem.value;
   return row?.fileSize ? formatFileSize(row.fileSize) : "-";
 });
 
-const createTimeText = computed(() => formatTimestamp(current.value?.createTime) || "-");
+const createTimeText = computed(() => formatTimestamp(shownItem.value?.createTime) || "-");
 
 /** 透明底素材入库价值更高，直接用配色标出来，省掉一次「点开看格式」 */
 const isTransparent = computed(() =>
-  ["png", "webp", "gif"].includes(String(current.value?.suffix || "").toLowerCase()),
+  ["png", "webp", "gif"].includes(String(shownItem.value?.suffix || "").toLowerCase()),
 );
 
 // ── 旋转：点了只转预览，入库那一刻才由后端就地改写同一张 COS 对象 ──
@@ -606,7 +611,7 @@ const rotateBlockReason = computed(() => {
 
 const canRotate = computed(() => rotateBlockReason.value === "");
 
-const currentRotation = computed(() => pendingRotations.value[String(current.value?.id ?? "")] || 0);
+const currentRotation = computed(() => pendingRotations.value[String(shownItem.value?.id ?? "")] || 0);
 
 /** 90/270 时横向边界要看容器的高度，反之亦然，不然横图竖过来会被裁 */
 const isQuarterTurn = computed(() => currentRotation.value % 180 !== 0);
@@ -629,6 +634,7 @@ function dropRotations(items: any[]): void {
 }
 
 function rotateCurrent(): void {
+  if (!canReview.value) return;
   const row = current.value;
   if (!row) return;
   if (!canRotate.value) {
@@ -658,34 +664,32 @@ function formatFileSize(bytes: number): string {
 // ── 取数 ────────────────────────────────────────────────────
 let inflightFetch: Promise<void> | null = null;
 let inflightDelete: Promise<void> | null = null;
+let fetchEpoch = 0;
+let settledDeleteCount = 0;
 
 async function fetchNext(): Promise<void> {
   if (inflightFetch) return inflightFetch;
-  if (finished.value || loadError.value) return;
+  if (!props.visible || finished.value || loadError.value || queue.value.length > PREFETCH_THRESHOLD) return;
+  const epoch = fetchEpoch;
 
   inflightFetch = (async () => {
     loading.value = true;
     try {
-      // 删除会让库内数据整体前移，取到的可能全是已审过的旧行。
-      // 这时不能判定「审完了」，要继续往下翻 —— 最多翻 3 页，防止极端情况死循环。
-      // （用循环而非递归，是因为递归时外层 finally 会把内层刚发起的请求标记清掉，
-      //   导致同一时刻能起两个 fetch，反而更乱。）
-      for (let attempt = 0; attempt < 3; attempt += 1) {
-        // 扣掉「已删但还没落库」的条数：删除提交期间照样能补货，不会被接口阻塞
-        const offset = Math.max(0, nextOffset.value - pendingDeleteOffset.value);
+      while (props.visible && queue.value.length <= PREFETCH_THRESHOLD) {
+        const pending = pendingDeleteOffset.value;
+        const settled = settledDeleteCount;
+        const offset = Math.max(0, nextOffset.value - pending);
         const pageNo = Math.floor(offset / PAGE_SIZE) + 1;
         const drop = offset % PAGE_SIZE;
-
         const res: any = await CrawlerMaterialApi.getCrawlerMaterialPage({
           ...props.query,
           currentPage: pageNo,
           pageSize: PAGE_SIZE,
         });
+        if (epoch !== fetchEpoch) return;
 
         const list = Array.isArray(res?.list) ? res.list : [];
         if (res?.total !== undefined) total.value = Number(res.total) || 0;
-
-        // drop 掉本次页内属于「已消费区间」的前几行
         const rows = list.slice(drop);
         const fresh = rows.filter((item: any) => {
           const id = String(item?.id ?? "");
@@ -694,35 +698,26 @@ async function fetchNext(): Promise<void> {
           return true;
         });
 
-        nextOffset.value = offset + rows.length;
-
+        // 游标保留在途删除补偿；返回期间结算的删除不能再被旧响应覆盖。
+        nextOffset.value = Math.max(0, offset + rows.length + pending - (settledDeleteCount - settled));
         if (!rows.length) {
-          // 接口确实没有更多数据了，才是真的审完
           finished.value = true;
           break;
         }
-
-        if (!fresh.length) {
-          // 本页有数据但全被去重过滤掉了 → 偏移落后了，继续往下翻
-          finished.value = false;
-          continue;
-        }
-
-        // markRaw：素材对象是纯展示数据（内含 meta/promptData 等深层字段），
-        // 让它进响应式体系会递归代理几十上百个字段，
-        // 一次补 50 条就能卡出肉眼可见的掉帧。
         queue.value.push(...fresh.map((item: any) => markRaw(item)));
         warmAhead();
-        break;
       }
       loadError.value = "";
       autoRetryLeft = 2;
     } catch (error: any) {
+      if (epoch !== fetchEpoch) return;
       loadError.value = error?.message || "网络异常，请重试";
       scheduleAutoRetry();
     } finally {
-      loading.value = false;
-      inflightFetch = null;
+      if (epoch === fetchEpoch) {
+        loading.value = false;
+        inflightFetch = null;
+      }
     }
   })();
 
@@ -744,95 +739,89 @@ function scheduleAutoRetry(): void {
   }, 1500);
 }
 
-/** 图片预解码调度器：负责「下一张随时可上屏」 */
-const deck = useImageDeck({ maxCache: 36 });
+const deck = useImageDeck({ maxCache: 24, maxConcurrent: 3 });
 
-/**
- * 实际下载/上屏的图片地址按视口宽度离散量化出图，
- * 采用 1200 / 1600 / 2000 档位消除微小视口抖动，
- * 确保预热算出的 URL 与真正渲染的 URL 100% 相同，杜绝脱靶。
- */
 function pickDeckWidth(): number {
   if (typeof window === "undefined") return 1600;
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const cssWidth = window.innerWidth || 1600;
-  const target = cssWidth * dpr * 0.75;
-  if (target <= 1300) return 1200;
-  if (target <= 1700) return 1600;
-  return 2000;
+  const width = window.innerWidth;
+  const stageWidth = width <= 768 ? width : width - (width <= 1100 ? 340 : 390);
+  const target = stageWidth * dpr;
+  return [800, 1200, 1600, 2000].find((size) => size >= target) ?? 2000;
 }
 
 const deckWidth = ref(pickDeckWidth());
 
-/** 预热与渲染必须算出同一个地址，否则缓存永远命不中 */
 function deckKeyOf(item: any): string {
   return getReviewImageUrl(item?.url, deckWidth.value);
 }
 
-/**
- * 预热策略：紧挨着的 3 张走立即通道，
- * 更远的丢进空闲帧慢慢来，兼顾即时性与带宽平滑。
- */
 function warmAhead(): void {
-  const list = queue.value;
-  if (!list.length) return;
-  const cur = deckKeyOf(list[0]);
-  if (cur) deck.ensure(cur);
-
-  const nextSlice: string[] = [];
-  if (list[1]) nextSlice.push(deckKeyOf(list[1]));
-  if (list[2]) nextSlice.push(deckKeyOf(list[2]));
-  if (list[3]) nextSlice.push(deckKeyOf(list[3]));
-  if (nextSlice.length) deck.warmNow(nextSlice);
-
-  const idleSlice = list.slice(4, 4 + PRELOAD_AHEAD);
-  if (idleSlice.length) {
-    deck.warmIdle(idleSlice.map((item: any) => deckKeyOf(item)).filter(Boolean));
-  }
+  if (!props.visible) return;
+  deck.setWindow(queue.value.slice(0, PRELOAD_AHEAD + 1).map(deckKeyOf));
 }
 
-/** 数据层推进后的收尾：按需后台补货 + 预热（全异步，不阻塞点击反馈） */
 function afterAdvance(): void {
   if (queue.value.length <= PREFETCH_THRESHOLD) void fetchNext();
   warmAhead();
 }
 
-// ── 视觉层：图解码就绪才上屏 ────────────────────────────────
-/**
- * 真正渲染到画布上的图片地址。
- */
-const displayUrl = ref("");
-/** 新图还在解码：保留轻提示，绝不卡在旧图上 */
-const deckPending = ref(false);
 let deckSeq = 0;
+let paintFrame = 0;
+const stageBusy = computed(() => deckPending.value || (!current.value && loading.value));
+
+function presentFrame(item: any, url: string, seq: number): void {
+  frame.value = { item, url };
+  deckPending.value = false;
+  // 两次绘制帧之间才放行动作，防止同一帧内连按处理尚未上屏的素材。
+  void nextTick().then(() => {
+    if (seq !== deckSeq) return;
+    paintFrame = requestAnimationFrame(() => {
+      paintFrame = requestAnimationFrame(() => {
+        if (seq === deckSeq) framePainted.value = true;
+      });
+    });
+  });
+}
 
 function syncDeck(): void {
-  const target = deckKeyOf(current.value);
+  const item = current.value;
+  const target = deckKeyOf(item);
   const seq = ++deckSeq;
+  cancelAnimationFrame(paintFrame);
+  framePainted.value = false;
+  imageError.value = false;
+  deckPending.value = false;
 
-  if (!target) {
-    displayUrl.value = "";
-    deckPending.value = false;
+  if (!props.visible) return;
+  warmAhead();
+  if (!item) {
+    if (finished.value || loadError.value) frame.value = null;
     return;
   }
-
-  // 1. 0ms 瞬间直显目标地址，绝不卡在旧图上
-  displayUrl.value = target;
-
+  if (!target) {
+    frame.value = null;
+    imageError.value = true;
+    return;
+  }
   if (deck.isReady(target)) {
-    deckPending.value = false;
+    presentFrame(item, target, seq);
     return;
   }
 
   deckPending.value = true;
-  void deck.ensure(target).then(() => {
-    if (seq === deckSeq) {
+  void deck.ensure(target).then((ready) => {
+    if (seq !== deckSeq) return;
+    if (ready) presentFrame(item, target, seq);
+    else {
       deckPending.value = false;
+      frame.value = null;
+      imageError.value = true;
     }
   });
 }
 
-watch(() => current.value?.url, syncDeck, { immediate: true });
+watch([current, finished, loadError, () => props.visible], syncDeck, { immediate: true });
 
 /** 缩放窗口后出图宽度变了，旧地址整批作废：清缓存按新宽度重来 */
 let deckResizeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -852,7 +841,7 @@ function onViewportResize(): void {
 
 /** 双击看原图：出图日常够用，但要抠边缘/水印时不必退出面板去列表里翻 */
 function openOriginal(): void {
-  const url = current.value?.url;
+  const url = shownItem.value?.url;
   if (url) window.open(url, "_blank", "noreferrer");
 }
 
@@ -863,9 +852,17 @@ function retry(): void {
 }
 
 function reload(): void {
+  fetchEpoch += 1;
+  inflightFetch = null;
   queue.value = [];
   seenIds.value = new Set();
+  deckSeq += 1;
+  cancelAnimationFrame(paintFrame);
   deck.reset();
+  frame.value = null;
+  framePainted.value = false;
+  deckPending.value = false;
+  imageError.value = false;
   skippedItems.value = [];
   skippedCount.value = 0;
   // 重新加载是按新页取的回同一批素材，留着旧角度会在用户没察觉时改写文件
@@ -884,6 +881,7 @@ function reload(): void {
 
 // ── 三个动作 ────────────────────────────────────────────────
 function actSkip(): void {
+  if (!canSkip.value) return;
   const item = queue.value.shift();
   if (!item) return;
   skippedItems.value.push(item);
@@ -893,6 +891,7 @@ function actSkip(): void {
 }
 
 function actImport(): void {
+  if (!canReview.value) return;
   const item = queue.value.shift();
   if (!item) return;
   importQueue.value.push(item);
@@ -903,11 +902,11 @@ function actImport(): void {
 }
 
 function actDelete(): void {
+  if (!canReview.value) return;
   const item = queue.value.shift();
   if (!item) return;
   deleteQueue.value.push(item);
   deletedCount.value += 1;
-  pushToast("已移入待删除，按 Z 或点击可撤回", "warning");
   scheduleDeleteFlush();
   afterAdvance();
 }
@@ -999,15 +998,14 @@ async function flushDeletes(): Promise<void> {
       await CrawlerMaterialApi.deleteCrawlerMaterial({
         ids: items.map((item: any) => String(item.id)),
       });
-      // 删除已落库：把临时预判固化成永久偏移修正，
-      // 之后新发起的补货用不到预判量了，一并释放。
-      pendingDeleteOffset.value = Math.max(0, pendingDeleteOffset.value - count);
-      nextOffset.value = Math.max(0, nextOffset.value - count);
     } catch (error: any) {
       deletedCount.value = Math.max(0, deletedCount.value - count);
       notify(`删除提交失败：${error?.message || "未知错误"}`, "error");
-      // 删除失败 = 数据还在库里，把预判的偏移还回去，避免跳过素材
+    } finally {
+      // 失败同样回退已预判的区间，多取的旧行由 seenIds 去重。
+      settledDeleteCount += count;
       pendingDeleteOffset.value = Math.max(0, pendingDeleteOffset.value - count);
+      nextOffset.value = Math.max(0, nextOffset.value - count);
     }
   })();
 
@@ -1075,7 +1073,7 @@ const swipeHint = computed(() => {
 });
 
 function onPointerDown(event: PointerEvent): void {
-  if (!current.value) return;
+  if (!canReview.value) return;
   dragging.value = true;
   pointerStart = { x: event.clientX, y: event.clientY };
   swipe.value = { x: 0, y: 0 };
@@ -1113,7 +1111,7 @@ function onPointerCancel(): void {
 
 // ── 键盘 ────────────────────────────────────────────────────
 function onKeydown(event: KeyboardEvent): void {
-  if (!props.visible) return;
+  if (!props.visible || event.repeat) return;
 
   if (event.key === "Escape") {
     close();
@@ -1169,6 +1167,13 @@ function close(): void {
 
 /** 关闭时把攒着的入库/删除一次性提交，避免留下未落地的操作 */
 async function teardown(): Promise<void> {
+  fetchEpoch += 1;
+  inflightFetch = null;
+  loading.value = false;
+  deckSeq += 1;
+  cancelAnimationFrame(paintFrame);
+  framePainted.value = false;
+  deck.reset();
   clearDeleteCountdown();
   if (importTimer) {
     clearTimeout(importTimer);
@@ -1189,7 +1194,7 @@ watch(
   (visible) => {
     if (visible) {
       wasVisible = true;
-      if (!queue.value.length && !finished.value && !inflightFetch) void fetchNext();
+      if (queue.value.length <= PREFETCH_THRESHOLD) void fetchNext();
       return;
     }
     // 首次挂载时 visible=false，不该触发一次多余的刷新回调
@@ -1209,9 +1214,15 @@ onBeforeUnmount(() => {
   window.removeEventListener("keydown", onKeydown);
   window.removeEventListener("resize", onViewportResize);
   if (deckResizeTimer) clearTimeout(deckResizeTimer);
+  fetchEpoch += 1;
+  deckSeq += 1;
+  cancelAnimationFrame(paintFrame);
+  deck.reset();
   if (importTimer) clearTimeout(importTimer);
   if (deleteTimer) clearTimeout(deleteTimer);
   if (autoRetryTimer) clearTimeout(autoRetryTimer);
+  toastTimers.forEach((timer) => clearTimeout(timer));
+  toastTimers.clear();
   clearDeleteCountdown();
   void flushImports();
   void flushDeletes();
@@ -1219,6 +1230,26 @@ onBeforeUnmount(() => {
 </script>
 
 <style lang="scss" scoped>
+@keyframes qr-busy {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(320%);
+  }
+}
+
+@keyframes qr-undo-countdown {
+  from {
+    transform: scaleX(1);
+  }
+
+  to {
+    transform: scaleX(0);
+  }
+}
+
 .qr {
   position: fixed;
   inset: 0;
@@ -1233,7 +1264,6 @@ onBeforeUnmount(() => {
   --qr-checker-color-2: #ffffff;
   /* 主色/警示色前景：深色模式下提亮，避免深底上发灰 */
   --qr-primary-on-tint: var(--el-color-primary, #3b82f6);
-  --qr-warning-on-tint: color-mix(in srgb, var(--el-color-warning, #e6a23c) 62%, #000000);
 }
 
 /* ── 左侧舞台包装器 ── */
@@ -1289,8 +1319,7 @@ onBeforeUnmount(() => {
 .qr__floating-progress,
 .qr__floating-badge,
 .qr__text-btn,
-.qr__stat-item,
-.qr__undo-top-btn {
+.qr__stat-item {
   white-space: nowrap;
 }
 
@@ -1392,43 +1421,6 @@ onBeforeUnmount(() => {
   }
 }
 
-/* 顶栏醒目撤销按钮（扁平：只留淡色底与警示色文字） */
-.qr__undo-top-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 2px 8px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--qr-warning-on-tint);
-  background: color-mix(in srgb, var(--el-color-warning, #e6a23c) 14%, transparent);
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-
-  &:hover {
-    background: color-mix(in srgb, var(--el-color-warning, #e6a23c) 22%, transparent);
-  }
-
-  .qr__undo-top-icon {
-    font-size: 13px;
-    font-weight: bold;
-  }
-
-  .qr__undo-top-badge {
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--el-color-danger, #ef4444);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .qr__undo-top-sec {
-    font-size: 11px;
-    opacity: 0.8;
-  }
-}
-
 .qr__close {
   display: inline-flex;
   flex: 0 0 auto;
@@ -1517,7 +1509,7 @@ onBeforeUnmount(() => {
   justify-content: center;
   min-width: 0;
   min-height: 0;
-  padding: 56px 20px 66px;
+  padding: 56px 20px var(--qr-stage-bottom, 66px);
   overflow: hidden;
   cursor: grab;
   touch-action: none;
@@ -1549,39 +1541,40 @@ onBeforeUnmount(() => {
   }
 }
 
-/* 等待下一张解码：轻量角标，不遮挡画面 */
-.qr__deck-pending {
-  position: absolute;
-  right: 16px;
-  bottom: 16px;
-  display: inline-flex;
+/* 补货/解码中：舞台顶部一条细光线，不遮画面、不闪文字 */
+.qr__stage-wrap--undo {
+  --qr-stage-bottom: 110px;
+}
+
+.qr__image-error {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   align-items: center;
-  gap: 8px;
-  padding: 4px 10px;
-  border-radius: 4px;
-  font-size: 12px;
-  color: #e2e8f0;
-  background: rgba(15, 23, 42, 0.72);
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+
+.qr__stage-busy {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 2px;
+  overflow: hidden;
   pointer-events: none;
-  user-select: none;
-}
 
-.qr__deck-spinner {
-  width: 12px;
-  height: 12px;
-  border: 2px solid rgba(226, 232, 240, 0.35);
-  border-top-color: #e2e8f0;
-  border-radius: 50%;
-  animation: qr-deck-spin 0.7s linear infinite;
-}
-
-.qr__deck-text {
-  letter-spacing: 0.3px;
-}
-
-@keyframes qr-deck-spin {
-  to {
-    transform: rotate(360deg);
+  span {
+    display: block;
+    width: 35%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--qr-primary-on-tint),
+      transparent
+    );
+    animation: qr-busy 1.1s ease-in-out infinite;
   }
 }
 
@@ -2057,125 +2050,144 @@ onBeforeUnmount(() => {
   z-index: 10;
 }
 
-/* ── 右上角极简撤销浮条 ── */
-.qr__undo-bar {
+/* ── 撤销删除：Dock 上方的单枚胶囊 ──
+   删除语义只落在「红点 + 红色张数」，撤回是可恢复动作、用主色，不再满条琥珀色告警 */
+.qr__undo {
   position: absolute;
-  top: 56px;
-  right: 18px;
-  z-index: 200;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: rgba(15, 23, 42, 0.92);
-  border-radius: 4px;
-}
-
-.qr__undo-bar-progress {
-  height: 2px;
-  background: linear-gradient(90deg, #f59e0b, #fbbf24);
-  transition: width 0.08s linear;
-}
-
-.qr__undo-bar-body {
-  display: flex;
+  bottom: 64px;
+  left: 50%;
+  z-index: 30;
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 6px 12px;
+  gap: 7px;
+  height: 34px;
+  padding: 0 6px 0 12px;
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--el-text-color-regular, #475569);
+  white-space: nowrap;
+  background: var(--app-content-surface-color, #fff);
+  border: 1px solid var(--app-content-border-color, rgb(148 163 184 / 25%));
+  border-radius: 999px;
+  transform: translateX(-50%);
+  box-shadow: 0 8px 24px rgb(15 23 42 / 14%);
 }
 
-.qr__undo-bar-dot {
+.qr__undo-dot {
+  flex: 0 0 auto;
   width: 6px;
   height: 6px;
-  background: #f59e0b;
+  background: var(--el-color-danger, #ef4444);
   border-radius: 50%;
 }
 
-.qr__undo-bar-text {
-  font-size: 12px;
-  color: #e2e8f0;
-  white-space: nowrap;
+.qr__undo-text {
+  color: var(--el-text-color-primary, #0f172a);
 
   b {
-    color: #fbbf24;
     font-weight: 700;
-  }
-
-  .qr__undo-bar-sec {
-    margin-left: 3px;
-    font-size: 11px;
-    color: #94a3b8;
+    color: var(--el-color-danger, #ef4444);
+    font-variant-numeric: tabular-nums;
   }
 }
 
-.qr__undo-btn-act {
+.qr__undo-sec {
+  min-width: 20px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--el-text-color-secondary, #64748b);
+}
+
+.qr__undo-split {
+  width: 1px;
+  height: 12px;
+  background: var(--el-border-color-lighter, rgb(148 163 184 / 30%));
+}
+
+.qr__undo-act,
+.qr__undo-all {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   height: 24px;
-  padding: 0 8px;
-  font-size: 11px;
+  padding: 0 9px;
+  font-family: inherit;
+  font-size: 12px;
   font-weight: 600;
-  color: #1e293b;
-  background: #f59e0b;
-  border: 0;
-  border-radius: 4px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  border: 0;
+  border-radius: 999px;
+  transition: background-color 0.15s ease;
+}
+
+.qr__undo-act {
+  color: var(--qr-primary-on-tint);
+  background: color-mix(in srgb, var(--el-color-primary, #3b82f6) 12%, transparent);
 
   &:hover {
-    background: #fbbf24;
-  }
-
-  .qr__undo-btn-kbd {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 14px;
-    height: 14px;
-    padding: 0 2px;
-    font-size: 9px;
-    font-family: inherit;
-    font-weight: 700;
-    color: #78350f;
-    background: rgba(255, 255, 255, 0.7);
-    border-radius: 2px;
-    line-height: 1;
+    background: color-mix(in srgb, var(--el-color-primary, #3b82f6) 20%, transparent);
   }
 }
 
-.qr__undo-btn-all {
+.qr__undo-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.qr__undo-kbd {
   display: inline-flex;
   align-items: center;
-  height: 24px;
+  justify-content: center;
+  height: 14px;
+  min-width: 14px;
+  padding: 0 2px;
+  margin-left: 1px;
+  font-family: inherit;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  color: inherit;
+  background: color-mix(in srgb, currentcolor 14%, transparent);
+  border-radius: 3px;
+  opacity: 0.8;
+}
+
+.qr__undo-all {
   padding: 0 6px;
   font-size: 11px;
-  color: #94a3b8;
+  font-weight: 500;
+  color: var(--el-text-color-secondary, #64748b);
   background: transparent;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.15s ease;
 
   &:hover {
-    color: #ffffff;
-    border-color: rgba(255, 255, 255, 0.4);
+    color: var(--el-text-color-primary, #0f172a);
+    background: var(--el-fill-color-light, rgb(148 163 184 / 12%));
   }
 }
 
-/* 动效：右上角轻滑入 */
-.qr-undo-slide-enter-active,
-.qr-undo-slide-leave-active {
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+.qr__undo-progress {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: color-mix(in srgb, var(--el-color-danger, #ef4444) 65%, transparent);
+  transform-origin: left center;
+  animation: qr-undo-countdown linear forwards;
 }
 
-.qr-undo-slide-enter-from {
-  opacity: 0;
-  transform: translate(12px, -4px) scale(0.96);
+/* 动效：从 Dock 上方轻浮起 */
+.qr-undo-rise-enter-active,
+.qr-undo-rise-leave-active {
+  transition:
+    opacity 0.18s ease,
+    transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.qr-undo-slide-leave-to {
+.qr-undo-rise-enter-from,
+.qr-undo-rise-leave-to {
   opacity: 0;
-  transform: translate(8px, -2px) scale(0.98);
+  transform: translate(-50%, 8px) scale(0.96);
 }
 
 .qr__dock-capsule {
@@ -2318,7 +2330,6 @@ html[class*="dark"] {
     --qr-checker-color-1: #18191b;
     --qr-checker-color-2: #101012;
     --qr-primary-on-tint: color-mix(in srgb, var(--el-color-primary, #3b82f6) 50%, #ffffff);
-    --qr-warning-on-tint: color-mix(in srgb, var(--el-color-warning, #e6a23c) 35%, #ffffff);
   }
 
   .qr__stat-item {
@@ -2354,15 +2365,6 @@ html[class*="dark"] {
 
   .qr__stat-name {
     display: none;
-  }
-
-  /* 侧栏收窄后 Dock 会横向压到解码角标，直接收起 */
-  .qr__deck-pending {
-    display: none;
-  }
-
-  .qr__undo-bar {
-    top: 92px;
   }
 }
 
@@ -2400,9 +2402,10 @@ html[class*="dark"] {
     display: none;
   }
 
-  .qr__undo-bar {
-    top: 88px;
-    right: 12px;
+  /* 移动端：撤销胶囊压在 Dock 正上方、拇指可达，不再顶到画面去遮挡素材 */
+  .qr__undo {
+    bottom: calc(max(10px, env(safe-area-inset-bottom)) + 46px);
+    max-width: calc(100% - 20px);
   }
 
   .qr__toasts {
@@ -2410,7 +2413,15 @@ html[class*="dark"] {
   }
 
   .qr__stage {
-    padding: 44px 12px 58px;
+    padding: 72px 12px var(--qr-stage-bottom, 58px);
+  }
+
+  .qr__stage-wrap--undo {
+    --qr-stage-bottom: calc(max(10px, env(safe-area-inset-bottom)) + 88px);
+  }
+
+  .qr__undo-kbd {
+    display: none;
   }
 
   .qr__side {

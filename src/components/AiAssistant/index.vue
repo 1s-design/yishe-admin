@@ -753,6 +753,8 @@ let scrollObserver: MutationObserver | null = null;
 let resizeObs: ResizeObserver | null = null;
 let stickToBottom = true;
 let rafScheduled = false;
+let scrollEl: HTMLElement | null = null;
+let scrollHandler: (() => void) | null = null;
 
 function isNearBottom(el: HTMLElement) {
   return el.scrollHeight - el.scrollTop - el.clientHeight <= 72;
@@ -778,12 +780,18 @@ function scrollToBottom() {
 }
 
 function initSmartScroll() {
+  // 重复初始化前先清理，避免监听与 Observer 叠加
+  if (scrollHandler) {
+    destroySmartScroll();
+  }
   const el = chatScrollRef.value;
   if (!el) return;
 
-  el.addEventListener('scroll', () => {
+  scrollEl = el;
+  scrollHandler = () => {
     stickToBottom = isNearBottom(el);
-  });
+  };
+  el.addEventListener('scroll', scrollHandler);
 
   scrollObserver = new MutationObserver(scheduleScrollToBottom);
   scrollObserver.observe(el, {
@@ -797,8 +805,11 @@ function initSmartScroll() {
 }
 
 function destroySmartScroll() {
-  const el = chatScrollRef.value;
-  if (el) el.removeEventListener('scroll', () => {});
+  if (scrollEl && scrollHandler) {
+    scrollEl.removeEventListener('scroll', scrollHandler);
+  }
+  scrollEl = null;
+  scrollHandler = null;
   scrollObserver?.disconnect();
   resizeObs?.disconnect();
   scrollObserver = null;

@@ -58,14 +58,15 @@ const emit = defineEmits(['update:modelValue', 'files-change'])
 
 const localFiles = ref([])
 
-const getPreviewUrl = (file) => {
-  if (file.url) {
-    return file.url
+// 预览 URL 在选文件时创建一次并复用，避免每次渲染都新建 blob URL
+const getPreviewUrl = (file) => file.url || file.previewUrl || ''
+
+// 释放创建时保存的那个 URL 引用
+const releasePreviewUrl = (file) => {
+  if (file?.previewUrl) {
+    window.URL.revokeObjectURL(file.previewUrl)
+    file.previewUrl = null
   }
-  if (file.raw) {
-    return window.URL.createObjectURL(file.raw)
-  }
-  return ''
 }
 
 const handleChange = (file) => {
@@ -79,16 +80,15 @@ const handleChange = (file) => {
   }
   localFiles.value.push({
     raw: file.raw,
-    url: null
+    url: null,
+    previewUrl: window.URL.createObjectURL(file.raw)
   })
   emit('files-change', localFiles.value)
 }
 
 const removeFile = (index) => {
   const file = localFiles.value[index]
-  if (file.raw && !file.url) {
-    window.URL.revokeObjectURL(getPreviewUrl(file))
-  }
+  releasePreviewUrl(file)
   localFiles.value.splice(index, 1)
   const urls = localFiles.value.filter(file => file.url).map(file => file.url)
   emit('update:modelValue', urls)
@@ -112,19 +112,11 @@ updateLocalFiles(props.modelValue)
 watch(() => props.modelValue, updateLocalFiles)
 
 onUnmounted(() => {
-  localFiles.value.forEach(file => {
-    if (file.raw && !file.url) {
-      window.URL.revokeObjectURL(getPreviewUrl(file))
-    }
-  })
+  localFiles.value.forEach(file => releasePreviewUrl(file))
 })
 
 const reset = () => {
-  localFiles.value.forEach(file => {
-    if (file.raw && !file.url) {
-      window.URL.revokeObjectURL(getPreviewUrl(file))
-    }
-  })
+  localFiles.value.forEach(file => releasePreviewUrl(file))
   localFiles.value = []
   emit('update:modelValue', [])
   emit('files-change', [])
