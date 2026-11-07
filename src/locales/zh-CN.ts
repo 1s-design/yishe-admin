@@ -4923,8 +4923,10 @@ export default {
   queue: {
     taskId: '任务 ID',
     placeholderQueryAll: '留空则查询全部',
-    searchKeyword: '关键词搜索',
-    searchKeywordPlaceholder: '输入任务描述关键词，包含即匹配',
+    searchKeyword: '描述搜索',
+    searchKeywordPlaceholder: '搜任务描述 / 任务 ID，包含即匹配',
+    searchErrorKeyword: '失败原因搜索',
+    searchErrorKeywordPlaceholder: '搜错误信息，包含即匹配',
     taskType: '任务类型',
     allTypes: '全部类型',
     publishCategory: '发布分类',

@@ -50,6 +50,25 @@
                 :lg="6"
                 :xl="6"
               >
+                <el-form-item :label="t('queue.searchErrorKeyword')">
+                  <el-input
+                    v-model="queryParams.errorKeyword"
+                    size="small"
+                    clearable
+                    :placeholder="t('queue.searchErrorKeywordPlaceholder')"
+                    @keyup.enter="handleQueryChange"
+                    @clear="handleQueryChange"
+                  />
+                </el-form-item>
+              </el-col>
+              <el-col
+                class="list-page-search-form__col--base"
+                :xs="24"
+                :sm="12"
+                :md="8"
+                :lg="6"
+                :xl="6"
+              >
                 <el-form-item :label="t('queue.taskType')">
                   <el-select
                     v-model="queryParams.types"
@@ -1235,6 +1254,7 @@ const defaultQueueQueryFilters = {
   family: "" as "" | "product" | "media",
   id: "",
   keyword: "",
+  errorKeyword: "",
   sortType: "createdAt_DESC",
   createdDateRange: null as [string, string] | null,
 };
@@ -1258,6 +1278,7 @@ const queryParams = reactive({
       : "",
   id: String(queueQueryFilterStorage.value.id || ""),
   keyword: String(queueQueryFilterStorage.value.keyword || ""),
+  errorKeyword: String(queueQueryFilterStorage.value.errorKeyword || ""),
   sortType: queueQueryFilterStorage.value.sortType || defaultQueueQueryFilters.sortType,
   createdDateRange: queueQueryFilterStorage.value.createdDateRange || null,
 });
@@ -2905,6 +2926,7 @@ async function getList(options?: unknown) {
       family: (queryParams.family as "product" | "media" | "") || undefined,
       id: queryParams.id?.trim() || undefined,
       keyword: queryParams.keyword?.trim() || undefined,
+      errorKeyword: queryParams.errorKeyword?.trim() || undefined,
       sortField: sortField as "createdAt" | "updatedAt" | "processedAt",
       sortOrder: sortOrder as "ASC" | "DESC",
       includeTotal: !silent,
@@ -3003,6 +3025,7 @@ function handleResetQuery() {
   queryParams.family = "";
   queryParams.id = "";
   queryParams.keyword = "";
+  queryParams.errorKeyword = "";
   queryParams.sortType = defaultQueueQueryFilters.sortType;
   queryParams.createdDateRange = null;
 
@@ -3062,7 +3085,11 @@ async function refreshStats() {
         total: Number(statsData.total) || 0,
       };
       stats.value = nextStats;
-      if (!queryParams.id?.trim() && !queryParams.keyword?.trim()) {
+      if (
+        !queryParams.id?.trim() &&
+        !queryParams.keyword?.trim() &&
+        !queryParams.errorKeyword?.trim()
+      ) {
         const statusTotal =
           queryParams.status && queryParams.status in nextStats
             ? Number(nextStats[queryParams.status]) || 0
@@ -4416,6 +4443,7 @@ watch(
   () => ({
     id: queryParams.id,
     keyword: queryParams.keyword,
+    errorKeyword: queryParams.errorKeyword,
     types: [...queryParams.types],
     family: queryParams.family,
     status: queryParams.status,
@@ -4428,6 +4456,7 @@ watch(
     queueQueryFilterStorage.value = {
       id: newValue.id || "",
       keyword: newValue.keyword || "",
+      errorKeyword: newValue.errorKeyword || "",
       types: newValue.types,
       family: newValue.family as "" | "product" | "media",
       status: newValue.status,

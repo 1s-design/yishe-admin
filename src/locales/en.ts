@@ -4929,8 +4929,10 @@ export default {
   queue: {
     taskId: 'Task ID',
     placeholderQueryAll: 'Leave empty to query all',
-    searchKeyword: 'Keyword',
-    searchKeywordPlaceholder: 'Search task description (contains match)',
+    searchKeyword: 'Description',
+    searchKeywordPlaceholder: 'Search description / task ID (contains match)',
+    searchErrorKeyword: 'Error',
+    searchErrorKeywordPlaceholder: 'Search error message (contains match)',
     taskType: 'Task Type',
     allTypes: 'All Types',
     publishCategory: 'Publish Category',

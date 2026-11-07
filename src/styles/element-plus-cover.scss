@@ -629,12 +629,11 @@ html.dark .el-alert {
   box-shadow: var(--ep-cover-focus-ring);
 }
 
+/* 静态容器：transform 过渡服务于 hover 抬升，保留原样 */
 .el-card,
 .el-dialog,
 .el-drawer,
-.el-message-box,
-.el-popper.is-light,
-.el-popover.el-popper {
+.el-message-box {
   border: 1px solid var(--ep-cover-border-color);
   border-radius: var(--ep-cover-radius-md);
   transition:
@@ -642,6 +641,18 @@ html.dark .el-alert {
     background-color var(--ep-cover-motion-fast),
     box-shadow var(--ep-cover-motion-base),
     transform var(--ep-cover-motion-base);
+}
+
+/* Popper 浮层（tooltip / popover / select / dropdown / picker ...）的定位由
+   @floating-ui 写入内联 transform: translate3d(x, y, 0)。一旦对 transform 施加过渡，
+   首次显示时浮层会从视口原点「滑」到计算出的坐标（表现为从左下方飞入），滚动、
+   翻转时的位置更新也会被动画化。这里同样不能声明任何 transition：双类选择器优先级
+   高于 Element Plus 自带的 el-fade-in-linear-*，会连带吞掉原生淡入淡出。
+   因此浮层只保留静态视觉（边框、圆角），动效交还给组件库。 */
+.el-popper.is-light,
+.el-popover.el-popper {
+  border: 1px solid var(--ep-cover-border-color);
+  border-radius: var(--ep-cover-radius-md);
 }
 
 .el-card {
