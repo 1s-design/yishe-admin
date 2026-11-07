@@ -3830,6 +3830,7 @@ export default {
     psdCreateByConfigFailed: 'Failed to create image set from the publish config',
     psdCreateFailed: 'Failed to create image set',
     psdTasksCreated: 'Successfully created {count} image set tasks',
+    psdTasksSkippedDuplicated: '{count} material/config pairs were already created and skipped',
     psdTemplate: 'PSD template',
     psdTemplateLoadFailed: 'Failed to load PSD template',
     publishAfterGenerate: 'Publish after generation',

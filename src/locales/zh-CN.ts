@@ -3824,6 +3824,7 @@ export default {
     psdCreateByConfigFailed: '按发布配置创建套图失败',
     psdCreateFailed: '创建套图失败',
     psdTasksCreated: '成功创建 {count} 条套图任务',
+    psdTasksSkippedDuplicated: '另有 {count} 组素材已用相同发布配置制作过，已自动跳过',
     psdTemplate: 'PSD模板',
     psdTemplateLoadFailed: '加载PSD模板失败',
     publishAfterGenerate: '生成后发布',

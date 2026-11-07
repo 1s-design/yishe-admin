@@ -1764,12 +1764,18 @@ async function drainCreateQueue() {
       invalidatePublishBindingsCache(job.stickerId)
       invalidateMaterialRelations(job.stickerId)
     } catch (err: any) {
-      job.configIds.forEach((cfgId) => {
-        optimisticRecordKeys.value.delete(`${job.stickerId}:${cfgId}`)
-      })
-      createdMaterialCount.value = Math.max(0, createdMaterialCount.value - 1)
-      createdTaskCount.value = Math.max(0, createdTaskCount.value - job.configIds.length)
-      ElMessage.error(err?.message || '发布任务创建失败，已回滚')
+      const errMsg = String(err?.message || '')
+      // 该素材的全部配置都已制作过属于正常的幂等结果，按跳过提示，不当成失败回滚
+      if (errMsg.includes('制作过')) {
+        ElMessage.warning(errMsg)
+      } else {
+        job.configIds.forEach((cfgId) => {
+          optimisticRecordKeys.value.delete(`${job.stickerId}:${cfgId}`)
+        })
+        createdMaterialCount.value = Math.max(0, createdMaterialCount.value - 1)
+        createdTaskCount.value = Math.max(0, createdTaskCount.value - job.configIds.length)
+        ElMessage.error(errMsg || '发布任务创建失败，已回滚')
+      }
     } finally {
       if (createQueue.value[0] === job) createQueue.value.shift()
     }

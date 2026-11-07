@@ -7063,6 +7063,12 @@ async function handleCreatePsdSetsByPublishConfig() {
       ? res.list.length
       : Number(res?.total || materialPublishConfigTaskCount.value);
     ElMessage.success(t("material.psdTasksCreated", { count: createdCount }));
+    const skippedCount = Array.isArray(res?.skippedDuplicates)
+      ? res.skippedDuplicates.length
+      : 0;
+    if (skippedCount > 0) {
+      ElMessage.warning(t("material.psdTasksSkippedDuplicated", { count: skippedCount }));
+    }
     handleCloseMaterialPublishConfigDialog();
     if (!isImageGroupPsdSet.value) {
       resetCheckStatus(ids);

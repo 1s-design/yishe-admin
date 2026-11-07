@@ -11,6 +11,28 @@ function pathResolve(dir: string) {
     return resolve(root, '.', dir)
 }
 
+// 体积大、整体引入、且只被少数路由使用的依赖单独成 chunk，便于浏览器长期缓存。
+// 这里只改变产物的切分归属，不改变任何模块的执行内容。
+// element-plus / ant-design-vue 走按需引入，强行合并反而会把其它路由的组件
+// 拖进首屏，因此不纳入；vue / vue-router / pinia 等核心也不拆，避免循环依赖。
+const VENDOR_CHUNKS: Array<{ name: string; patterns: string[] }> = [
+    { name: 'echarts', patterns: ['/node_modules/echarts/', '/node_modules/echarts-wordcloud/'] },
+    { name: 'vxe', patterns: ['/node_modules/vxe-table/', '/node_modules/vxe-pc-ui/'] },
+    {
+        name: 'bpmn',
+        patterns: [
+            '/node_modules/bpmn-js/',
+            '/node_modules/bpmn-js-properties-panel/',
+            '/node_modules/bpmn-js-token-simulation/',
+            '/node_modules/camunda-bpmn-moddle/',
+        ],
+    },
+    { name: 'codemirror', patterns: ['/node_modules/codemirror/', '/node_modules/@codemirror/'] },
+    { name: 'vue-flow', patterns: ['/node_modules/@vue-flow/'] },
+    { name: 'wangeditor', patterns: ['/node_modules/@wangeditor/'] },
+    { name: 'xlsx', patterns: ['/node_modules/xlsx/'] },
+]
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }: ConfigEnv) => {
     const env = loadEnv(mode, root, '')
@@ -81,7 +103,13 @@ export default defineConfig(({ mode }: ConfigEnv) => {
             rollupOptions: {
                 output: {
                     manualChunks(id) {
-                        return id.includes('node_modules/echarts') ? 'echarts' : undefined
+                        const normalizedId = id.replace(/\\/g, '/')
+                        for (const group of VENDOR_CHUNKS) {
+                            if (group.patterns.some((pattern) => normalizedId.includes(pattern))) {
+                                return group.name
+                            }
+                        }
+                        return undefined
                     }
                 },
             },
