@@ -15,7 +15,7 @@
           <el-switch v-model="autoRefresh" size="small" />
         </div>
 
-        <el-button size="small" type="primary" plain :loading="refreshing" @click="refreshConnections">
+        <el-button size="small" type="primary" plain :loading="refreshing" @click="refreshConnections({ force: true })">
           <Icon icon="ep:refresh" class="mr-5px" />
           刷新列表
         </el-button>
@@ -355,14 +355,18 @@ const normalizeConnectionRows = (response: unknown): WebsocketConnectionVO[] => 
   return [];
 };
 
-const refreshConnections = async () => {
+const refreshConnections = async (
+  options: { force?: boolean; polling?: boolean } = {},
+) => {
   if (refreshing.value) {
     return;
   }
 
   refreshing.value = true;
   try {
-    const response = await getMyOnlineRuntimeConnectionViews();
+    // 本页未订阅 runtime-connection-changed，完全依赖 REST 轮询，
+    // 因此保持「每次调用都回源」的既有行为不变。
+    const response = await getMyOnlineRuntimeConnectionViews(options);
     const rows = normalizeConnectionRows(response)
       .filter((row) => resolveClientSource(row) === PLUGIN_CLIENT_SOURCE)
       .sort((a, b) => {
@@ -435,7 +439,7 @@ const startAutoRefresh = () => {
   }
 
   refreshTimer.value = window.setInterval(() => {
-    void refreshConnections();
+    void refreshConnections({ force: true });
   }, AUTO_REFRESH_INTERVAL_MS);
 };
 
@@ -444,7 +448,7 @@ watch(autoRefresh, () => {
 });
 
 onMounted(() => {
-  void refreshConnections();
+  void refreshConnections({ force: true });
   startAutoRefresh();
 });
 

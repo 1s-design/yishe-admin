@@ -203,7 +203,8 @@ const formatConnectedAt = (value?: string | null) => {
 
 const refreshConnections = async () => {
   try {
-    await store.refresh();
+    // 手动刷新按钮：强制回源
+    await store.refresh({ force: true });
   } catch (error: any) {
     message.error(error?.message || t('home.myConnections.refreshFail'));
   }

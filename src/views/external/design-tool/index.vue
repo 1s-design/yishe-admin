@@ -22,7 +22,7 @@
           打开实例
         </el-button>
         <el-tooltip :content="`最近更新 ${lastRefreshText}`" placement="bottom">
-          <el-button size="small" :loading="refreshing" @click="refreshConnections" circle aria-label="刷新连接">
+          <el-button size="small" :loading="refreshing" @click="refreshConnections({ force: true })" circle aria-label="刷新连接">
             <Icon icon="ep:refresh" />
           </el-button>
         </el-tooltip>
@@ -662,11 +662,13 @@ const normalizeRows = (res: unknown): WebsocketConnectionVO[] => {
   return [];
 };
 
-const refreshConnections = async () => {
+const refreshConnections = async (
+  options: { force?: boolean; polling?: boolean } = {},
+) => {
   if (refreshing.value) return;
   refreshing.value = true;
   try {
-    const res = await getMyOnlineRuntimeConnectionViews();
+    const res = await getMyOnlineRuntimeConnectionViews(options);
     toolConnections.value = normalizeRows(res)
       .filter((r) => isDesignToolConnection(r))
       .sort((a, b) => ((a.connectedAt || "") > (b.connectedAt || "") ? -1 : 1));
@@ -851,7 +853,8 @@ const onServiceCommandResult = (event: ServiceCommandResultEvent) => {
   if (!isCommandResultFailure(event)) {
     ElMessage.success(event.message || "设计工具已在所选浏览器环境中打开");
     launchDialogVisible.value = false;
-    void refreshConnections();
+    // 命令刚下发成功，必须立刻拿到服务端最新连接列表
+    void refreshConnections({ force: true });
     return;
   }
 
@@ -998,7 +1001,10 @@ const onRuntimeConnectionChanged = (evt: RuntimeConnectionChangedEvent) => {
 };
 const startTimer = () => {
   stopTimer();
-  refreshTimer.value = window.setInterval(() => refreshConnections(), AUTO_REFRESH_INTERVAL_MS);
+  refreshTimer.value = window.setInterval(
+    () => refreshConnections({ polling: true }),
+    AUTO_REFRESH_INTERVAL_MS,
+  );
 };
 
 // ── 远程命令 ──

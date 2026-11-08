@@ -1,11 +1,18 @@
 import request from "@/config/axios";
 
 const MY_CONNECTION_VIEW_REFRESH_INTERVAL_MS = 3_000;
+// 自动兜底轮询的共享窗口。在线状态由 runtime-connection-changed WS 推送实时 patch，
+// 自动轮询只需低频兜底；手动刷新 / 命令成功后刷新仍走 3s 窗口并可 force 强制回源。
+const ONLINE_VIEW_POLLING_WINDOW_MS = 15_000;
 
 interface ConnectionViewRequestOptions {
   force?: boolean;
   summary?: boolean;
   compact?: boolean;
+  /** 服务端瘦响应投影，默认开启；传 false 可回到完整视图 */
+  lean?: boolean;
+  /** 标记为自动兜底轮询，使用更长的共享窗口 */
+  polling?: boolean;
 }
 
 function cloneConnectionViewResponse<T>(payload: T): T {
@@ -26,9 +33,40 @@ function cloneConnectionViewResponse<T>(payload: T): T {
   return payload;
 }
 
+/**
+ * 本接口专用：缓存值与调用方彻底隔离。
+ * designToolRuntimeState 会在 WS 回调里原地改写 connection.clientInfo.designWorker，
+ * 浅拷贝会让改动污染缓存对象，窗口拉长后其它调用方会读到被改过的数据。
+ */
+function cloneConnectionViewResponseDeep<T>(payload: T): T {
+  if (payload === null || typeof payload !== "object") return payload;
+  if (typeof structuredClone === "function") {
+    try {
+      return structuredClone(payload);
+    } catch {
+      // 落到下面的 JSON 兜底
+    }
+  }
+  try {
+    return JSON.parse(JSON.stringify(payload)) as T;
+  } catch {
+    return payload;
+  }
+}
+
+interface DedupeRequestConfig {
+  /** 按本次调用参数决定共享窗口长度 */
+  getWindowMs?: (options: ConnectionViewRequestOptions) => number;
+  /** 缓存值与调用方的隔离方式 */
+  clone?: <T>(payload: T) => T;
+  /** 自定义缓存分桶；不传时沿用 my-client-node-views 的原有分桶规则 */
+  getCacheKey?: (options: ConnectionViewRequestOptions) => string;
+}
+
 function createDedupedPostRequest<T>(
   requester: (options: ConnectionViewRequestOptions) => Promise<T>,
   intervalMs: number,
+  config: DedupeRequestConfig = {},
 ) {
   const stateMap = new Map<
     string,
@@ -39,9 +77,18 @@ function createDedupedPostRequest<T>(
     }
   >();
 
+  const clone = config.clone || cloneConnectionViewResponse;
+
   return async (options: ConnectionViewRequestOptions = {}): Promise<T> => {
     const forceRefresh = options.force === true;
-    const cacheKey = options.summary === true ? "summary" : "full";
+    // 默认分桶规则保持原样，确保 getMyClientNodeViews 行为完全不变；
+    // 只有本接口需要额外按 compact/lean 分桶，避免不同投影档位复用同一结果。
+    const cacheKey = config.getCacheKey
+      ? config.getCacheKey(options)
+      : options.summary === true
+        ? "summary"
+        : "full";
+    const windowMs = config.getWindowMs ? config.getWindowMs(options) : intervalMs;
     const now = Date.now();
     const state =
       stateMap.get(cacheKey) ||
@@ -63,16 +110,16 @@ function createDedupedPostRequest<T>(
     if (
       !forceRefresh &&
       state.lastResolvedValue !== null &&
-      now - state.lastResolvedAt < intervalMs
+      now - state.lastResolvedAt < windowMs
     ) {
-      return cloneConnectionViewResponse(state.lastResolvedValue);
+      return clone(state.lastResolvedValue);
     }
 
     state.inFlightRequest = requester(options)
       .then((response) => {
         state.lastResolvedValue = response;
         state.lastResolvedAt = Date.now();
-        return cloneConnectionViewResponse(response);
+        return clone(response);
       })
       .finally(() => {
         state.inFlightRequest = null;
@@ -285,25 +332,60 @@ const fetchMyWebsocketConnectionViews = createDedupedPostRequest(
       data: {
         summary: options.summary !== false,
         compact: options.compact !== false,
+        // 仅「列表/计数/归属校验」调用方显式启用；服务端对 summary:false
+        // 完整档强制不裁，详情/派发弹窗/控制台链路拿到的响应一字不变。
+        lean: options.lean === true,
       },
     }),
   MY_CONNECTION_VIEW_REFRESH_INTERVAL_MS,
+  {
+    // lean 与非 lean 的响应结构不同，必须分开缓存，否则精简结果会被详情调用方复用。
+    // 原有 summary 分桶规则保持不变，只在后面追加 lean 维度（非 lean 调用仍落在同一桶）。
+    getCacheKey: (options) =>
+      `${options.summary === true ? "summary" : "full"}:${options.lean === true ? "lean" : "full"}`,
+  },
 );
 
 export const getMyClientNodeViews = (options?: ConnectionViewRequestOptions) => {
   return fetchMyWebsocketConnectionViews(options);
 };
 
+// 请求合并：并发调用复用同一个 in-flight 请求；手动刷新共享 3s 窗口，
+// 自动兜底轮询共享 15s 窗口。在线状态由 runtime-connection-changed WS 推送实时 patch，
+// 因此自动轮询降频不影响实时性；手动刷新与命令成功后的刷新可传 force: true 强制回源。
+const fetchMyOnlineRuntimeConnectionViews = createDedupedPostRequest(
+  (options) =>
+    request.post<WebsocketConnectionVO[]>({
+      url: "/websocket/my-online-runtime-connection-views",
+      data: {
+        summary: options.summary !== false,
+        compact: options.compact !== false,
+        // 只裁前端列表/状态页不消费的 services[].details 等重字段，
+        // 归属过滤、来源判定、设备/位置展示与 WS patch 所需字段全部保留。
+        lean: options.lean !== false,
+      },
+    }),
+  MY_CONNECTION_VIEW_REFRESH_INTERVAL_MS,
+  {
+    getCacheKey: (options) =>
+      [
+        options.summary === false ? "full" : "summary",
+        options.compact === false ? "verbose" : "compact",
+        options.lean === false ? "rich" : "lean",
+      ].join(":"),
+    getWindowMs: (options) =>
+      options.polling === true
+        ? ONLINE_VIEW_POLLING_WINDOW_MS
+        : MY_CONNECTION_VIEW_REFRESH_INTERVAL_MS,
+    clone: cloneConnectionViewResponseDeep,
+  },
+);
+
 export const getMyOnlineRuntimeConnectionViews = (
-  options: ConnectionViewRequestOptions = { summary: true, compact: true },
+  options: ConnectionViewRequestOptions = {},
 ) => {
-  return request.post<WebsocketConnectionVO[]>({
-    url: "/websocket/my-online-runtime-connection-views",
-    data: {
-      summary: options.summary !== false,
-      compact: options.compact !== false,
-    },
-  });
+  // 默认开启瘦响应；调用方可显式传 lean: false 回到完整视图。
+  return fetchMyOnlineRuntimeConnectionViews({ lean: true, ...options });
 };
 
 export const sendMessageToConnection = (connectionId: string, data: any, event?: string) => {

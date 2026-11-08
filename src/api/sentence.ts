@@ -15,10 +15,28 @@ export function getSentenceList(data) {
   });
 }
 
+// 高级搜索：关键词 + 标签(含/排除) + 情感/风格/场景/语言 + 字数区间 + 时间 + 排序
+export function searchSentences(data) {
+  return request.post({
+    url: '/sentences/search',
+    data,
+  });
+}
+
+
+
+
 export function createSentence(data) {
   return request.post({
     url: '/sentences',
     data,
+  });
+}
+
+// 单条详情（列表用 fields=basic 极简返回，完整信息按需取这条）
+export function getSentence(id: number | string) {
+  return request.get({
+    url: `/sentences/${id}`,
   });
 }
 
@@ -46,6 +64,14 @@ export function aiAnalyzeSentence(id: number, prompt?: string) {
 export function batchMoveSentence(data: { ids: number[]; folderId: string | null }) {
   return request.post({
     url: '/sentences/batch-move',
+    data,
+  });
+}
+
+// 批量审核：reviewStatus 0-待审核 1-可用（「不要」的直接调删除接口）
+export function batchReviewSentences(data: { ids: number[]; reviewStatus: number }) {
+  return request.post({
+    url: '/sentences/batch-review',
     data,
   });
 }

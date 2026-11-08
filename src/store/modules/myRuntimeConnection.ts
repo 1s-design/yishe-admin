@@ -85,10 +85,10 @@ export const useMyRuntimeConnectionStore = defineStore("my-runtime-connection", 
     connections.value = next.sort(compareRuntimeConnections);
   };
 
-  const refresh = async () => {
+  const refresh = async (options: { force?: boolean; polling?: boolean } = {}) => {
     loading.value = true;
     try {
-      const response = await getMyOnlineRuntimeConnectionViews();
+      const response = await getMyOnlineRuntimeConnectionViews(options);
       connections.value = normalizeRuntimeConnections(resolveConnectionViews(response));
     } finally {
       loading.value = false;

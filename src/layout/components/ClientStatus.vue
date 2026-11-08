@@ -308,7 +308,8 @@ function handleTriggerClick(event: MouseEvent) {
 }
 
 async function refreshAllStatuses() {
-  await Promise.all([refreshMyClients(), runtimeConnectionStore.refresh()]);
+  // 手动刷新：强制回源，不受自动轮询共享窗口影响
+  await Promise.all([refreshMyClients(), runtimeConnectionStore.refresh({ force: true })]);
 }
 
 function handleClientDialogVisibleChange(value: boolean) {
@@ -323,7 +324,8 @@ onMounted(() => {
   void runtimeConnectionStore.refresh();
   runtimeRefreshTimer = setInterval(() => {
     if (websocketClient.state.status === "connected") {
-      void runtimeConnectionStore.refresh();
+      // 兜底轮询：与其余自动刷新共享窗口，实时状态由 WS 推送 patch
+      void runtimeConnectionStore.refresh({ polling: true });
     }
   }, 15_000);
 });

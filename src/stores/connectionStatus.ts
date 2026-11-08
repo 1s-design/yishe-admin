@@ -5,6 +5,7 @@ import {
   type RuntimeConnectionChangedEvent,
 } from "@/services/websocketClient";
 import { getAccessToken } from "@/utils/auth";
+import { invalidateGetInfoCache } from "@/api/login";
 import { isClientAuthorized as checkClientAuthApi } from "@/api/user";
 import {
   getMyClientNodeViews,
@@ -92,7 +93,9 @@ export const refreshMyClients = async () => {
 
   clientRefreshLoading.value = true;
   try {
-    const response = await getMyClientNodeViews({ summary: true });
+    // 顶栏只需在线计数、来源判定与时间排序，不消费 services[].details /
+    // psAutomation.memory；详情弹窗走 ClientControlService 的完整档，互不影响。
+    const response = await getMyClientNodeViews({ summary: true, lean: true });
     const clients = resolveConnectionViews(response);
     setMyClients(clients);
     return clients;
@@ -270,6 +273,11 @@ const bindRealtimeListeners = () => {
   realtimeListenersBound = true;
   websocketClient.events.on("clientConnectionChanged", handleClientConnectionChanged);
   websocketClient.events.on("runtimeConnectionChanged", handleRuntimeConnectionChanged);
+  // 用户配置 / 权限变更推送到达时立刻失效前端用户信息缓存。
+  // 只清缓存、不主动发请求：下次业务真的取用户信息时才回源，不制造额外流量。
+  websocketClient.events.on("userSettingChanged", () => {
+    invalidateGetInfoCache();
+  });
 };
 
 const startClientConnectionCheck = () => {

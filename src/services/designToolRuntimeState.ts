@@ -163,7 +163,9 @@ const handleRemoteResult = (event: RemoteResultEvent) => {
   syncSnapshot();
 };
 
-export const refreshDesignToolRuntimeState = async () => {
+export const refreshDesignToolRuntimeState = async (
+  options: { polling?: boolean } = {},
+) => {
   if (pendingRefresh) return pendingRefresh;
 
   pendingRefresh = (async () => {
@@ -172,6 +174,7 @@ export const refreshDesignToolRuntimeState = async () => {
       const response = await getMyOnlineRuntimeConnectionViews({
         summary: true,
         compact: true,
+        polling: options.polling === true,
       });
       replaceConnections(normalizeRows(response));
     } catch {
@@ -192,7 +195,14 @@ export const refreshDesignToolRuntimeState = async () => {
 
 const refreshWhenVisible = () => {
   if (typeof document !== "undefined" && document.hidden) return;
+  // 切回标签页 / 获得焦点、WS 重连：走即时档
   void refreshDesignToolRuntimeState();
+};
+
+const refreshFallback = () => {
+  if (typeof document !== "undefined" && document.hidden) return;
+  // 60s 兜底轮询：与其它自动刷新共享窗口
+  void refreshDesignToolRuntimeState({ polling: true });
 };
 
 const bindRuntimeUpdates = () => {
@@ -207,7 +217,7 @@ const bindRuntimeUpdates = () => {
   }
 
   if (typeof window !== "undefined" && fallbackTimer === null) {
-    fallbackTimer = window.setInterval(refreshWhenVisible, FALLBACK_REFRESH_INTERVAL_MS);
+    fallbackTimer = window.setInterval(refreshFallback, FALLBACK_REFRESH_INTERVAL_MS);
   }
 
   if (

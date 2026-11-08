@@ -569,7 +569,9 @@ const fetchSessions = async () => {
       fetch('/api/websocket/my-online-runtime-connection-views', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ summary: false })
+        // 本页只展示设备/地理位置与按 tokenUser.id 匹配会话，
+        // 不需要完整档的 services[].details；保持原有原生 fetch 与每次回源语义。
+        body: JSON.stringify({ summary: true, compact: true, lean: true })
       }).then(r => r.json()).catch(() => ({ data: [] }))
     ]);
     if (sessionRes.success) {

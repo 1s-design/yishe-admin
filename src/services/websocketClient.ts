@@ -481,6 +481,7 @@ export type WebsocketEvents = {
   serviceCommandResult: ServiceCommandResultEvent;
   clientConnectionChanged: ClientConnectionChangedEvent;
   runtimeConnectionChanged: RuntimeConnectionChangedEvent;
+  userSettingChanged: { scope?: string; data?: any; timestamp?: number };
   imageProcessingRecordChanged: ImageProcessingRecordChangedEvent;
   videoRecordStatus: VideoRecordStatusEvent;
   psAutomationStatus: PsAutomationStatusEvent;
@@ -958,6 +959,13 @@ function bindSocketEvents(currentSocket: Socket) {
 
   currentSocket.on("runtime-connection-changed", (data: RuntimeConnectionChangedEvent) => {
     emitter.emit("runtimeConnectionChanged", data);
+  });
+
+  // 用户配置 / 权限在任意端发生变更时，服务端会推 user-setting-changed。
+  // 这里只转发事件、不直接依赖 api 层，避免与 store -> websocketClient 形成循环引用；
+  // 真正的 getUserInfo 缓存失效在 stores/connectionStatus.ts 里订阅处理。
+  currentSocket.on("user-setting-changed", (data: any) => {
+    emitter.emit("userSettingChanged", data ?? {});
   });
 
   currentSocket.on("image-processing-record-changed", (data: ImageProcessingRecordChangedEvent) => {

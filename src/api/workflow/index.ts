@@ -66,6 +66,12 @@ export interface WorkflowPageParams {
   pageSize?: number;
   name?: string;
   status?: string;
+  /**
+   * 仅全局菜单角标使用：请求体带 brief:true 时服务端只返回
+   * id/isRunning/isEnabled/triggers[3]。卡片页与模板库不要传，
+   * 不传时请求体与响应逐字节不变。
+   */
+  brief?: boolean;
 }
 
 // 创建工作流

@@ -13,7 +13,7 @@
                   <el-input
                     v-model="queryParams.search"
                     size="small"
-                    placeholder="搜索句子内容、描述、关键词"
+                    placeholder="搜索内容/描述/关键词（情感、风格、场景都在这里）"
                     clearable
                     @keyup.enter="handleSearch"
                     @clear="handleSearch"
@@ -24,32 +24,141 @@
                   </el-input>
                 </el-form-item>
               </el-col>
+              <el-col class="list-page-search-form__col--narrow" :xs="12" :sm="8" :md="5" :lg="4" :xl="3">
+                <el-form-item label="语言">
+                  <el-select v-model="queryParams.language" size="small" placeholder="全部" clearable @change="handleSearch">
+                    <el-option v-for="opt in languageOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col class="list-page-search-form__col--narrow" :xs="12" :sm="8" :md="5" :lg="4" :xl="3">
+                <el-form-item label="审核状态">
+                  <el-select v-model="queryParams.reviewStatus" size="small" placeholder="全部" clearable @change="handleSearch">
+                    <el-option label="待审核" :value="0" />
+                    <el-option label="可用" :value="1" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col class="list-page-search-form__col--narrow" :xs="12" :sm="8" :md="6" :lg="5" :xl="4">
+                <el-form-item label="文字数">
+                  <el-popover
+                    ref="lengthPopperRef"
+                    placement="bottom-start"
+                    :width="304"
+                    trigger="click"
+                    popper-class="length-picker-popper"
+                  >
+                    <template #reference>
+                      <el-button size="small" class="length-trigger" :class="{ 'is-active': lengthActive }">
+                        <span class="length-trigger__text">{{ lengthLabel }}</span>
+                        <el-icon class="length-trigger__arrow"><ArrowDown /></el-icon>
+                      </el-button>
+                    </template>
+                    <div class="length-picker">
+                      <div class="length-picker__section">
+                        <span class="length-picker__title">常用区间</span>
+                        <div class="length-picker__chips">
+                          <button
+                            v-for="opt in LENGTH_RANGES"
+                            :key="opt.key"
+                            type="button"
+                            class="length-chip"
+                            :class="{ 'is-active': lengthFilter.key === opt.key }"
+                            @click="pickLength(opt)"
+                          >
+                            {{ opt.label }}
+                          </button>
+                        </div>
+                      </div>
+                      <div class="length-picker__section">
+                        <span class="length-picker__title">精确字数</span>
+                        <div class="length-picker__chips">
+                          <button
+                            v-for="n in [4, 5, 6, 7, 8]"
+                            :key="'exact' + n"
+                            type="button"
+                            class="length-chip"
+                            :class="{ 'is-active': lengthFilter.exact === n }"
+                            @click="pickLength({ key: 'exact' + n, exact: n })"
+                          >
+                            {{ n }} 字
+                          </button>
+                        </div>
+                      </div>
+                      <div class="length-picker__section">
+                        <span class="length-picker__title">自定义</span>
+                        <div class="length-picker__custom">
+                          <el-input-number
+                            v-model="customMin"
+                            size="small"
+                            :min="1"
+                            :max="300"
+                            :controls="false"
+                            placeholder="最小"
+                            class="length-num"
+                          />
+                          <span class="length-picker__tilde">~</span>
+                          <el-input-number
+                            v-model="customMax"
+                            size="small"
+                            :min="1"
+                            :max="300"
+                            :controls="false"
+                            placeholder="最大"
+                            class="length-num"
+                          />
+                          <el-button size="small" type="primary" @click="applyCustomLength">应用</el-button>
+                        </div>
+                      </div>
+                    </div>
+                  </el-popover>
+                </el-form-item>
+              </el-col>
             </el-row>
             <div class="list-page-search-form__actions">
               <el-button size="small" type="primary" :icon="Search" :loading="loading" @click="handleSearch">搜索</el-button>
-              <el-button size="small" :disabled="loading" @click="handleReset">重置</el-button>
+              <el-button size="small" :disabled="loading" @click="handleReset">
+                重置<template v-if="activeFilterCount">（{{ activeFilterCount }}）</template>
+              </el-button>
               <el-button size="small" type="primary" :icon="Plus" @click="handleAdd">添加句子</el-button>
-              <el-button size="small" type="danger" :icon="Delete" @click="handleDelete(null)">
-                批量删除 ({{ ids.length }})
-              </el-button>
               <el-button
                 size="small"
-                type="success"
-                :disabled="!ids.length"
-                @click="openSentenceUserTransferDialog('share')"
+                class="quick-review-btn"
+                :icon="Aim"
+                title="全屏逐条审核：通过 / 删除 / 忽略"
+                @click="quickReviewVisible = true"
               >
-                分享 ({{ ids.length }})
+                快捷审核<template v-if="pendingCount">（待审 {{ pendingCount }}）</template>
               </el-button>
-              <el-button
-                size="small"
-                type="danger"
-                :icon="Delete"
-                :loading="deleteLoading"
-                @click="handleDelete(null)"
-                :disabled="!ids.length"
-              >
-                批量删除
-              </el-button>
+              <transition name="el-fade-in">
+                <span v-if="ids.length" class="selection-actions">
+                  <el-button
+                    size="small"
+                    type="success"
+                    @click="openSentenceUserTransferDialog('share')"
+                  >
+                    分享 ({{ ids.length }})
+                  </el-button>
+                  <el-button
+                    size="small"
+                    type="success"
+                    :icon="Check"
+                    :loading="batchReviewLoading"
+                    @click="handleBatchReview"
+                  >
+                    通过 ({{ ids.length }})
+                  </el-button>
+                  <el-button
+                    size="small"
+                    type="danger"
+                    :icon="Delete"
+                    :loading="deleteLoading"
+                    @click="handleDelete(null)"
+                  >
+                    删除 ({{ ids.length }})
+                  </el-button>
+                </span>
+              </transition>
             </div>
           </el-form>
         </div>
@@ -113,6 +222,10 @@
               <el-button type="primary" link size="small" class="operation-trigger-button">操作</el-button>
               <template #dropdown>
                 <el-dropdown-menu class="operation-menu-compact">
+                  <el-dropdown-item command="detail">
+                    <el-icon><View /></el-icon>
+                    <span>详情</span>
+                  </el-dropdown-item>
                   <el-dropdown-item command="edit">
                     <el-icon><Edit /></el-icon>
                     <span>编辑</span>
@@ -134,6 +247,10 @@
                     <el-icon><Connection /></el-icon>
                     <span>查看分享</span>
                   </el-dropdown-item>
+                  <el-dropdown-item command="review-approve">
+                    <el-icon><Check /></el-icon>
+                    <span>通过审核</span>
+                  </el-dropdown-item>
                   <el-dropdown-item command="delete" divided class="operation-menu-item--danger">
                     <el-icon><Delete /></el-icon>
                     <span>删除</span>
@@ -149,7 +266,12 @@
           </div>
         </template>
         <template #contentSlot="{ row }">
-          <div class="sentence-content flex items-center gap-1.5" :class="{ 'sentence-content--collapsed': contentCollapsed }">
+          <div
+            class="sentence-content flex items-center gap-1.5 cursor-pointer hover:text-[var(--el-color-primary)]"
+            :class="{ 'sentence-content--collapsed': contentCollapsed }"
+            title="点击查看详情"
+            @click="openDetail(row)"
+          >
             <span>{{ row.content }}</span>
           </div>
         </template>
@@ -167,21 +289,16 @@
           </div>
         </template>
 
-        <template #shareTypeSlot="{ row }">
-          <el-tag v-if="row.shareType === 'shared' || row.shareType === 'copy' || (row.sourceUserId && row.sourceUserId !== row.userId)" type="success" size="small" effect="light">
-            来自【{{ row.sourceUser?.name || row.sourceUser?.account || ('用户' + row.sourceUserId) }}】分享
+        <template #reviewStatusSlot="{ row }">
+          <el-tag
+            :type="row.reviewStatus === 1 ? 'success' : 'warning'"
+            size="small"
+            effect="light"
+            class="sentence-review-tag"
+            :title="row.reviewStatus === 1 ? '可用' : '待审核，点击详情可快速审核'"
+          >
+            {{ row.reviewStatus === 1 ? "可用" : "待审核" }}
           </el-tag>
-          <el-tag v-else type="info" size="small" effect="plain">个人自建</el-tag>
-        </template>
-        <template #descriptionSlot="{ row }">
-          <div class="text-wrap" style="max-width: 200px; word-break: break-all">
-            {{ row.description || "-" }}
-          </div>
-        </template>
-        <template #keywordsSlot="{ row }">
-          <div class="text-wrap" style="max-width: 200px; word-break: break-all">
-            {{ row.keywords || "-" }}
-          </div>
         </template>
         <template #createdAtSlot="{ row }">
           <span>{{ formatDateTime(row.createdAt) }}</span>
@@ -375,6 +492,57 @@
         </el-table>
       </div>
     </el-dialog>
+
+    <!-- 文案详情弹窗：极简，完整信息按需加载 -->
+    <el-dialog
+      v-model="detailVisible"
+      width="560px"
+      append-to-body
+      destroy-on-close
+      align-center
+      class="sentence-detail-dialog"
+    >
+      <template #header><span /></template>
+      <div v-loading="detailLoading" class="sentence-detail">
+        <template v-if="detail">
+          <div class="sentence-detail__content">{{ detail.content }}</div>
+          <div v-if="detail.description" class="sentence-detail__text">{{ detail.description }}</div>
+          <div v-if="detailKeywords.length" class="sentence-detail__tags">
+            <el-tag v-for="k in detailKeywords" :key="k" size="small" effect="plain">{{ k }}</el-tag>
+          </div>
+          <div class="sentence-detail__meta">
+            <span>{{ detailLanguageLabel }}</span>
+            <span class="sentence-detail__dot">·</span>
+            <span>{{ detail.content ? Array.from(detail.content).length : 0 }} 字</span>
+            <span class="sentence-detail__dot">·</span>
+            <el-tag :type="detail.reviewStatus === 1 ? 'success' : 'warning'" size="small" effect="light">
+              {{ detail.reviewStatus === 1 ? "可用" : "待审核" }}
+            </el-tag>
+            <el-tag :type="detail.isPublish ? 'success' : 'info'" size="small" effect="light">
+              {{ detail.isPublish ? "已发布" : "未发布" }}
+            </el-tag>
+            <template v-if="typeof detail.meta?.copyrightFree === 'boolean'">
+              <el-tag :type="detail.meta.copyrightFree ? 'success' : 'danger'" size="small" effect="light">
+                {{ detail.meta.copyrightFree ? "可商用" : "注意版权" }}
+              </el-tag>
+            </template>
+            <span class="sentence-detail__time">{{ formatDateTime(detail.updatedAt) }}</span>
+          </div>
+          <div v-if="detail.meta?.author || detail.meta?.source" class="sentence-detail__extra">
+            <span v-if="detail.meta?.author">作者：{{ detail.meta.author }}</span>
+            <span v-if="detail.meta?.author && detail.meta?.source" class="sentence-detail__dot">·</span>
+            <span v-if="detail.meta?.source">出处：{{ detail.meta.source }}</span>
+          </div>
+        </template>
+      </div>
+    </el-dialog>
+
+    <!-- 快捷审核（全屏逐条：通过 / 删除 / 忽略，参考采集素材模块） -->
+    <SentenceQuickReview
+      v-model:visible="quickReviewVisible"
+      :query="quickReviewQuery"
+      @reviewed="getList"
+    />
   </ContentWrap>
 </template>
 
@@ -385,22 +553,29 @@ import {
   Search,
   Delete,
   Plus,
+  Check,
+  View,
   MagicStick,
   Edit,
   Loading,
+  Aim,
   DArrowLeft,
   DArrowRight,
+  ArrowDown,
   Share,
   User,
   Connection,
 } from "@element-plus/icons-vue";
 import {
   getSentenceList,
+  searchSentences,
+  getSentence,
   createSentence,
   updateSentence,
   deleteSentence,
   aiAnalyzeSentence,
   batchMoveSentence,
+  batchReviewSentences,
   shareSentenceToUser,
   copySentenceToUser,
   moveSentenceToUser,
@@ -414,6 +589,7 @@ import Pagination from "@/components/Pagination/index.vue";
 import ListPageLayout from "@/components/ListPageLayout/index.vue";
 import FolderTree from "@/components/material/FolderTree.vue";
 import TableRowDragHandle from "@/components/TableRowDragHandle/index.vue";
+import SentenceQuickReview from "./SentenceQuickReview.vue";
 import { useWindowSize, useLocalStorage } from "@vueuse/core";
 import { useUserStore } from "@/store/modules/user";
 import { computed } from "vue";
@@ -433,7 +609,196 @@ const queryParams = reactive({
   pageSize: 20,
   search: "",
   folderId: null as string | null,
+  language: "" as string,
+  reviewStatus: "" as string | number,
 });
+
+// 文字数筛选：常用档位点选 / 精确字数 / 自定义区间（面板里完成，不用记语法）
+type LengthFilter = { key: string; exact?: number; min?: number; max?: number };
+
+const LENGTH_RANGES: Array<{ key: string; label: string; min?: number; max?: number }> = [
+  { key: "all", label: "不限" },
+  { key: "r1_4", label: "1-4 字", min: 1, max: 4 },
+  { key: "r5_8", label: "5-8 字", min: 5, max: 8 },
+  { key: "r9_16", label: "9-16 字", min: 9, max: 16 },
+  { key: "r17_30", label: "17-30 字", min: 17, max: 30 },
+  { key: "r31", label: "30 字以上", min: 31 },
+];
+
+const lengthFilter = reactive<LengthFilter>({ key: "all" });
+const customMin = ref<number | undefined>(undefined);
+const customMax = ref<number | undefined>(undefined);
+const lengthPopperRef = ref<any>(null);
+
+const lengthActive = computed(
+  () => lengthFilter.key !== "all" || !!(lengthFilter.exact || lengthFilter.min || lengthFilter.max),
+);
+
+const lengthLabel = computed(() => {
+  if (lengthFilter.exact) return `正好 ${lengthFilter.exact} 字`;
+  if (lengthFilter.min && lengthFilter.max) return `${lengthFilter.min}-${lengthFilter.max} 字`;
+  if (lengthFilter.min) return `≥ ${lengthFilter.min} 字`;
+  if (lengthFilter.max) return `≤ ${lengthFilter.max} 字`;
+  return "不限";
+});
+
+/** 当前生效的筛选条件数（重置按钮角标） */
+const activeFilterCount = computed(() => {
+  let n = 0;
+  if (queryParams.search) n += 1;
+  if (queryParams.language) n += 1;
+  if (
+    queryParams.reviewStatus !== "" &&
+    queryParams.reviewStatus !== null &&
+    queryParams.reviewStatus !== undefined
+  ) {
+    n += 1;
+  }
+  if (lengthActive.value) n += 1;
+  return n;
+});
+
+function closeLengthPicker() {
+  lengthPopperRef.value?.hide?.();
+}
+
+function pickLength(opt: { key: string; exact?: number; min?: number; max?: number }) {
+  lengthFilter.key = opt.key;
+  lengthFilter.exact = opt.exact;
+  lengthFilter.min = opt.min;
+  lengthFilter.max = opt.max;
+  customMin.value = opt.exact ?? opt.min;
+  customMax.value = opt.exact ?? opt.max;
+  closeLengthPicker();
+  handleSearch();
+}
+
+function applyCustomLength() {
+  const min = customMin.value ? Number(customMin.value) : undefined;
+  const max = customMax.value ? Number(customMax.value) : undefined;
+  if (!min && !max) {
+    ElMessage.warning("至少填一个字数");
+    return;
+  }
+  if (min && max && min > max) {
+    ElMessage.warning("最小值不能大于最大值");
+    return;
+  }
+  lengthFilter.key = "custom";
+  lengthFilter.exact = min && max && min === max ? min : undefined;
+  lengthFilter.min = min;
+  lengthFilter.max = max;
+  closeLengthPicker();
+  handleSearch();
+}
+
+function resetLengthFilter() {
+  lengthFilter.key = "all";
+  lengthFilter.exact = undefined;
+  lengthFilter.min = undefined;
+  lengthFilter.max = undefined;
+  customMin.value = undefined;
+  customMax.value = undefined;
+}
+
+const languageOptions = [
+  { value: "zh", label: "中文" },
+  { value: "en", label: "英文" },
+  { value: "ja", label: "日文" },
+  { value: "ko", label: "韩文" },
+  { value: "mixed", label: "中英混合" },
+];
+
+// 详情弹窗（完整信息按需加载，列表只拿 basic 字段）
+const detailVisible = ref(false);
+const detailLoading = ref(false);
+const detail = ref<any>(null);
+const detailKeywords = computed(() =>
+  (detail.value?.keywords || "")
+    .split(/[,，]/)
+    .map((k: string) => k.trim())
+    .filter(Boolean),
+);
+const detailLanguageLabel = computed(
+  () => languageOptions.find((o) => o.value === detail.value?.language)?.label || detail.value?.language || "-",
+);
+
+async function openDetail(row: any) {
+  detail.value = row;
+  detailVisible.value = true;
+  detailLoading.value = true;
+  try {
+    const res = await getSentence(row.id);
+    detail.value = res || row;
+  } catch (e: any) {
+    ElMessage.error(e?.message || "获取详情失败");
+  } finally {
+    detailLoading.value = false;
+  }
+}
+
+// ==========================================================================
+// 快捷审核：全屏接管式（SentenceQuickReview 组件），两状态 0-待审核 1-可用
+// 舞台内快捷键：→/D=通过  ↓/S=删除  ←/A=忽略  Z=撤回删除  Esc=退出
+// ==========================================================================
+const quickReviewVisible = ref(false);
+const batchReviewLoading = ref(false);
+
+/** 列表当前待审核条数（工具栏按钮角标） */
+const pendingCount = computed(
+  () => (dataSource.value as any[]).filter((row: any) => row.reviewStatus !== 1).length,
+);
+
+/** 沿用列表当前筛选条件（去掉分页，组件内固定只取待审核） */
+const quickReviewQuery = computed(() => {
+  const rest: Record<string, any> = {
+    keyword: queryParams.search || undefined,
+    language: queryParams.language || undefined,
+    length: lengthFilter.exact,
+    minLength: lengthFilter.min,
+    maxLength: lengthFilter.max,
+    folderId: convertFolderIdToApiParam(queryParams.folderId),
+  };
+  return Object.fromEntries(
+    Object.entries(rest).filter(([, v]) => v !== undefined && v !== null && v !== ""),
+  );
+});
+
+function markRowReviewed(rowId: any, status: number) {
+  const row = (dataSource.value as any[]).find((item: any) => String(item.id) === String(rowId));
+  if (row) row.reviewStatus = status;
+}
+
+/** 单条通过（操作菜单「通过审核」用） */
+async function quickReview(status: number, row: any) {
+  if (!row) return;
+  try {
+    await batchReviewSentences({ ids: [Number(row.id)], reviewStatus: status });
+    markRowReviewed(row.id, status);
+    ElMessage.success("已通过审核");
+  } catch (e: any) {
+    ElMessage.error(e?.message || "审核失败");
+  }
+}
+
+/** 批量通过选中项 */
+async function handleBatchReview() {
+  if (!ids.value.length) return ElMessage.warning("请选择要通过的数据");
+  batchReviewLoading.value = true;
+  try {
+    const count = ids.value.length;
+    await batchReviewSentences({ ids: [...ids.value], reviewStatus: 1 });
+    ids.value.forEach((id: any) => markRowReviewed(id, 1));
+    ids.value = [];
+    ElMessage.success(`已通过 ${count} 条`);
+  } catch (e: any) {
+    ElMessage.error(e?.message || "批量审核失败");
+  } finally {
+    batchReviewLoading.value = false;
+  }
+}
+
+
 
 const gridOptions = ref({
   ...commonGridOptions,
@@ -453,44 +818,35 @@ const gridOptions = ref({
     {
       title: "句子内容",
       field: "content",
-      minWidth: 800,
+      minWidth: 500,
       slots: { default: "contentSlot", header: "contentHeaderSlot" },
     },
     {
-      title: "描述",
-      field: "description",
-      minWidth: 200,
-      slots: { default: "descriptionSlot" },
+      title: "字数",
+      field: "contentLength",
+      width: 64,
+      align: "center",
+      formatter: ({ row }) => (row?.content ? Array.from(row.content).length : "-"),
     },
     {
-      title: "关键词",
-      field: "keywords",
-      minWidth: 150,
-      slots: { default: "keywordsSlot" },
+      title: "语言",
+      field: "language",
+      width: 70,
+      align: "center",
+      formatter: ({ row }) => languageOptions.find((o) => o.value === row?.language)?.label || "-",
     },
     {
-      title: "上传者",
-      field: "uploader",
-      width: 140,
-      formatter: ({ row }) => row?.uploader?.account || row?.uploader?.name || row?.userId || "-",
-    },
-    {
-      title: "创建时间",
-      field: "createdAt",
-      width: 160,
-      slots: { default: "createdAtSlot" },
+      title: "审核",
+      field: "reviewStatus",
+      width: 76,
+      align: "center",
+      slots: { default: "reviewStatusSlot" },
     },
     {
       title: "更新时间",
       field: "updatedAt",
       width: 160,
       slots: { default: "updatedAtSlot" },
-    },
-    {
-      title: "资源类型",
-      field: "shareType",
-      width: 200,
-      slots: { default: "shareTypeSlot" },
     },
     buildOperationColumn("operationDefaultSlot"),
   ],
@@ -564,11 +920,21 @@ function formatDateTime(dateStr: string) {
 async function getList() {
   loading.value = true;
   try {
-    const params = {
-      ...queryParams,
+    const params: any = {
+      currentPage: queryParams.currentPage,
+      pageSize: queryParams.pageSize,
+      fields: "basic", // 列表只要基础字段，描述/关键词等详情再取，省流量渲染快
       folderId: convertFolderIdToApiParam(queryParams.folderId) as string | null | undefined,
     };
-    const res = await getSentenceList(params);
+    if (queryParams.search) params.keyword = queryParams.search;
+    if (queryParams.language) params.language = queryParams.language;
+    if (queryParams.reviewStatus !== "" && queryParams.reviewStatus !== null && queryParams.reviewStatus !== undefined) {
+      params.reviewStatus = Number(queryParams.reviewStatus);
+    }
+    if (lengthFilter.exact) params.length = lengthFilter.exact;
+    if (lengthFilter.min) params.minLength = lengthFilter.min;
+    if (lengthFilter.max) params.maxLength = lengthFilter.max;
+    const res = await searchSentences(params);
     dataSource.value = res.list || [];
     total.value = res.total || 0;
     ids.value = [];
@@ -588,6 +954,9 @@ function handleSearch() {
 
 function handleReset() {
   queryParams.search = "";
+  queryParams.language = "";
+  queryParams.reviewStatus = "";
+  resetLengthFilter();
   queryParams.currentPage = 1;
   getList();
 }
@@ -640,7 +1009,9 @@ function handleAdd() {
   };
 }
 
-onMounted(getList);
+onMounted(() => {
+  getList();
+});
 
 function checkboxChange(e) {
   const records = Array.isArray(e.records) ? e.records : [];
@@ -770,6 +1141,9 @@ async function submitAiAnalyzeDialog() {
     aiAnalyzeLoading.value = false;
     aiAnalyzeDialogVisible.value = false;
     aiAnalyzeRow = null;
+  } finally {
+    // AI 分析回填 description/keywords 后刷新列表
+    getList();
   }
 }
 
@@ -810,6 +1184,12 @@ async function openShareRecordsDialog(row: any) {
 // 处理dropdown操作命令
 function handleOperationCommand(command: string, row: any) {
   switch (command) {
+    case "detail":
+      openDetail(row);
+      break;
+    case "review-approve":
+      quickReview(1, row);
+      break;
     case "edit":
       handleEdit(row);
       break;
@@ -994,6 +1374,113 @@ const submitForm = async () => {
 
 <style scoped>
 
+/* 文字数筛选：触发按钮 */
+.length-trigger {
+  width: 100%;
+  justify-content: space-between;
+  padding: 0 8px;
+  font-weight: 400;
+}
+
+.length-trigger__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.length-trigger__arrow {
+  flex-shrink: 0;
+  margin-left: 4px;
+  font-size: 12px;
+  color: var(--el-text-color-placeholder);
+}
+
+.length-trigger.is-active {
+  color: var(--el-color-primary);
+  border-color: var(--el-color-primary-light-5);
+  background: var(--el-color-primary-light-9);
+}
+
+.length-trigger.is-active .length-trigger__arrow {
+  color: var(--el-color-primary);
+}
+
+/* 选中后才出现的批量操作 */
+.selection-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.selection-actions :deep(.el-button + .el-button) {
+  margin-left: 0;
+}
+
+/* 文字数面板（popper 挂在 body，需全局样式） */
+:global(.length-picker-popper) {
+  padding: 12px 14px 14px;
+}
+
+:global(.length-picker__section) {
+  margin-bottom: 12px;
+}
+
+:global(.length-picker__section:last-child) {
+  margin-bottom: 0;
+}
+
+:global(.length-picker__title) {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+:global(.length-picker__chips) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+:global(.length-chip) {
+  height: 26px;
+  padding: 0 10px;
+  font-size: 12px;
+  line-height: 24px;
+  color: var(--el-text-color-regular);
+  background: var(--el-fill-color-blank);
+  border: 1px solid var(--el-border-color);
+  border-radius: 13px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background-color 0.15s;
+}
+
+:global(.length-chip:hover) {
+  color: var(--el-color-primary);
+  border-color: var(--el-color-primary-light-5);
+  background: var(--el-color-primary-light-9);
+}
+
+:global(.length-chip.is-active) {
+  color: #fff;
+  background: var(--el-color-primary);
+  border-color: var(--el-color-primary);
+}
+
+:global(.length-picker__custom) {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+:global(.length-num) {
+  width: 78px;
+}
+
+:global(.length-picker__tilde) {
+  color: var(--el-text-color-placeholder);
+}
+
 
 @media (width <= 600px) {
   .shrink-0 {
@@ -1070,4 +1557,77 @@ const submitForm = async () => {
 }
 
 /* 操作列样式优化 */
+
+/* 详情弹窗（极简） */
+.sentence-detail {
+  min-height: 160px;
+}
+.sentence-detail__content {
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--el-text-color-primary);
+}
+.sentence-detail__text {
+  margin-top: 14px;
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--el-text-color-secondary);
+}
+.sentence-detail__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 14px;
+}
+.sentence-detail__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 18px;
+  padding-top: 14px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+.sentence-detail__dot {
+  color: var(--el-text-color-placeholder);
+}
+.sentence-detail__time {
+  margin-left: auto;
+}
+.sentence-detail__extra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+/* 极简弹窗：去标题栏内边距，仅保留右上角关闭按钮 */
+.sentence-detail-dialog .el-dialog__header {
+  padding: 12px 20px 0;
+}
+.sentence-detail-dialog .el-dialog__body {
+  padding: 8px 24px 24px;
+}
+
+
+/* 标签筛选行：checkbox 与下拉框垂直居中、不换行 */
+.sentence-tag-mode {
+  flex-shrink: 0;
+  height: auto;
+  margin-right: 0;
+  white-space: nowrap;
+}
+.sentence-tag-mode :deep(.el-checkbox__label) {
+  font-size: 12px;
+  padding-left: 5px;
+}
 </style>

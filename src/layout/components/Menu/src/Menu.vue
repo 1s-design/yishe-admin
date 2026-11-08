@@ -229,7 +229,13 @@ export default defineComponent({
       if (workflowRuntimeLoading.value || document.hidden) return;
       workflowRuntimeLoading.value = true;
       try {
-        const response: any = await getWorkflowPageApi({ currentPage: 1, pageSize: 100 });
+        // 菜单只需要运行中/定时数量与下次运行时间，走服务端 brief 档；
+        // 卡片页与模板库仍调同一个接口但不传 brief，响应逐字节不变。
+        const response: any = await getWorkflowPageApi({
+          currentPage: 1,
+          pageSize: 100,
+          brief: true,
+        });
         const workflows = response?.list || response?.data?.list || [];
         runningWorkflowCount.value = workflows.filter((workflow: any) => workflow?.isRunning === true).length;
 

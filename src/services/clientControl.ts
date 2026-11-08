@@ -15,11 +15,15 @@ function getResponseData<T = any>(response: any): T {
 export class ClientControlService {
   /**
    * 获取当前用户自己的客户端连接列表
+   * @param options.lean 仅用于「下发命令前的归属校验」等只读 id 的场景；
+   *   客户端详情弹窗（ClientControl/index.vue）不传，保持完整档响应一字不变。
    * @returns 当前用户的客户端连接列表
    */
-  static async getMyClients(): Promise<WebsocketConnectionVO[]> {
+  static async getMyClients(
+    options: { lean?: boolean } = {},
+  ): Promise<WebsocketConnectionVO[]> {
     try {
-      const response: any = await WebsocketApi.getMyClientNodeViews();
+      const response: any = await WebsocketApi.getMyClientNodeViews(options);
       // 处理响应数据：可能是数组，也可能是包装后的对象 { data: [...], code: 0, ... }
       if (Array.isArray(response)) {
         return response;
@@ -52,7 +56,7 @@ export class ClientControlService {
   ): Promise<boolean> {
     try {
       // 先验证该连接是否属于当前用户
-      const myClients = await this.getMyClients();
+      const myClients = await this.getMyClients({ lean: true });
       const targetClient = myClients.find((client) => client.id === connectionId);
 
       if (!targetClient) {
@@ -104,7 +108,7 @@ export class ClientControlService {
     silent: boolean = false,
   ): Promise<boolean> {
     try {
-      const myClients = await this.getMyClients();
+      const myClients = await this.getMyClients({ lean: true });
       const targetClient = myClients.find((client) => client.id === clientId);
 
       if (!targetClient) {
@@ -148,7 +152,7 @@ export class ClientControlService {
     silent: boolean = false,
   ): Promise<boolean> {
     try {
-      const myClients = await this.getMyClients();
+      const myClients = await this.getMyClients({ lean: true });
       const targetClient = myClients.find((client) => client.id === clientId);
 
       if (!targetClient) {
@@ -316,7 +320,7 @@ export class ClientControlService {
    * @returns 是否属于当前用户
    */
   static async isMyClient(connectionId: string): Promise<boolean> {
-    const myClients = await this.getMyClients();
+    const myClients = await this.getMyClients({ lean: true });
     return myClients.some((client) => client.id === connectionId);
   }
 
@@ -325,7 +329,7 @@ export class ClientControlService {
    * @returns 客户端数量
    */
   static async getMyClientCount(): Promise<number> {
-    const myClients = await this.getMyClients();
+    const myClients = await this.getMyClients({ lean: true });
     return myClients.length;
   }
 
@@ -342,7 +346,7 @@ export class ClientControlService {
     silent: boolean = false,
   ): Promise<{ success: boolean; message: string; filePath?: string; fileSize?: number }> {
     try {
-      const myClients = await this.getMyClients();
+      const myClients = await this.getMyClients({ lean: true });
       const targetClient = myClients.find((client) => client.id === clientId);
 
       if (!targetClient) {
@@ -395,7 +399,7 @@ export class ClientControlService {
     fileSize?: number;
   }> {
     try {
-      const myClients = await this.getMyClients();
+      const myClients = await this.getMyClients({ lean: true });
       const targetClient = myClients.find((client) => client.id === clientId);
 
       if (!targetClient) {
