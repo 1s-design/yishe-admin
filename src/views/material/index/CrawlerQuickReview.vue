@@ -128,7 +128,10 @@
             :alt="shownItem.name || '素材图片'"
             :style="imageStyle"
             decoding="async"
+            referrerpolicy="no-referrer"
             draggable="false"
+            @load="onStageImgLoad"
+            @error="onStageImgError"
           />
           <div v-if="imageError" class="qr__image-error" role="status">
             <span>图片加载失败</span>
@@ -499,6 +502,32 @@ const displayUrl = computed(() => frame.value?.url ?? "");
 const deckPending = ref(false);
 const imageError = ref(false);
 const framePainted = ref(false);
+
+/**
+ * 预解码失败后改由浏览器直接加载时，deck 的等待上限不再生效，
+ * 需要一个兜底计时器，避免请求挂死时面板一直停在半加载、无法跳过。
+ */
+const FALLBACK_WAIT = 20000;
+let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
+
+function clearFallbackTimer(): void {
+  if (fallbackTimer) {
+    clearTimeout(fallbackTimer);
+    fallbackTimer = null;
+  }
+}
+
+function armFallbackTimer(): void {
+  clearFallbackTimer();
+  fallbackTimer = setTimeout(() => {
+    fallbackTimer = null;
+    if (frame.value?.item !== current.value) return;
+    deckPending.value = false;
+    framePainted.value = false;
+    imageError.value = true;
+  }, FALLBACK_WAIT);
+}
+
 const canReview = computed(() =>
   props.visible && framePainted.value && !deckPending.value &&
   !!current.value && frame.value?.item === current.value,
@@ -784,11 +813,39 @@ function presentFrame(item: any, url: string, seq: number): void {
   });
 }
 
+/** 渲染层加载成功：以真实 onload 为准放行动作，避免预解码链路异常时一直卡在不可操作 */
+function onStageImgLoad(): void {
+  // 旧图的 onload 可能在切到下一张后才触发，不能据此放行新素材
+  if (frame.value?.item !== current.value) return;
+  clearFallbackTimer();
+  deckPending.value = false;
+  if (!imageError.value) framePainted.value = true;
+}
+
+/** 渲染层加载失败：先退回原图地址，原图也失败才判定为真正的加载失败 */
+function onStageImgError(): void {
+  const shown = frame.value;
+  if (!shown) return;
+  const raw = String(shown.item?.url || "");
+  if (raw && shown.url !== raw) {
+    // 处理图（imageMogr2 出图）失败通常是 COS 冷启动处理超时/抖动，原图往往还能出
+    frame.value = { item: shown.item, url: raw };
+    framePainted.value = false;
+    armFallbackTimer();
+    return;
+  }
+  deckPending.value = false;
+  framePainted.value = false;
+  imageError.value = true;
+  clearFallbackTimer();
+}
+
 function syncDeck(): void {
   const item = current.value;
   const target = deckKeyOf(item);
   const seq = ++deckSeq;
   cancelAnimationFrame(paintFrame);
+  clearFallbackTimer();
   framePainted.value = false;
   imageError.value = false;
   deckPending.value = false;
@@ -812,12 +869,16 @@ function syncDeck(): void {
   deckPending.value = true;
   void deck.ensure(target).then((ready) => {
     if (seq !== deckSeq) return;
-    if (ready) presentFrame(item, target, seq);
-    else {
-      deckPending.value = false;
-      frame.value = null;
-      imageError.value = true;
+    if (ready) {
+      presentFrame(item, target, seq);
+      return;
     }
+    // 预解码没等到（典型场景：新采集的图在 COS 上是冷的，首次 imageMogr2 出图要好几秒，
+    // 被 deck 的等待上限掐断）。此时不要把地址丢掉直接报「加载失败」，
+    // 而是把同一个地址交给浏览器继续加载：浏览器没有这个等待上限，
+    // 出图后 onStageImgLoad 会正常放行动作，失败再由 onStageImgError 兜底原图。
+    frame.value = { item, url: target };
+    armFallbackTimer();
   });
 }
 
@@ -858,6 +919,7 @@ function reload(): void {
   seenIds.value = new Set();
   deckSeq += 1;
   cancelAnimationFrame(paintFrame);
+  clearFallbackTimer();
   deck.reset();
   frame.value = null;
   framePainted.value = false;
@@ -1173,6 +1235,7 @@ async function teardown(): Promise<void> {
   deckSeq += 1;
   cancelAnimationFrame(paintFrame);
   framePainted.value = false;
+  clearFallbackTimer();
   deck.reset();
   clearDeleteCountdown();
   if (importTimer) {
@@ -1217,6 +1280,7 @@ onBeforeUnmount(() => {
   fetchEpoch += 1;
   deckSeq += 1;
   cancelAnimationFrame(paintFrame);
+  clearFallbackTimer();
   deck.reset();
   if (importTimer) clearTimeout(importTimer);
   if (deleteTimer) clearTimeout(deleteTimer);

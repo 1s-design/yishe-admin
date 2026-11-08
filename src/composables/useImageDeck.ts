@@ -80,6 +80,8 @@ export function useImageDeck(options: UseImageDeckOptions = {}) {
       active++;
       task.timer = setTimeout(() => finish(task, false), warmTimeout);
       el.decoding = 'async';
+      // 不少图床按 Referer 防盗链，管理端域名加载会被 403；去掉 Referer 才能正常出图
+      el.referrerPolicy = 'no-referrer';
       el.fetchPriority = task.priority;
       let decoding = false;
       el.onload = async () => {
