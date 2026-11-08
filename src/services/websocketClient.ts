@@ -735,6 +735,11 @@ function buildQuery() {
     clientSource: CLIENT_SOURCE,
     clientId: clientId,
     machineCode: clientInfo.machine?.code || "",
+    // 声明支持 service-runtime 静态元数据块去重：服务端首帧与静态块变化时
+    // 下发全量，其余帧省略逐帧不变的巨型静态块。本端 mergeServiceRuntime
+    // 对 details 是浅合并，会保留上一帧的值，最终数据完全一致。
+    // 删掉这一行即可完全回退到「每帧全量」。
+    runtimeStaticDedupe: "1",
   };
 
   return payload;
