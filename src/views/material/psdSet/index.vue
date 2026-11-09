@@ -242,10 +242,21 @@
                 </div>
               </template>
               <template #statusSlot="{ row }">
-                <div class="status-cell">
+                <div class="status-cell flex items-center gap-1">
                   <el-tag :type="statusTagType(getPsdSetDisplayStatus(row))" effect="plain" size="small">
                     {{ statusLabel(getPsdSetDisplayStatus(row)) }}
                   </el-tag>
+                  <!-- 状态描述列挪到详情后，日志快捷入口保留在状态列；
+                       lean 档只下发存在性标记，WS 推送则为本地补的日志正文 -->
+                  <el-button
+                    v-if="hasPsdSetProductionLogs(row)"
+                    link
+                    size="small"
+                    class="text-xs px-1 text-[var(--el-text-color-secondary)] hover:text-[var(--el-color-primary)] flex-shrink-0"
+                    @click.stop="handleViewProductionLogs(row)"
+                  >
+                    日志
+                  </el-button>
                 </div>
               </template>
               <template #statusMessageSlot="{ row }">
@@ -254,7 +265,7 @@
                     {{ resolvePsdSetStatusMessage(row) }}
                   </span>
                   <el-button
-                    v-if="row.meta?.productionLogs?.length"
+                    v-if="hasPsdSetProductionLogs(row)"
                     link
                     size="small"
                     class="text-xs px-1 text-[var(--el-text-color-secondary)] hover:text-[var(--el-color-primary)] flex-shrink-0"
@@ -2257,6 +2268,11 @@ function resolvePsdSetStatusMessage(record: any) {
   return String(record.statusMessage || "").trim() || "-";
 }
 
+/** 列表档（lean）只下发存在性标记；完整档与 WS 本地补丁带日志正文 */
+function hasPsdSetProductionLogs(row: any) {
+  return Boolean(row?.meta?.productionLogs?.length || row?.meta?.hasProductionLogs);
+}
+
 function findPsdSetRowIndexById(psdSetId: unknown) {
   const normalizedId = normalizePsdSetId(psdSetId);
   if (!normalizedId) {
@@ -2380,6 +2396,8 @@ function resolvePsdSetCreator(row: any) {
 }
 
 function getColumns() {
+  // 列表默认列只保留扫描必需项；状态描述/配置信息/处理时长/ID/更新时间
+  // 挪到详情弹窗展示（detailDialog 均已包含），接口侧同时走 lean 投影不再下发。
   const baseColumns = [
     { type: "checkbox", width: 50, fixed: "left" as const },
     { title: t("psdSet.psdSetImage"), field: "images", width: 200, slots: { default: "imagesSlot" } },
@@ -2387,28 +2405,7 @@ function getColumns() {
     { title: t("psdSet.multiMaterialAssociation"), field: "stickers", width: 120, slots: { default: "stickersCountSlot" } },
     { title: t("common.status"), field: "status", width: 120, slots: { default: "statusSlot" } },
     {
-      title: t("psdSet.statusDescription"),
-      field: "statusMessage",
-      width: 280,
-      showOverflow: true,
-      slots: { default: "statusMessageSlot" },
-    },
-    { title: t("psdSet.configInfo"), field: "config", width: 150, slots: { default: "configSlot" } },
-    {
-      title: t("psdSet.processingDuration"),
-      field: "processingTime",
-      width: 140,
-      formatter: ({ cellValue }) => formatProcessingTime(cellValue),
-    },
-    {
-      title: "ID",
-      field: "id",
-      width: 160,
-      showOverflow: false,
-      slots: { default: "idSlot" },
-    },
-    {
-      title: t("common.creator") || "创建人",
+      title: t("common.creator"),
       field: "uploader",
       width: 130,
       slots: { default: "creatorSlot" },
@@ -2416,12 +2413,6 @@ function getColumns() {
     {
       title: t("common.createTime"),
       field: "createTime",
-      width: 160,
-      formatter: ({ cellValue }) => formatTimestamp(cellValue),
-    },
-    {
-      title: t("common.updateTime"),
-      field: "updateTime",
       width: 160,
       formatter: ({ cellValue }) => formatTimestamp(cellValue),
     },
@@ -2516,6 +2507,7 @@ async function getList(silent = false) {
       psdTemplateId: queryParams.psdTemplateId?.trim() || undefined,
       status: queryParams.status || undefined,
       keyword: queryParams.keyword?.trim() || undefined,
+      lean: true,
       includeDetails: showDetails.value,
       sortingFields: queryParams.sortingFields,
       startTime: queryParams.startTime || undefined,

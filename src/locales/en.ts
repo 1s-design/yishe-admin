@@ -107,6 +107,7 @@ export default {
     delSuccess: 'Deleted successfully',
     index: 'Index',
     status: 'Status',
+    creator: 'Creator',
     createTime: 'Create Time',
     updateTime: 'Update Time',
     copy: 'Copy',

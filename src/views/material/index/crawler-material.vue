@@ -1,5 +1,7 @@
 <template>
   <ContentWrap :plain="true">
+    <el-tabs v-model="activeMainTab" class="crawler-module-tabs">
+      <el-tab-pane label="采集素材" name="material">
     <ListPageLayout class="crawler-material-page">
       <template #filter>
         <div class="list-page-filter list-page-filter--flat">
@@ -488,6 +490,12 @@
         </div>
       </template>
     </ListPageLayout>
+      </el-tab-pane>
+      <el-tab-pane label="图片采集灵感" name="inspiration" lazy>
+        <InspirationPanel />
+      </el-tab-pane>
+    </el-tabs>
+
     <el-dialog
       v-model="editDialogVisible"
       title="编辑素材信息"
@@ -581,6 +589,10 @@
 <script setup lang="tsx">
 import { ref, reactive, watchEffect, computed } from "vue";
 import { CrawlerMaterialApi } from "@/api/crawler-material";
+import InspirationPanel from "@/views/material/inspiration/index.vue";
+
+// 采集模块主 Tab：素材审核 / 图片采集灵感
+const activeMainTab = ref("material");
 import { buildOperationColumn, commonGridOptions } from "@/common/table";
 import { formatTimestamp } from "@/common/date";
 import { ElNotification, ElMessage, ElMessageBox } from "element-plus";
@@ -1290,6 +1302,12 @@ markCrawlerMaterialVisited();
   因此这里用 popper-class 命名空间做非 scoped 样式（避免与图库同名类冲突）。
 -->
 <style>
+/* 采集模块主 Tab：素材审核 / 图片采集灵感 —— 两个 pane 共用紧凑间距，切换不跳动 */
+.crawler-module-tabs > .el-tabs__header { margin: 0 0 8px; }
+.crawler-module-tabs .list-page-layout { padding: 8px 0 0; gap: 10px; }
+.crawler-module-tabs .list-page-layout__body,
+.crawler-module-tabs .list-page-layout__main { gap: 10px; }
+.crawler-module-tabs .list-page-filter--flat { padding-bottom: 10px; }
 /* 下拉项默认固定 34px 高，装不下带缩略图的两行内容，这里放开高度避免遮挡 */
 .crawler-size-shape-dropdown .el-select-dropdown__item {
   display: flex;

@@ -374,13 +374,17 @@ onBeforeUnmount(() => {
   z-index: 2;
   height: 16px;
   max-width: calc(100% - 16px);
-  padding: 0 6px;
-  font-size: 9px;
+  padding: 0 7px;
+  font-size: 10px;
+  font-weight: 600;
   line-height: 16px;
-  color: var(--el-text-color-secondary);
+  color: #1f2937;
+  letter-spacing: 0.2px;
   white-space: nowrap;
-  background: rgb(255 255 255 / 82%);
+  background: rgb(255 255 255 / 95%);
+  border: 1px solid rgb(15 23 42 / 12%);
   border-radius: 999px;
+  box-shadow: 0 1px 4px rgb(15 23 42 / 24%);
   transform: translateX(-50%);
 }
 

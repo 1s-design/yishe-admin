@@ -107,6 +107,7 @@ export default {
     delSuccess: '删除成功',
     index: '序号',
     status: '状态',
+    creator: '创建人',
     createTime: '创建时间',
     updateTime: '更新时间',
     copy: '复制',
