@@ -169,7 +169,7 @@
         <div v-else class="qr__state">
           <p class="qr__state-title">已审核完全部自定义贴纸</p>
           <p class="qr__state-desc">
-            本次共处理 {{ processedCount }} 张（复制到素材库 {{ copiedCount }} · 彻底删除 {{ deletedCount }} · 返工 {{ reworkedCount }} · 忽略 {{ skippedCount }}）
+            本次共处理 {{ processedCount }} 张（移入素材库 {{ copiedCount }} · 彻底删除 {{ deletedCount }} · 返工 {{ reworkedCount }} · 忽略 {{ skippedCount }}）
           </p>
           <div class="mt-4 flex gap-3 justify-center">
             <button type="button" class="qr__state-btn" @click="reload">重新加载</button>
@@ -230,7 +230,7 @@
               @click="actCopy"
             >
               <span class="qr__dock-arrow">→</span>
-              <span class="qr__dock-text">复制到素材库</span>
+              <span class="qr__dock-text">移入素材库</span>
               <kbd class="qr__dock-kbd">D</kbd>
             </button>
           </div>
@@ -266,8 +266,8 @@
 
             <!-- 状态标签行：极简轻底色 Pill 胶囊 -->
             <div class="qr__pills-group">
-              <span class="qr__pill" :class="current.imported ? 'qr__pill--success' : 'qr__pill--neutral'">
-                {{ current.imported ? "已复制到素材库" : "未复制入库" }}{{ current.imported && current.importedSticker?.code ? ` (${current.importedSticker.code})` : "" }}
+              <span v-if="current.imported" class="qr__pill qr__pill--success">
+                已移入素材库{{ current.importedSticker?.code ? ` (${current.importedSticker.code})` : "" }}
               </span>
               <span class="qr__pill" :class="current.isShared ? 'qr__pill--info' : 'qr__pill--neutral'">
                 {{ current.isShared ? "已发布" : "未发布" }}
@@ -366,7 +366,7 @@
             title="一键复制贴纸到素材库（快捷键：D 或 →）"
             @click="actCopy"
           >
-            <span>复制到素材库</span>
+            <span>移入素材库</span>
             <kbd class="qr__kbd-hint">D / →</kbd>
           </button>
           <button
@@ -494,14 +494,14 @@ const PRELOAD_AHEAD = 10;
  * 又不会让极速审核出现「画面滞后于已审核内容」。
  */
 const DECK_WAIT_TIMEOUT = 120;
-/** 出图宽度上限：再宽对「要不要复制到素材库」的判断没有增益，只多花带宽和解码时间 */
+/** 出图宽度上限：再宽对「要不要移入素材库」的判断没有增益，只多花带宽和解码时间 */
 const DECK_MAX_WIDTH = 2000;
 /**
  * 攒批提交的参数刻意调小了。
  * 批越大单次接口越慢（后台要处理几十条），返回前一直占着连接，
  * 「审核手感」取决于单次提交的往返时间，而不是请求数量。
  */
-/** 复制到素材库累积条数立即批量提交 */
+/** 移入素材库累积条数立即批量提交 */
 const COPY_BATCH = 10;
 /** 删除累积条数立即批量提交 */
 const DELETE_BATCH = 10;
@@ -511,7 +511,7 @@ const DELETE_DEBOUNCE = 1000;
 const SWIPE_THRESHOLD = 70;
 
 const SWIPE_HINT_TEXT: Record<string, string> = {
-  copy: "复制到素材库",
+  copy: "移入素材库",
   delete: "彻底删除",
   skip: "忽略",
 };
@@ -540,7 +540,7 @@ const seenIds = ref<Set<string>>(new Set());
  * 而且同一张图往往存在多条记录（快捷共享复用 url / 复制副本 / 素材中心导入），
  * 删掉一条，兄弟记录还在。
  *
- * 只要删过的图再出现一次，审核员就会再点一次「复制到素材库」，素材库就多一张重复素材。
+ * 只要删过的图再出现一次，审核员就会再点一次「移入素材库」，素材库就多一张重复素材。
  * 所以本地维护两份墓碑：记录 id + 图片内容键。命中即永久不再进队列。
  * 持久化到 localStorage（7 天 TTL），刷新页面也不会把删掉的图放回来。
  */
@@ -845,7 +845,7 @@ async function fetchNext(): Promise<void> {
           // 先占位：不满足筛选条件的也算消费过，避免下一页反复遇到同一批记录
           seenIds.value.add(id);
 
-          // 删过的东西绝不允许再回到队列：否则会被当成新贴纸再次复制到素材库
+          // 删过的东西绝不允许再回到队列：否则会被当成新贴纸再次移入素材库
           if (isTombstoned(item)) return false;
 
           // 列表页透传的发布状态/素材库状态，客户端同步过滤
@@ -1077,7 +1077,7 @@ function reload(): void {
   void fetchNext();
 }
 
-// ── 三大核心动作：忽略、彻底删除、复制到素材库 ─────────────────
+// ── 三大核心动作：忽略、彻底删除、移入素材库 ─────────────────
 function actSkip(): void {
   const item = queue.value.shift();
   if (!item) return;
@@ -1110,7 +1110,7 @@ function actCopy(): void {
   copyQueue.value.push(item);
   copiedCount.value += 1;
   item.imported = true;
-  pushToast("已复制到素材库", "success");
+  pushToast("已移入素材库", "success");
   scheduleCopyFlush();
   afterAdvance();
 }
@@ -1238,7 +1238,7 @@ async function flushCopies(): Promise<void> {
     }
   } catch (error: any) {
     copiedCount.value = Math.max(0, copiedCount.value - pending.length);
-    notify(`复制到素材库失败：${error?.message || "未知错误"}`, "error");
+    notify(`移入素材库失败：${error?.message || "未知错误"}`, "error");
   }
 }
 
@@ -2445,7 +2445,7 @@ onBeforeUnmount(() => {
   }
 }
 
-/* 复制到素材库：唯一实心 CTA */
+/* 移入素材库：唯一实心 CTA */
 .qr__dock-btn--copy {
   color: #ffffff;
   background: #10b981;

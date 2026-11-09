@@ -29,15 +29,6 @@
                 </el-form-item>
               </el-col>
               <el-col class="list-page-search-form__col--narrow" :xs="24" :sm="12" :md="6" :lg="4" :xl="3">
-                <el-form-item label="素材库状态">
-                  <el-select v-model="queryParams.importState" size="small" @change="handleSearch">
-                    <el-option label="全部" value="all" />
-                    <el-option label="未复制" value="not-imported" />
-                    <el-option label="已复制" value="imported" />
-                  </el-select>
-                </el-form-item>
-              </el-col>
-              <el-col class="list-page-search-form__col--narrow" :xs="24" :sm="12" :md="6" :lg="4" :xl="3">
                 <el-form-item label="模板">
                   <el-select v-model="queryParams.templateState" size="small" @change="handleSearch">
                     <el-option label="全部" value="all" />
@@ -55,7 +46,7 @@
                 class="quick-review-btn"
                 :icon="Aim"
                 :disabled="loading || !total"
-                title="全屏逐张快速审核：复制到素材库 / 忽略 / 彻底删除"
+                title="全屏逐张快速审核：移入素材库 / 忽略 / 彻底删除"
                 @click="quickReviewVisible = true"
               >
                 快捷审核
@@ -104,7 +95,7 @@
                 :disabled="loading || !selectedIds.length"
                 @click="handleBatchCopyToLibrary"
               >
-                复制到素材库 ({{ selectedIds.length }})
+                移入素材库 ({{ selectedIds.length }})
               </el-button>
               <el-button
                 size="small"
@@ -187,6 +178,9 @@
                         fit="contain"
                         class="material-compact-preview__image"
                       />
+                      <span v-if="row.isTemplate" class="template-thumb-badge" title="模板">
+                        <el-icon :size="11"><Star /></el-icon>
+                      </span>
                     </div>
                   </div>
                 </template>
@@ -211,46 +205,12 @@
                   <span v-else class="size-cell__ratio">-</span>
                 </template>
                 <template #templateSlot="{ row }">
-                  <el-tag
-                    :type="row.isTemplate ? 'warning' : 'info'"
-                    :effect="row.isTemplate ? 'dark' : 'plain'"
-                    size="small"
-                  >
-                    {{ row.isTemplate ? '模板' : '非模板' }}
-                  </el-tag>
+                  <span v-if="row.isTemplate" class="template-badge">
+                    <el-icon :size="12"><Star /></el-icon>模板
+                  </span>
+                  <span v-else class="template-badge template-badge--off">非模板</span>
                 </template>
                 <template #folderSlot="{ row }"><span>{{ row.folder || '未分组' }}</span></template>
-                <template #importSlot="{ row }">
-                  <div class="import-cell">
-                    <template v-if="row.imported">
-                      <el-tooltip
-                        v-if="row.importedSticker?.code"
-                        :content="`已复制到素材库，编码：${row.importedSticker.code}（点击复制）`"
-                        placement="top"
-                        :show-after="200"
-                      >
-                        <el-tag
-                          type="success"
-                          size="small"
-                          effect="plain"
-                          class="import-code-tag copyable"
-                          @click.stop="copyText(row.importedSticker.code, '素材库编码')"
-                        >
-                          <span class="import-code-tag__status">已复制</span>
-                          <span class="import-code-tag__sep">·</span>
-                          <span class="import-code-tag__code mono">{{ row.importedSticker.code }}</span>
-                          <el-icon class="import-code-tag__icon"><CopyDocument /></el-icon>
-                        </el-tag>
-                      </el-tooltip>
-                      <el-tag v-else type="success" size="small" effect="plain">
-                        已复制
-                      </el-tag>
-                    </template>
-                    <el-tag v-else type="info" size="small" effect="plain">
-                      未复制
-                    </el-tag>
-                  </div>
-                </template>
                 <template #shareSlot="{ row }">
                   <el-tag :type="row.isShared ? 'success' : 'info'" size="small" effect="plain">
                     {{ row.isShared ? '已发布' : '未发布' }}
@@ -275,7 +235,7 @@
                         </el-dropdown-item>
                         <el-dropdown-item command="detail"><el-icon><View /></el-icon>查看设计数据</el-dropdown-item>
                         <el-dropdown-item command="copyToLibrary" :disabled="row.imported">
-                          <el-icon><CopyDocument /></el-icon>{{ row.imported ? '已复制到素材库' : '复制到素材库' }}
+                          <el-icon><CopyDocument /></el-icon>{{ row.imported ? '已移入素材库' : '移入素材库' }}
                         </el-dropdown-item>
                         <el-dropdown-item command="publish" :disabled="row.isShared"><el-icon><Upload /></el-icon>发布到素材中心</el-dropdown-item>
                         <el-dropdown-item command="share"><el-icon><Share /></el-icon>快捷共享</el-dropdown-item>
@@ -366,9 +326,6 @@
               <el-tag size="small" :type="activeSticker.isShared ? 'success' : 'info'" effect="plain">
                 {{ activeSticker.isShared ? '素材中心已发布' : '素材中心未发布' }}
               </el-tag>
-              <el-tag size="small" :type="activeSticker.imported ? 'success' : 'info'" effect="plain">
-                {{ activeSticker.imported ? '素材库已复制' : '素材库未复制' }}
-              </el-tag>
               <el-tag v-if="activeSticker.meta?.source === 'ai-agent'" size="small" type="warning" effect="plain">
                 AI 智能设计
               </el-tag>
@@ -418,7 +375,7 @@
               </span>
             </div>
             <div v-if="activeSticker.importedStickerId" class="cs-prop-row">
-              <span class="label">素材库副本 ID</span>
+              <span class="label">素材库贴纸 ID</span>
               <span class="value mono">{{ activeSticker.importedStickerId }}</span>
             </div>
             <div v-if="activeSticker.sourceCustomStickerId" class="cs-prop-row">
@@ -570,7 +527,7 @@
       </template>
     </el-dialog>
 
-    <!-- 快速审核（全屏逐张：复制到素材库 / 彻底删除 / 忽略） -->
+    <!-- 快速审核（全屏逐张：移入素材库 / 彻底删除 / 忽略） -->
     <CustomStickerQuickReview
       v-model:visible="quickReviewVisible"
       :query="quickReviewQuery"
@@ -647,7 +604,6 @@ const queryParams = reactive({
   searchText: '',
   folderId: FOLDER_FILTER.ALL as string | null,
   shareState: 'all',
-  importState: 'all',
   templateState: 'all',
 })
 
@@ -655,7 +611,6 @@ const quickReviewQuery = computed(() => ({
   folderId: convertFolderIdToApiParam(queryParams.folderId),
   searchText: queryParams.searchText || undefined,
   shareState: queryParams.shareState !== 'all' ? queryParams.shareState : undefined,
-  importState: queryParams.importState !== 'all' ? queryParams.importState : undefined,
   templateState: queryParams.templateState !== 'all' ? queryParams.templateState : undefined,
 }))
 
@@ -717,7 +672,6 @@ const gridOptions = computed(() => ({
     { title: '抠图', width: 84, align: 'center', slots: { default: 'cutoutSlot' } },
     { title: '文件夹', minWidth: 130, slots: { default: 'folderSlot' } },
     { title: '所属用户', width: 150, slots: { default: 'ownerSlot' } },
-    { title: '素材库', width: 140, align: 'center', slots: { default: 'importSlot' } },
     { title: '素材中心', width: 100, align: 'center', slots: { default: 'shareSlot' } },
     { title: '模板', width: 96, align: 'center', slots: { default: 'templateSlot' } },
     { title: '创建时间', width: 164, slots: { default: 'createTimeSlot' } },
@@ -751,7 +705,6 @@ async function loadData() {
       searchText: queryParams.searchText || undefined,
       folderId: convertFolderIdToApiParam(queryParams.folderId),
       shareState: queryParams.shareState !== 'all' ? queryParams.shareState : undefined,
-      importState: queryParams.importState !== 'all' ? queryParams.importState : undefined,
       templateState: queryParams.templateState !== 'all' ? queryParams.templateState : undefined,
     })
     rows.value = result?.items || []
@@ -861,7 +814,7 @@ async function submitUserTransfer() {
 }
 
 function handleSearch() { queryParams.page = 1; loadData() }
-function handleReset() { queryParams.searchText = ''; queryParams.shareState = 'all'; queryParams.importState = 'all'; queryParams.templateState = 'all'; queryParams.page = 1; loadData() }
+function handleReset() { queryParams.searchText = ''; queryParams.shareState = 'all'; queryParams.templateState = 'all'; queryParams.page = 1; loadData() }
 function handleFolderChange(payload: { folderId: string | null }) { queryParams.folderId = payload.folderId || FOLDER_FILTER.ALL; queryParams.page = 1; loadData() }
 function handleCheckboxChange(event: any) { const records = Array.isArray(event.records) ? event.records : []; const reserves = Array.isArray(event.reserves) ? event.reserves : []; selectedIds.value = Array.from(new Set([...records, ...reserves].map((item: any) => String(item.id)))) }
 
@@ -909,13 +862,13 @@ function openPublish(item: CustomSticker) {
 
 async function copyToLibrary(item: CustomSticker) {
   if (item.imported) {
-    ElMessage.info('该自定义贴纸已复制到素材库')
+    ElMessage.info('该自定义贴纸已移入素材库')
     return
   }
   try {
     const res = await CustomStickerApi.copyToStickerLibrary({ customStickerId: item.id })
     const codeText = res?.code ? `（编码：${res.code}）` : ''
-    ElMessage.success(`贴纸「${item.name || '未命名'}」已成功复制到素材库${codeText}`)
+    ElMessage.success(`贴纸「${item.name || '未命名'}」已成功移入素材库${codeText}`)
     item.imported = true
     if (res?.id) {
       item.importedStickerId = res.id
@@ -930,7 +883,7 @@ async function copyToLibrary(item: CustomSticker) {
     }
     await loadData()
   } catch (error: any) {
-    ElMessage.error(error?.message || '复制到素材库失败')
+    ElMessage.error(error?.message || '移入素材库失败')
   }
 }
 
@@ -981,13 +934,13 @@ async function handleBatchMarkTemplate(isTemplate: boolean) {
 async function handleBatchCopyToLibrary() {
   const targets = rows.value.filter((item) => selectedIds.value.includes(item.id) && !item.imported)
   if (!targets.length) {
-    return ElMessage.warning(selectedIds.value.length ? '选中的自定义贴纸都已复制到素材库' : '请选择要复制到素材库的自定义贴纸')
+    return ElMessage.warning(selectedIds.value.length ? '选中的自定义贴纸都已移入素材库' : '请选择要移入素材库的自定义贴纸')
   }
 
   try {
     await ElMessageBox.confirm(
-      `确认将选中的 ${targets.length} 个自定义贴纸复制到素材库吗？复制后将生成独立的素材库副本，原自定义贴纸保留。`,
-      '复制到素材库确认',
+      `确认将选中的 ${targets.length} 个自定义贴纸移入素材库吗？移入后原自定义贴纸将被移除，素材库保留唯一副本。`,
+      '移入素材库确认',
       { confirmButtonText: '确认复制', cancelButtonText: '取消', type: 'info' },
     )
   } catch {
@@ -1010,12 +963,12 @@ async function handleBatchCopyToLibrary() {
       selectedIds.value = []
       await loadData()
     } else if (failedCount > 0) {
-      ElMessage.error(`复制到素材库失败：${result.failed?.[0]?.message || '未知错误'}`)
+      ElMessage.error(`移入素材库失败：${result.failed?.[0]?.message || '未知错误'}`)
     } else {
       ElMessage.warning('未处理任何数据')
     }
   } catch (error: any) {
-    ElMessage.error(error?.message || '复制到素材库失败')
+    ElMessage.error(error?.message || '移入素材库失败')
   } finally {
     copyingToLibrary.value = false
   }
@@ -1056,14 +1009,14 @@ async function handleDelete(row?: CustomSticker | null) {
     return ElMessage.warning('请选择要删除的自定义贴纸')
   }
   const targetItems = rows.value.filter((item) => delIds.includes(item.id))
-  // 检查是否已经发布到素材中心或已复制到素材库或属于共享副本
+  // 检查是否已经发布到素材中心或已移入素材库或属于共享副本
   const sharedItems = targetItems.filter((item) => item.isShared || item.imported || (item.sourceCustomStickerId && String(item.sourceCustomStickerId) !== String(item.id)))
 
   let confirmMsg = `确认删除选中的 ${delIds.length} 个自定义贴纸吗？删除后不可恢复。`
   if (sharedItems.length > 0) {
     const sampleNames = sharedItems.slice(0, 3).map((i) => `「${i.name || '未命名'}」`).join('、')
     const moreText = sharedItems.length > 3 ? ` 等共 ${sharedItems.length} 个作品` : ''
-    confirmMsg = `选中的作品中包含已发布到素材中心或已复制到素材库的贴纸（如 ${sampleNames}${moreText}）。删除后该自定义贴纸记录将被移除，是否确认继续删除？`
+    confirmMsg = `选中的作品中包含已发布到素材中心或已移入素材库的贴纸（如 ${sampleNames}${moreText}）。删除后该自定义贴纸记录将被移除，是否确认继续删除？`
   }
 
   try {
@@ -1143,6 +1096,41 @@ function formatFileSize(bytes?: number | null) {
 loadData()
 </script>
 
+<style scoped lang="scss">
+// 模板数据标识：仅保留缩略图星标与列内星标
+.template-thumb-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  color: #fff;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  box-shadow: 0 1px 4px rgba(217, 119, 6, 0.45);
+}
+
+.template-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #d97706;
+}
+
+.template-badge--off {
+  color: var(--el-text-color-secondary, #909399);
+  font-weight: 400;
+}
+
+.material-compact-preview__image-wrap {
+  position: relative;
+}
+</style>
 <style scoped lang="scss">
 .custom-sticker-page {
   min-height: 100%;
