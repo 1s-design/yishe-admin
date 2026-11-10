@@ -14,18 +14,6 @@
             <!-- 审核范围：切换后从头重新取数 -->
             <div class="qr__filter-group">
               <el-select
-                v-model="reviewImportScope"
-                size="small"
-                class="qr__filter-select"
-                popper-class="qr-filter-popper"
-                title="按素材库状态筛选待审核素材"
-                @change="applyReviewFilterChange"
-              >
-                <el-option label="库状态：全部" value="all" />
-                <el-option label="只看未复制" value="not-imported" />
-                <el-option label="只看已复制" value="imported" />
-              </el-select>
-              <el-select
                 v-model="reviewSort"
                 size="small"
                 class="qr__filter-select"
@@ -266,9 +254,6 @@
 
             <!-- 状态标签行：极简轻底色 Pill 胶囊 -->
             <div class="qr__pills-group">
-              <span v-if="current.imported" class="qr__pill qr__pill--success">
-                已移入素材库{{ current.importedSticker?.code ? ` (${current.importedSticker.code})` : "" }}
-              </span>
               <span class="qr__pill" :class="current.isShared ? 'qr__pill--info' : 'qr__pill--neutral'">
                 {{ current.isShared ? "已发布" : "未发布" }}
               </span>
@@ -471,7 +456,7 @@ defineOptions({ name: "CustomStickerQuickReview" });
 const props = withDefaults(
   defineProps<{
     visible: boolean;
-    /** 复用列表页的筛选条件（searchText, folderId, shareState, importState 等） */
+    /** 复用列表页的筛选条件（searchText, folderId, shareState, templateState 等） */
     query?: Record<string, any>;
   }>(),
   { query: () => ({}) },
@@ -631,22 +616,16 @@ function isTombstoned(item: CustomSticker | null | undefined): boolean {
 }
 
 // ── 审核范围筛选（审核中可随时切换，切换后从头重新取数）─────────────
-type ReviewImportScope = "all" | "not-imported" | "imported";
 type ReviewSort = "latest" | "earliest" | "random";
 
 function pickRandomSeed(): number {
   return Math.floor(Math.random() * 4294967295);
 }
 
-function normalizeImportScope(value: any): ReviewImportScope {
-  return value === "imported" || value === "not-imported" ? value : "all";
-}
-
 function normalizeReviewSort(value: any): ReviewSort {
   return value === "earliest" || value === "random" ? value : "latest";
 }
 
-const reviewImportScope = ref<ReviewImportScope>(normalizeImportScope(props.query?.importState));
 const reviewSort = ref<ReviewSort>(normalizeReviewSort(props.query?.sort));
 /** 随机排序的种子：同一次随机审核内不变，翻页才不会重复或漏审 */
 const randomSeed = ref(pickRandomSeed());
@@ -654,7 +633,6 @@ const randomSeed = ref(pickRandomSeed());
 /** 审核实际使用的查询条件 = 列表页透传条件 + 审核内筛选 */
 const reviewQuery = ref<Record<string, any>>({
   ...(props.query || {}),
-  importState: reviewImportScope.value === "all" ? undefined : reviewImportScope.value,
   sort: reviewSort.value,
   seed: reviewSort.value === "random" ? randomSeed.value : undefined,
 });
@@ -825,8 +803,8 @@ async function fetchNext(): Promise<void> {
           searchText: q?.searchText || undefined,
           folderId: q?.folderId,
           shareState: q?.shareState,
-          importState: q?.importState,
-          templateState: q?.templateState,
+          // 审核队列永远排除模板：模板是用户钦定的成品，不需要再被审核/移入素材库
+          templateState: "not-template",
           sort: q?.sort,
           seed: q?.seed,
         });
@@ -848,11 +826,12 @@ async function fetchNext(): Promise<void> {
           // 删过的东西绝不允许再回到队列：否则会被当成新贴纸再次移入素材库
           if (isTombstoned(item)) return false;
 
-          // 列表页透传的发布状态/素材库状态，客户端同步过滤
+          // 模板免审：双保险，即使接口参数失效也不会把模板放进审核队列
+          if (item.isTemplate) return false;
+
+          // 列表页透传的发布状态，客户端同步过滤
           if (q?.shareState === "shared" && !item.isShared) return false;
           if (q?.shareState === "unshared" && item.isShared) return false;
-          if (q?.importState === "imported" && !item.imported) return false;
-          if (q?.importState === "not-imported" && item.imported) return false;
 
           return true;
         });
@@ -1035,7 +1014,6 @@ let filtersTouched = false;
 function buildReviewQuery(): Record<string, any> {
   return {
     ...(props.query || {}),
-    importState: reviewImportScope.value === "all" ? undefined : reviewImportScope.value,
     sort: reviewSort.value,
     seed: reviewSort.value === "random" ? randomSeed.value : undefined,
   };
@@ -1044,7 +1022,6 @@ function buildReviewQuery(): Record<string, any> {
 /** 首次进入时沿用列表页筛选条件 */
 function syncReviewFiltersFromProps(): void {
   if (filtersTouched) return;
-  reviewImportScope.value = normalizeImportScope(props.query?.importState);
   reviewQuery.value = buildReviewQuery();
 }
 

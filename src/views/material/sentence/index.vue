@@ -329,7 +329,8 @@
       v-model="aiAnalyzeDialogVisible"
       title="AI分析句子"
       width="500px"
-      align-center
+      :align-center="!isMobile"
+      class="sentence-dialog sentence-ai-dialog"
       :destroy-on-close="true"
     >
       <div style="margin-bottom: 16px; font-size: 15px; color: #888">
@@ -354,20 +355,41 @@
     </el-dialog>
 
     <el-dialog
-      :title="dialogTitle"
       v-model="dialogVisible"
       width="900px"
       @close="dialogClose"
-      align-center
+      :align-center="!isMobile"
+      :close-on-click-modal="false"
+      class="sentence-dialog sentence-edit-dialog"
     >
-      <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
+      <template #header>
+        <div class="sentence-edit-dialog__header">
+          <span class="sentence-edit-dialog__title">{{ dialogTitle }}</span>
+          <!-- 手机端：表单很长时顶部也能直接保存，不必滚到底部 -->
+          <el-button
+            v-if="isMobile"
+            type="primary"
+            size="small"
+            :loading="submitLoading"
+            @click="submitForm"
+          >保存</el-button>
+        </div>
+      </template>
+
+      <el-form
+        :model="form"
+        :rules="rules"
+        ref="formRef"
+        :label-position="isMobile ? 'top' : 'right'"
+        :label-width="isMobile ? '0px' : '100px'"
+      >
         <el-row>
           <el-col :span="24">
             <el-form-item label="句子内容" prop="content">
               <el-input
                 v-model="form.content"
                 type="textarea"
-                :rows="10"
+                :rows="isMobile ? 4 : 10"
                 placeholder="请输入句子内容"
                 maxlength="5000"
                 show-word-limit
@@ -379,7 +401,7 @@
               <el-input
                 v-model="form.description"
                 type="textarea"
-                :rows="4"
+                :rows="isMobile ? 3 : 4"
                 placeholder="请输入描述（可选）"
                 maxlength="1000"
                 show-word-limit
@@ -391,7 +413,7 @@
               <el-input
                 v-model="form.keywords"
                 type="textarea"
-                :rows="3"
+                :rows="isMobile ? 2 : 3"
                 placeholder="请输入关键词，多个关键词用逗号分隔（可选）"
                 maxlength="500"
                 show-word-limit
@@ -402,9 +424,7 @@
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitForm" :loading="submitLoading"
-          >确定</el-button
-        >
+        <el-button type="primary" @click="submitForm" :loading="submitLoading">保存</el-button>
       </template>
     </el-dialog>
 
@@ -413,7 +433,8 @@
       v-model="sentenceUserTransferDialogVisible"
       :title="sentenceUserTransferDialogTitle"
       width="520px"
-      align-center
+      :align-center="!isMobile"
+      class="sentence-dialog sentence-transfer-dialog"
       :close-on-click-modal="false"
       @closed="resetSentenceUserTransferDialog"
     >
@@ -467,6 +488,7 @@
       v-model="shareRecordsDialogVisible"
       :title="`分享记录 - ${shareRecordsResourceName}`"
       width="600px"
+      class="sentence-dialog sentence-share-dialog"
       destroy-on-close
     >
       <div v-loading="shareRecordsLoading">
@@ -499,8 +521,8 @@
       width="560px"
       append-to-body
       destroy-on-close
-      align-center
-      class="sentence-detail-dialog"
+      :align-center="!isMobile"
+      class="sentence-dialog sentence-detail-dialog"
     >
       <template #header><span /></template>
       <div v-loading="detailLoading" class="sentence-detail">
@@ -602,7 +624,10 @@ const selectedFolderId = ref<string | null>("__all__");
 
 const userStore = useUserStore();
 const isAdmin = computed(() => userStore.user?.isAdmin ?? false);
-const { height } = useWindowSize();
+const { height, width: viewportWidth } = useWindowSize();
+
+// 移动端断点与全局 index.scss 保持一致（<= 768px）
+const isMobile = computed(() => viewportWidth.value <= 768);
 
 const queryParams = reactive({
   currentPage: 1,
@@ -1493,10 +1518,12 @@ const submitForm = async () => {
     margin-bottom: 6px !important;
   }
 
-  .el-input,
-  .el-select,
-  .el-button,
-  .el-date-editor {
+  /* 只让筛选区控件撑满：此前未限定范围，会把 el-dialog footer 的按钮也撑成
+     竖排两行，把保存按钮顶出可视区域（弹窗是 teleport 到 body 的，仍带本组件 scopeId） */
+  .list-page-filter .el-input,
+  .list-page-filter .el-select,
+  .list-page-filter .el-button,
+  .list-page-filter .el-date-editor {
     width: 100% !important;
     min-width: 0 !important;
     box-sizing: border-box;
@@ -1629,5 +1656,93 @@ const submitForm = async () => {
 .sentence-tag-mode :deep(.el-checkbox__label) {
   font-size: 12px;
   padding-left: 5px;
+}
+</style>
+
+<style>
+/* 全局块：el-dialog 默认 teleport 到 body，scoped 样式命中不了它的内部节点。
+   所有选择器都带 .sentence-* 前缀，只作用于本页弹窗。 */
+/* 录入弹窗标题栏：桌面保留标题，移动端在标题右侧多一个保存入口 */
+.sentence-edit-dialog__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-right: 48px; /* 给右上角关闭按钮留位 */
+}
+.sentence-edit-dialog__title {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--el-text-color-primary);
+}
+
+@media (max-width: 768px) {
+  /* 全局 index.scss 只把弹窗宽度改成 calc(100vw - 24px)，没限制高度。
+     录入表单 10 行 textarea 会把 dialog 撑得比视口还高，align-center 下
+     底部 footer 被裁掉且滚不到。这里把弹窗锁进视口，body 内部滚动，
+     footer 常驻吸底，键盘弹出时顶部的保存按钮作为兜底入口。 */
+  .sentence-dialog.el-dialog {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 24px);
+    overflow: hidden;
+  }
+
+  .sentence-dialog.el-dialog > .el-dialog__header {
+    flex: 0 0 auto;
+    padding: 14px 16px 12px !important;
+  }
+
+  /* 全局 .el-dialog__body { overflow: visible !important } 会挡住滚动，
+     这里用更高特异性 + !important 覆盖 */
+  .sentence-dialog.el-dialog > .el-dialog__body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    padding: 8px 16px 16px !important;
+  }
+
+  .sentence-dialog.el-dialog > .el-dialog__footer {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom)) !important;
+    border-top: 1px solid var(--el-border-color-lighter);
+    background: var(--el-bg-color-overlay, #fff);
+    box-shadow: 0 -4px 12px rgba(15, 23, 42, 0.05);
+  }
+
+  /* 抵消「按钮 100% 宽」的旧规则：footer 两键并排、加大点击区 */
+  .sentence-dialog.el-dialog > .el-dialog__footer .el-button {
+    flex: 1 1 0;
+    width: auto !important;
+    min-width: 0 !important;
+    height: 42px;
+    margin: 0 !important;
+    font-size: 15px;
+  }
+  .sentence-dialog.el-dialog > .el-dialog__footer .el-button--primary {
+    flex-grow: 1.6;
+  }
+
+  /* 表单：label 置顶后收紧间距；输入框 >= 16px 防 iOS 聚焦自动放大页面 */
+  .sentence-edit-dialog .el-form-item {
+    margin-bottom: 16px;
+  }
+  .sentence-edit-dialog .el-form-item__label {
+    padding-bottom: 4px;
+    line-height: 1.4;
+  }
+  .sentence-edit-dialog .el-textarea__inner,
+  .sentence-edit-dialog .el-input__inner,
+  .sentence-ai-dialog .el-textarea__inner {
+    font-size: 16px;
+  }
 }
 </style>
