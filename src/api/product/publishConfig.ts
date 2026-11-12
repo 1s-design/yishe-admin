@@ -12,8 +12,8 @@ export type PublishConfig = {
   updateTime: string;
 };
 
-export const getPublishConfigListApi = () => {
-  return request.get({ url: "/publish-config" });
+export const getPublishConfigListApi = (params?: { isActive?: boolean }) => {
+  return request.get({ url: "/publish-config", params });
 };
 
 export type PublishConfigPageParams = {

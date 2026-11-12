@@ -1075,6 +1075,26 @@
                 />
               </el-select>
             </el-form-item>
+            <el-form-item :label="t('queue.executePublishConfigs')">
+              <el-select
+                v-model="autoDispatchFilterForm.publishConfigIds"
+                multiple
+                collapse-tags
+                collapse-tags-tooltip
+                clearable
+                filterable
+                :placeholder="t('queue.allPublishConfigs')"
+                @visible-change="onAutoDispatchPublishConfigVisibleChange"
+              >
+                <el-option
+                  v-for="opt in autoDispatchPublishConfigOptions"
+                  :key="opt.id"
+                  :label="opt.name"
+                  :value="opt.id"
+                />
+              </el-select>
+              <div class="publish-dispatch-dialog__hint">{{ t('queue.publishConfigHint') }}</div>
+            </el-form-item>
             <el-form-item :label="t('queue.createdAt')">
               <el-date-picker
                 v-model="autoDispatchFilterDateRange"
@@ -1175,7 +1195,7 @@ import {
   type QueueMessage,
   type QueueStats,
 } from "@/api/system/queue";
-import { regeneratePublishTaskApi, regeneratePublishTasksBatchApi } from "@/api/product/publishConfig";
+import { getPublishConfigListApi, regeneratePublishTaskApi, regeneratePublishTasksBatchApi } from "@/api/product/publishConfig";
 import {
   resetPublishTaskDispatch,
   startPublishTaskDispatch,
@@ -1601,6 +1621,7 @@ const autoDispatchTargetProfileId = ref("");
 const autoDispatchFilterForm = reactive({
   taskTypes: [] as string[],
   shopIds: [] as string[],
+  publishConfigIds: [] as string[],
   includeKeywordsText: "",
   excludeKeywordsText: "",
 });
@@ -1608,6 +1629,10 @@ const autoDispatchFilterDateRange = ref<[string, string] | []>([]);
 /** 自动执行可选的店铺（只列抖店，其他平台没有店铺维度） */
 const autoDispatchShopOptions = ref<Array<{ id: string; name: string }>>([]);
 let autoDispatchShopOptionsLoaded = false;
+/** 自动执行可选的发布配置（品类维度，只列启用中的配置；展开下拉时刷新） */
+const autoDispatchPublishConfigOptions = ref<Array<{ id: string; name: string }>>([]);
+let autoDispatchPublishConfigOptionsLoaded = false;
+let autoDispatchPublishConfigOptionsLoading = false;
 let publishTaskRuntimeReloadTimer: ReturnType<typeof setTimeout> | null = null;
 let publishTaskCountersRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 let publishTaskMenuRuntimeSyncTimer: ReturnType<typeof setTimeout> | null = null;
@@ -3550,6 +3575,67 @@ function getAutoDispatchShopLabel(shopId: string) {
   return matched?.name || normalized;
 }
 
+/** isActive 明确为否才判停用；字段缺失（旧接口）时不误杀 */
+function isInactivePublishConfigValue(value: unknown): boolean {
+  return (
+    value === false ||
+    value === 0 ||
+    value === "false" ||
+    value === "0" ||
+    value === "FALSE"
+  );
+}
+
+/**
+ * 自动执行可选的发布配置列表（品类维度）。
+ * 只查询已启用配置：服务端 `GET /publish-config?isActive=true` 下推过滤，
+ * 前端再兜一层，兼容尚未升级的接口/缓存响应。下拉展开时强制刷新一次。
+ */
+async function loadAutoDispatchPublishConfigOptions(force = false) {
+  if (autoDispatchPublishConfigOptionsLoading) return;
+  if (autoDispatchPublishConfigOptionsLoaded && !force) return;
+  autoDispatchPublishConfigOptionsLoading = true;
+  try {
+    const data: any = await getPublishConfigListApi({ isActive: true });
+    const rows = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
+    const options = rows
+      .filter((item: any) => !isInactivePublishConfigValue(item?.isActive))
+      .map((item: any) => ({
+        id: String(item?.id ?? "").trim(),
+        name: String(item?.name || item?.id || "").trim(),
+      }))
+      .filter((item: { id: string }) => !!item.id)
+      .sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
+    // 已保存但后来被停用的配置：保留为可见项并标注，避免显示成裸 ID 或丢失取值
+    const selectedIds = (autoDispatchFilterForm.publishConfigIds || [])
+      .map((item) => String(item || "").trim())
+      .filter(Boolean);
+    const knownIds = new Set(options.map((item) => item.id));
+    const staleOptions = Array.from(new Set(selectedIds))
+      .filter((id) => !knownIds.has(id))
+      .map((id) => ({ id, name: `${id}（已停用）` }));
+    autoDispatchPublishConfigOptions.value = [...options, ...staleOptions];
+    autoDispatchPublishConfigOptionsLoaded = true;
+  } catch {
+    // 配置列表拉取失败时保留已保存的取值，不阻塞配置保存
+  } finally {
+    autoDispatchPublishConfigOptionsLoading = false;
+  }
+}
+
+/** 展开下拉时刷新，保证配置的启用/停用状态是最新的 */
+function onAutoDispatchPublishConfigVisibleChange(visible: boolean) {
+  if (visible) {
+    void loadAutoDispatchPublishConfigOptions(true);
+  }
+}
+
+function getAutoDispatchPublishConfigLabel(configId: string) {
+  const normalized = String(configId || "").trim();
+  const matched = autoDispatchPublishConfigOptions.value.find((item) => item.id === normalized);
+  return matched?.name || normalized;
+}
+
 function buildAutoDispatchFilterFromForm(): PublishTaskAutoDispatchFilter {
   const [createdAfter = "", createdBefore = ""] = Array.isArray(autoDispatchFilterDateRange.value)
     ? autoDispatchFilterDateRange.value
@@ -3560,6 +3646,9 @@ function buildAutoDispatchFilterFromForm(): PublishTaskAutoDispatchFilter {
       .map((item) => String(item || "").trim())
       .filter(Boolean),
     shopIds: autoDispatchFilterForm.shopIds
+      .map((item) => String(item || "").trim())
+      .filter(Boolean),
+    publishConfigIds: autoDispatchFilterForm.publishConfigIds
       .map((item) => String(item || "").trim())
       .filter(Boolean),
     includeKeywords: splitAutoDispatchKeywordText(autoDispatchFilterForm.includeKeywordsText),
@@ -3576,6 +3665,9 @@ function applyAutoDispatchFilterToForm(filter?: Partial<PublishTaskAutoDispatchF
   autoDispatchFilterForm.shopIds = Array.isArray(filter?.shopIds)
     ? filter.shopIds.map((item) => String(item || "").trim()).filter(Boolean)
     : [];
+  autoDispatchFilterForm.publishConfigIds = Array.isArray(filter?.publishConfigIds)
+    ? filter.publishConfigIds.map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
   autoDispatchFilterForm.includeKeywordsText = joinAutoDispatchKeywords(filter?.includeKeywords);
   autoDispatchFilterForm.excludeKeywordsText = joinAutoDispatchKeywords(filter?.excludeKeywords);
   const createdAfter = String(filter?.createdAfter || "").trim();
@@ -3588,6 +3680,7 @@ function getAutoDispatchFilterSummary(filter?: Partial<PublishTaskAutoDispatchFi
   const parts: string[] = [];
   const taskTypeCount = Array.isArray(filter?.taskTypes) ? filter.taskTypes.length : 0;
   const shopCount = Array.isArray(filter?.shopIds) ? filter.shopIds.length : 0;
+  const publishConfigCount = Array.isArray(filter?.publishConfigIds) ? filter.publishConfigIds.length : 0;
   const includeCount = Array.isArray(filter?.includeKeywords) ? filter.includeKeywords.length : 0;
   const excludeCount = Array.isArray(filter?.excludeKeywords) ? filter.excludeKeywords.length : 0;
 
@@ -3596,6 +3689,9 @@ function getAutoDispatchFilterSummary(filter?: Partial<PublishTaskAutoDispatchFi
   }
   if (shopCount > 0) {
     parts.push(t('queue.shopCount', { count: shopCount }));
+  }
+  if (publishConfigCount > 0) {
+    parts.push(t('queue.executeConfigCount', { count: publishConfigCount }));
   }
   if (includeCount > 0) {
     parts.push(t('queue.includesCount', { count: includeCount }));
@@ -3623,6 +3719,9 @@ function getAutoDispatchFilterDetail(filter?: Partial<PublishTaskAutoDispatchFil
   const shopIds = Array.isArray(filter?.shopIds)
     ? filter.shopIds.map((item) => String(item || "").trim()).filter(Boolean)
     : [];
+  const publishConfigIds = Array.isArray(filter?.publishConfigIds)
+    ? filter.publishConfigIds.map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
   const includeKeywords = Array.isArray(filter?.includeKeywords)
     ? filter.includeKeywords.map((item) => String(item || "").trim()).filter(Boolean)
     : [];
@@ -3639,6 +3738,11 @@ function getAutoDispatchFilterDetail(filter?: Partial<PublishTaskAutoDispatchFil
     t('queue.filterShops', {
       value: shopIds.length
         ? shopIds.map(getAutoDispatchShopLabel).join("、")
+        : t('queue.all'),
+    }),
+    t('queue.filterPublishConfigs', {
+      value: publishConfigIds.length
+        ? publishConfigIds.map(getAutoDispatchPublishConfigLabel).join("、")
         : t('queue.all'),
     }),
     t('queue.filterCreatedTime', {
@@ -3698,6 +3802,7 @@ async function handleOpenAutoDispatchTargetDialog() {
       refreshClientNodes(),
       loadPublishTaskAutoDispatchSettingState(),
       loadAutoDispatchShopOptions(),
+      loadAutoDispatchPublishConfigOptions(),
     ]);
     syncAutoDispatchTargetSelection();
   } finally {
@@ -4734,6 +4839,7 @@ onMounted(() => {
     refreshPublishTaskTypeOptions(),
     loadPublishTaskAutoDispatchSettingState(),
     loadAutoDispatchShopOptions(),
+    loadAutoDispatchPublishConfigOptions(),
     refreshPublishTaskRuntime(),
   ]);
   websocketClient.events.on("publishTaskRuntime", applyPublishTaskRuntimeEvent);

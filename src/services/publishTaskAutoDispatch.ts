@@ -29,6 +29,12 @@ export interface PublishTaskAutoDispatchFilter {
    * 只约束有店铺归属的任务，其他平台任务不受影响。
    */
   shopIds: string[];
+  /**
+   * 执行发布配置白名单（publish_config.id）。空 = 不限。
+   * 品类由发布配置表达，勾选后只有这些配置生成的任务会自动执行，
+   * 例如只勾鼠标垫配置即可实现「只自动发鼠标垫」。
+   */
+  publishConfigIds: string[];
 }
 
 const normalizeStringArray = (value?: any): string[] => {
@@ -48,6 +54,7 @@ const normalizePublishTaskAutoDispatchFilter = (value?: any): PublishTaskAutoDis
   createdAfter: String(value?.createdAfter || "").trim(),
   createdBefore: String(value?.createdBefore || "").trim(),
   shopIds: normalizeStringArray(value?.shopIds),
+  publishConfigIds: normalizeStringArray(value?.publishConfigIds),
 });
 
 const normalizePublishTaskAutoDispatchSetting = (value?: any): PublishTaskAutoDispatchSetting => ({
