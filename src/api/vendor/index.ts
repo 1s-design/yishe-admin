@@ -13,12 +13,6 @@ export interface VendorContact {
   isDefault?: boolean
 }
 
-export interface TierPricingItem {
-  minQty: number
-  maxQty?: number | null
-  price: number
-}
-
 export interface VendorShopUrl {
   name?: string
   url: string
@@ -63,11 +57,6 @@ export interface VendorProductItem {
   images?: string[]
   status?: 'normal' | 'low_stock' | 'out_of_stock' | 'discontinued' | 'sampling' | string
   moq?: number | null
-  sampleLeadTime?: number | null
-  productionLeadTime?: number | null
-  taxIncluded?: boolean
-  shippingIncluded?: boolean
-  tierPricing?: TierPricingItem[]
   customAttributes?: CustomAttribute[]
   unit?: string
   remark?: string
