@@ -88,6 +88,13 @@
                     <span v-if="row.isActive" class="env-item__current">
                       {{ t("browserAutomation.currentEnvironment") }}
                     </span>
+                    <span
+                      v-if="row.protected || row.nonDeletable"
+                      class="env-item__protected"
+                      :title="row.protectedReason || t('browserAutomation.protectedEnvironmentTip')"
+                    >
+                      {{ t("browserAutomation.protectedEnvironment") }}
+                    </span>
                   </div>
                   <div class="env-item__meta">
                     <span>{{ t("browserAutomation.columnPort") }} {{ row.port ?? "-" }}</span>
@@ -179,9 +186,14 @@
                         <el-dropdown-item
                           command="delete"
                           divided
+                          :disabled="row.protected || row.nonDeletable"
                           class="operation-menu-item--danger"
                         >
-                          <span>{{ t('common.delete') }}</span>
+                          <span>{{
+                            row.protected || row.nonDeletable
+                              ? t('browserAutomation.protectedEnvironment')
+                              : t('common.delete')
+                          }}</span>
                         </el-dropdown-item>
                       </el-dropdown-menu>
                     </template>
@@ -1381,6 +1393,13 @@ const sendSwitchProfile = async (profileId: string) =>
   );
 const sendDeleteProfile = async (profileId: string) => {
   if (!selectedClientId.value) return;
+  const target = profileItems.value.find(
+    (item) => String(item?.id || "").trim() === String(profileId || "").trim(),
+  );
+  if (target?.protected || target?.nonDeletable) {
+    ElMessage.warning(t("browserAutomation.protectedEnvironmentTip"));
+    return;
+  }
   try {
     await ElMessageBox.confirm(
       t("browserAutomation.deleteEnvironmentConfirm", { profileId }),
@@ -2060,6 +2079,20 @@ onUnmounted(() => {
   color: var(--el-color-success);
   white-space: nowrap;
   background: var(--el-color-success-light-8);
+  border-radius: 999px;
+  align-items: center;
+  flex: none;
+}
+
+.env-item__protected {
+  display: inline-flex;
+  height: 20px;
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--el-color-warning);
+  white-space: nowrap;
+  background: var(--el-color-warning-light-8);
   border-radius: 999px;
   align-items: center;
   flex: none;

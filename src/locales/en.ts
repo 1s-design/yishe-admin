@@ -4881,6 +4881,8 @@ export default {
     updateEnvironmentCommandSent: 'Update environment command sent',
     createEnvironmentCommandSent: 'Create environment command sent',
     setDefaultEnvironmentCommandSent: 'Set default environment command sent',
+    protectedEnvironment: 'System protected',
+    protectedEnvironmentTip: 'This environment is managed by the image collection system and cannot be deleted',
     deleteEnvironmentConfirm: 'Delete execution environment {profileId}? The corresponding cache directory will also be deleted.',
     deleteEnvironment: 'Delete Environment',
     deleteEnvironmentCommandSent: 'Delete environment command sent',

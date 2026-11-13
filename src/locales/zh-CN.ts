@@ -4875,6 +4875,8 @@ export default {
     updateEnvironmentCommandSent: '更新环境命令已发送',
     createEnvironmentCommandSent: '创建环境命令已发送',
     setDefaultEnvironmentCommandSent: '设为默认环境命令已发送',
+    protectedEnvironment: '系统保护·不可删除',
+    protectedEnvironmentTip: '该环境是图片采集专用/历史采集环境，由系统托管，禁止删除',
     deleteEnvironmentConfirm: '确认删除执行环境 {profileId} 吗？会同时删除对应缓存目录。',
     deleteEnvironment: '删除环境',
     deleteEnvironmentCommandSent: '删除环境命令已发送',

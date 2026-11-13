@@ -29,6 +29,12 @@ export interface BrowserAutomationProfileSummary {
   debugPort?: number | null;
   browserVersion?: string;
   loginSummary?: Record<string, any>;
+  /** 采集系统托管环境：true 表示已标记保护、不可删除 */
+  protected?: boolean;
+  nonDeletable?: boolean;
+  managedBy?: string;
+  kind?: "collect-shared" | "collect-legacy" | string;
+  protectedReason?: string;
   createdAt?: string | null;
   updatedAt?: string | null;
   lastUsedAt?: string | null;
