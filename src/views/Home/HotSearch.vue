@@ -2,7 +2,7 @@
   <ContentWrap :plain="true">
     <el-tabs v-model="activeTab" class="hotsearch-page">
       <el-tab-pane label="概览" name="overview" lazy>
-        <HotSearchOverview />
+        <HotSearchOverview ref="overviewRef" />
       </el-tab-pane>
       <el-tab-pane label="采集记录" name="history" lazy>
         <ListPageLayout class="hotsearch-history-page">
@@ -36,6 +36,17 @@
                     @click="handleBatchDelete"
                   >
                     批量删除{{ selectedIds.length ? ` (${selectedIds.length})` : '' }}
+                  </el-button>
+                  <el-button
+                    size="small"
+                    type="danger"
+                    plain
+                    :icon="Delete"
+                    :loading="clearing"
+                    :disabled="clearing"
+                    @click="handleClearAll"
+                  >
+                    清空
                   </el-button>
                 </div>
               </el-form>
@@ -109,7 +120,7 @@
 <script setup lang="ts" name="HotSearch">
 import { ref, reactive, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Refresh } from '@element-plus/icons-vue'
+import { Search, Refresh, Delete } from '@element-plus/icons-vue'
 import ContentWrap from '@/components/ContentWrap/src/ContentWrap.vue'
 import ListPageLayout from '@/components/ListPageLayout/index.vue'
 import Pagination from '@/components/Pagination/index.vue'
@@ -121,10 +132,13 @@ import {
   getModules,
   refreshHotsearch,
   batchDeleteSnapshots,
+  clearHotsearchSnapshots,
+  getHotsearchStats,
   type HotsearchSnapshot,
   type HotsearchPlatformInfo,
   type HotsearchModuleInfo
 } from '@/api/hotsearch'
+import { filterVisibleHotsearchPlatforms, isHotsearchPlatformHidden } from './hotsearchPlatformVisibility'
 
 defineOptions({ name: 'HotSearch' })
 
@@ -132,6 +146,8 @@ const activeTab = ref<'overview' | 'history'>('overview')
 const historyReady = ref(false)
 const loading = ref(false)
 const refreshing = ref(false)
+const clearing = ref(false)
+const overviewRef = ref<InstanceType<typeof HotSearchOverview>>()
 const dataList = ref<HotsearchSnapshot[]>([])
 const platforms = ref<HotsearchPlatformInfo[]>([])
 const moduleList = ref<HotsearchModuleInfo[]>([])
@@ -191,7 +207,9 @@ const getList = async () => {
     if (queryParams.platform) params.platform = queryParams.platform
     const res = await getSnapshots(params)
     const data = (res as any)?.data ?? res
-    dataList.value = data?.list ?? []
+    const list: HotsearchSnapshot[] = data?.list ?? []
+    // 已下线的平台（当当/慢慢买/豚榜/Shopify）不再在本模块展示
+    dataList.value = list.filter((item) => !isHotsearchPlatformHidden(item?.platformKey))
     total.value = data?.total ?? 0
   } catch (e) {
     console.error(e)
@@ -203,7 +221,7 @@ const getList = async () => {
 const loadPlatforms = async () => {
   try {
     const res = await getPlatforms()
-    platforms.value = (res as any)?.data ?? res ?? []
+    platforms.value = filterVisibleHotsearchPlatforms((res as any)?.data ?? res ?? [])
   } catch (e) {
     console.error(e)
   }
@@ -244,6 +262,54 @@ const handleBatchDelete = async () => {
     await getList()
   } catch (e) {
     if (e !== 'cancel') console.error(e)
+  }
+}
+
+/**
+ * 清空采集记录：删除全部快照（含热搜 + 资讯），并清理服务端当前热搜缓存。
+ * 不可恢复，要求手动输入「清空」二次确认。
+ */
+const handleClearAll = async () => {
+  if (clearing.value) return
+  // 用全局统计而不是列表 total：列表可能被类型/平台筛选，且会隐藏已下线平台
+  let count = 0
+  try {
+    const res = await getHotsearchStats()
+    count = Number((res as any)?.data?.snapshotCount ?? (res as any)?.snapshotCount ?? 0)
+  } catch (e) {
+    console.error(e)
+  }
+  if (!count) {
+    ElMessage.info('当前没有可清空的采集记录')
+    return
+  }
+  try {
+    await ElMessageBox.prompt(
+      `将删除全部 ${count} 条采集记录（含热搜、资讯与已下线平台的历史数据），并同步清理当前热搜缓存，此操作不可恢复。`,
+      '清空采集记录',
+      {
+        confirmButtonText: '确认清空',
+        cancelButtonText: '取消',
+        type: 'warning',
+        confirmButtonClass: 'el-button--danger',
+        inputPlaceholder: '请输入「清空」以确认',
+        inputValidator: (value: string) =>
+          (value || '').trim() === '清空' || '请输入「清空」两个字'
+      }
+    )
+    clearing.value = true
+    const res = await clearHotsearchSnapshots()
+    const deleted = (res as any)?.data?.deleted ?? (res as any)?.deleted ?? count
+    ElMessage.success(`已清空 ${deleted} 条采集记录`)
+    selectedIds.value = []
+    queryParams.currentPage = 1
+    await Promise.all([getList(), loadPlatforms(), loadModules()])
+    // 概览 tab 已挂载时同步刷新，避免残留旧榜单
+    overviewRef.value?.load()
+  } catch (e) {
+    if (e !== 'cancel' && e !== 'close') console.error(e)
+  } finally {
+    clearing.value = false
   }
 }
 

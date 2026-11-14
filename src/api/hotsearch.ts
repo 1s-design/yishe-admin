@@ -266,3 +266,14 @@ export const deleteSnapshot = (id: string) => {
 export const batchDeleteSnapshots = (ids: string[]) => {
   return request.post({ url: '/hotsearch/snapshot/batch-delete', data: { ids } })
 }
+
+/**
+ * 清空采集记录（不传 module 即清空全部热搜 + 资讯）
+ * 服务端会同步清理 Redis 中的当前热搜缓存
+ */
+export const clearHotsearchSnapshots = (module?: string) => {
+  return request.post<{ success: boolean; deleted: number; clearedCache: number }>({
+    url: '/hotsearch/snapshot/clear',
+    data: module ? { module } : {}
+  })
+}

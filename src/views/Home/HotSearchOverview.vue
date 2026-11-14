@@ -119,6 +119,7 @@ import {
   type HotsearchOverviewPlatform,
   type HotsearchOverviewResult
 } from '@/api/hotsearch'
+import { filterVisibleHotsearchPlatforms, isHotsearchPlatformHidden } from './hotsearchPlatformVisibility'
 
 defineOptions({ name: 'HotsearchOverview' })
 
@@ -149,11 +150,23 @@ const unwrap = <T,>(res: any): T => ((res as any)?.data ?? res) as T
 const sections = computed(() =>
   OVERVIEW_MODULES.map((item) => {
     const overview = overviews.value[item.module]
+    // 下线的平台（当当/慢慢买/豚榜/Shopify）不在本模块展示，空分组一并隐藏
+    const groups = (overview?.groups ?? [])
+      .map((group) => ({
+        ...group,
+        platforms: filterVisibleHotsearchPlatforms(group.platforms)
+      }))
+      .filter((group) => group.platforms.length > 0)
+    const platformCount = groups.reduce((sum, group) => sum + group.platforms.length, 0)
+    const itemCount = groups.reduce(
+      (sum, group) => sum + group.platforms.reduce((acc, platform) => acc + (platform.itemCount || 0), 0),
+      0
+    )
     return {
       module: item.module,
       label: item.label,
-      groups: overview?.groups ?? [],
-      stats: overview?.stats ?? { platformCount: 0, itemCount: 0 }
+      groups,
+      stats: { platformCount, itemCount }
     }
   })
 )
@@ -165,15 +178,30 @@ const stats = computed(() => ({
 }))
 
 const keywords = computed<HotsearchKeyword[]>(() => {
+  /** 剔除已下线平台，保持 platforms / platformNames 下标对齐 */
+  const pickVisible = (kw: HotsearchKeyword) => {
+    const keys = kw.platforms ?? []
+    const names = kw.platformNames ?? []
+    const platforms: string[] = []
+    const platformNames: string[] = []
+    keys.forEach((key, index) => {
+      if (isHotsearchPlatformHidden(key)) return
+      platforms.push(key)
+      if (names[index]) platformNames.push(names[index])
+    })
+    return { platforms, platformNames }
+  }
+
   const merged = new Map<string, HotsearchKeyword>()
   for (const overview of Object.values(overviews.value)) {
     for (const kw of overview?.keywords ?? []) {
+      const visible = pickVisible(kw)
       const current = merged.get(kw.word)
       if (!current) {
         merged.set(kw.word, {
           ...kw,
-          platforms: [...(kw.platforms ?? [])],
-          platformNames: [...(kw.platformNames ?? [])],
+          platforms: visible.platforms,
+          platformNames: visible.platformNames,
           sampleTitles: [...(kw.sampleTitles ?? [])]
         })
         continue
@@ -181,10 +209,10 @@ const keywords = computed<HotsearchKeyword[]>(() => {
       current.hitCount += kw.hitCount
       current.score = Math.max(current.score, kw.score)
       current.bestRank = Math.min(current.bestRank || Infinity, kw.bestRank || Infinity) || 0
-      for (const key of kw.platforms ?? []) {
+      for (const key of visible.platforms) {
         if (!current.platforms.includes(key)) current.platforms.push(key)
       }
-      for (const name of kw.platformNames ?? []) {
+      for (const name of visible.platformNames) {
         if (!current.platformNames.includes(name)) current.platformNames.push(name)
       }
       for (const title of kw.sampleTitles ?? []) {
@@ -193,7 +221,10 @@ const keywords = computed<HotsearchKeyword[]>(() => {
       }
     }
   }
-  return [...merged.values()].sort((a, b) => b.score - a.score).slice(0, 24)
+  return [...merged.values()]
+    .filter((kw) => kw.platforms.length > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 24)
 })
 
 const latestAgeMinutes = computed(() => {
@@ -247,6 +278,9 @@ const openDrawer = (platform: HotsearchOverviewPlatform, module: string) => {
 }
 
 onMounted(load)
+
+// 供父组件（清空采集记录后）刷新概览
+defineExpose({ load })
 </script>
 
 <style scoped lang="scss">
