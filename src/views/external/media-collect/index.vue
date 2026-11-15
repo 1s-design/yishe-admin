@@ -63,6 +63,12 @@ interface MenuItem {
 // ── 通用采集（接口驱动：源清单来自服务端定义，加源零前端改动）──
 const engineItems = ref<MenuItem[]>([])
 
+// 媒体采集只展示「自己的源」：module 仅挂 media-collect，不把双模块共用的图片采集源混进来
+const isMediaOwned = (m: any) => {
+  const mods = Array.isArray(m?.module) ? m.module : [m?.module]
+  return mods.length === 1 && mods[0] === 'media-collect'
+}
+
 async function loadEngineSources() {
   const applyMetas = (metas: CollectSourceMeta[]) => {
     engineItems.value = metas.map((m) => ({
@@ -78,14 +84,14 @@ async function loadEngineSources() {
   // 缓存优先：切换回来无空窗（缓存异常不影响主加载）
   const cached = loadSourceMetas()
   if (cached && cached.length) {
-    try { applyMetas(filterModuleMetas(cached, 'media-collect') as CollectSourceMeta[]) } catch { /* 缓存渲染失败则等网络 */ }
+    try { applyMetas(filterModuleMetas(cached, 'media-collect').filter(isMediaOwned) as CollectSourceMeta[]) } catch { /* 缓存渲染失败则等网络 */ }
   }
   try {
     const res: any = await listCollectSources('media-collect')
     const list = res?.data ?? res ?? []
     const metas: CollectSourceMeta[] = Array.isArray(list) ? list : []
     saveSourceMetas(metas)
-    applyMetas(metas)
+    applyMetas(metas.filter(isMediaOwned))
   } catch (e) {
     console.error('[media-collect] 加载采集源清单失败:', e)
     if (!cached) engineItems.value = []

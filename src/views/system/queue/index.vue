@@ -233,33 +233,6 @@
               </el-button>
               <el-button
                 size="small"
-                type="success"
-                :disabled="!selectedReviewableMediaIds.length"
-                :loading="batchReviewApproveLoading"
-                @click="handleBatchReviewPublishTasks('approve')"
-              >
-                {{
-                  selectedReviewableMediaIds.length
-                    ? `${t('queue.batchReviewApprove')} (${selectedReviewableMediaIds.length})`
-                    : t('queue.batchReviewApprove')
-                }}
-              </el-button>
-              <el-button
-                size="small"
-                type="danger"
-                plain
-                :disabled="!selectedReviewableMediaIds.length"
-                :loading="batchReviewRejectLoading"
-                @click="handleBatchReviewPublishTasks('reject')"
-              >
-                {{
-                  selectedReviewableMediaIds.length
-                    ? `${t('queue.batchReviewReject')} (${selectedReviewableMediaIds.length})`
-                    : t('queue.batchReviewReject')
-                }}
-              </el-button>
-              <el-button
-                size="small"
                 type="warning"
                 :disabled="!ids.length"
                 :loading="batchResetPendingLoading"
@@ -514,9 +487,10 @@
                   <template #publishReviewDefaultSlot="{ row }">
                     <span
                       v-if="isPublishMediaTaskRow(row)"
-                      class="queue-status-pill"
+                      class="queue-status-pill queue-status-pill--interactive"
                       :class="`queue-review-pill--${row._ui?.reviewStatus || 'none'}`"
                       :title="row._ui?.reviewReason || ''"
+                      @click="openMediaPreview(row)"
                     >
                       <i class="queue-status-pill__dot"></i>
                       <span class="queue-status-pill__value">{{ row._ui?.reviewText || "-" }}</span>
@@ -629,6 +603,13 @@
                             <el-dropdown-item :command="'viewData'">{{ t('queue.viewData') }}</el-dropdown-item>
                             <el-dropdown-item :command="'viewRuntimeLogs'">
                               {{ t('queue.viewLogs') }}
+                            </el-dropdown-item>
+                            <el-dropdown-item
+                              v-if="isPublishMediaTaskRow(row)"
+                              :command="'reviewPublish'"
+                              divided
+                            >
+                              {{ t('queue.reviewPublish') }}
                             </el-dropdown-item>
                             <el-dropdown-item
                               v-if="isPublishTaskRow(row)"
@@ -1171,6 +1152,8 @@
 
     <!-- 媒体发布数据规范弹窗 -->
     <MediaSchemaDialog v-model="mediaSchemaVisible" />
+
+    <MediaPublishPreview v-model="mediaPreviewVisible" :task="mediaPreviewTask" @reviewed="getList" />
   </ContentWrap>
 </template>
 
@@ -1190,7 +1173,6 @@ import {
   updateTaskData,
   updateTaskStatus,
   batchResetPublishTasksToPending,
-  reviewPublishTasks,
   type QueueExecutionReadinessStatusFilter,
   type QueueMessage,
   type QueueStats,
@@ -1234,6 +1216,8 @@ import { getClientServiceRuntime } from "@/store/modules/clientNode";
 import PublishDispatchTargetTable from "./components/PublishDispatchTargetTable.vue";
 import TaskStatsDialog from "./components/TaskStatsDialog.vue";
 import MediaSchemaDialog from "./components/MediaSchemaDialog.vue";
+import MediaPublishPreview from "./components/MediaPublishPreview.vue";
+import { derivePublishPhase, getPublishDispatchInfo, type PublishPhase } from "./publishStatus";
 import {
   PLATFORM_LABEL_MAP,
   isPublishFamily,
@@ -1598,10 +1582,6 @@ const statusSubmitLoading = ref(false);
 const dataUpdateSubmitting = ref(false);
 const deleteLoading = ref(false);
 const batchResetPendingLoading = ref(false);
-const batchReviewApproveLoading = ref(false);
-const batchReviewRejectLoading = ref(false);
-/** 当前勾选中可审核的媒体任务 ID（跨页 reserve 行也算） */
-const selectedReviewableMediaIds = ref<string[]>([]);
 const batchRegenerateLoading = ref(false);
 const publishTaskAutoDispatchEnabled = ref(false);
 const publishTaskAutoDispatchLoading = ref(false);
@@ -1613,6 +1593,8 @@ const autoDispatchTargetDialogLoading = ref(false);
 const autoDispatchTargetSubmitting = ref(false);
 const statsDialogVisible = ref(false);
 const mediaSchemaVisible = ref(false);
+const mediaPreviewVisible = ref(false);
+const mediaPreviewTask = ref<QueueMessage | null>(null);
 const dispatchTargetTask = ref<QueueMessage | null>(null);
 const selectedDispatchClientId = ref("");
 const selectedDispatchProfileId = ref("");
@@ -2066,6 +2048,13 @@ function isAgentCreatedTaskRow(row?: QueueMessage | null) {
   return String(row?.metadata?.source || "").trim() === "agent";
 }
 
+/** 打开平台规范驱动的发布预览 + 审核弹窗 */
+function openMediaPreview(row?: QueueMessage | null) {
+  if (!row) return;
+  mediaPreviewTask.value = row;
+  mediaPreviewVisible.value = true;
+}
+
 const PUBLISH_DISPATCH_STALE_MS = 45_000;
 
 function getPublishDispatchMeta(row?: QueueMessage | null) {
@@ -2450,6 +2439,26 @@ function getQueueConclusion(row: QueueMessage): QueueConclusion {
   const status = String(row?.status || "").trim().toLowerCase();
   const readiness = row?.executionReadiness || null;
   const readinessReason = String(readiness?.reason || "").trim();
+
+  if (isPublishMediaTaskRow(row)) {
+    const phase = derivePublishPhase(row);
+    const dispatch = getPublishDispatchInfo(row);
+    const phaseConclusion: Record<PublishPhase, QueueConclusion> = {
+      rejected: { key: "failed", text: t("queue.phaseRejected"), type: "danger", reason: readinessReason, running: false },
+      "awaiting-review": { key: "pending-ready", text: t("queue.phaseAwaitingReview"), type: "warning", reason: readinessReason, running: false },
+      queued: { key: "waiting", text: t("queue.phaseQueued"), type: "info", reason: readinessReason, running: false },
+      publishing: { key: "processing", text: t("queue.phasePublishing"), type: "primary", reason: readinessReason, running: true },
+      published: { key: "completed", text: t("queue.phasePublished"), type: "success", reason: readinessReason, running: false },
+      failed: {
+        key: "failed",
+        text: t("queue.phaseFailed"),
+        type: "danger",
+        reason: dispatch.lastError || String(row?.error || "").trim() || readinessReason,
+        running: false,
+      },
+    };
+    return phaseConclusion[phase];
+  }
 
   if (status === "completed") {
     return { key: "completed", text: t('queue.completed'), type: "success", reason: readinessReason, running: false };
@@ -3242,7 +3251,6 @@ function clearSelectedRows() {
   gridRef.value?.clearCheckboxRow?.();
   gridRef.value?.clearCheckboxReserve?.();
   ids.value = [];
-  selectedReviewableMediaIds.value = [];
 }
 
 // 从表格侧同步全量勾选（含 reserve 跨页保留），避免 ids 只记录当前页
@@ -3254,18 +3262,13 @@ function syncSelectedIdsFromGrid() {
   ];
   const seen = new Set<string>();
   const next: string[] = [];
-  const mediaIds: string[] = [];
   for (const row of rows) {
     const id = String(row?.id || "").trim();
     if (!id || seen.has(id)) continue;
     seen.add(id);
     next.push(id);
-    if (isPublishMediaFamily(row?.type)) {
-      mediaIds.push(id);
-    }
   }
   ids.value = next;
-  selectedReviewableMediaIds.value = mediaIds;
 }
 
 // 复选框变化
@@ -3277,9 +3280,6 @@ function checkboxChange(e: any) {
   }
   const records: any[] = e.records || [];
   ids.value = records.map((item: any) => item.id);
-  selectedReviewableMediaIds.value = records
-    .filter((item: any) => isPublishMediaFamily(item?.type))
-    .map((item: any) => String(item.id));
 }
 
 function checkboxAllChange(e: any) {
@@ -3290,9 +3290,6 @@ function checkboxAllChange(e: any) {
   }
   const records: any[] = e.records || [];
   ids.value = records.map((item: any) => item.id);
-  selectedReviewableMediaIds.value = records
-    .filter((item: any) => isPublishMediaFamily(item?.type))
-    .map((item: any) => String(item.id));
 }
 
 function getSelectedQueueRows() {
@@ -4203,66 +4200,6 @@ function handleDelete(row?: QueueMessage) {
     .catch(() => {});
 }
 
-/**
- * 批量审核媒体发布任务（通过/驳回）。
- * 只有媒体任务（publish-media-*）参与审核；商品任务在选中行里会被自动忽略。
- */
-async function handleBatchReviewPublishTasks(action: "approve" | "reject") {
-  const loadingRef = action === "approve" ? batchReviewApproveLoading : batchReviewRejectLoading;
-  if (loadingRef.value) return;
-  const targetIds = [...selectedReviewableMediaIds.value];
-  if (!targetIds.length) {
-    return ElMessage.warning(t("queue.noMediaTaskToReview"));
-  }
-
-  try {
-    await ElMessageBox.confirm(
-      action === "approve"
-        ? t("queue.confirmReviewApprove", { count: targetIds.length })
-        : t("queue.confirmReviewReject", { count: targetIds.length }),
-      action === "approve" ? t("queue.batchReviewApprove") : t("queue.batchReviewReject"),
-      {
-        type: "warning",
-        confirmButtonText: t("queue.confirm"),
-        cancelButtonText: t("queue.cancel"),
-      },
-    );
-
-    loadingRef.value = true;
-    const response: any = await reviewPublishTasks(targetIds, action);
-    const data = response?.data || response || {};
-    const reviewed = Number(data.reviewed ?? 0);
-    const skipped: Array<{ id: string; reason: string }> = Array.isArray(data.skipped)
-      ? data.skipped
-      : [];
-
-    if (action === "approve") {
-      ElMessage.success(t("queue.reviewApproveSuccess", { count: reviewed }));
-    } else {
-      ElMessage.success(t("queue.reviewRejectSuccess", { count: reviewed }));
-    }
-    if (skipped.length) {
-      ElMessage.warning(
-        t("queue.reviewSkippedWarning", { count: skipped.length }) +
-          skipped
-            .slice(0, 3)
-            .map((item) => `${item.id}(${item.reason})`)
-            .join("、"),
-      );
-    }
-
-    clearSelectedRows();
-    await getList();
-  } catch (error: any) {
-    if (error === "cancel" || error?.message === "cancel") return;
-    ElMessage.error(
-      action === "approve" ? t("queue.reviewApproveFailed") : t("queue.reviewRejectFailed"),
-    );
-  } finally {
-    loadingRef.value = false;
-  }
-}
-
 async function handleBatchResetPublishTasksToPending() {
   if (batchResetPendingLoading.value) return;
   const selectedRows = getSelectedQueueRows();
@@ -4743,6 +4680,9 @@ async function handleOperationCommand(command: string, row: QueueMessage) {
       break;
     case "viewRuntimeLogs":
       await handleViewRuntimeLogs(row);
+      break;
+    case "reviewPublish":
+      openMediaPreview(row);
       break;
     case "startExecution":
       openPublishDispatchDialog(row);
