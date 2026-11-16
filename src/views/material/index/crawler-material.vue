@@ -349,15 +349,19 @@
             @checkbox-all="checkboxAllChange"
           >
             <template #previewDefaultSlot="{ row }">
-              <div class="flex flex-col items-center justify-center p-2">
+              <div class="material-thumb png-checker-bg">
                 <img
+                  v-if="row.url && !row._thumbError"
                   :key="`${row.id}_p${queryParams.currentPage}`"
-                  :src="row.url"
+                  :src="getFastPreviewImageUrl(row.url, { width: 160 })"
                   :alt="row.name || '素材图片'"
-                  class="material-thumb png-checker-bg"
+                  class="material-thumb__img"
                   loading="lazy"
+                  decoding="async"
+                  @error="row._thumbError = true"
                   @click="openImagePreview(row.url, row.name)"
                 />
+                <span v-else class="material-thumb__empty">无图片</span>
               </div>
             </template>
             <template #dimensionSlot="{ row }">
@@ -609,6 +613,7 @@ import {
 } from "@element-plus/icons-vue";
 import { useWindowSize } from "@vueuse/core";
 import { downloadImage } from "@/common/download";
+import { getFastPreviewImageUrl } from "@/utils/image";
 import { useUserStore } from "@/store/modules/user";
 import {
   SIZE_SHAPE_GROUPS,
@@ -1216,16 +1221,29 @@ markCrawlerMaterialVisited();
   background-repeat: repeat;
 }
 
-/* 列表主缩略图 */
+/* 列表主缩略图：与图片素材模块一致，固定尺寸 + COS 在线压缩，避免直接加载原图 */
 .material-thumb {
+  display: flex;
+  width: 96px;
+  height: 96px;
+  overflow: hidden;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 6px;
+}
+
+.material-thumb__img {
   display: block;
-  width: 120px;
-  height: auto;
-  min-height: 32px;
-  cursor: pointer;
+  width: 100%;
+  height: 100%;
+  cursor: zoom-in;
   object-fit: contain;
-  border-radius: 2px;
-  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 4%);
+}
+
+.material-thumb__empty {
+  font-size: 12px;
+  color: var(--el-text-color-placeholder);
 }
 
 /* 原始地址列：图片与链接上下布局 */
