@@ -271,6 +271,52 @@ export function removeRelatedImages(data: { id: string; ids: string[] }) {
 }
 
 /**
+ * 图片裁剪审核：裁剪方案配置（存 user.setting.cropAudit）
+ */
+export function getCropReviewConfig() {
+  return request.get({ url: '/crop-task/config' })
+}
+
+export function updateCropReviewConfig(data: { plans: any[] }) {
+  return request.post({ url: '/crop-task/config', data })
+}
+
+/**
+ * 图片裁剪审核：批量创建裁剪任务
+ */
+export interface CropConfigPlan {
+  key: string
+  label?: string
+  aspectRatio: number
+  width?: number
+  height?: number
+}
+
+export function createCropTasks(data: {
+  batchId?: string
+  items: Array<{
+    originalId: string
+    originalUrl: string
+    originalName?: string
+    configs: CropConfigPlan[]
+  }>
+}) {
+  return request.post({ url: '/crop-task/create', data })
+}
+
+/**
+ * 图片裁剪审核：任务列表与进度
+ */
+export function getCropTaskList(params: {
+  batchId?: string
+  status?: string
+  pageNo?: number
+  pageSize?: number
+}) {
+  return request.get({ url: '/crop-task/list', params })
+}
+
+/**
  * Crawler material APIs
  */
 

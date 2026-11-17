@@ -403,6 +403,31 @@
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
+              <el-dropdown trigger="click">
+                <el-button
+                  size="small"
+                  type="warning"
+                  plain
+                  title="全屏逐张预览裁剪效果，勾选方案后交由客户端裁切入库"
+                >
+                  <el-icon class="mr-1"><Crop /></el-icon>
+                  <span>裁剪审核</span>
+                  <span v-if="ids.length" class="ml-0.5 font-bold">({{ ids.length }})</span>
+                  <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item @click="openCropReview(false)">
+                      <el-icon class="mr-1.5"><Crop /></el-icon>
+                      <span>勾选 / 当前页裁剪审核</span>
+                    </el-dropdown-item>
+                    <el-dropdown-item divided @click="openCropReview(true)">
+                      <el-icon class="mr-1.5"><Operation /></el-icon>
+                      <span>按当前列表筛选审核 (同步比例/抠图/格式)</span>
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
               <el-button size="small" type="danger" :loading="deleteLoading" @click="handleDelete(null)">
                 <el-icon>
                   <Delete />
@@ -3198,6 +3223,14 @@
       :folder-id="getStickerFolderFilterForQuery(queryParams.folderId)"
       @reviewed="getList"
     />
+    <MaterialCropReview
+      v-model:visible="cropReviewVisible"
+      :items="cropReviewItems"
+      :inherit-filters="cropReviewInheritFilters"
+      :initial-filters="cropReviewInitialFilters"
+      :has-user-selection="Boolean(ids.length) && !cropReviewInheritFilters"
+      :folder-id="getStickerFolderFilterForQuery(queryParams.folderId)"
+    />
     <el-dialog v-model="storyScriptDialogVisible" fullscreen destroy-on-close class="story-script-dialog"
       :title="t('material.storyScriptFor', { name: storyScriptCurrentSticker?.name || t('material.materialImage') })">
       <div
@@ -3529,6 +3562,7 @@ import {
   Calendar,
   MagicStick,
   Timer,
+  Crop,
 } from "@element-plus/icons-vue";
 import tree from "./tree.vue";
 import { materialStatusOptions } from ".";
@@ -3564,6 +3598,7 @@ import RelatedImageDialog from "./RelatedImageDialog.vue";
 import MaterialRelationPopover from "./MaterialRelationPopover.vue";
 import MaterialPublishQuickPopover from "./MaterialPublishQuickPopover.vue";
 import MaterialPublishQuickReview from "./MaterialPublishQuickReview.vue";
+import MaterialCropReview from "./MaterialCropReview.vue";
 import { invalidateMaterialRelations } from "./useMaterialRelations";
 import FolderTree from "@/components/material/FolderTree.vue";
 import TableRowDragHandle from "@/components/TableRowDragHandle/index.vue";
@@ -4899,6 +4934,57 @@ const quickPublishReviewItems = ref<any[]>([]);
 const quickPublishReviewMode = ref<'recent' | 'oldest' | 'random'>('recent');
 const quickPublishInitialFilters = ref<Record<string, any>>({});
 const quickPublishInheritFilters = ref(false);
+
+// 图片裁剪审核
+const cropReviewVisible = ref(false);
+const cropReviewItems = ref<any[]>([]);
+const cropReviewInheritFilters = ref(false);
+const cropReviewInitialFilters = ref<Record<string, any>>({});
+/**
+ * 打开裁剪审核。
+ * @param inheritFilters true=继承列表页当前筛选条件，由组件按条件从服务端分页拉全量；
+ *                       false=用勾选行，未勾选则用当前表格页已加载数据。
+ */
+function openCropReview(inheritFilters = false) {
+  cropReviewInheritFilters.value = inheritFilters;
+  if (inheritFilters) {
+    const suffixList = Array.isArray(queryParams.suffix)
+      ? [...queryParams.suffix]
+      : queryParams.suffix
+        ? [queryParams.suffix]
+        : [];
+    const sizeShapeList = Array.isArray(queryParams.sizeShape)
+      ? [...queryParams.sizeShape]
+      : queryParams.sizeShape
+        ? [queryParams.sizeShape]
+        : [];
+    // 原样透传列表筛选（与商品快速审核口径一致），交给组件从服务端按条件取数
+    cropReviewInitialFilters.value = {
+      isCutout: queryParams.isCutout === "" ? undefined : queryParams.isCutout,
+      suffix: suffixList,
+      sizeShape: sizeShapeList,
+      targetAspectRatio: queryParams.targetAspectRatio,
+      aspectRatioTolerance: queryParams.aspectRatioTolerance,
+      startTime: queryParams.startTime || undefined,
+      endTime: queryParams.endTime || undefined,
+    };
+    cropReviewItems.value = [];
+    cropReviewVisible.value = true;
+    return;
+  }
+  let list: any[] = [];
+  if (ids.value && ids.value.length > 0) {
+    list = (dataSource.value || []).filter((row: any) => ids.value.includes(row.id));
+  } else {
+    list = [...(dataSource.value || [])];
+  }
+  if (!list.length) {
+    ElMessage.warning('当前页没有可裁剪审核的图片，可改用「按当前列表筛选审核」');
+    return;
+  }
+  cropReviewItems.value = list;
+  cropReviewVisible.value = true;
+}
 
 /** 打开商品快速审核（全屏逐张极速创建与审核发布配置） */
 function openMaterialPublishQuickReview(
