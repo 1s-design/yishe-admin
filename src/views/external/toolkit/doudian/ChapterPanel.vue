@@ -267,17 +267,29 @@ async function loadData() {
       case "hot-words": res = await collectDoudianHotWords(props.clientId, params); break;
     }
 
+    console.log("[doudian] raw API response:", res);
+    console.log("[doudian] response keys:", res ? Object.keys(res) : "null");
+
     const parsed = extractResult(res);
+    console.log("[doudian] extracted result:", parsed);
+
     if (parsed.error) {
-      error.value = parsed.error;
+      error.value = `API error: ${parsed.error}`;
       data.value = [];
     } else if (parsed.data) {
       data.value = Array.isArray(parsed.data) ? parsed.data : [];
       capturedAt.value = new Date().toISOString();
+    } else if (parsed.success === false) {
+      error.value = parsed.message || "采集失败（success=false）";
+      data.value = [];
     } else {
+      // 兜底：打印完整 parsed 让用户看 console
+      console.warn("[doudian] 无 data 无 error，parsed 完整结构:", parsed);
+      error.value = `返回结构异常，请检查浏览器控制台。keys: ${parsed ? Object.keys(parsed).join(",") : "null"}`;
       data.value = [];
     }
   } catch (e: any) {
+    console.error("[doudian] loadData exception:", e);
     error.value = e?.message || "采集失败";
   } finally {
     loading.value = false;
