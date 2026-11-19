@@ -62,14 +62,14 @@
 
           <section class="mcr__plans">
             <div class="mcr__section-label">
-              裁剪预览 · 已选 {{ selectedKeys.size }} / {{ plans.length }} 个方案
+              裁剪预览 · 已选 {{ selectedKeys.size }} / {{ enabledPlans.length }} 个方案
             </div>
-            <div v-if="!plans.length" class="mcr__empty-plans">
-              还没有裁剪方案，点击右上角「裁剪配置」添加宽高比
+            <div v-if="!enabledPlans.length" class="mcr__empty-plans">
+              {{ plans.length ? '所有裁剪方案都已停用，请在「裁剪配置」中启用' : '还没有裁剪方案，点击右上角「裁剪配置」添加宽高比' }}
             </div>
             <div class="mcr__plan-grid">
               <div
-                v-for="plan in plans"
+                v-for="plan in enabledPlans"
                 :key="plan.key"
                 class="mcr__plan-card"
                 :class="{ 'is-selected': selectedKeys.has(plan.key) }"
@@ -164,7 +164,7 @@
           <!-- ③ 已配置方案：表格化，列严格对齐 -->
           <div class="cfg__label cfg__label--split">
             <span>已配置方案</span>
-            <span class="cfg__count">{{ plans.length }} 个</span>
+            <span class="cfg__count">{{ plans.length }} 个 · 启用 {{ enabledPlans.length }} 个</span>
           </div>
           <div v-if="!plans.length" class="cfg__empty">还没有方案，点上方预设或自定义添加</div>
 
@@ -173,13 +173,14 @@
               <span>#</span>
               <span>名称</span>
               <span>宽高比</span>
+              <span>状态</span>
               <span></span>
             </div>
             <div
               v-for="(plan, idx) in plans"
               :key="plan.key"
               class="cfg__trow"
-              :class="{ 'is-error': ratioErrors[plan.key] }"
+              :class="{ 'is-error': ratioErrors[plan.key], 'is-off': !isPlanEnabled(plan) }"
             >
               <span class="cfg__cell-index">{{ idx + 1 }}</span>
               <span class="cfg__cell">
@@ -195,6 +196,16 @@
                   @keyup.enter="commitDraft(plan)"
                 />
               </span>
+              <span class="cfg__cell cfg__cell-status">
+                <el-switch
+                  :model-value="isPlanEnabled(plan)"
+                  size="small"
+                  inline-prompt
+                  active-text="启"
+                  inactive-text="停"
+                  @change="(val: any) => setPlanEnabled(plan, val)"
+                />
+              </span>
               <span class="cfg__cell cfg__cell-op">
                 <el-button size="small" circle text title="删除" @click="removePlan(idx)">
                   <el-icon><Delete /></el-icon>
@@ -202,7 +213,7 @@
               </span>
             </div>
           </div>
-          <div class="cfg__note">宽高比支持 16:9、9:16、1.5 等，失焦生效；裁剪按原图等比裁切，成品保持原图分辨率。</div>
+          <div class="cfg__note">宽高比支持 16:9、9:16、1.5 等，失焦生效；裁剪按原图等比裁切，成品保持原图分辨率。停用的方案不参与审核。</div>
 
           <div class="cfg__footer">
             <el-button @click="configDrawerVisible = false">取消</el-button>
@@ -437,6 +448,13 @@ const plans = ref<CropConfigPlan[]>([])
 const selectedKeys = ref<Set<string>>(new Set())
 const presets = COMMON_ASPECT_RATIOS
 
+/** 启用的方案才参与审核 */
+function isPlanEnabled(plan: CropConfigPlan): boolean {
+  return plan.enabled !== false
+}
+
+const enabledPlans = computed(() => plans.value.filter(isPlanEnabled))
+
 // 比例输入框的草稿文本：与 plan.aspectRatio 解耦，允许自由输入中间态（如 "16:"），
 // 失焦/回车时才解析提交，避免受控回写把用户的输入打断
 const ratioDrafts = reactive<Record<string, string>>({})
@@ -455,10 +473,22 @@ const taskStats = ref<{ total: number; completed: number; processing: number; fa
 
 // 选中态用普通对象驱动响应式（Set 需触发视图更新）
 function togglePlan(key: string) {
+  const plan = plans.value.find((p) => p.key === key)
+  if (!plan || !isPlanEnabled(plan)) return
   const next = new Set(selectedKeys.value)
   if (next.has(key)) next.delete(key)
   else next.add(key)
   selectedKeys.value = next
+}
+
+/** 启停方案：停用后立即退出审核选择集 */
+function setPlanEnabled(plan: CropConfigPlan, value: any) {
+  plan.enabled = value !== false
+  if (!plan.enabled) {
+    const next = new Set(selectedKeys.value)
+    next.delete(plan.key)
+    selectedKeys.value = next
+  }
 }
 
 /** 预览舞台最大可用尺寸（与 .mcr__plan-preview-wrap 的 150px 高、卡片宽度匹配） */
@@ -514,7 +544,7 @@ function commitDraft(plan: CropConfigPlan) {
 
 function addPlan(label: string, ratio: number, width?: number, height?: number) {
   const key = `plan_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`
-  const plan: CropConfigPlan = { key, label, aspectRatio: ratio, width, height }
+  const plan: CropConfigPlan = { key, label, aspectRatio: ratio, width, height, enabled: true }
   plans.value.push(plan)
   initDraft(plan)
   // 新增默认选中
@@ -563,10 +593,11 @@ async function loadConfig() {
           key: String(p.key || `plan_${Math.random().toString(36).slice(2, 8)}`),
           label: p.label || '',
           aspectRatio: Number(p.aspectRatio),
+          enabled: p.enabled !== false,
         }))
       plans.value.forEach(initDraft)
-      // 默认全选
-      selectedKeys.value = new Set(plans.value.map((p) => p.key))
+      // 默认全选启用的方案
+      selectedKeys.value = new Set(enabledPlans.value.map((p) => p.key))
     }
   } catch {
     // 首次使用无配置，忽略
@@ -593,11 +624,12 @@ async function saveConfig() {
         key: p.key,
         label: p.label || ratioLabel(p.aspectRatio),
         aspectRatio: Number(p.aspectRatio),
+        enabled: isPlanEnabled(p),
       }))
     await updateCropReviewConfig({ plans: cleaned })
     plans.value = cleaned
-    // 确保预览选中态覆盖所有方案（保存时可能新增过）
-    selectedKeys.value = new Set(plans.value.map((p) => p.key))
+    // 确保预览选中态覆盖所有启用的方案（保存时可能新增过）
+    selectedKeys.value = new Set(enabledPlans.value.map((p) => p.key))
     ElMessage.success('裁剪配置已保存')
     configDrawerVisible.value = false
   } catch (e: any) {
@@ -694,7 +726,7 @@ async function confirmCrop() {
     ElMessage.warning('请先选择裁剪方案')
     return
   }
-  const selectedPlans = plans.value.filter((p) => selectedKeys.value.has(p.key))
+  const selectedPlans = enabledPlans.value.filter((p) => selectedKeys.value.has(p.key))
   if (!selectedPlans.length) return
   submitting.value = true
   try {
@@ -748,9 +780,10 @@ function handleKeydown(e: KeyboardEvent) {
     void confirmCrop()
   } else if (/^[1-9]$/.test(e.key)) {
     const idx = Number(e.key) - 1
-    if (plans.value[idx]) {
+    const plan = enabledPlans.value[idx]
+    if (plan) {
       e.preventDefault()
-      togglePlan(plans.value[idx].key)
+      togglePlan(plan.key)
     }
   }
 }
@@ -759,7 +792,7 @@ watch(
   () => props.visible,
   async (visible) => {
     if (visible) {
-      selectedKeys.value = new Set(plans.value.map((p) => p.key))
+      selectedKeys.value = new Set(enabledPlans.value.map((p) => p.key))
       await loadConfig()
       if (props.inheritFilters) {
         cropFilters.value = { ...(props.initialFilters || {}) }
@@ -1132,7 +1165,7 @@ body.dark {
   .cfg__thead,
   .cfg__trow {
     display: grid;
-    grid-template-columns: 24px minmax(80px, 1fr) 130px 34px;
+    grid-template-columns: 24px minmax(80px, 1fr) 130px 58px 34px;
     align-items: center;
     gap: 8px;
   }
@@ -1145,6 +1178,8 @@ body.dark {
     border-bottom: 1px solid var(--mcr-border);
     &:last-child { border-bottom: none; }
     &:hover { background: color-mix(in srgb, var(--mcr-fg) 3%, transparent); }
+
+    &.is-off { opacity: 0.55; }
   }
   .cfg__cell-index { font-size: 12px; color: var(--mcr-muted); text-align: center; }
   .cfg__cell {
@@ -1152,6 +1187,11 @@ body.dark {
     .el-input__wrapper { padding-inline: 8px; }
     .el-input.is-error .el-input__wrapper { box-shadow: 0 0 0 1px #f56c6c inset; }
   }
+  .cfg__cell-status {
+    display: flex;
+    justify-content: center;
+  }
+
   .cfg__cell-op {
     display: flex; justify-content: center;
     .el-button { color: var(--mcr-muted); }

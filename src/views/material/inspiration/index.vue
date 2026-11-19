@@ -154,7 +154,9 @@ async function getList() {
     const res: any = await getInspirationPage({
       currentPage: queryParams.currentPage,
       pageSize: queryParams.pageSize,
-      keyword: queryParams.keyword || undefined
+      keyword: queryParams.keyword || undefined,
+      // 黑名单条目（inputType=blacklist）在「采集黑名单」Tab 维护，不混入灵感列表
+      excludeInputType: 'blacklist'
     })
     list.value = res?.list || []
     total.value = res?.total || 0

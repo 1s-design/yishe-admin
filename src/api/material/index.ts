@@ -290,6 +290,8 @@ export interface CropConfigPlan {
   aspectRatio: number
   width?: number
   height?: number
+  /** 是否启用：停用的方案不参与审核（缺省视为启用） */
+  enabled?: boolean
 }
 
 export function createCropTasks(data: {

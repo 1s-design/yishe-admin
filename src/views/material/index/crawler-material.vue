@@ -498,6 +498,9 @@
       <el-tab-pane label="图片采集灵感" name="inspiration" lazy>
         <InspirationPanel />
       </el-tab-pane>
+      <el-tab-pane label="采集黑名单" name="blacklist" lazy>
+        <BlacklistPanel />
+      </el-tab-pane>
     </el-tabs>
 
     <el-dialog
@@ -594,8 +597,9 @@
 import { ref, reactive, watchEffect, computed } from "vue";
 import { CrawlerMaterialApi } from "@/api/crawler-material";
 import InspirationPanel from "@/views/material/inspiration/index.vue";
+import BlacklistPanel from "@/views/material/blacklist/index.vue";
 
-// 采集模块主 Tab：素材审核 / 图片采集灵感
+// 采集模块主 Tab：素材审核 / 图片采集灵感 / 采集黑名单
 const activeMainTab = ref("material");
 import { buildOperationColumn, commonGridOptions } from "@/common/table";
 import { formatTimestamp } from "@/common/date";
@@ -608,7 +612,6 @@ import {
   Download,
   Operation,
   Close,
-  View,
   Aim,
 } from "@element-plus/icons-vue";
 import { useWindowSize } from "@vueuse/core";
@@ -1320,7 +1323,7 @@ markCrawlerMaterialVisited();
   因此这里用 popper-class 命名空间做非 scoped 样式（避免与图库同名类冲突）。
 -->
 <style>
-/* 采集模块主 Tab：素材审核 / 图片采集灵感 —— 两个 pane 共用紧凑间距，切换不跳动 */
+/* 采集模块主 Tab：素材审核 / 图片采集灵感 / 采集黑名单 —— 各 pane 共用紧凑间距，切换不跳动 */
 .crawler-module-tabs > .el-tabs__header { margin: 0 0 8px; }
 .crawler-module-tabs .list-page-layout { padding: 8px 0 0; gap: 10px; }
 .crawler-module-tabs .list-page-layout__body,

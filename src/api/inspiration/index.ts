@@ -20,6 +20,8 @@ export interface InspirationPageParams {
   pageSize?: number
   keyword?: string
   inputType?: string
+  /** 排除某录入类型（如 blacklist，避免黑名单条目混入灵感列表） */
+  excludeInputType?: string
   userId?: string | number
 }
 
