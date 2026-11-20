@@ -2011,6 +2011,14 @@
                   <div class="material-compact-name">
                     <div class="material-compact-name__title material-compact-name__title--wrap">
                       <span>{{ row.name || t('material.materialSpaceId', { id: row.id }) }}</span>
+                      <el-tooltip
+                        v-if="row.sellingPoints"
+                        :content="row.sellingPoints"
+                        placement="top"
+                        :show-after="200"
+                      >
+                        <el-tag size="small" type="warning" effect="plain" style="margin-left: 6px; vertical-align: middle; cursor: help;">卖点</el-tag>
+                      </el-tooltip>
                     </div>
                   </div>
                 </template>
@@ -2708,6 +2716,19 @@
                     clearable />
                 </el-form-item>
               </el-col>
+              <el-col :xs="24">
+                <el-form-item label="卖点说明（AI生标题参考）">
+                  <el-input
+                    v-model="editForm.sellingPoints"
+                    type="textarea"
+                    :rows="3"
+                    maxlength="500"
+                    show-word-limit
+                    placeholder="选填：录入关键词、面向人群、核心设计亮点或情感卖点（如：招财暴富/送礼/本命年/大学生搞笑梗/美式复古街头），AI生成标题时会结合理解并自然融入，不会生硬照搬"
+                    clearable
+                  />
+                </el-form-item>
+              </el-col>
             </el-row>
           </section>
 
@@ -2955,6 +2976,11 @@
                 <span class="material-detail-label">{{ t('material.suitableScene') }}</span>
                 <span class="material-detail-value material-detail-value--multiline">{{
                   formatDetailValue(stickerDetailCurrent.suitableFor) }}</span>
+              </div>
+              <div class="material-detail-field material-detail-field--wide">
+                <span class="material-detail-label">卖点说明（AI参考）</span>
+                <span class="material-detail-value material-detail-value--multiline">{{
+                  formatDetailValue(stickerDetailCurrent.sellingPoints) }}</span>
               </div>
             </div>
           </section>
@@ -4441,6 +4467,7 @@ const editForm = ref({
   keywords: "",
   keywordsEn: "",
   suitableFor: "",
+  sellingPoints: "",
   suffix: "",
   isCustom: false,
   isPublic: false,
@@ -8157,6 +8184,7 @@ async function handleEdit(row) {
     keywords: detail.keywords || "",
     keywordsEn: detail.keywordsEn || "",
     suitableFor: detail.suitableFor || "",
+    sellingPoints: detail.sellingPoints || "",
     suffix: detail.suffix || "",
     isCustom: normalizeBooleanValue(detail.isCustom),
     isPublic: normalizeBooleanValue(detail.isPublic),
@@ -8220,6 +8248,7 @@ async function submitEdit() {
       keywords: editForm.value.keywords,
       keywordsEn: editForm.value.keywordsEn,
       suitableFor: editForm.value.suitableFor,
+      sellingPoints: editForm.value.sellingPoints,
       suffix: editForm.value.suffix,
       isCustom: editForm.value.isCustom,
       isPublic: editForm.value.isPublic,

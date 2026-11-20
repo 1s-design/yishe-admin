@@ -1295,6 +1295,15 @@ const remainingRouter: AppRouteRecordRaw[] = [
         },
       },
       {
+        path: "hot-title",
+        component: () => import("@/views/product/hot-title/index.vue"),
+        name: "HotTitle",
+        meta: {
+          title: "热门标题库",
+          order: 4.5,
+        },
+      },
+      {
         path: "queue",
         component: () => import("@/views/system/queue/index.vue"),
         name: "SystemQueue",
