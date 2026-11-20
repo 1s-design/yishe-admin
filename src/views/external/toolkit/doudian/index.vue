@@ -2,8 +2,9 @@
   <ContentWrap :plain="true">
     <BrowserAutomationExecutionContextCard
       v-model="executionContext"
-      title="抖店工具集 - 执行环境"
-      description="选择一个已登录抖店的浏览器环境"
+      class="doudian-ctx"
+      title="执行环境"
+      description=""
       platform="抖店"
       taskType="doudian"
     />
@@ -47,4 +48,32 @@ const executionContext = ref<Record<string, any>>({});
 
 <style scoped>
 .empty-hint { padding: 40px; text-align: center; color: #909399; }
+
+/* 执行环境卡压缩：去掉说明/提示/执行标识/备注等占空间部分，只留客户端+环境两个选择器 */
+.doudian-ctx {
+  padding: 10px 14px;
+}
+.doudian-ctx :deep(.execution-context-card__header) {
+  padding-bottom: 6px;
+  margin-bottom: 6px;
+}
+.doudian-ctx :deep(.execution-context-card__description),
+.doudian-ctx :deep(.execution-context-card__hint) {
+  display: none;
+}
+.doudian-ctx :deep(.el-form > .el-row:nth-of-type(2)) {
+  display: none;
+}
+.doudian-ctx :deep(.el-form > .el-form-item) {
+  display: none;
+}
+.doudian-ctx :deep(.el-form-item) {
+  margin-bottom: 6px;
+}
+.doudian-ctx :deep(.el-form-item__label) {
+  font-size: 12px;
+  line-height: 20px;
+  padding-bottom: 0;
+  margin-bottom: 2px;
+}
 </style>

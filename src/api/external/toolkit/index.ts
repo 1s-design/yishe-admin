@@ -35,31 +35,35 @@ export const runToolkitTool = (clientId: string, data: Record<string, any>) => {
   });
 };
 
-// ============ 抖店商机中心采集 ============
+// ============ 抖店商机搜索（搜索词） ============
 
-export interface DoudianChapterParams {
-  profileId?: string;
+export interface DoudianSearchParams {
+  keyword: string;
   page?: number;
   pageSize?: number;
-  clueTypeNew?: number;
+  profileId?: string;
 }
 
-const doudianChapter = (clientId: string, source: string, params: DoudianChapterParams = {}) => {
+export const collectDoudianSearch = (clientId: string, params: DoudianSearchParams) => {
   return request.get({
-    url: `/external/toolkit/${clientId}/doudian/chapter/${source}`,
+    url: `/external/toolkit/${clientId}/doudian/search`,
     params,
   });
 };
 
-export const collectDoudianClues = (clientId: string, params?: DoudianChapterParams) =>
-  doudianChapter(clientId, "clues", params);
-export const collectDoudianCategories = (clientId: string, params?: DoudianChapterParams) =>
-  doudianChapter(clientId, "categories", params);
-export const collectDoudianTopics = (clientId: string, params?: DoudianChapterParams) =>
-  doudianChapter(clientId, "topics", params);
-export const collectDoudianProfits = (clientId: string, params?: DoudianChapterParams) =>
-  doudianChapter(clientId, "profits", params);
-export const collectDoudianLabels = (clientId: string, params?: DoudianChapterParams) =>
-  doudianChapter(clientId, "labels", params);
-export const collectDoudianHotWords = (clientId: string, params?: DoudianChapterParams) =>
-  doudianChapter(clientId, "hot-words", params);
+// ============ 抖店商机采集（双通道 + 类目关键词） ============
+
+export interface DoudianOpportunityParams {
+  channel?: "all_product" | "all_word";
+  keyword: string;
+  page?: number;
+  pageSize?: number;
+  profileId?: string;
+}
+
+export const collectDoudianOpportunity = (clientId: string, params: DoudianOpportunityParams) => {
+  return request.get({
+    url: `/external/toolkit/${clientId}/doudian/opportunity`,
+    params,
+  });
+};

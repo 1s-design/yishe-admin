@@ -1,6 +1,6 @@
 <template>
   <div class="chapter-panel">
-    <!-- 数据源切换 -->
+    <!-- 采集方式切换 -->
     <el-tabs v-model="activeTab" class="chapter-tabs">
       <el-tab-pane
         v-for="tab in tabs"
@@ -12,23 +12,26 @@
 
     <!-- 工具栏 -->
     <div class="toolbar">
-      <el-select
-        v-if="clueTypeTabs.includes(activeTab)"
-        v-model="clueTypeNew"
+      <el-input
+        v-model="keyword"
+        :placeholder="activeTab === 'search' ? '搜索词，如：鼠标垫' : '类目关键词，如：鼠标垫'"
         size="small"
-        style="width: 120px"
-        @change="loadData"
-      >
-        <el-option label="全部商机" :value="9" />
-        <el-option label="潜力爆品" :value="11" />
-      </el-select>
-
+        clearable
+        style="width: 220px"
+        @keyup.enter="loadData"
+      />
       <el-input-number
-        v-if="activeTab === 'clues'"
+        v-model="pageNo"
+        :min="1"
+        :max="999"
+        size="small"
+        controls-position="right"
+        style="width: 90px"
+      />
+      <el-input-number
         v-model="pageSize"
         :min="5"
         :max="50"
-        :step="5"
         size="small"
         controls-position="right"
         style="width: 90px"
@@ -45,26 +48,25 @@
       </el-button>
 
       <span v-if="data.length" class="summary">
-        {{ data.length }} 条 · {{ formatTime(capturedAt) }}
+        {{ data.length }} 条<template v-if="totalCount && totalCount !== data.length"> / 共 {{ totalCount }} 条</template> · {{ formatTime(capturedAt) }}
       </span>
+    </div>
+
+    <!-- 匹配类目 -->
+    <div v-if="isChannelTab && matchedCategory" class="matched-line">
+      匹配类目：{{ matchedCategory.path }}
     </div>
 
     <!-- 错误 -->
     <el-alert v-if="error" :title="error" type="error" show-icon :closable="false" style="margin-bottom: 10px" />
 
     <!-- 空状态 -->
-    <el-empty v-else-if="!loading && !data.length" description="点击「采集」获取数据" :image-size="80" />
+    <el-empty v-else-if="!loading && !data.length" :description="activeTab === 'search' ? '输入搜索词后点击「采集」' : '输入类目关键词后点击「采集」'" :image-size="80" />
 
-    <!-- 线索商品（表格统一展示） -->
+    <!-- 数据表：面向 AI 分析的关键词原料（商品名/图/类目/标签/同款热卖） -->
     <div v-else class="table-wrap">
-      <el-table
-        v-if="activeTab === 'clues'"
-        :data="data"
-        size="small"
-        stripe
-        :default-sort="{ prop: 'gmv', order: 'descending' }"
-      >
-        <el-table-column label="商品" min-width="280">
+      <el-table :data="data" size="small" stripe>
+        <el-table-column label="商品" min-width="320">
           <template #default="{ row }">
             <div class="clue-product">
               <el-image
@@ -79,64 +81,38 @@
                   {{ row.clue_detail?.name }}
                 </div>
                 <div class="clue-product__cats">
-                  {{ [row.clue_detail?.first_name, row.clue_detail?.second_name].filter(Boolean).join(" / ") }}
+                  {{ (row.clue_detail?.category_path || []).join(" / ") }}
                 </div>
               </div>
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="clue_detail.price_min" label="最低价" width="90" align="right">
+        <el-table-column label="推荐理由" min-width="150">
           <template #default="{ row }">
-            ¥{{ row.clue_detail?.price_min }}
+            <div class="tag-row" :title="labelTitle(row.clue_detail)">
+              <el-tag
+                v-for="l in labelNames(row.clue_detail)"
+                :key="l"
+                size="small"
+                type="warning"
+                class="mini-tag"
+              >{{ l }}</el-tag>
+              <span v-if="!labelNames(row.clue_detail).length" class="dim">-</span>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column prop="clue_detail.price_max" label="最高价" width="90" align="right">
+        <el-table-column label="同款热卖" min-width="220">
           <template #default="{ row }">
-            ¥{{ row.clue_detail?.price_max }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="clue_detail.gmv" label="GMV" width="100" align="right" sortable>
-          <template #default="{ row }">
-            {{ fmtNum(row.clue_detail?.gmv) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="clue_detail.order_num" label="订单" width="90" align="right" sortable>
-          <template #default="{ row }">
-            {{ fmtNum(row.clue_detail?.order_num) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="clue_detail.clue_channel" label="来源" width="110">
-          <template #default="{ row }">
-            {{ clueChannelLabel(row.clue_detail?.clue_channel) }}
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <el-table v-else :data="data" size="small" stripe>
-        <el-table-column
-          v-for="col in visibleCols"
-          :key="col.prop"
-          :prop="col.prop"
-          :label="col.label"
-          :width="col.width"
-          :min-width="col.minWidth"
-        >
-          <template #default="{ row }">
-            <template v-if="col.prop.includes('img') || col.prop.includes('pic')">
-              <el-image
-                v-if="row[col.prop]"
-                :src="row[col.prop]"
-                :preview-src-list="[row[col.prop]]"
-                fit="cover"
-                style="width: 40px; height: 40px"
-              />
-            </template>
-            <template v-else-if="typeof row[col.prop] === 'object'">
-              {{ JSON.stringify(row[col.prop]).substring(0, 120) }}
-            </template>
-            <template v-else>
-              {{ row[col.prop] }}
-            </template>
+            <div class="tag-row" :title="hotSaleTitle(row)">
+              <el-tag
+                v-for="n in hotSaleNames(row).slice(0, 2)"
+                :key="n"
+                size="small"
+                class="mini-tag mini-tag--clip"
+              >{{ n }}</el-tag>
+              <span v-if="hotSaleNames(row).length > 2" class="dim">+{{ hotSaleNames(row).length - 2 }}</span>
+              <span v-if="!hotSaleNames(row).length" class="dim">-</span>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -152,85 +128,49 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import {
-  ElTabs, ElTabPane, ElButton, ElSelect, ElOption, ElInputNumber,
-  ElAlert, ElEmpty, ElTable, ElTableColumn, ElImage, ElDialog,
+  ElTabs, ElTabPane, ElButton, ElInput, ElInputNumber,
+  ElAlert, ElEmpty, ElTable, ElTableColumn, ElImage, ElDialog, ElTag,
 } from "element-plus";
-import {
-  collectDoudianClues, collectDoudianCategories, collectDoudianTopics,
-  collectDoudianProfits, collectDoudianLabels, collectDoudianHotWords,
-} from "@/api/external/toolkit";
+import { collectDoudianSearch, collectDoudianOpportunity } from "@/api/external/toolkit";
 
 const props = defineProps<{ clientId: string; profileId?: string }>();
 
 const tabs = [
-  { key: "clues", label: "线索商品池" },
-  { key: "categories", label: "分类字典" },
-  { key: "topics", label: "热门话题" },
-  { key: "profits", label: "任务激励" },
-  { key: "labels", label: "线索标签" },
-  { key: "hot-words", label: "推荐搜索词" },
+  { key: "search", label: "商机搜索" },
+  { key: "all_product", label: "跟潜力爆品" },
+  { key: "all_word", label: "追抖音热词" },
 ];
 
-const clueTypeTabs = ["clues", "topics", "profits", "labels"];
-
-const activeTab = ref("clues");
-const clueTypeNew = ref(9);
-const pageSize = ref(20);
+const activeTab = ref("search");
+const isChannelTab = computed(() => activeTab.value !== "search");
+const keyword = ref("");
+const pageNo = ref(1);
+const pageSize = ref(21);
 const loading = ref(false);
 const error = ref("");
 const data = ref<any[]>([]);
+const totalCount = ref<number>(0);
+const matchedCategory = ref<any>(null);
 const capturedAt = ref<string>("");
 const showJson = ref(false);
 
-const visibleCols = computed(() => {
-  switch (activeTab.value) {
-    case "topics":
-      return [
-        { prop: "topic_id", label: "ID", width: 70 },
-        { prop: "topic_name", label: "话题", minWidth: 160 },
-        { prop: "topic_recommendation", label: "推荐语", minWidth: 260 },
-        { prop: "header_background_img", label: "封面", width: 60 },
-      ];
-    case "profits":
-      return [
-        { prop: "profit_id", label: "ID", width: 70 },
-        { prop: "profit_name", label: "激励", minWidth: 140 },
-        { prop: "short_text", label: "描述", minWidth: 220 },
-      ];
-    case "labels":
-      return [
-        { prop: "label_id", label: "ID", width: 70 },
-        { prop: "label_name", label: "标签", minWidth: 140 },
-        { prop: "label_desc", label: "描述", minWidth: 220 },
-      ];
-    case "hot-words":
-      return [{ prop: "word", label: "推荐搜索词", minWidth: 240 }];
-    case "categories":
-      return [
-        { prop: "label", label: "分类名称", minWidth: 220 },
-        { prop: "value", label: "分类 ID", width: 120 },
-        { prop: "children", label: "子分类", width: 90 },
-      ];
-    default:
-      return [{ prop: "data", label: "数据" }];
-  }
-});
-
-function clueChannelLabel(ch: string) {
-  const map: Record<string, string> = {
-    query_none_less: "低竞争",
-    choice_low_price: "低价优选",
-    choice_high_gmv: "高GMV优选",
-    hot_sales: "热销",
-    rank: "榜单",
-  };
-  return map[ch] || ch || "-";
+function labelNames(cd: any): string[] {
+  return (cd?.clue_label_list || []).map((l: any) => l?.label_name).filter(Boolean);
 }
 
-function fmtNum(n: number) {
-  if (!n) return "-";
-  if (n >= 10000) return (n / 10000).toFixed(1) + "万";
-  return String(n);
+function labelTitle(cd: any) {
+  return (cd?.clue_label_list || [])
+    .map((l: any) => l?.top_rank_label_hover_text || l?.label_name)
+    .filter(Boolean)
+    .join("；");
+}
+
+function hotSaleNames(row: any): string[] {
+  return (row?.hot_sale_products || []).map((p: any) => p?.prod_name).filter(Boolean);
+}
+
+function hotSaleTitle(row: any) {
+  return hotSaleNames(row).join("\n");
 }
 
 function formatTime(iso: string) {
@@ -238,9 +178,21 @@ function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString();
 }
 
-function extractResult(raw: any): { code?: number; data?: any[]; error?: string } {
+function extractResult(raw: any): any {
   if (!raw) return {};
-  const v = raw?.result ?? raw?.actionResult ?? raw?.data?.result ?? raw;
+  // 服务端全局拦截器会把客户端 handler 返回体包一层：{code,message,status,data:{success,data:[...],...}}
+  const inner = raw?.data;
+  let v = raw;
+  if (
+    inner &&
+    typeof inner === "object" &&
+    !Array.isArray(inner) &&
+    ("data" in inner || "error" in inner || "success" in inner)
+  ) {
+    v = inner;
+  } else {
+    v = raw?.result ?? raw?.actionResult ?? raw?.data?.result ?? raw;
+  }
   if (v && typeof v === "object") return v;
   return {};
 }
@@ -249,44 +201,51 @@ async function loadData() {
   loading.value = true;
   error.value = "";
   try {
-    const params: any = { profileId: props.profileId };
-    if (activeTab.value === "clues") {
-      params.pageSize = pageSize.value;
-      params.clueTypeNew = clueTypeNew.value;
-    } else if (clueTypeTabs.includes(activeTab.value)) {
-      params.clueTypeNew = clueTypeNew.value;
+    if (!keyword.value.trim()) {
+      error.value = activeTab.value === "search" ? "请输入搜索词（如：鼠标垫）" : "请输入类目关键词（如：鼠标垫）";
+      return;
     }
-
-    let res: any;
-    switch (activeTab.value) {
-      case "clues": res = await collectDoudianClues(props.clientId, params); break;
-      case "categories": res = await collectDoudianCategories(props.clientId, params); break;
-      case "topics": res = await collectDoudianTopics(props.clientId, params); break;
-      case "profits": res = await collectDoudianProfits(props.clientId, params); break;
-      case "labels": res = await collectDoudianLabels(props.clientId, params); break;
-      case "hot-words": res = await collectDoudianHotWords(props.clientId, params); break;
-    }
+    const res =
+      activeTab.value === "search"
+        ? await collectDoudianSearch(props.clientId, {
+            keyword: keyword.value.trim(),
+            page: pageNo.value,
+            pageSize: pageSize.value,
+            profileId: props.profileId,
+          })
+        : await collectDoudianOpportunity(props.clientId, {
+            channel: activeTab.value as any,
+            keyword: keyword.value.trim(),
+            page: pageNo.value,
+            pageSize: pageSize.value,
+            profileId: props.profileId,
+          });
 
     console.log("[doudian] raw API response:", res);
-    console.log("[doudian] response keys:", res ? Object.keys(res) : "null");
-
     const parsed = extractResult(res);
     console.log("[doudian] extracted result:", parsed);
 
     if (parsed.error) {
       error.value = `API error: ${parsed.error}`;
       data.value = [];
+      totalCount.value = 0;
+      matchedCategory.value = null;
     } else if (parsed.data) {
       data.value = Array.isArray(parsed.data) ? parsed.data : [];
+      totalCount.value = Number(parsed.count) || data.value.length;
+      matchedCategory.value = parsed.matchedCategory || null;
       capturedAt.value = new Date().toISOString();
     } else if (parsed.success === false) {
       error.value = parsed.message || "采集失败（success=false）";
       data.value = [];
+      totalCount.value = 0;
+      matchedCategory.value = parsed.matchedCategory || null;
     } else {
-      // 兜底：打印完整 parsed 让用户看 console
       console.warn("[doudian] 无 data 无 error，parsed 完整结构:", parsed);
       error.value = `返回结构异常，请检查浏览器控制台。keys: ${parsed ? Object.keys(parsed).join(",") : "null"}`;
       data.value = [];
+      totalCount.value = 0;
+      matchedCategory.value = null;
     }
   } catch (e: any) {
     console.error("[doudian] loadData exception:", e);
@@ -301,7 +260,7 @@ function exportJson() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `doudian-${activeTab.value}-${Date.now()}.json`;
+  a.download = `doudian-${activeTab.value}-${keyword.value || "data"}-${Date.now()}.json`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -309,6 +268,8 @@ function exportJson() {
 watch(activeTab, () => {
   data.value = [];
   error.value = "";
+  totalCount.value = 0;
+  matchedCategory.value = null;
 });
 </script>
 
@@ -332,9 +293,14 @@ watch(activeTab, () => {
   color: var(--el-text-color-secondary);
 }
 
+.matched-line {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  margin-bottom: 10px;
+}
+
 .table-wrap { margin-top: 8px; }
 
-/* 线索商品表格里的商品列 */
 .clue-product {
   display: flex;
   align-items: center;
@@ -367,7 +333,25 @@ watch(activeTab, () => {
   white-space: nowrap;
 }
 
-/* 原始结果代码区 */
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+.mini-tag {
+  margin-right: 0;
+  max-width: 200px;
+}
+.mini-tag--clip {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dim {
+  color: var(--el-text-color-secondary);
+}
+
 .json-pre {
   max-height: 60vh;
   overflow: auto;
