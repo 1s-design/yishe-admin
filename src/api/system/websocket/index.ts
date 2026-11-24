@@ -297,6 +297,8 @@ export interface WebsocketConnectionVO {
   query?: Record<string, string | string[]>;
   clientInfo?: WebsocketClientInfo;
   clientSource?: string;
+  alias?: string | null;
+  displayName?: string | null;
   // 可选的用户信息，由服务端在解析 token 后附加
   userId?: string | number;
   username?: string;
@@ -401,6 +403,17 @@ export const disconnectWebsocketConnection = (clientId: string) => {
 export const removeWebsocketClientNode = (clientId: string) => {
   return request.post<{ success: boolean; message: string; data?: { clientId: string } }>({
     url: `/websocket/node/cleanup/${clientId}`,
+  });
+};
+
+export const updateWebsocketClientAlias = (clientId: string, alias: string | null) => {
+  return request.post<{
+    success: boolean;
+    message: string;
+    data?: { clientId: string; alias: string | null; displayName: string };
+  }>({
+    url: `/websocket/node/alias/${encodeURIComponent(clientId)}`,
+    data: { alias },
   });
 };
 

@@ -74,14 +74,17 @@
                 </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item command="multi-card">✨ 批量生成 3 张规格样张 (英文/符号/中文 推荐)</el-dropdown-item>
-                    <el-dropdown-item command="thumbnail-only">{{ t('fontTemplate.thumbnailOnly') }}</el-dropdown-item>
-                    <el-dropdown-item command="thumbnail-skip-existing">{{ t('fontTemplate.thumbnailSkipExisting') }}</el-dropdown-item>
-                    <el-dropdown-item command="thumbnail-ai">
-                      {{ t('fontTemplate.thumbnailAi') }}
+                    <el-dropdown-item command="multi-card">
+                      <el-icon><Picture /></el-icon>
+                      <span>重新生成缩略图（3 张规格样张）</span>
+                    </el-dropdown-item>
+                    <el-dropdown-item command="thumbnail-skip-existing">
+                      <el-icon><Plus /></el-icon>
+                      <span>补全缺失的缩略图</span>
                     </el-dropdown-item>
                     <el-dropdown-item command="ai-only" :disabled="!ids.length">
-                      {{ t('fontTemplate.aiOnly') }}
+                      <el-icon><MagicStick /></el-icon>
+                      <span>AI 补全信息</span>
                     </el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
@@ -605,323 +608,255 @@
       :destroy-on-close="true"
       @close="resetFontPreview"
     >
-      <el-form
-        :model="thumbnailForm"
-        :rules="thumbnailRules"
-        ref="thumbnailFormRef"
-        label-width="100px"
-      >
-        <!-- 基本信息行 -->
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item :label="t('fontTemplate.templateName')">
-              <el-input v-model="currentRow.name" disabled />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item :label="t('fontTemplate.fontFile')">
-              <el-input v-model="currentRow.url" disabled />
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <el-form-item :label="t('fontTemplate.templateText')" prop="templateText">
-          <div style="margin-bottom: 12px">
-            <el-select
-              v-model="selectedTemplateIndex"
-              :placeholder="t('fontTemplate.selectDefaultTemplate')"
-              style="min-width: 300px"
-              @change="applyDefaultTemplate"
-              clearable
-            >
-              <el-option
-                v-for="(template, index) in defaultTemplates"
-                :key="index"
-                :label="template.name"
-                :value="index"
-              />
-            </el-select>
+      <div class="thumb-gen-layout">
+        <!-- 左侧：预览区 -->
+        <div class="thumb-gen-preview">
+          <div class="preview-header compact">
+            <span>{{ t('fontTemplate.livePreview') }}</span>
+            <div class="preview-header-actions">
+              <div v-if="fontLoading" class="font-loading-indicator">
+                <el-icon class="is-loading" style="margin-right: 4px; color: var(--el-color-primary)">
+                  <Loading />
+                </el-icon>
+                <span style="font-size: 12px; color: var(--el-color-primary)">{{ t('fontTemplate.fontLoading') }}</span>
+              </div>
+              <div class="preview-zoom-toolbar">
+                <el-tooltip :content="t('fontTemplate.zoomOut')" placement="top">
+                  <el-button text size="small" :disabled="previewZoom <= PREVIEW_ZOOM_MIN" @click="zoomPreviewOut">
+                    <el-icon><ZoomOut /></el-icon>
+                  </el-button>
+                </el-tooltip>
+                <span class="preview-zoom-value">{{ previewZoomPercent }}%</span>
+                <el-tooltip :content="t('fontTemplate.zoomIn')" placement="top">
+                  <el-button text size="small" :disabled="previewZoom >= PREVIEW_ZOOM_MAX" @click="zoomPreviewIn">
+                    <el-icon><ZoomIn /></el-icon>
+                  </el-button>
+                </el-tooltip>
+                <el-tooltip :content="t('fontTemplate.zoomFit')" placement="top">
+                  <el-button text size="small" @click="fitPreviewZoom">
+                    <el-icon><FullScreen /></el-icon>
+                  </el-button>
+                </el-tooltip>
+                <el-tooltip :content="t('fontTemplate.zoomActualSize')" placement="top">
+                  <el-button text size="small" :disabled="previewZoom === 1" @click="resetPreviewZoom">
+                    <el-icon><RefreshLeft /></el-icon>
+                  </el-button>
+                </el-tooltip>
+              </div>
+            </div>
           </div>
+          <div
+            ref="previewCanvasRef"
+            class="preview-content thumb-gen-preview-area"
+            :class="{ 'is-zoomed': previewZoom > 1, 'is-panning': previewDragging }"
+            @wheel="handlePreviewWheel"
+            @pointerdown="handlePreviewPointerDown"
+            @pointermove="handlePreviewPointerMove"
+            @pointerup="handlePreviewPointerUp"
+            @pointercancel="handlePreviewPointerUp"
+          >
+            <div
+              v-if="currentRow.url"
+              class="preview-image compact single-preview"
+              :style="{
+                width: '960px',
+                minHeight: '520px',
+                padding: '36px 48px',
+                color: thumbnailForm.options.textColor,
+                fontSize: (thumbnailForm.options.fontSize || 100) + 'px',
+                backgroundColor: 'white',
+                border: '2px dashed #d9d9d9',
+                borderRadius: '12px',
+                whiteSpace: 'pre-wrap',
+                lineHeight: '1.25',
+                letterSpacing: '0.04em',
+                fontFamily: loadedFontFamily || 'inherit',
+                display: 'flex',
+                flexDirection: 'column',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+                position: 'relative',
+                boxSizing: 'border-box',
+                zoom: previewZoom,
+              }"
+            >
+              <div style="margin-bottom: 12px; font-size: 13px; color: #909399; flex-shrink: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                <i class="el-icon-info"></i>
+                <span v-if="fontLoading">
+                  <el-icon class="is-loading" style="margin-right: 4px"><Loading /></el-icon>
+                  {{ t('fontTemplate.fontPreviewLoading') }}
+                </span>
+                <span v-else-if="!loadedFontFamily">{{ t('fontTemplate.fontPreviewWaiting') }}</span>
+                <span v-else>当前使用字体: {{ currentRow.name }} <template v-if="currentSpecimenStageLabel">· {{ currentSpecimenStageLabel }}</template></span>
+              </div>
+              <div
+                class="preview-text-content"
+                :style="{
+                  flex: '1',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  textAlign: 'center',
+                  wordBreak: 'break-word',
+                  wordWrap: 'break-word',
+                  width: '100%',
+                }"
+              >
+                {{ thumbnailForm.templateText || defaultTemplates[0].content }}
+              </div>
+            </div>
+            <div
+              v-else
+              class="preview-image compact"
+              :style="{
+                width: '800px',
+                minHeight: '400px',
+                padding: '24px',
+                color: thumbnailForm.options.textColor,
+                fontSize: Math.min(thumbnailForm.options.fontSize, 80) + 'px',
+                backgroundColor: 'white',
+                border: '1px dashed #d9d9d9',
+                borderRadius: '8px',
+                whiteSpace: 'pre-wrap',
+                lineHeight: '1',
+                display: 'flex',
+                flexDirection: 'column',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                zoom: previewZoom,
+              }"
+            >
+              <div style="margin-bottom: 8px; font-size: 10px; color: #909399; flex-shrink: 0">
+                <i class="el-icon-info"></i>
+                <span>{{ t('fontTemplate.selectFontFirst') }}</span>
+              </div>
+              <div class="preview-text-content" :style="{ flex: '1', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }">
+                {{ thumbnailForm.templateText || defaultTemplates[0].content }}
+              </div>
+            </div>
+          </div>
+          <div style="margin-top: 6px; font-size: 10px; color: #909399; text-align: center">
+            {{ t('fontTemplate.previewAutoLoadHint') }}
+          </div>
+        </div>
+
+        <!-- 右侧：操作面板 -->
+        <div class="thumb-gen-controls">
+          <el-form
+            :model="thumbnailForm"
+            :rules="thumbnailRules"
+            ref="thumbnailFormRef"
+            label-position="top"
+          >
+
+        <!-- 字体信息 -->
+        <el-form-item label="字体">
+          <div class="thumb-gen-info-row">
+            <span class="thumb-gen-info-name">{{ currentRow.name }}</span>
+            <el-button type="primary" link size="small" @click="copyUrl(currentRow.url)">{{ t('common.copy') }} URL</el-button>
+          </div>
+        </el-form-item>
+
+        <!-- 模板选择 -->
+        <el-form-item label="预设模板">
+          <el-select
+            v-model="selectedTemplateIndex"
+            :placeholder="t('fontTemplate.selectDefaultTemplate')"
+            style="width: 100%"
+            @change="applyDefaultTemplate"
+            clearable
+          >
+            <el-option
+              v-for="(template, index) in defaultTemplates"
+              :key="index"
+              :label="template.name"
+              :value="index"
+            />
+          </el-select>
+        </el-form-item>
+
+        <!-- 模板文字 -->
+        <el-form-item prop="templateText">
+          <template #label>
+            <span>试文字</span>
+            <span style="font-size: 11px; color: var(--el-text-color-secondary); font-weight: normal; margin-left: 8px">
+              {{ t('fontTemplate.templateTextHint') }}
+            </span>
+          </template>
           <el-input
             v-model="thumbnailForm.templateText"
             type="textarea"
-            :rows="10"
+            :rows="6"
             :placeholder="t('fontTemplate.templateTextPlaceholder')"
             style="font-family: monospace; font-size: 13px"
           />
-          <div style="margin-top: 8px; font-size: 12px; color: #909399">
-            {{ t('fontTemplate.templateTextHint') }}
+        </el-form-item>
+
+        <!-- 样式设置 -->
+        <el-form-item label="样式">
+          <div class="thumb-gen-style-grid">
+            <div class="thumb-gen-style-item">
+              <span class="thumb-gen-style-label">{{ t('fontTemplate.fontSize') }}</span>
+              <el-input-number
+                v-model="thumbnailForm.options.fontSize"
+                :min="20"
+                :max="200"
+                :step="10"
+                style="width: 100%"
+              />
+            </div>
+            <div class="thumb-gen-style-item">
+              <span class="thumb-gen-style-label">{{ t('fontTemplate.textColor') }}</span>
+              <el-color-picker v-model="thumbnailForm.options.textColor" />
+            </div>
+          </div>
+          <div class="thumb-gen-hint">
+            {{ t('fontTemplate.canvasAutoSize') }}
           </div>
         </el-form-item>
 
-        <el-form-item :label="t('fontTemplate.imageStyleSettings')">
-          <el-row :gutter="16">
-            <el-col :span="12">
-              <div class="form-item-wrapper">
-                <label class="form-label">{{ t('fontTemplate.fontSize') }}</label>
-                <el-input-number
-                  v-model="thumbnailForm.options.fontSize"
-                  :min="20"
-                  :max="200"
-                  :step="10"
-                  style="width: 100%"
-                />
+        <!-- 字体状态（折叠面板） -->
+        <el-form-item>
+          <el-collapse style="width: 100%">
+            <el-collapse-item :title="t('fontTemplate.fontStatusCheck')" name="status">
+              <div class="thumb-gen-status" :class="{ 'is-loaded': loadedFontFamily, 'is-loading': fontLoading, 'is-failed': !fontLoading && !loadedFontFamily }">
+                <template v-if="fontLoading">
+                  <strong>⏳ {{ t('fontTemplate.fontLoadingEmoji') }}</strong>
+                  <div>{{ t('fontTemplate.fontFileLoading') }}</div>
+                </template>
+                <template v-else-if="loadedFontFamily">
+                  <strong>✅ {{ t('fontTemplate.fontLoadedEmoji') }} {{ loadedFontFamily }}</strong>
+                  <div style="color: var(--el-color-success)">{{ t('fontTemplate.fontLoadedHint') }}</div>
+                </template>
+                <template v-else>
+                  <strong>❌ {{ t('fontTemplate.fontNotLoadedEmoji') }} {{ t('fontTemplate.systemDefaultFont') }}</strong>
+                  <div style="color: var(--el-color-danger)">{{ t('fontTemplate.systemFontWarning') }}</div>
+                </template>
               </div>
-            </el-col>
-            <el-col :span="12">
-              <div class="form-item-wrapper">
-                <label class="form-label">{{ t('fontTemplate.textColor') }}</label>
-                <el-color-picker v-model="thumbnailForm.options.textColor" />
-              </div>
-            </el-col>
-          </el-row>
-
-          <div
-            style="
-              padding: 8px;
-              margin-top: 12px;
-              background: color-mix(in srgb, var(--el-color-primary) 8%, transparent);
-              border-left: 3px solid var(--el-color-primary);
-              border-radius: 4px;
-            "
-          >
-            <div style="font-size: 12px; font-weight: 500; color: var(--el-color-primary-dark-2)">{{ t('fontTemplate.smartSize') }}</div>
-            <div style=" margin-top: 2px;font-size: 11px; color: var(--el-color-primary)">
-              {{ t('fontTemplate.canvasAutoSize') }}
-            </div>
-          </div>
+            </el-collapse-item>
+          </el-collapse>
         </el-form-item>
+          </el-form>
 
-        <el-form-item :label="t('fontTemplate.previewEffect')">
-          <div class="preview-container compact">
-            <div class="preview-header compact">
-              <span>{{ t('fontTemplate.livePreview') }}</span>
-              <div class="preview-header-actions">
-                <div v-if="fontLoading" class="font-loading-indicator">
-                  <el-icon class="is-loading" style="margin-right: 4px; color: var(--el-color-primary)">
-                    <Loading />
-                  </el-icon>
-                  <span style=" font-size: 12px;color: var(--el-color-primary)">{{ t('fontTemplate.fontLoading') }}</span>
-                </div>
-                <div class="preview-zoom-toolbar">
-                  <el-tooltip :content="t('fontTemplate.zoomOut')" placement="top">
-                    <el-button text size="small" :disabled="previewZoom <= PREVIEW_ZOOM_MIN" @click="zoomPreviewOut">
-                      <el-icon><ZoomOut /></el-icon>
-                    </el-button>
-                  </el-tooltip>
-                  <span class="preview-zoom-value">{{ previewZoomPercent }}%</span>
-                  <el-tooltip :content="t('fontTemplate.zoomIn')" placement="top">
-                    <el-button text size="small" :disabled="previewZoom >= PREVIEW_ZOOM_MAX" @click="zoomPreviewIn">
-                      <el-icon><ZoomIn /></el-icon>
-                    </el-button>
-                  </el-tooltip>
-                  <el-tooltip :content="t('fontTemplate.zoomFit')" placement="top">
-                    <el-button text size="small" @click="fitPreviewZoom">
-                      <el-icon><FullScreen /></el-icon>
-                    </el-button>
-                  </el-tooltip>
-                  <el-tooltip :content="t('fontTemplate.zoomActualSize')" placement="top">
-                    <el-button text size="small" :disabled="previewZoom === 1" @click="resetPreviewZoom">
-                      <el-icon><RefreshLeft /></el-icon>
-                    </el-button>
-                  </el-tooltip>
-                </div>
-              </div>
-            </div>
-            <div
-              ref="previewCanvasRef"
-              class="preview-content compact"
-              :class="{ 'is-zoomed': previewZoom > 1, 'is-panning': previewDragging }"
-              @wheel="handlePreviewWheel"
-              @pointerdown="handlePreviewPointerDown"
-              @pointermove="handlePreviewPointerMove"
-              @pointerup="handlePreviewPointerUp"
-              @pointercancel="handlePreviewPointerUp"
+          <!-- 操作按钮 -->
+          <div class="thumb-gen-actions">
+            <el-button @click="generateThumbnailDialogVisible = false">{{ t('common.cancel') }}</el-button>
+            <el-button
+              type="success"
+              :loading="multiGenerateLoading"
+              @click="submitGenerateMultiThumbnails"
             >
-              <!-- 预览区域 - 自适应高度与大字号清晰展示 -->
-              <div
-                v-if="currentRow.url"
-                class="preview-image compact single-preview"
-                :style="{
-                  width: '960px',
-                  minHeight: '520px',
-                  padding: '36px 48px',
-                  color: thumbnailForm.options.textColor,
-                  fontSize: (thumbnailForm.options.fontSize || 100) + 'px',
-                  backgroundColor: 'white',
-                  border: '2px dashed #d9d9d9',
-                  borderRadius: '12px',
-                  whiteSpace: 'pre-wrap',
-                  lineHeight: '1.25',
-                  letterSpacing: '0.04em',
-                  fontFamily: loadedFontFamily || 'inherit',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-                  position: 'relative',
-                  boxSizing: 'border-box',
-                  zoom: previewZoom,
-                }"
-              >
-                <!-- 状态信息与字体名称区域 -->
-                <div style="margin-bottom: 12px; font-size: 13px; color: #909399; flex-shrink: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-                  <i class="el-icon-info"></i>
-                  <span v-if="fontLoading">
-                    <el-icon class="is-loading" style="margin-right: 4px">
-                      <Loading />
-                    </el-icon>
-                    {{ t('fontTemplate.fontPreviewLoading') }}
-                  </span>
-                  <span v-else-if="!loadedFontFamily">{{ t('fontTemplate.fontPreviewWaiting') }}</span>
-                  <span v-else>当前使用字体: {{ currentRow.name }} <template v-if="currentSpecimenStageLabel">· {{ currentSpecimenStageLabel }}</template></span>
-                </div>
-
-                <!-- 文字内容区域 - 大字居中 -->
-                <div
-                  class="preview-text-content"
-                  :style="{
-                    flex: '1',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    textAlign: 'center',
-                    wordBreak: 'break-word',
-                    wordWrap: 'break-word',
-                    width: '100%',
-                  }"
-                >
-                  {{ thumbnailForm.templateText || defaultTemplates[0].content }}
-                </div>
-              </div>
-
-              <!-- 默认预览区域 -->
-              <div
-                v-else
-                class="preview-image compact"
-                :style="{
-                  width: '800px',
-                  minHeight: '400px',
-                  padding: '24px',
-                  color: thumbnailForm.options.textColor,
-                  fontSize: Math.min(thumbnailForm.options.fontSize, 80) + 'px',
-                  backgroundColor: 'white',
-                  border: '1px dashed #d9d9d9',
-                  borderRadius: '8px',
-                  whiteSpace: 'pre-wrap',
-                  lineHeight: '1',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                  zoom: previewZoom,
-                }"
-              >
-                <!-- 状态信息区域 -->
-                <div style="margin-bottom: 8px; font-size: 10px; color: #909399; flex-shrink: 0">
-                  <i class="el-icon-info"></i>
-                  <span v-if="!currentRow.url">{{ t('fontTemplate.selectFontFirst') }}</span>
-                  <span v-else>{{ t('fontTemplate.systemDefaultPreview') }}</span>
-                </div>
-
-                <!-- 文字内容区域 -->
-                <div
-                  class="preview-text-content"
-                  :style="{
-                    flex: '1',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    textAlign: 'center',
-                    wordBreak: 'break-word',
-                    wordWrap: 'break-word',
-                  }"
-                >
-                  {{ thumbnailForm.templateText || defaultTemplates[0].content }}
-                </div>
-              </div>
-            </div>
-            <div style="margin-top: 6px; font-size: 10px; color: #909399; text-align: center">
-              {{ t('fontTemplate.previewAutoLoadHint') }}
-            </div>
-          </div>
-        </el-form-item>
-
-        <el-form-item :label="t('fontTemplate.fontStatusCheck')">
-          <div
-            style="
-              padding: 12px;
-              background: color-mix(in srgb, var(--el-color-warning) 10%, transparent);
-              border-left: 3px solid var(--el-color-warning);
-              border-radius: 4px;
-            "
-          >
-            <div style="margin-bottom: 8px; font-size: 13px; font-weight: 500; color: var(--el-color-warning)">
-              {{ t('fontTemplate.fontLoadStatus') }}
-            </div>
-            <div style="font-size: 12px; line-height: 1.5; color: var(--el-text-color-regular)">
-              <div v-if="fontLoading">
-                <strong>{{ t('fontTemplate.fontLoadingEmoji') }}</strong>
-                <div style="margin-top: 4px; font-size: 11px; color: var(--el-color-warning)">
-                  {{ t('fontTemplate.fontFileLoading') }}
-                </div>
-              </div>
-              <div v-else-if="loadedFontFamily">
-                <strong>{{ t('fontTemplate.fontLoadedEmoji') }}</strong>{{ loadedFontFamily }}
-                <div style="margin-top: 4px; font-size: 11px; color: var(--el-color-warning)">
-                  {{ t('fontTemplate.customFontEffect') }}
-                </div>
-                <div style="margin-top: 4px; font-size: 11px; color: var(--el-color-success)">
-                  {{ t('fontTemplate.fontLoadedHint') }}
-                </div>
-              </div>
-              <div v-else>
-                <strong>{{ t('fontTemplate.fontNotLoadedEmoji') }}</strong>{{ t('fontTemplate.systemDefaultFont') }}
-                <div style="margin-top: 4px; font-size: 11px; color: var(--el-color-warning)">
-                  {{ t('fontTemplate.fontLoadFailCheckUrl') }}
-                </div>
-                <div style="margin-top: 4px; font-size: 11px; color: var(--el-color-danger)">
-                  {{ t('fontTemplate.systemFontWarning') }}
-                </div>
-              </div>
-            </div>
-            <div
-              style="
-                padding: 8px;
-                margin-top: 8px;
-                background: color-mix(in srgb, var(--el-color-warning) 6%, transparent);
-                border-radius: 4px;
-              "
+              ✨ 生成 3 张规格样张
+            </el-button>
+            <el-button
+              type="primary"
+              :loading="frontendGenerateLoading"
+              @click="submitFrontendGenerateThumbnail"
             >
-              <div style="font-size: 11px; color: var(--el-text-color-secondary)">
-                <strong>{{ t('fontTemplate.debugInfo') }}</strong>
-                <div>{{ t('fontTemplate.fontUrlLabel') }}: {{ currentRow.url || t('fontTemplate.notSet') }}</div>
-                <div>
-                  {{ t('fontTemplate.loadStatusLabel') }}: {{ fontLoading ? t('fontTemplate.loading') : loadedFontFamily ? t('fontTemplate.loaded') : t('fontTemplate.notLoaded') }}
-                </div>
-                <div>{{ t('fontTemplate.fontNameLabel') }}: {{ loadedFontFamily || t('fontTemplate.systemDefault') }}</div>
-              </div>
-            </div>
+              {{ t('fontTemplate.generateThumbnail') }}
+            </el-button>
           </div>
-        </el-form-item>
-      </el-form>
-
-      <template #footer>
-        <el-button @click="generateThumbnailDialogVisible = false">{{ t('common.cancel') }}</el-button>
-        <el-button
-          type="success"
-          :loading="multiGenerateLoading"
-          @click="submitGenerateMultiThumbnails"
-        >
-          ✨ 交互生成 3 张规格样张 (英文/符号/中文)
-        </el-button>
-        <el-button
-          type="primary"
-          :loading="frontendGenerateLoading"
-          @click="submitFrontendGenerateThumbnail"
-          >{{ t('fontTemplate.generateThumbnail') }}</el-button
-        >
-      </template>
+        </div>
+      </div>
     </el-dialog>
 
     <!-- 图片预览弹窗 -->
@@ -2758,27 +2693,15 @@ async function submitGenerateMultiThumbnails() {
 }
 
 function handleBatchGenerateThumbnailCommand(command: string) {
-  if (command === "multi-card") {
-    void handleBatchGenerateThumbnail({ multiCard: true });
-    return;
-  }
-
-  if (command === "thumbnail-ai") {
-    void handleBatchGenerateThumbnail({ completeWithAi: true, multiCard: true });
-    return;
-  }
-
   if (command === "ai-only") {
     handleBatchAiGenerate();
     return;
   }
 
-  if (command === "thumbnail-skip-existing") {
-    void handleBatchGenerateThumbnail({ completeWithAi: false, skipExisting: true, multiCard: true });
-    return;
-  }
-
-  void handleBatchGenerateThumbnail({ completeWithAi: false, multiCard: true });
+  void handleBatchGenerateThumbnail({
+    multiCard: true,
+    skipExisting: command === "thumbnail-skip-existing",
+  });
 }
 
 // 批量交互生成缩略图（在页面中逐一真实渲染上屏后捕获）
@@ -3481,6 +3404,138 @@ function closeImagePreview() {
 
 .language-tag .el-icon {
   cursor: help;
+}
+
+/* ================= 生成缩略图弹窗：左预览 + 右操作布局 ================= */
+.thumb-gen-layout {
+  display: flex;
+  gap: 24px;
+  height: calc(100vh - 140px);
+  overflow: hidden;
+}
+
+.thumb-gen-preview {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--el-fill-color-lighter);
+  border-radius: 10px;
+  padding: 16px;
+  overflow: hidden;
+}
+
+.thumb-gen-preview-area {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 16px 0;
+}
+
+.thumb-gen-controls {
+  width: 400px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.thumb-gen-controls .el-form {
+  flex: 1;
+}
+
+.thumb-gen-info-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.thumb-gen-info-name {
+  flex: 1;
+  font-weight: 600;
+  font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.thumb-gen-style-grid {
+  display: flex;
+  gap: 16px;
+  width: 100%;
+}
+
+.thumb-gen-style-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.thumb-gen-style-label {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.thumb-gen-hint {
+  margin-top: 8px;
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--el-color-primary);
+  background: color-mix(in srgb, var(--el-color-primary) 6%, transparent);
+  border-radius: 4px;
+  width: 100%;
+}
+
+.thumb-gen-status {
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.thumb-gen-status.is-loaded {
+  background: color-mix(in srgb, var(--el-color-success) 8%, transparent);
+  color: var(--el-color-success);
+}
+
+.thumb-gen-status.is-loading {
+  background: color-mix(in srgb, var(--el-color-warning) 8%, transparent);
+  color: var(--el-color-warning);
+}
+
+.thumb-gen-status.is-failed {
+  background: color-mix(in srgb, var(--el-color-danger) 8%, transparent);
+  color: var(--el-color-danger);
+}
+
+.thumb-gen-actions {
+  display: flex;
+  gap: 10px;
+  padding-top: 16px;
+  margin-top: auto;
+  border-top: 1px solid var(--el-border-color-lighter);
+  flex-shrink: 0;
+}
+
+.thumb-gen-actions .el-button {
+  flex: 1;
+}
+
+@media (width <= 960px) {
+  .thumb-gen-layout {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .thumb-gen-controls {
+    width: 100%;
+    overflow: visible;
+  }
 }
 
 /* ================= 极简缩略图单元格与管理弹窗 ================= */

@@ -179,21 +179,42 @@ export const useAiAssistantStore = defineStore("ai-assistant", () => {
     }
   }
 
-  async function loadMessages() {
-    historyLoading.value = true;
+  // 最近 5 个会话的 LRU 消息内存缓存，移动端切换会话 0ms 秒开
+  const messageCache = new Map<number, AiAssistantMessage[]>();
+  const MAX_CACHED_CONVS = 5;
+
+  function cacheConversationMessages(convId: number | null, list: AiAssistantMessage[]) {
+    if (!convId) return;
+    if (messageCache.has(convId)) messageCache.delete(convId);
+    messageCache.set(convId, [...list]);
+    while (messageCache.size > MAX_CACHED_CONVS) {
+      const oldestKey = messageCache.keys().next().value;
+      if (oldestKey !== undefined) messageCache.delete(oldestKey);
+    }
+  }
+
+  async function loadMessages(silent = false) {
+    const targetId = currentConversationId.value;
+    if (!silent) historyLoading.value = true;
     try {
-      messages.value = dedupeRunMessages(
+      const list = dedupeRunMessages(
         await AiAssistantApi.getMessages({
-          conversationId: currentConversationId.value || undefined,
+          conversationId: targetId || undefined,
         }),
       );
-      // 加载完成后，检查是否有已委派但结果未更新的 assistant 消息
-      refreshDelegatedMessages();
+      cacheConversationMessages(targetId, list);
+      if (currentConversationId.value === targetId) {
+        messages.value = list;
+        // 加载完成后，检查是否有已委派但结果未更新的 assistant 消息
+        refreshDelegatedMessages();
+      }
     } catch (error) {
-      console.error("加载消息失败:", error);
-      ElMessage.error("加载消息失败");
+      if (!silent) {
+        console.error("加载消息失败:", error);
+        ElMessage.error("加载消息失败");
+      }
     } finally {
-      historyLoading.value = false;
+      if (!silent) historyLoading.value = false;
     }
   }
 
@@ -237,14 +258,50 @@ export const useAiAssistantStore = defineStore("ai-assistant", () => {
     }
   }
 
+  let activeAbortController: AbortController | null = null;
+
+  /** 中止当前正在进行的流式生成（支持用户点停止按钮或切会话时静默取消） */
+  function stopGeneration(silent = false) {
+    if (activeAbortController) {
+      try {
+        activeAbortController.abort();
+      } catch {}
+      activeAbortController = null;
+    }
+    if (!loading.value) return;
+    loading.value = false;
+    runtimeStatus.value = "idle";
+    thinkingText.value = "";
+    markAiAssistantRuntimeIdle();
+    if (!silent) {
+      const last = messages.value[messages.value.length - 1];
+      if (last && last.role === "assistant") {
+        last.content = last.content ? `${last.content}\n\n*(已停止生成)*` : "已停止生成。";
+      }
+    }
+  }
+
   async function selectConversation(id: number) {
     if (currentConversationId.value === id) return;
+    stopGeneration(true);
+    // 切出前把当前会话消息写入 LRU 缓存
+    if (currentConversationId.value && messages.value.length) {
+      cacheConversationMessages(currentConversationId.value, messages.value);
+    }
     currentConversationId.value = id;
     pendingInteraction.value = null;
-    await loadMessages();
+    const cached = messageCache.get(id);
+    if (cached && cached.length > 0) {
+      // 命中缓存：0ms 立即渲染，后台静默同步最新消息（移动端切换零白屏）
+      messages.value = [...cached];
+      void loadMessages(true);
+      return;
+    }
+    await loadMessages(false);
   }
 
   async function createConversation() {
+    stopGeneration(true);
     try {
       const result = await AiAssistantApi.createConversation({
         title: "新会话",
@@ -587,18 +644,30 @@ export const useAiAssistantStore = defineStore("ai-assistant", () => {
 
   async function consumeStream(
     start: (handlers: {
+      signal?: AbortSignal;
       onEvent: (event: { event: string; data: any }) => void;
       onError: (error: Error) => void;
       onDone: () => void;
     }) => Promise<void>,
   ) {
     const context: StreamContext = { fullReply: "", assistantMsg: null };
+    const controller = new AbortController();
+    activeAbortController = controller;
+    let streamCompleted = false;
+    let abortedByUser = false;
+
     try {
       await start({
+        signal: controller.signal,
         onEvent(event) {
+          if (event.event === "run.completed") streamCompleted = true;
           handleStreamEvent(event.event, event.data, context);
         },
         onError(error) {
+          if (controller.signal.aborted || (error as any)?.name === "AbortError") {
+            abortedByUser = true;
+            return;
+          }
           console.error("流式请求失败:", error);
           ElMessage.error("请求失败，请重试");
         },
@@ -606,18 +675,33 @@ export const useAiAssistantStore = defineStore("ai-assistant", () => {
           loading.value = false;
         },
       });
-    } catch (error) {
-      console.error("发送失败:", error);
-      ElMessage.error("发送失败");
+    } catch (error: any) {
+      if (controller.signal.aborted || error?.name === "AbortError") {
+        abortedByUser = true;
+      } else {
+        console.error("发送失败:", error);
+        ElMessage.error("发送失败");
+      }
     } finally {
+      if (activeAbortController === controller) {
+        activeAbortController = null;
+      }
       loading.value = false;
       if (!pendingInteraction.value) {
         runtimeStatus.value = "idle";
         thinkingText.value = "";
       }
       markAiAssistantRuntimeIdle();
-      await loadConversations();
-      if (currentConversationId.value) await loadMessages();
+      // 流正常完成且本地已收到回复时，不再无条件全量重拉 messages，避免收尾闪动和多余流量；
+      // 仅在首次新建会话（侧边栏尚无该条或仍为“新会话”）时刷新侧边栏标题。
+      const curId = currentConversationId.value;
+      const existingConv = curId ? conversations.value.find((c) => c.id === curId) : null;
+      if (!existingConv || !existingConv.title || existingConv.title === "新会话") {
+        await loadConversations();
+      }
+      if (!abortedByUser && (!streamCompleted || !context.assistantMsg) && curId) {
+        await loadMessages();
+      }
     }
   }
 
@@ -637,7 +721,11 @@ export const useAiAssistantStore = defineStore("ai-assistant", () => {
     chatMode.value = mode;
   }
 
-  async function sendMessage(message: string, pageContext?: AiAssistantPageContext) {
+  async function sendMessage(
+    message: string,
+    pageContext?: AiAssistantPageContext,
+    options?: { skipLocalUserEcho?: boolean },
+  ) {
     if (!message || loading.value || pendingInteraction.value) return;
 
     loading.value = true;
@@ -647,13 +735,15 @@ export const useAiAssistantStore = defineStore("ai-assistant", () => {
     pendingInteraction.value = null;
     markAiAssistantRuntimeRunning();
 
-    messages.value.push(createLocalMessage({ role: "user", content: message }));
+    if (!options?.skipLocalUserEcho) {
+      messages.value.push(createLocalMessage({ role: "user", content: message }));
+    }
 
     // 自动合并工作流上下文
     const finalPageContext: AiAssistantPageContext = {
       ...pageContext,
       workflowContext: workflowContext.value,
-    }
+    };
 
     await consumeStream((handlers) =>
       AiAssistantApi.chatStream(
@@ -667,6 +757,24 @@ export const useAiAssistantStore = defineStore("ai-assistant", () => {
         handlers,
       ),
     );
+  }
+
+  /** 重新生成最后一条用户提问的回复 */
+  async function regenerateLastMessage(pageContext?: AiAssistantPageContext) {
+    if (loading.value || pendingInteraction.value) return;
+    let lastUserMsg: AiAssistantMessage | null = null;
+    for (let i = messages.value.length - 1; i >= 0; i--) {
+      if (messages.value[i].role === "user" && messages.value[i].content?.trim()) {
+        lastUserMsg = messages.value[i];
+        break;
+      }
+    }
+    if (!lastUserMsg) return;
+    const last = messages.value[messages.value.length - 1];
+    if (last && last.role === "assistant") {
+      messages.value.pop();
+    }
+    await sendMessage(lastUserMsg.content, pageContext, { skipLocalUserEcho: true });
   }
 
   async function resumeInteraction(
@@ -959,6 +1067,8 @@ export const useAiAssistantStore = defineStore("ai-assistant", () => {
     deleteConversation,
     clearAllConversations,
     sendMessage,
+    stopGeneration,
+    regenerateLastMessage,
     resumeInteraction,
     clearMessages,
     resetLoadingState,

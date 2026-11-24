@@ -2,6 +2,8 @@
   <div class="connection-info">
     <div class="section">
       <div class="section-title">基本信息</div>
+      <InfoRow label="显示名称" :value="client.displayName || client.alias" />
+      <InfoRow label="自定义名称" :value="client.alias || '未设置'" />
       <InfoRow label="连接 ID" :value="client.id" />
       <InfoRow label="状态" :value="client.isOnline ? '在线' : '离线'" />
       <InfoRow label="IP" :value="client.ip" />

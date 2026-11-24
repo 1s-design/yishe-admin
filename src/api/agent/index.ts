@@ -81,8 +81,20 @@ export interface AgentDefinition {
   /** 值守模式：off=仅手动；duty=定时/事件唤醒 */
   dutyMode?: 'off' | 'duty'
   dutyGoal?: string
+  workNotes?: string
+  autoOptimizedInstructions?: string | null
+  autoOptimizedAt?: string | null
   dailyRunLimit?: number
   dutyRunCount?: number
+  wakeIntervalSeconds?: number
+  maxToolSteps?: number
+  temperature?: number
+  llmTimeoutMs?: number
+  autoCleanEnabled?: boolean
+  retainCompletedDays?: number
+  retainFailedDays?: number
+  maxWorklogEntries?: number
+  cleanIntervalHours?: number
   nextWakeAt?: string | null
   createTime?: string
   updateTime?: string
@@ -149,6 +161,10 @@ export const AgentAdminApi = {
   definitions() {
     return request.get({ url: '/agent/definitions' }) as Promise<AgentDefinition[]>
   },
+  /** 单个智能体详情（避免对话页拉全量列表） */
+  definitionDetail(id: string) {
+    return request.get({ url: `/agent/definitions/${id}` }) as Promise<AgentDefinition>
+  },
   createDefinition(data: {
     name: string
     description?: string
@@ -156,8 +172,17 @@ export const AgentAdminApi = {
     capabilities?: string[]
     avatarStyle?: string
     dutyMode?: 'off' | 'duty'
-    dutyGoal?: string
+    dutyGoal?: string | null
     dailyRunLimit?: number
+    wakeIntervalSeconds?: number
+    maxToolSteps?: number
+    temperature?: number
+    llmTimeoutMs?: number
+    autoCleanEnabled?: boolean
+    retainCompletedDays?: number
+    retainFailedDays?: number
+    maxWorklogEntries?: number
+    cleanIntervalHours?: number
   }) {
     return request.post({ url: '/agent/definitions', data }) as Promise<AgentDefinition>
   },
@@ -173,6 +198,15 @@ export const AgentAdminApi = {
       dutyMode?: 'off' | 'duty'
       dutyGoal?: string | null
       dailyRunLimit?: number
+      wakeIntervalSeconds?: number
+      maxToolSteps?: number
+      temperature?: number
+      llmTimeoutMs?: number
+      autoCleanEnabled?: boolean
+      retainCompletedDays?: number
+      retainFailedDays?: number
+      maxWorklogEntries?: number
+      cleanIntervalHours?: number
     }
   ) {
     return request.put({ url: `/agent/definitions/${id}`, data }) as Promise<AgentDefinition>
@@ -247,8 +281,12 @@ export const AgentAdminApi = {
       dutyOn: number
     }>
   },
-  taskDetail(id: string) {
-    return request.get({ url: `/agent/tasks/${id}` }) as Promise<AgentTask>
+  taskDetail(id: string, afterIndex?: number) {
+    const params =
+      afterIndex !== undefined && afterIndex >= 0 ? { afterIndex } : undefined
+    return request.get({ url: `/agent/tasks/${id}`, params }) as Promise<
+      AgentTask & { worklogStartIndex?: number; worklogTotal?: number }
+    >
   },
   /** 任务详情指纹（轮询专用：状态+事件数+更新时间，变化时再拉完整详情） */
   taskDetailSummary(id: string) {

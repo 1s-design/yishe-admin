@@ -105,13 +105,14 @@ const setupAll = async () => {
 
   await router.isReady()
 
-  // 初始化COS配置
-  try {
-    await initCOS()
-    console.log('COS配置初始化成功')
-  } catch (error) {
-    console.error('COS配置初始化失败:', error)
-  }
+  // 后台异步初始化 COS 配置，不阻塞首屏挂载（移动端白屏时间更短）
+  void initCOS()
+    .then(() => {
+      console.log('COS配置初始化成功')
+    })
+    .catch((error) => {
+      console.error('COS配置初始化失败:', error)
+    })
 
   // 初始化移动端调试工具
   initVConsole().catch(async (error) => {

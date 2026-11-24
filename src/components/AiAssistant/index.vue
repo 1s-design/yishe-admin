@@ -2,31 +2,52 @@
   <div class="ai-desktop agent-chat-theme" :class="{ 'ai-desktop--sidebar-open': sidebarOpen }">
     <!-- 移动端/平板侧边栏点击遮罩 -->
     <div v-if="sidebarOpen" class="sidebar-backdrop" @click="sidebarOpen = false" />
-    <aside class="sidebar">
+    <aside
+      class="sidebar"
+      @touchstart.passive="onSidebarTouchStart"
+      @touchend.passive="onSidebarTouchEnd"
+    >
       <div class="sidebar__nav">
         <div class="sidebar__section">
           <button class="sidebar__new-btn" @click="handleCreateConversation">
             <el-icon :size="15"><Plus /></el-icon>
             <span>新建对话</span>
           </button>
+          <div class="sidebar__search">
+            <el-icon :size="13" class="sidebar__search-icon"><Search /></el-icon>
+            <input
+              v-model="convSearchQuery"
+              type="search"
+              class="sidebar__search-input"
+              placeholder="搜索历史会话..."
+            />
+            <button
+              v-if="convSearchQuery"
+              type="button"
+              class="sidebar__search-clear"
+              @click="convSearchQuery = ''"
+            >×</button>
+          </div>
           <div class="sidebar__section-label">历史</div>
-          <div v-for="conv in store.conversations" :key="conv.id" class="sidebar__item"
+          <div v-for="conv in filteredConversations" :key="conv.id" class="sidebar__item"
             :class="{ active: store.currentConversationId === conv.id }" @click="handleSelectConversation(conv.id)"
             @mouseenter="showConversationDetail(conv, $event)" @mouseleave="hideConversationDetail">
             <div class="sidebar__item-main">
               <span class="sidebar__item-text">{{ conv.title || "未命名会话" }}</span>
             </div>
-            <button class="sidebar__item-del" @click.stop="store.deleteConversation(conv.id)">
+            <button class="sidebar__item-del" aria-label="删除会话" @click.stop="store.deleteConversation(conv.id)">
               ×
             </button>
           </div>
-          <div v-if="!store.conversations.length" class="sidebar__empty">暂无会话</div>
+          <div v-if="!filteredConversations.length" class="sidebar__empty">
+            {{ convSearchQuery ? "没有匹配的会话" : "暂无会话" }}
+          </div>
         </div>
       </div>
 
       <div class="sidebar__bottom">
         <el-tooltip effect="dark" content="工具目录" placement="top">
-          <button class="sidebar__item--icon" @click="handleOpenToolDialog">
+          <button class="sidebar__item--icon" @click="handleOpenToolDialog()">
             <el-icon :size="15"><Tools /></el-icon>
           </button>
         </el-tooltip>
@@ -79,22 +100,22 @@
     <div class="workspace">
       <header class="topbar">
         <div class="topbar__left">
-          <button class="topbar__menu" @click="sidebarOpen = !sidebarOpen">☰</button>
+          <button class="topbar__menu" aria-label="展开历史会话" @click="sidebarOpen = !sidebarOpen">☰</button>
           <span class="topbar__title">{{ store.activeConversationTitle }}</span>
         </div>
         <div class="topbar__right">
+          <el-tooltip effect="dark" content="新建对话" placement="bottom">
+            <button class="topbar__btn topbar__btn--icon topbar__btn--mobile-new" aria-label="新建对话" @click="handleCreateConversation">
+              <el-icon><Plus /></el-icon>
+            </button>
+          </el-tooltip>
           <el-tooltip effect="dark" content="刷新" placement="bottom">
-            <button class="topbar__btn topbar__btn--icon" @click="handleRefresh">
+            <button class="topbar__btn topbar__btn--icon" aria-label="刷新" @click="handleRefresh">
               <el-icon><Refresh /></el-icon>
             </button>
           </el-tooltip>
           <el-tooltip v-if="store.messages.length" effect="dark" content="清空当前消息" placement="bottom">
-            <button class="topbar__btn topbar__btn--icon" @click="store.clearMessages()">
-              <el-icon><Delete /></el-icon>
-            </button>
-          </el-tooltip>
-          <el-tooltip v-if="store.conversations.length" effect="dark" content="清空所有会话与对话记录" placement="bottom">
-            <button class="topbar__btn topbar__btn--icon topbar__btn--danger" @click="store.clearAllConversations()">
+            <button class="topbar__btn topbar__btn--icon" aria-label="清空当前消息" @click="handleClearCurrentMessages">
               <el-icon><Delete /></el-icon>
             </button>
           </el-tooltip>
@@ -107,6 +128,18 @@
             <template v-if="!visibleMessages.length && !store.loading">
               <div class="chat__empty">
                 <p class="chat__empty-text">有什么可以帮你的？</p>
+                <div class="chat__quick-grid">
+                  <button
+                    v-for="item in quickPrompts"
+                    :key="item.title"
+                    type="button"
+                    class="chat__quick-card"
+                    @click="handleQuickPrompt(item.prompt)"
+                  >
+                    <span class="chat__quick-title">{{ item.title }}</span>
+                    <span class="chat__quick-desc">{{ item.desc }}</span>
+                  </button>
+                </div>
               </div>
             </template>
             <template v-for="msg in visibleMessages" :key="msg.id">
@@ -117,35 +150,49 @@
                       <span class="msg__text">{{ msg.content }}</span>
                     </template>
                     <template v-else>
-                      <div v-if="msg.toolCalls?.length" class="agent-tools">
-                        <div v-for="tc in msg.toolCalls" :key="tc.id" class="agent-tool"
-                          :class="[`agent-tool--${tc.status || 'done'}`]">
-                          <div class="agent-tool__header" @click="toggleTool(tc.id)">
-                            <el-icon class="agent-tool__icon"><Tools /></el-icon>
-                            <span class="agent-tool__name">{{ tc.name }}</span>
-                            <span class="agent-tool__status" :class="`is-${tc.status || 'done'}`">
-                              <span class="agent-tool__status-dot" />
-                              {{ tc.status === 'running' ? '执行中' : tc.status === 'error' ? '失败' : '完成' }}
-                            </span>
-                            <span class="agent-tool__chevron" :class="{ expanded: expandedTools.has(tc.id) }">
-                              ▾
-                            </span>
-                          </div>
-                          <Transition name="collapse">
-                            <div v-if="expandedTools.has(tc.id)" class="collapse-inner">
-                              <div class="agent-tool__body">
-                                <div v-if="tc.args && Object.keys(tc.args).length" class="agent-tool__section">
-                                  <div class="agent-tool__section-label">参数</div>
-                                  <pre class="agent-tool__pre">{{ formatJson(tc.args) }}</pre>
-                                </div>
-                                <div v-if="tc.result || tc.error" class="agent-tool__section">
-                                  <div class="agent-tool__section-label">{{ tc.error ? '错误' : '结果' }}</div>
-                                  <pre class="agent-tool__pre" :class="{ 'is-error': tc.error }">{{ tc.error || formatJson(tc.result) }}</pre>
-                                </div>
+                      <div v-if="msg.toolCalls?.length" class="agent-tools-group">
+                        <button
+                          type="button"
+                          class="agent-tools-capsule"
+                          :class="{ 'is-running': hasRunningTools(msg.toolCalls) }"
+                          @click="toggleToolGroupExpand(msg.id)"
+                        >
+                          <span class="agent-tool__status-dot" :class="hasRunningTools(msg.toolCalls) ? 'is-running' : 'is-done'" />
+                          <span class="agent-tools-capsule__text">{{ getToolGroupSummary(msg.toolCalls) }}</span>
+                          <span class="agent-tool__chevron" :class="{ expanded: expandedToolGroupsMsg.has(msg.id) }">▾</span>
+                        </button>
+                        <Transition name="collapse">
+                          <div v-if="expandedToolGroupsMsg.has(msg.id)" class="agent-tools">
+                            <div v-for="tc in msg.toolCalls" :key="tc.id" class="agent-tool"
+                              :class="[`agent-tool--${tc.status || 'done'}`]">
+                              <div class="agent-tool__header" @click="toggleTool(tc.id)">
+                                <el-icon class="agent-tool__icon"><Tools /></el-icon>
+                                <span class="agent-tool__name">{{ tc.name }}</span>
+                                <span class="agent-tool__status" :class="`is-${tc.status || 'done'}`">
+                                  <span class="agent-tool__status-dot" />
+                                  {{ tc.status === 'running' ? '执行中' : tc.status === 'error' ? '失败' : '完成' }}
+                                </span>
+                                <span class="agent-tool__chevron" :class="{ expanded: expandedTools.has(tc.id) }">
+                                  ▾
+                                </span>
                               </div>
+                              <Transition name="collapse">
+                                <div v-if="expandedTools.has(tc.id)" class="collapse-inner">
+                                  <div class="agent-tool__body">
+                                    <div v-if="tc.args && Object.keys(tc.args).length" class="agent-tool__section">
+                                      <div class="agent-tool__section-label">参数</div>
+                                      <pre class="agent-tool__pre">{{ formatJson(tc.args) }}</pre>
+                                    </div>
+                                    <div v-if="tc.result || tc.error" class="agent-tool__section">
+                                      <div class="agent-tool__section-label">{{ tc.error ? '错误' : '结果' }}</div>
+                                      <pre class="agent-tool__pre" :class="{ 'is-error': tc.error }">{{ tc.error || formatJson(tc.result) }}</pre>
+                                    </div>
+                                  </div>
+                                </div>
+                              </Transition>
                             </div>
-                          </Transition>
-                        </div>
+                          </div>
+                        </Transition>
                       </div>
                       <!-- Agent Run Stage 进度 -->
                       <div
@@ -208,7 +255,10 @@
                         </Transition>
                       </div>
                       <div v-if="msg.content" class="md-body">
-                        <MarkdownView :content="msg.content" />
+                        <MarkdownView
+                          :content="msg.content"
+                          :streaming="store.loading && msg === visibleMessages[visibleMessages.length - 1]"
+                        />
                       </div>
                       <p v-if="msg.errorText" class="agent-message-error">
                         {{ msg.errorText }}
@@ -223,13 +273,22 @@
                     <InteractionRenderer :payload="store.pendingInteraction" @submit="handleInteractionSubmit"
                       @reject="handleInteractionReject" />
                   </template>
-                  <!-- 消息工具栏：复制 + 详情 水平排列 -->
+                  <!-- 消息工具栏：复制 + 重新生成 + 详情 水平排列 -->
                   <div v-if="msg.content || hasMessageDetails(msg)" class="msg__toolbar">
-                    <button v-if="msg.content" class="msg__action-btn" title="复制" @click="copyText(msg.content, msg.id)">
+                    <button v-if="msg.content" class="msg__action-btn" title="复制" aria-label="复制" @click="copyText(msg.content, msg.id)">
                       <el-icon :size="14">
                         <Check v-if="copiedMessageId === msg.id" />
                         <CopyDocument v-else />
                       </el-icon>
+                    </button>
+                    <button
+                      v-if="msg.role === 'assistant' && !store.loading && !store.pendingInteraction && msg === visibleMessages[visibleMessages.length - 1]"
+                      class="msg__action-btn"
+                      title="重新生成"
+                      aria-label="重新生成"
+                      @click="handleRegenerate"
+                    >
+                      <el-icon :size="14"><Refresh /></el-icon>
                     </button>
                     <div v-if="hasMessageDetails(msg)" class="msg__meta">
                       <el-popover trigger="click" placement="bottom-start" :width="360"
@@ -347,7 +406,7 @@
                 <el-popover
                   v-model:visible="showScopePicker"
                   placement="top-start"
-                  :width="720"
+                  :width="scopePopoverWidth"
                   trigger="click"
                   :show-arrow="false"
                   popper-class="scope-popper"
@@ -432,7 +491,17 @@
                   <el-option value="goal" label="目标" />
                 </el-select>
 
-                <button class="composer__send" :disabled="!canSend || store.loading" @click="handleSend">
+                <button
+                  v-if="store.loading"
+                  type="button"
+                  class="composer__send composer__send--stop"
+                  title="停止生成"
+                  aria-label="停止生成"
+                  @click="store.stopGeneration()"
+                >
+                  <span class="composer__stop-square" />
+                </button>
+                <button v-else class="composer__send" :disabled="!canSend" title="发送" aria-label="发送" @click="handleSend">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M12 19V5M5 12l7-7 7 7" />
                   </svg>
@@ -552,7 +621,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
-import { ElMessage } from "element-plus";
+import { ElMessage, ElMessageBox } from "element-plus";
 import { ArrowDown, ArrowUp, Check, CopyDocument, Delete, InfoFilled, Loading, Plus, Promotion, Refresh, Search, Tools } from "@element-plus/icons-vue";
 import { AiAssistantApi } from "@/api/aiAssistant";
 import { useAiAssistantStore } from "@/store/modules/aiAssistant";
@@ -571,6 +640,112 @@ const inputMessage = ref("");
 const isComposing = ref(false);
 // 对话模式：normal | plan | goal
 const chatMode = ref<'normal' | 'plan' | 'goal'>('normal');
+
+// 侧边栏本地会话搜索
+const convSearchQuery = ref("");
+const filteredConversations = computed(() => {
+  const q = convSearchQuery.value.trim().toLowerCase();
+  if (!q) return store.conversations;
+  return store.conversations.filter((c: any) =>
+    String(c.title || "未命名会话").toLowerCase().includes(q),
+  );
+});
+
+// 移动端自适应宽度（工具作用域弹窗不溢出屏幕）
+const viewportWidth = ref(typeof window !== "undefined" ? window.innerWidth : 1280);
+const scopePopoverWidth = computed(() =>
+  viewportWidth.value <= 768 ? Math.max(280, Math.min(viewportWidth.value - 20, 420)) : 720,
+);
+
+// 空态快捷业务卡片
+const quickPrompts = [
+  {
+    title: "汇总资产规模",
+    desc: "查看素材、字体、PSD 模板与商品数量",
+    prompt: "帮我汇总一下当前系统的素材总数、字体总数、PSD模板数量和商品数量",
+  },
+  {
+    title: "检查客户端与服务",
+    desc: "查看在线桌面端节点与微服务健康状态",
+    prompt: "查一下当前在线的桌面客户端连接状态，以及后端微服务健康状态",
+  },
+  {
+    title: "查看视频与文案库",
+    desc: "快速了解可用视频模板和文案库规模",
+    prompt: "查一下当前可用的视频模板列表和文案库总数",
+  },
+  {
+    title: "排查定时任务",
+    desc: "检查当前已配置的 AI 定时任务状态",
+    prompt: "查一下当前所有 AI 定时任务列表和最近执行情况",
+  },
+];
+
+async function handleQuickPrompt(prompt: string) {
+  if (store.loading || store.pendingInteraction) return;
+  inputMessage.value = "";
+  await store.sendMessage(prompt, buildPageContext());
+}
+
+async function handleRegenerate() {
+  await store.regenerateLastMessage(buildPageContext());
+}
+
+async function handleClearCurrentMessages() {
+  try {
+    await ElMessageBox.confirm("确认清空当前会话的所有消息吗？", "清空当前消息", {
+      type: "warning",
+      confirmButtonText: "清空",
+      cancelButtonText: "取消",
+    });
+    await store.clearMessages();
+  } catch {
+    // 取消操作
+  }
+}
+
+// 工具调用聚合胶囊展开状态（默认折叠，点击展开明细）
+const expandedToolGroupsMsg = ref<Set<string | number>>(new Set());
+function toggleToolGroupExpand(msgId: string | number) {
+  const next = new Set(expandedToolGroupsMsg.value);
+  next.has(msgId) ? next.delete(msgId) : next.add(msgId);
+  expandedToolGroupsMsg.value = next;
+}
+function hasRunningTools(toolCalls?: any[]) {
+  return Array.isArray(toolCalls) && toolCalls.some((t) => t.status === "running");
+}
+function getToolGroupSummary(toolCalls?: any[]) {
+  const list = Array.isArray(toolCalls) ? toolCalls : [];
+  if (!list.length) return "";
+  const running = list.find((t) => t.status === "running");
+  if (running) {
+    return `正在执行：${running.name}（${list.filter((t) => t.status !== "running").length}/${list.length}）`;
+  }
+  const failed = list.filter((t) => t.status === "error").length;
+  if (failed > 0) {
+    return `已调用 ${list.length} 个工具 · ${failed} 个失败`;
+  }
+  return `已调用 ${list.length} 个工具 · 全部完成`;
+}
+
+// 移动端侧边栏左滑手势关闭
+let sidebarTouchStartX = 0;
+let sidebarTouchStartY = 0;
+function onSidebarTouchStart(e: TouchEvent) {
+  const touch = e.touches?.[0];
+  if (!touch) return;
+  sidebarTouchStartX = touch.clientX;
+  sidebarTouchStartY = touch.clientY;
+}
+function onSidebarTouchEnd(e: TouchEvent) {
+  const touch = e.changedTouches?.[0];
+  if (!touch) return;
+  const dx = touch.clientX - sidebarTouchStartX;
+  const dy = Math.abs(touch.clientY - sidebarTouchStartY);
+  if (dx < -55 && dy < 60 && sidebarOpen.value) {
+    sidebarOpen.value = false;
+  }
+}
 
 const showToolDialog = ref(false);
 const toolSearchQuery = ref("");
@@ -591,6 +766,9 @@ const copiedMessageId = ref<string | number | null>(null);
 
 
 function handleResizeOpen() {
+  if (typeof window !== "undefined") {
+    viewportWidth.value = window.innerWidth;
+  }
   sidebarOpen.value = false;
 }
 
@@ -1026,27 +1204,36 @@ async function handleSelectConversation(id: number) {
   nextTick(() => textareaRef.value?.focus());
 }
 
+let hoverPopupTimer: ReturnType<typeof setTimeout> | null = null;
+
 function showConversationDetail(conv: any, event: MouseEvent) {
   // 触屏或平板/移动端不显示 hover 浮窗，防止误触卡在屏幕上
   if (typeof window !== "undefined" && (window.innerWidth <= 1024 || window.matchMedia("(hover: none)").matches)) {
     return;
   }
-  hoveredConversation.value = conv;
+  if (hoverPopupTimer) clearTimeout(hoverPopupTimer);
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-  const popupHeight = 200;
-  const viewportHeight = window.innerHeight;
-  let top = rect.top;
-  if (top + popupHeight > viewportHeight) {
-    top = viewportHeight - popupHeight - 16;
-  }
-  popupStyle.value = {
-    position: "fixed",
-    left: `${rect.right + 8}px`,
-    top: `${top}px`,
-  };
+  hoverPopupTimer = setTimeout(() => {
+    hoveredConversation.value = conv;
+    const popupHeight = 200;
+    const viewportHeight = window.innerHeight;
+    let top = rect.top;
+    if (top + popupHeight > viewportHeight) {
+      top = viewportHeight - popupHeight - 16;
+    }
+    popupStyle.value = {
+      position: "fixed",
+      left: `${rect.right + 8}px`,
+      top: `${top}px`,
+    };
+  }, 250);
 }
 
 function hideConversationDetail() {
+  if (hoverPopupTimer) {
+    clearTimeout(hoverPopupTimer);
+    hoverPopupTimer = null;
+  }
   hoveredConversation.value = null;
 }
 
@@ -1128,8 +1315,12 @@ function handleInteractionReject(r: InteractionSubmitResult) {
   store.resumeInteraction(false, { ...(p.input || {}), action: "reject" }, r.reason || "跳过");
 }
 
-async function handleOpenToolDialog() {
+async function handleOpenToolDialog(forceRefresh = false) {
   showToolDialog.value = true;
+  if (!forceRefresh && allTools.value.length > 0) {
+    handleToolSearch();
+    return;
+  }
   toolsLoading.value = true;
   try {
     const data = await AiAssistantApi.getToolCatalog();
@@ -2768,17 +2959,18 @@ html.dark .agent-scroll-bottom {
   }
 
   .composer__btn {
-    padding: 0 8px;
-    height: 30px;
+    padding: 0 10px;
+    height: 36px;
   }
 
   .msg--user .msg__text {
-    padding: 8px 12px;
-    font-size: 13px;
+    padding: 10px 14px;
+    font-size: 14.5px;
+    line-height: 1.55;
   }
 
   .msg--user .msg__body {
-    max-width: 94%;
+    max-width: 90%;
   }
 
   .tools-dialog__body {
@@ -2788,6 +2980,263 @@ html.dark .agent-scroll-bottom {
 
   .tools-dialog__search {
     padding: 10px 12px;
+  }
+}
+
+/* ── 新增交互组件与渲染性能样式 ── */
+.msg {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 120px;
+}
+
+.sidebar__search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin: 8px 0 6px;
+  background: var(--el-fill-color-light, rgba(0, 0, 0, 0.04));
+  border-radius: 8px;
+  padding: 0 8px;
+  height: 32px;
+}
+
+.sidebar__search-icon {
+  color: var(--el-text-color-placeholder, #909399);
+  flex-shrink: 0;
+  margin-right: 6px;
+}
+
+.sidebar__search-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 12.5px;
+  color: var(--el-text-color-primary, #1f2329);
+}
+
+.sidebar__search-clear {
+  border: none;
+  background: transparent;
+  color: var(--el-text-color-secondary, #909399);
+  cursor: pointer;
+  padding: 0 4px;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.chat__quick-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+  max-width: 560px;
+  margin-top: 20px;
+}
+
+.chat__quick-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 12px 14px;
+  text-align: left;
+  border-radius: 12px;
+  border: 1px solid var(--el-border-color-lighter, rgba(0, 0, 0, 0.08));
+  background: var(--el-bg-color-overlay, #fff);
+  cursor: pointer;
+  transition: border-color 0.18s ease, transform 0.15s ease, box-shadow 0.18s ease;
+}
+
+.chat__quick-card:hover {
+  border-color: var(--el-color-primary, #409eff);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.chat__quick-card:active {
+  transform: scale(0.98);
+}
+
+.chat__quick-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--el-text-color-primary, #1f2329);
+}
+
+.chat__quick-desc {
+  font-size: 12px;
+  color: var(--el-text-color-secondary, #606266);
+  line-height: 1.4;
+}
+
+.agent-tools-group {
+  margin-bottom: 8px;
+}
+
+.agent-tools-capsule {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--el-border-color-lighter, rgba(0, 0, 0, 0.09));
+  background: var(--el-fill-color-lighter, rgba(0, 0, 0, 0.03));
+  color: var(--el-text-color-regular, #606266);
+  font-size: 12px;
+  cursor: pointer;
+  max-width: 100%;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.agent-tools-capsule:hover {
+  border-color: var(--el-color-primary-light-5, #a0cfff);
+}
+
+.agent-tools-capsule.is-running {
+  border-color: var(--el-color-primary-light-5, #a0cfff);
+  color: var(--el-color-primary, #409eff);
+}
+
+.agent-tools-capsule__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composer__send--stop {
+  background: #ef4444 !important;
+  color: #fff !important;
+  border-color: #ef4444 !important;
+}
+
+.composer__stop-square {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+  background: #fff;
+}
+
+.topbar__btn--mobile-new {
+  display: none;
+}
+
+/* ── 移动端深度交互优化 (<= 768px) ── */
+@media (max-width: 768px) {
+  .topbar__btn--mobile-new {
+    display: inline-flex;
+  }
+
+  .topbar {
+    min-height: 52px;
+    padding: 0 10px;
+  }
+
+  .topbar__btn--icon,
+  .topbar__menu {
+    width: 38px !important;
+    height: 38px !important;
+    border-radius: 10px;
+  }
+
+  .sidebar__search {
+    height: 36px;
+  }
+
+  .sidebar__search-input {
+    font-size: 16px; /* 防止 iOS 聚焦放大 */
+  }
+
+  .sidebar__item {
+    min-height: 44px;
+    padding: 8px 10px;
+  }
+
+  .sidebar__item-del {
+    opacity: 0.72 !important;
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+
+  .chat__scroll {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    padding: 12px 4px 104px;
+  }
+
+  .chat__quick-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 0 4px;
+  }
+
+  .chat__quick-card {
+    padding: 13px 14px;
+  }
+
+  .msg__toolbar {
+    opacity: 1 !important;
+    gap: 6px;
+    margin-top: 6px;
+  }
+
+  .msg__action-btn {
+    min-width: 34px;
+    min-height: 34px;
+    border-radius: 8px;
+  }
+
+  .composer {
+    padding: 4px 10px calc(10px + env(safe-area-inset-bottom, 0px)) !important;
+    background: var(--el-bg-color, #fff);
+  }
+
+  .composer__card {
+    border-radius: 16px;
+  }
+
+  .composer__input {
+    font-size: 16px !important; /* 彻底防止 iOS Safari 聚焦自动缩放 */
+    line-height: 1.5;
+    padding: 12px 14px 6px !important;
+  }
+
+  .composer__bar {
+    padding: 4px 8px 8px;
+  }
+
+  .composer__send {
+    width: 38px !important;
+    height: 38px !important;
+    border-radius: 11px !important;
+  }
+
+  .agent-scroll-bottom {
+    width: 40px;
+    height: 40px;
+    bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+  }
+}
+</style>
+
+<style>
+/* 工具作用域弹窗在移动端自适应单列布局，防止 720px 溢出屏幕 */
+@media (max-width: 768px) {
+  .scope-popper {
+    max-width: calc(100vw - 20px) !important;
+  }
+  .scope-popper .sp-grid {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+  .scope-popper .sp-scroll {
+    max-height: 55vh !important;
   }
 }
 </style>

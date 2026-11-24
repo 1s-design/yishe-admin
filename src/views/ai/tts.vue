@@ -319,7 +319,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref, watch, watchEffect, nextTick } from 'vue'
+import { computed, onActivated, onMounted, onUnmounted, reactive, ref, watch, watchEffect, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Delete, Refresh, Edit } from '@element-plus/icons-vue'
 import {
@@ -572,7 +572,7 @@ const copyRecordParams = async (row: any) => {
 
 const queryParams = reactive({
   page: 1,
-  pageSize: 20,
+  pageSize: 10,
   search: ''
 })
 
@@ -1302,6 +1302,10 @@ const handleBatchDelete = async () => {
 onMounted(() => {
   getList()
   loadTtsProviderSpecs()
+})
+
+onActivated(() => {
+  getList()
 })
 </script>
 

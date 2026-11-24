@@ -1304,6 +1304,15 @@ const remainingRouter: AppRouteRecordRaw[] = [
         },
       },
       {
+        path: "media-account",
+        component: () => import("@/views/media-account/index.vue"),
+        name: "MediaAccountIndex",
+        meta: {
+          title: "媒体账号管理",
+          order: 4.8,
+        },
+      },
+      {
         path: "queue",
         component: () => import("@/views/system/queue/index.vue"),
         name: "SystemQueue",

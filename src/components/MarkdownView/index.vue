@@ -5,79 +5,59 @@
 <script setup lang="ts">
 import { useClipboard } from "@vueuse/core";
 import { Marked } from "marked";
-import hljs from "highlight.js";
+import hljs from "highlight.js/lib/core";
+import jsonLang from "highlight.js/lib/languages/json";
+import jsLang from "highlight.js/lib/languages/javascript";
+import tsLang from "highlight.js/lib/languages/typescript";
+import xmlLang from "highlight.js/lib/languages/xml";
+import cssLang from "highlight.js/lib/languages/css";
+import scssLang from "highlight.js/lib/languages/scss";
+import bashLang from "highlight.js/lib/languages/bash";
+import sqlLang from "highlight.js/lib/languages/sql";
+import pythonLang from "highlight.js/lib/languages/python";
+import yamlLang from "highlight.js/lib/languages/yaml";
+import markdownLang from "highlight.js/lib/languages/markdown";
+import plaintextLang from "highlight.js/lib/languages/plaintext";
 import "highlight.js/styles/vs2015.min.css";
+
+hljs.registerLanguage("json", jsonLang);
+hljs.registerLanguage("javascript", jsLang);
+hljs.registerLanguage("js", jsLang);
+hljs.registerLanguage("typescript", tsLang);
+hljs.registerLanguage("ts", tsLang);
+hljs.registerLanguage("xml", xmlLang);
+hljs.registerLanguage("html", xmlLang);
+hljs.registerLanguage("vue", xmlLang);
+hljs.registerLanguage("css", cssLang);
+hljs.registerLanguage("scss", scssLang);
+hljs.registerLanguage("bash", bashLang);
+hljs.registerLanguage("sh", bashLang);
+hljs.registerLanguage("shell", bashLang);
+hljs.registerLanguage("sql", sqlLang);
+hljs.registerLanguage("python", pythonLang);
+hljs.registerLanguage("py", pythonLang);
+hljs.registerLanguage("yaml", yamlLang);
+hljs.registerLanguage("yml", yamlLang);
+hljs.registerLanguage("markdown", markdownLang);
+hljs.registerLanguage("md", markdownLang);
+hljs.registerLanguage("plaintext", plaintextLang);
+hljs.registerLanguage("text", plaintextLang);
 
 const props = defineProps({
   content: {
     type: String,
     required: true,
   },
+  /** 流式输出中开启 60ms 节流，避免每个 SSE delta 分片都全量重算 marked + hljs + DOMPurify */
+  streaming: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const message = useMessage();
 const { copy } = useClipboard();
 const contentRef = ref<HTMLElement | null>(null);
-
-const markdown = new Marked({
-  gfm: true,
-  breaks: true,
-});
-
-markdown.use({
-  renderer: {
-    image(token) {
-      const rawHref = String(token.href || "").trim();
-      const rawText = String(token.text || "").trim();
-      const rawTitle = String(token.title || "").trim();
-
-      if (!rawHref) {
-        return rawText || "";
-      }
-
-      const alt = rawText || rawTitle || "image";
-      const caption = rawTitle || rawText;
-
-      return [
-        '<figure class="markdown-view__image-block">',
-        `<img class="markdown-view__image" src="${rawHref}" alt="${alt}" loading="lazy" />`,
-        caption ? `<figcaption class="markdown-view__image-caption">${caption}</figcaption>` : "",
-        "</figure>",
-      ].join("");
-    },
-    link(token) {
-      const rawHref = String(token.href || "").trim();
-      const rawTitle = String(token.title || "").trim();
-      const text = token.text || rawHref;
-
-      if (!rawHref) {
-        return text;
-      }
-
-      const titleAttr = rawTitle ? ` title="${rawTitle}"` : "";
-      return `<a href="${rawHref}" target="_blank" rel="noopener noreferrer nofollow"${titleAttr}>${text}</a>`;
-    },
-    code(token) {
-      const rawCode = String(token.text || "");
-      const language = String(token.lang || "")
-        .trim()
-        .toLowerCase();
-      const highlighted =
-        language && hljs.getLanguage(language)
-          ? hljs.highlight(rawCode, { language }).value
-          : hljs.highlightAuto(rawCode).value;
-      const encoded = encodeURIComponent(rawCode);
-      const languageClass = language ? ` language-${language}` : "";
-
-      return [
-        '<pre class="markdown-view__code-block">',
-        `<button class="markdown-view__copy-button" data-copy="${encoded}" type="button">复制</button>`,
-        `<code class="hljs${languageClass}">${highlighted}</code>`,
-        "</pre>",
-      ].join("");
-    },
-  },
-});
 
 const escapeAsHtml = (content: string) => {
   return String(content || "")
@@ -87,14 +67,42 @@ const escapeAsHtml = (content: string) => {
     .replace(/\n/g, "<br />");
 };
 
-const renderedMarkdown = computed(() => {
+const renderMarkdownText = (raw: string) => {
   try {
-    return markdown.parse(String(props.content || "")) as string;
+    return getSharedMarkdown().parse(String(raw || "")) as string;
   } catch (error) {
     console.error("[MarkdownView] render failed:", error);
-    return escapeAsHtml(String(props.content || ""));
+    return escapeAsHtml(String(raw || ""));
   }
-});
+};
+
+// 流式节流缓冲：非流式时直接同步更新，流式时每 60ms 批量刷新一次
+const throttledContent = ref(String(props.content || ""));
+let flushTimer: ReturnType<typeof setTimeout> | null = null;
+
+watch(
+  () => [props.content, props.streaming] as const,
+  ([nextContent, isStreaming]) => {
+    const text = String(nextContent || "");
+    if (!isStreaming) {
+      if (flushTimer) {
+        clearTimeout(flushTimer);
+        flushTimer = null;
+      }
+      throttledContent.value = text;
+      return;
+    }
+    if (!flushTimer) {
+      flushTimer = setTimeout(() => {
+        flushTimer = null;
+        throttledContent.value = String(props.content || "");
+      }, 60);
+    }
+  },
+  { immediate: true },
+);
+
+const renderedMarkdown = computed(() => renderMarkdownText(throttledContent.value));
 
 const handleContentClick = async (event: Event) => {
   const target = event.target as HTMLElement | null;
@@ -122,8 +130,65 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  if (flushTimer) {
+    clearTimeout(flushTimer);
+    flushTimer = null;
+  }
   contentRef.value?.removeEventListener("click", handleContentClick);
 });
+</script>
+
+<script lang="ts">
+// 模块级单例 Marked，避免长会话里每个消息气泡重复构造解析器
+let _sharedMarkdown: Marked | null = null;
+function getSharedMarkdown(): Marked {
+  if (_sharedMarkdown) return _sharedMarkdown;
+  const md = new Marked({ gfm: true, breaks: true });
+  md.use({
+    renderer: {
+      image(token) {
+        const rawHref = String(token.href || "").trim();
+        const rawText = String(token.text || "").trim();
+        const rawTitle = String(token.title || "").trim();
+        if (!rawHref) return rawText || "";
+        const alt = rawText || rawTitle || "image";
+        const caption = rawTitle || rawText;
+        return [
+          '<figure class="markdown-view__image-block">',
+          `<img class="markdown-view__image" src="${rawHref}" alt="${alt}" loading="lazy" />`,
+          caption ? `<figcaption class="markdown-view__image-caption">${caption}</figcaption>` : "",
+          "</figure>",
+        ].join("");
+      },
+      link(token) {
+        const rawHref = String(token.href || "").trim();
+        const rawTitle = String(token.title || "").trim();
+        const text = token.text || rawHref;
+        if (!rawHref) return text;
+        const titleAttr = rawTitle ? ` title="${rawTitle}"` : "";
+        return `<a href="${rawHref}" target="_blank" rel="noopener noreferrer nofollow"${titleAttr}>${text}</a>`;
+      },
+      code(token) {
+        const rawCode = String(token.text || "");
+        const language = String(token.lang || "").trim().toLowerCase();
+        const highlighted =
+          language && hljs.getLanguage(language)
+            ? hljs.highlight(rawCode, { language }).value
+            : hljs.highlightAuto(rawCode).value;
+        const encoded = encodeURIComponent(rawCode);
+        const languageClass = language ? ` language-${language}` : "";
+        return [
+          '<pre class="markdown-view__code-block">',
+          `<button class="markdown-view__copy-button" data-copy="${encoded}" type="button">复制</button>`,
+          `<code class="hljs${languageClass}">${highlighted}</code>`,
+          "</pre>",
+        ].join("");
+      },
+    },
+  });
+  _sharedMarkdown = md;
+  return md;
+}
 </script>
 
 <style lang="scss">
@@ -337,6 +402,30 @@ onBeforeUnmount(() => {
     line-height: 1.6;
     border-collapse: collapse;
     table-layout: fixed;
+  }
+
+  @media (max-width: 768px) {
+    --markdown-font-size: 14.5px;
+    --markdown-line-height: 1.68;
+
+    table {
+      display: block;
+      width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      table-layout: auto;
+      white-space: nowrap;
+    }
+
+    th, td {
+      padding: 8px 10px;
+    }
+
+    :deep(.markdown-view__copy-button) {
+      min-height: 28px;
+      padding: 4px 10px;
+      font-size: 12px;
+    }
   }
 
   th, td {
