@@ -42,7 +42,9 @@ export const refreshAiAssistantRuntimeState = async () => {
   }
 
   pendingRefresh = (async () => {
-    aiAssistantRuntimeState.loading = true;
+    if (!aiAssistantRuntimeState.initialized) {
+      aiAssistantRuntimeState.loading = true;
+    }
 
     try {
       const status = await AiAssistantApi.getStatus();

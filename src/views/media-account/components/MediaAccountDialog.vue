@@ -2,7 +2,7 @@
   <Dialog
     v-model="dialogVisible"
     :title="dialogTitle"
-    width="680px"
+    :initial-fullscreen="true"
     scroll
     class="media-account-dialog"
   >
@@ -66,7 +66,35 @@
           type="textarea"
           :rows="2"
           resize="none"
-          placeholder="可选：账号内容方向、风格定位，供运营与 Agent 选号参考"
+          placeholder="可选：人工备忘或补充说明"
+        />
+      </el-form-item>
+
+      <el-divider content-position="left">运营方向（供智能体参考）</el-divider>
+
+      <el-form-item label="运营方向">
+        <el-input
+          v-model="formData.operationStrategy.direction"
+          type="textarea"
+          :rows="4"
+          placeholder="例如：热门新闻资讯 + POD商品设计分享 + 免费为小企业和个人提供Logo/名片/POD设计"
+        />
+      </el-form-item>
+
+      <el-form-item label="内容风格">
+        <el-input
+          v-model="formData.operationStrategy.style"
+          type="textarea"
+          :rows="4"
+          placeholder="例如：150字内简洁有观点，带1-2个#话题#，配1张图，不硬广不标题党"
+        />
+      </el-form-item>
+
+      <el-form-item label="禁忌红线">
+        <el-input
+          v-model="formData.operationStrategy.forbidden"
+          placeholder="例如：政治、社会负面、明星八卦、拉布布、奥特曼"
+          clearable
         />
       </el-form-item>
 
@@ -147,6 +175,11 @@ const formData = reactive({
   platformAccountId: '',
   remark: '',
   enabled: true,
+  operationStrategy: {
+    direction: '',
+    style: '',
+    forbidden: '',
+  },
 })
 
 const selectedEnvKeys = ref<string[]>([])
@@ -271,6 +304,9 @@ const resetForm = () => {
   formData.platformAccountId = ''
   formData.remark = ''
   formData.enabled = true
+  formData.operationStrategy.direction = ''
+  formData.operationStrategy.style = ''
+  formData.operationStrategy.forbidden = ''
   selectedEnvKeys.value = []
 }
 
@@ -289,6 +325,10 @@ const open = async (id?: number) => {
       formData.platformAccountId = res?.platformAccountId || ''
       formData.remark = res?.remark || ''
       formData.enabled = res?.enabled !== false
+      const strategy = res?.operationStrategy || {}
+      formData.operationStrategy.direction = strategy.direction || ''
+      formData.operationStrategy.style = strategy.style || ''
+      formData.operationStrategy.forbidden = strategy.forbidden || ''
       storedProfiles = Array.isArray(res?.executionProfiles) ? res.executionProfiles : []
     } finally {
       formLoading.value = false
@@ -318,11 +358,18 @@ const submitForm = async () => {
           machineCode: matched?.machineCode || undefined,
         }
       })
+      const strategy = {
+        direction: formData.operationStrategy.direction.trim() || undefined,
+        style: formData.operationStrategy.style.trim() || undefined,
+        forbidden: formData.operationStrategy.forbidden.trim() || undefined,
+      }
+      const hasStrategy = Boolean(strategy.direction || strategy.style || strategy.forbidden)
       const payload = {
         name: formData.name,
         platform: formData.platform,
         platformAccountId: formData.platformAccountId || null,
         remark: formData.remark || null,
+        operationStrategy: hasStrategy ? strategy : null,
         enabled: formData.enabled,
         executionProfiles,
       }
@@ -346,7 +393,9 @@ defineExpose({ open })
 
 <style scoped>
 .media-account-form {
-  padding: 8px 8px 4px;
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 12px 16px 8px;
 }
 
 .env-bar {

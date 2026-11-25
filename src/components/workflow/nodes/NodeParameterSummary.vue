@@ -49,6 +49,8 @@ const LABELS: Record<string, string> = {
   scoreId: "评分ID",
   sortby: "排序",
   executionMode: "执行端",
+  targetConnectionId: "客户端",
+  targetConnectionIdName: "客户端",
   page: "页码",
   pageSize: "每页",
 };
@@ -123,18 +125,29 @@ const entries = computed(() => {
   const config = props.data?.config || {};
   const used = new Set<string>();
   const keys: string[] = [];
-  // 有 Schema 时按 Schema 顺序展示，保证服务端定义的字段（如 pool/concurrency）优先露出；
+  // 有 Schema 时严格按 Schema 展示，避免历史节点残留的已废弃字段（如热搜的 maxCount）继续在画布上露出；
   // 无 Schema 的旧节点保持原有“按 config 顺序 + 内置字段名”的行为。
-  for (const field of props.schema || []) {
-    if (field?.field in config && !used.has(field.field)) {
-      keys.push(field.field);
-      used.add(field.field);
+  const hasSchema = Array.isArray(props.schema) && props.schema.length > 0;
+  if (hasSchema) {
+    for (const field of props.schema || []) {
+      if (!field?.field || used.has(field.field)) continue;
+      if (field.field === "targetConnectionId" && config.targetConnectionIdName) {
+        keys.push("targetConnectionIdName");
+        used.add("targetConnectionIdName");
+        used.add("targetConnectionId");
+        continue;
+      }
+      if (field.field in config) {
+        keys.push(field.field);
+        used.add(field.field);
+      }
     }
-  }
-  for (const key of Object.keys(config)) {
-    if (!used.has(key) && LABELS[key]) {
-      keys.push(key);
-      used.add(key);
+  } else {
+    for (const key of Object.keys(config)) {
+      if (!used.has(key) && LABELS[key]) {
+        keys.push(key);
+        used.add(key);
+      }
     }
   }
 

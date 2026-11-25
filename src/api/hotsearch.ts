@@ -220,13 +220,12 @@ export interface HotsearchOverviewPlatformResult {
 }
 
 /**
- * 热搜概览：平台分组 + Top N + 展示契约 + 趋势词
+ * 热搜概览：平台分组 + Top N + 展示契约 + 
  */
 export const getHotsearchOverview = (params?: {
   module?: string
   sinceMinutes?: number
   perPlatform?: number
-  keywordLimit?: number
 }) => {
   return request.get<HotsearchOverviewResult>({ url: '/hotsearch/overview', params })
 }

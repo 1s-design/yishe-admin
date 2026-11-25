@@ -26,39 +26,6 @@
       </div>
     </header>
 
-    <section v-if="keywords.length" class="hs-ov__keywords">
-      <div class="hs-ov__kw-head">
-        <span class="hs-ov__kw-title">趋势词</span>
-        <span class="hs-ov__kw-hint">跨平台上榜的共性词</span>
-      </div>
-      <div class="hs-ov__kw-list">
-        <el-tooltip
-          v-for="kw in keywords"
-          :key="kw.word"
-          placement="top"
-          effect="light"
-          :show-after="120"
-          popper-class="hs-ov__kw-popper"
-        >
-          <template #content>
-            <div class="hs-kw-tip">
-              <div v-if="kw.platformNames?.length" class="hs-kw-tip__row">
-                <span class="hs-kw-tip__label">平台</span>
-                <span>{{ kw.platformNames.join('、') }}</span>
-              </div>
-              <div v-if="kw.sampleTitles?.length" class="hs-kw-tip__row">
-                <span class="hs-kw-tip__label">示例</span>
-                <span>{{ kw.sampleTitles[0] }}</span>
-              </div>
-            </div>
-          </template>
-          <span class="hs-ov__kw">
-            <span class="hs-ov__kw-word">{{ kw.word }}</span>
-            <span v-if="kw.hitCount > 1" class="hs-ov__kw-count">{{ kw.hitCount }}</span>
-          </span>
-        </el-tooltip>
-      </div>
-    </section>
 
     <div v-loading="loading" class="hs-ov__body">
       <template v-if="hasData">
@@ -115,11 +82,10 @@ import { resolvePlatformRenderer } from './components/hotsearch/renderers'
 import PlatformDrawer from './components/hotsearch/PlatformDrawer.vue'
 import {
   getHotsearchOverview,
-  type HotsearchKeyword,
   type HotsearchOverviewPlatform,
   type HotsearchOverviewResult
 } from '@/api/hotsearch'
-import { filterVisibleHotsearchPlatforms, isHotsearchPlatformHidden } from './hotsearchPlatformVisibility'
+import { filterVisibleHotsearchPlatforms } from './hotsearchPlatformVisibility'
 
 defineOptions({ name: 'HotsearchOverview' })
 
@@ -176,56 +142,6 @@ const stats = computed(() => ({
   platformCount: sections.value.reduce((sum, sec) => sum + sec.stats.platformCount, 0),
   itemCount: sections.value.reduce((sum, sec) => sum + sec.stats.itemCount, 0)
 }))
-
-const keywords = computed<HotsearchKeyword[]>(() => {
-  /** 剔除已下线平台，保持 platforms / platformNames 下标对齐 */
-  const pickVisible = (kw: HotsearchKeyword) => {
-    const keys = kw.platforms ?? []
-    const names = kw.platformNames ?? []
-    const platforms: string[] = []
-    const platformNames: string[] = []
-    keys.forEach((key, index) => {
-      if (isHotsearchPlatformHidden(key)) return
-      platforms.push(key)
-      if (names[index]) platformNames.push(names[index])
-    })
-    return { platforms, platformNames }
-  }
-
-  const merged = new Map<string, HotsearchKeyword>()
-  for (const overview of Object.values(overviews.value)) {
-    for (const kw of overview?.keywords ?? []) {
-      const visible = pickVisible(kw)
-      const current = merged.get(kw.word)
-      if (!current) {
-        merged.set(kw.word, {
-          ...kw,
-          platforms: visible.platforms,
-          platformNames: visible.platformNames,
-          sampleTitles: [...(kw.sampleTitles ?? [])]
-        })
-        continue
-      }
-      current.hitCount += kw.hitCount
-      current.score = Math.max(current.score, kw.score)
-      current.bestRank = Math.min(current.bestRank || Infinity, kw.bestRank || Infinity) || 0
-      for (const key of visible.platforms) {
-        if (!current.platforms.includes(key)) current.platforms.push(key)
-      }
-      for (const name of visible.platformNames) {
-        if (!current.platformNames.includes(name)) current.platformNames.push(name)
-      }
-      for (const title of kw.sampleTitles ?? []) {
-        if (current.sampleTitles.length >= 2) break
-        if (!current.sampleTitles.includes(title)) current.sampleTitles.push(title)
-      }
-    }
-  }
-  return [...merged.values()]
-    .filter((kw) => kw.platforms.length > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 24)
-})
 
 const latestAgeMinutes = computed(() => {
   const ages = Object.values(overviews.value)
@@ -355,73 +271,6 @@ defineExpose({ load })
   border-radius: 4px;
 }
 
-.hs-ov__keywords {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 14px 16px;
-  background: var(--el-bg-color);
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 8px;
-}
-
-.hs-ov__kw-head {
-  display: flex;
-  gap: 10px;
-  align-items: baseline;
-}
-
-.hs-ov__kw-title {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.hs-ov__kw-hint {
-  font-size: 11.5px;
-  color: var(--el-text-color-placeholder);
-}
-
-.hs-ov__kw-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.hs-ov__kw {
-  display: inline-flex;
-  height: 26px;
-  max-width: 100%;
-  padding: 0 10px;
-  overflow: hidden;
-  font-size: 12px;
-  line-height: 1;
-  color: var(--el-text-color-regular);
-  cursor: default;
-  background: var(--el-fill-color-light);
-  border: 1px solid transparent;
-  border-radius: 6px;
-  transition: border-color 0.15s ease, color 0.15s ease;
-  gap: 6px;
-  align-items: center;
-
-  &:hover {
-    color: var(--el-color-primary);
-    border-color: color-mix(in srgb, var(--el-color-primary) 28%, transparent);
-  }
-}
-
-.hs-ov__kw-word {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.hs-ov__kw-count {
-  font-size: 10.5px;
-  color: var(--el-text-color-placeholder);
-  font-variant-numeric: tabular-nums;
-}
-
 .hs-ov__body {
   display: flex;
   flex-direction: column;
@@ -507,30 +356,6 @@ defineExpose({ load })
 .hs-ov__empty-actions {
   display: flex;
   gap: 10px;
-}
-
-:global(.hs-ov__kw-popper) {
-  max-width: 300px;
-  padding: 8px 11px;
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.hs-kw-tip {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 12px;
-}
-
-.hs-kw-tip__row {
-  display: flex;
-  gap: 8px;
-}
-
-.hs-kw-tip__label {
-  flex-shrink: 0;
-  opacity: 0.65;
 }
 
 @media (width <= 900px) {

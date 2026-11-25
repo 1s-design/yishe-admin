@@ -266,7 +266,6 @@ const nodeTypes = {
   hotsearch_v2ex: markRaw(HotsearchNode),
   hotsearch_36kr: markRaw(HotsearchNode),
   hotsearch_ithome: markRaw(HotsearchNode),
-  hotsearch_google_trends: markRaw(HotsearchNode),
   hotsearch_hackernews: markRaw(HotsearchNode),
   hotsearch_github: markRaw(HotsearchNode),
   hotsearch_wikipedia: markRaw(HotsearchNode),

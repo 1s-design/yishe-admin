@@ -10,6 +10,7 @@ import {
   type NodeIOSchemaField,
 } from "@/views/workflow/editor/config/node-manifest";
 import { getMessagePushList, type MessagePushConfig } from "@/api/messagePush";
+import request from "@/config/axios";
 import { useWorkflowNodeManifest } from "@/composables/useWorkflowNodeManifest";
 import { getWorkflowVariableKey } from "@/views/workflow/editor/config/workflowVariableKey";
 
@@ -132,6 +133,30 @@ const handleUpdateEdgeCondition = () => {
   emit("updateEdge", edge);
 };
 
+// 在线客户端列表（用于 targetConnectionId 下拉选择）
+const clientOptions = ref<Array<{ label: string; value: string }>>([]);
+const loadClientOptions = async () => {
+  try {
+    const res: any = await request.get({ url: "/external/toolkit/clients" });
+    const clients = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
+    clientOptions.value = clients.map((c: any) => {
+      const name =
+        c.alias ||
+        c.displayName ||
+        c.machine?.hostname ||
+        c.machine?.code ||
+        c.clientId ||
+        '未知设备';
+      return {
+        label: `${name}${c.isOnline ? ' (在线)' : ' (离线)'}`,
+        value: c.clientId,
+      };
+    });
+  } catch {
+    clientOptions.value = [];
+  }
+};
+
 // 消息推送渠道列表（动态从 API 加载）
 const messagePushChannels = ref<MessagePushConfig[]>([]);
 const messagePushLoading = ref(false);
@@ -172,8 +197,10 @@ const currentCapability = computed<NodeManifest | null>(() => {
     const rf = remoteFields.find((f: any) => f.field === lf.field);
     return rf ? { ...rf, ...lf, type: lf.type || rf.type, options: lf.options || rf.options } : lf;
   });
-  // 补充仅服务端存在的字段
+  // 补充仅服务端存在的字段（热搜类节点统一纯客户端执行，不再展示已废弃的 maxCount / executionMode）
+  const isHotsearchType = String(type || "").startsWith("hotsearch_");
   for (const rf of remoteFields) {
+    if (isHotsearchType && (rf.field === "maxCount" || rf.field === "executionMode")) continue;
     if (!localMap.has(rf.field)) {
       mergedInputSchema.push(rf);
     }
@@ -206,6 +233,17 @@ const resolvedInputSchema = computed<NodeIOSchemaField[]>(() => {
           label: `${ch.name} (${ch.platform === "feishu" ? "飞书" : "企业微信"})`,
           value: ch.id,
         })),
+      };
+    }
+    if (field.field === "targetConnectionId") {
+      return {
+        ...field,
+        type: 'select',
+        label: '指定客户端',
+        options: [
+          { label: '自动选择（任一在线客户端）', value: '' },
+          ...clientOptions.value,
+        ],
       };
     }
     return field;
@@ -249,8 +287,26 @@ watch(
     if (isNotifyNode.value) {
       loadMessagePushChannels();
     }
+    // 有 targetConnectionId 字段时加载客户端列表，并确保默认值命中「自动选择」
+    const cap = currentCapability.value;
+    if (cap?.inputSchema?.some((f: any) => f.field === 'targetConnectionId')) {
+      if (form.value.config.targetConnectionId === undefined) {
+        form.value.config.targetConnectionId = '';
+      }
+      loadClientOptions();
+    }
   },
   { immediate: true },
+);
+
+// 远端 capability 异步加载完成后补拉一次客户端列表，避免竞态导致下拉为空
+watch(
+  () => currentCapability.value,
+  (cap) => {
+    if (cap?.inputSchema?.some((f: any) => f.field === 'targetConnectionId') && !clientOptions.value.length) {
+      loadClientOptions();
+    }
+  },
 );
 
 const onChannelChange = (channelId: any) => {

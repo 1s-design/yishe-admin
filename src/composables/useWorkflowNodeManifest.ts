@@ -10,7 +10,6 @@ import {
 export const UNAVAILABLE_WORKFLOW_NODE_TYPES = new Set([
   "douban_book_search",
   "stats_gov_search",
-  "hotsearch_tencent_news",
   "reddit_search",
   "producthunt_search",
 ]);

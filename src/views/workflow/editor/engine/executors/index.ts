@@ -10,7 +10,7 @@ const hotsearchPlatforms = [
   'hotsearch_weibo', 'hotsearch_douyin', 'hotsearch_bilibili', 'hotsearch_zhihu',
   'hotsearch_toutiao', 'hotsearch_douban', 'hotsearch_kuaishou', 'hotsearch_v2ex',
   'hotsearch_36kr', 'hotsearch_ithome',
-  'hotsearch_google_trends', 'hotsearch_hackernews', 'hotsearch_github',
+  'hotsearch_hackernews', 'hotsearch_github',
   'hotsearch_wikipedia', 'hotsearch_bbc_news', 'hotsearch_cnn', 'hotsearch_nytimes',
   'hotsearch_aljazeera', 'hotsearch_devto', 'hotsearch_ebay_trending',
   'hotsearch_shopify_trending',

@@ -24,6 +24,12 @@ export interface MediaAccountExecutionEnvironment {
   currentTaskId?: string | null
 }
 
+export interface MediaAccountOperationStrategy {
+  direction?: string
+  style?: string
+  forbidden?: string
+}
+
 export interface MediaAccountItem {
   id: number
   name: string
@@ -31,6 +37,7 @@ export interface MediaAccountItem {
   platformLabel?: string
   platformAccountId?: string | null
   remark?: string | null
+  operationStrategy?: MediaAccountOperationStrategy | null
   enabled: boolean
   executionProfiles?: MediaAccountExecutionProfile[]
   onlineProfileCount?: number

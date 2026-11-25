@@ -74,6 +74,7 @@ const resolvedInfo = computed(() => {
     color,
     name,
     label: props.data?.label || name,
+    schema: manifest?.inputSchema,
   };
 });
 </script>
@@ -86,7 +87,7 @@ const resolvedInfo = computed(() => {
       <span v-else class="wf-node__text" :style="{ color: resolvedInfo.color }">{{ resolvedInfo.name }}</span>
       <span class="wf-node__title">{{ resolvedInfo.label }}</span>
     </div>
-    <NodeParameterSummary :data="data" />
+    <NodeParameterSummary :data="data" :schema="resolvedInfo.schema" />
     <Handle type="source" :position="Position.Bottom" />
   </div>
 </template>

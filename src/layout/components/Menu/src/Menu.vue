@@ -728,7 +728,6 @@ export default defineComponent({
         return undefined;
       }
 
-      ensureAiAssistantRuntimeInitialized();
       const tone = resolveAiAssistantRuntimeTone();
       const title = resolveAiAssistantRuntimeTooltip();
       const runningCount = aiAssistantRuntimeState.runningCount;
@@ -1033,6 +1032,7 @@ export default defineComponent({
     );
 
     onMounted(() => {
+      ensureAiAssistantRuntimeInitialized();
       void refreshPsdSetRuntime();
       void refreshPublishTaskRuntime();
     });
