@@ -138,6 +138,9 @@ export type NodeType =
   | 'hotsearch_npr_rss'
   | 'hotsearch_google_news_rss'
   | 'hotsearch_steam'
+  | 'hotsearch_toutiao_web'
+  | 'hotsearch_thepaper'
+  | 'hotsearch_netease_hot'
   | 'google_arts_culture'
   | 'pinterest_culture'
   | 'wikimedia_culture'
@@ -1399,6 +1402,81 @@ export const NODE_MANIFEST_REGISTRY: NodeManifest[] = [
     badge: '客户端',
     description: '采集 Steam 热门游戏榜单，由客户端本地网络执行采集，不占用服务端资源。',
     defaultData: { name: 'Steam热门游戏榜采集', config: {} },
+    inputSchema: [
+      {
+        field: 'targetConnectionId',
+        label: '指定客户端',
+        type: 'select',
+        description: '选择要执行采集的客户端设备（留空=自动选择任一在线客户端）',
+      },
+    ],
+    outputSchema: [
+      { field: 'platform', label: '平台标识', type: 'string' },
+      { field: 'name', label: '平台名称', type: 'string' },
+      { field: 'itemCount', label: '条目数', type: 'number' },
+      { field: 'items', label: '热搜条目', type: 'array' },
+      { field: 'fetchedAt', label: '采集时间', type: 'string' },
+      { field: 'duration', label: '耗时(ms)', type: 'number' },
+    ],
+    requirements: [{ type: 'client', label: '需客户端在线' }],
+  },
+  {
+    type: 'hotsearch_toutiao_web',
+    name: '今日头条热榜',
+    category: 'hotsearch',
+    color: '#f04142',
+    badge: '客户端',
+    description: '采集今日头条实时热榜（50条+热度值）。由客户端本地网络执行采集，不占用服务端资源。',
+    defaultData: { name: '今日头条热榜', config: {} },
+    inputSchema: [
+      {
+        field: 'targetConnectionId',
+        label: '指定客户端',
+        type: 'select',
+        description: '选择要执行采集的客户端设备（留空=自动选择任一在线客户端）',
+      },
+    ],
+    outputSchema: [
+      { field: 'platform', label: '平台标识', type: 'string' },
+      { field: 'name', label: '平台名称', type: 'string' },
+      { field: 'itemCount', label: '条目数', type: 'number' },
+      { field: 'items', label: '热榜条目', type: 'array' },
+      { field: 'fetchedAt', label: '采集时间', type: 'string' },
+    ],
+  },
+  {
+    type: 'hotsearch_thepaper',
+    name: '澎湃新闻热榜',
+    category: 'hotsearch',
+    color: '#c3272b',
+    badge: '客户端',
+    description: '采集澎湃新闻热榜（热榜20+早晚报+编辑精选，41条+多板块）。由客户端本地网络执行采集。',
+    defaultData: { name: '澎湃新闻热榜', config: {} },
+    inputSchema: [
+      {
+        field: 'targetConnectionId',
+        label: '指定客户端',
+        type: 'select',
+        description: '选择要执行采集的客户端设备（留空=自动选择任一在线客户端）',
+      },
+    ],
+    outputSchema: [
+      { field: 'platform', label: '平台标识', type: 'string' },
+      { field: 'name', label: '平台名称', type: 'string' },
+      { field: 'itemCount', label: '条目数', type: 'number' },
+      { field: 'items', label: '热榜条目', type: 'array' },
+      { field: 'fetchedAt', label: '采集时间', type: 'string' },
+    ],
+  },
+  {
+    type: 'hotsearch_netease_hot',
+    name: '网易新闻热榜采集',
+    category: 'hotsearch',
+    icon: 'ep:trend-charts',
+    color: '#c3272b',
+    badge: '客户端',
+    description: '采集网易新闻实时热榜（含来源/时间/图片），由客户端本地网络执行采集，不占用服务端资源。',
+    defaultData: { name: '网易新闻热榜采集', config: {} },
     inputSchema: [
       {
         field: 'targetConnectionId',
