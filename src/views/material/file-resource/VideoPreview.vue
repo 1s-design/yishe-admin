@@ -84,7 +84,7 @@
 
       <!-- Excel 预览 -->
       <div v-else-if="previewType === 'excel' && fileUrl" class="preview-excel-shell">
-        <ExcelPreview :file-url="fileUrl" />
+        <ExcelPreview :file-url="fileUrl" :file-suffix="normalizedSuffix" />
       </div>
 
       <!-- 不支持预览的类型 -->
@@ -316,7 +316,7 @@ function handleImageError(event: Event) {
   }
 }
 
-:deep(.file-preview-dialog.el-dialog) {
+:global(.file-preview-dialog.el-dialog) {
   --file-preview-footer-height: 54px;
 
   display: flex;
@@ -326,28 +326,30 @@ function handleImageError(event: Event) {
   flex-direction: column;
 }
 
-:deep(.file-preview-dialog .el-dialog__header) {
+:global(.file-preview-dialog .el-dialog__header) {
   padding: 14px 48px 12px 18px;
   margin: 0;
   border-bottom: 1px solid var(--el-border-color-lighter);
   flex: 0 0 auto;
 }
 
-:deep(.file-preview-dialog .el-dialog__title) {
+:global(.file-preview-dialog .el-dialog__title) {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-:deep(.file-preview-dialog .el-dialog__body) {
+:global(.file-preview-dialog .el-dialog__body) {
+  display: flex;
   flex: 1 1 auto;
   min-height: 0;
   padding: 0;
   overflow: hidden;
+  flex-direction: column;
 }
 
-:deep(.file-preview-dialog .el-dialog__footer) {
+:global(.file-preview-dialog .el-dialog__footer) {
   flex: 0 0 var(--file-preview-footer-height);
   height: var(--file-preview-footer-height);
   padding: 10px 16px;
@@ -356,6 +358,7 @@ function handleImageError(event: Event) {
 
 .file-preview-container {
   display: flex;
+  flex: 1 1 auto;
   width: 100%;
   height: 100%;
   min-height: 0;
@@ -363,6 +366,11 @@ function handleImageError(event: Event) {
   background: var(--el-fill-color-blank);
   justify-content: center;
   align-items: center;
+}
+
+.file-preview-container--excel {
+  align-items: stretch;
+  justify-content: stretch;
 }
 
 .file-preview-container--video,
@@ -475,8 +483,7 @@ function handleImageError(event: Event) {
   width: 100%;
   height: 100%;
   min-height: 0;
-  padding: 12px;
-  overflow: auto;
+  overflow: hidden;
 }
 
 .preview-text-header {

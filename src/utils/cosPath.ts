@@ -15,7 +15,7 @@ export type BuildCOSKeyOptions = {
   date?: Date
 }
 
-const DEFAULT_COS_ACCOUNT = 'anonymous'
+const DEFAULT_COS_ACCOUNT = 'system'
 const DEFAULT_COS_USER_ID = '0'
 const DEFAULT_COS_CATEGORY = 'uncategorized'
 

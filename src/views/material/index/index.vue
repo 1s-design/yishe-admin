@@ -384,26 +384,42 @@
 
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item @click="() => openMaterialPublishQuickReview('recent')">
+                    <el-dropdown-item
+                      title="按创建时间从新到旧审核"
+                      @click="() => openMaterialPublishQuickReview('recent')"
+                    >
                       <el-icon class="mr-1.5"><Timer /></el-icon>
                       <span>最近优先</span>
                     </el-dropdown-item>
-                    <el-dropdown-item @click="() => openMaterialPublishQuickReview('oldest')">
+                    <el-dropdown-item
+                      title="按创建时间从旧到新审核"
+                      @click="() => openMaterialPublishQuickReview('oldest')"
+                    >
                       <el-icon class="mr-1.5"><Calendar /></el-icon>
                       <span>最早优先</span>
                     </el-dropdown-item>
-                    <el-dropdown-item @click="() => openMaterialPublishQuickReview('random')">
+                    <el-dropdown-item
+                      title="随机乱序抽检审核"
+                      @click="() => openMaterialPublishQuickReview('random')"
+                    >
                       <el-icon class="mr-1.5"><MagicStick /></el-icon>
                       <span>随机抽检</span>
                     </el-dropdown-item>
-                    <el-dropdown-item divided @click="() => openMaterialPublishQuickReview('recent', true)">
+                    <el-dropdown-item
+                      divided
+                      title="同步当前列表的比例、抠图与格式条件进行审核"
+                      @click="() => openMaterialPublishQuickReview('recent', true)"
+                    >
                       <el-icon class="mr-1.5"><Operation /></el-icon>
-                      <span>按当前列表筛选审核 (同步比例/抠图/格式)</span>
+                      <span>按当前筛选</span>
                     </el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
-              <el-dropdown trigger="click">
+              <el-dropdown
+                trigger="click"
+                popper-class="material-tool-dropdown"
+              >
                 <el-button
                   size="small"
                   type="warning"
@@ -417,13 +433,20 @@
                 </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item @click="openCropReview(false)">
+                    <el-dropdown-item
+                      :title="ids.length ? '仅审核当前已勾选的图片' : '审核当前页展示的图片'"
+                      @click="openCropReview(false)"
+                    >
                       <el-icon class="mr-1.5"><Crop /></el-icon>
-                      <span>勾选 / 当前页裁剪审核</span>
+                      <span>{{ ids.length ? `审核已选 (${ids.length})` : '当前页审核' }}</span>
                     </el-dropdown-item>
-                    <el-dropdown-item divided @click="openCropReview(true)">
+                    <el-dropdown-item
+                      divided
+                      title="同步当前列表的比例、抠图与格式条件进行裁剪审核"
+                      @click="openCropReview(true)"
+                    >
                       <el-icon class="mr-1.5"><Operation /></el-icon>
-                      <span>按当前列表筛选审核 (同步比例/抠图/格式)</span>
+                      <span>按当前筛选</span>
                     </el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
@@ -10995,14 +11018,16 @@ h1 {
 
 /* 工具栏下拉：扁平化样式（无位移、无边框、柔和主题色高亮） */
 .material-tool-dropdown .el-dropdown-menu {
-  min-width: 150px;
+  min-width: 136px;
   padding: 5px;
 }
 
 .material-tool-dropdown .el-dropdown-menu__item {
-  padding: 7px 12px;
+  padding: 7px 10px;
+  border-radius: 6px;
   font-size: 13px;
   line-height: 1.45;
+  white-space: nowrap;
 }
 
 .material-tool-dropdown .el-dropdown-menu__item:not(.is-disabled):hover,

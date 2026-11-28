@@ -62,6 +62,9 @@ importers:
       '@vue-flow/minimap':
         specifier: ^1.5.4
         version: 1.5.4(@vue-flow/core@1.48.2(vue@3.5.32(typescript@6.0.2)))(vue@3.5.32(typescript@6.0.2))
+      '@vue-office/excel':
+        specifier: ^1.7.3
+        version: 1.7.14(vue-demi@0.14.6(vue@3.5.32(typescript@6.0.2)))(vue@3.5.32(typescript@6.0.2))
       '@vueuse/core':
         specifier: ^14.2.1
         version: 14.2.1(vue@3.5.32(typescript@6.0.2))
@@ -236,6 +239,9 @@ importers:
       vue:
         specifier: ^3.5.32
         version: 3.5.32(typescript@6.0.2)
+      vue-demi:
+        specifier: 0.14.6
+        version: 0.14.6(vue@3.5.32(typescript@6.0.2))
       vue-dompurify-html:
         specifier: ^4.1.4
         version: 4.1.4(vue@3.5.32(typescript@6.0.2))
@@ -2642,6 +2648,16 @@ packages:
     peerDependencies:
       '@vue-flow/core': ^1.23.0
       vue: ^3.3.0
+
+  '@vue-office/excel@1.7.14':
+    resolution: {integrity: sha512-pVUgt+emDQUnW7q22CfnQ+jl43mM/7IFwYzOg7lwOwPEbiVB4K4qEQf+y/bc4xGXz75w1/e3Kz3G6wAafmFBFg==}
+    peerDependencies:
+      '@vue/composition-api': ^1.7.1
+      vue: ^2.0.0 || >=3.0.0
+      vue-demi: ^0.14.6
+    peerDependenciesMeta:
+      '@vue/composition-api':
+        optional: true
 
   '@vue/babel-helper-vue-transform-on@2.0.1':
     resolution: {integrity: sha512-uZ66EaFbnnZSYqYEyplWvn46GhZ1KuYSThdT68p+am7MgBNbQ3hphTL9L+xSIsWkdktwhPYLwPgVWqo96jDdRA==}
@@ -6905,6 +6921,17 @@ packages:
       '@vue/composition-api':
         optional: true
 
+  vue-demi@0.14.6:
+    resolution: {integrity: sha512-8QA7wrYSHKaYgUxDA5ZC24w+eHm3sYCbp0EzcDwKqN3p6HqtTCGR/GVsPyZW92unff4UlcSh++lmqDWN3ZIq4w==}
+    engines: {node: '>=12'}
+    hasBin: true
+    peerDependencies:
+      '@vue/composition-api': ^1.0.0-rc.1
+      vue: ^3.0.0-0 || ^2.6.0
+    peerDependenciesMeta:
+      '@vue/composition-api':
+        optional: true
+
   vue-dompurify-html@4.1.4:
     resolution: {integrity: sha512-K0XDSZA4dmMMvAgW8yaCx1kAYQldmgXeHJaLPS0mlSKOu8B+onE06X4KfB5LGyX4jR3rlVosyWJczRBzR0sZ/g==}
     peerDependencies:
@@ -9658,6 +9685,11 @@ snapshots:
       d3-selection: 3.0.0
       d3-zoom: 3.0.0
       vue: 3.5.32(typescript@6.0.2)
+
+  '@vue-office/excel@1.7.14(vue-demi@0.14.6(vue@3.5.32(typescript@6.0.2)))(vue@3.5.32(typescript@6.0.2))':
+    dependencies:
+      vue: 3.5.32(typescript@6.0.2)
+      vue-demi: 0.14.6(vue@3.5.32(typescript@6.0.2))
 
   '@vue/babel-helper-vue-transform-on@2.0.1': {}
 
@@ -14359,11 +14391,15 @@ snapshots:
     dependencies:
       vue: 3.5.32(typescript@6.0.2)
 
+  vue-demi@0.14.6(vue@3.5.32(typescript@6.0.2)):
+    dependencies:
+      vue: 3.5.32(typescript@6.0.2)
+
   vue-dompurify-html@4.1.4(vue@3.5.32(typescript@6.0.2)):
     dependencies:
       dompurify: 3.2.4
       vue: 3.5.32(typescript@6.0.2)
-      vue-demi: 0.14.10(vue@3.5.32(typescript@6.0.2))
+      vue-demi: 0.14.6(vue@3.5.32(typescript@6.0.2))
     transitivePeerDependencies:
       - '@vue/composition-api'
 

@@ -76,47 +76,47 @@ html.light {
   --logo-title-font-size: 14px;
   --logo-title-text-color: #162033;
 
-  --top-header-bg-color: rgba(255, 255, 255, 0.92);
+  --top-header-bg-color: rgba(255, 255, 255, 0.96);
   --top-header-text-color: #243041;
-  --top-header-hover-color: #eef3f9;
-  --top-tool-border-color: #d9e1ec;
-  --top-header-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
-  --top-tool-height: 50px;
-  --top-header-action-size: 34px;
-  --top-header-action-radius: 8px;
-  --header-glass-bg: rgba(255, 255, 255, 0.65);
-  --header-glass-border: rgba(255, 255, 255, 0.3);
-  --header-glass-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
-  --header-glass-blur: blur(12px) saturate(180%);
-  --header-action-size: 34px;
-  --header-action-radius: 8px;
-  --header-action-bar-radius: 99rem;
-  --header-action-hover-bg: rgba(0, 0, 0, 0.06);
+  --top-header-hover-color: #f1f5f9;
+  --top-tool-border-color: #e5e7eb;
+  --top-header-shadow: none;
+  --top-tool-height: 44px;
+  --top-header-action-size: 28px;
+  --top-header-action-radius: 6px;
+  --header-glass-bg: rgba(255, 255, 255, 0.85);
+  --header-glass-border: rgba(226, 232, 240, 0.8);
+  --header-glass-shadow: none;
+  --header-glass-blur: blur(8px);
+  --header-action-size: 28px;
+  --header-action-radius: 6px;
+  --header-action-bar-radius: 8px;
+  --header-action-hover-bg: rgba(15, 23, 42, 0.05);
   --top-tool-p-x: 0;
-  --top-header-breadcrumb-color: #3d4f6a;
-  --top-header-breadcrumb-muted-color: rgba(36, 48, 65, 0.46);
+  --top-header-breadcrumb-color: #475569;
+  --top-header-breadcrumb-muted-color: rgba(36, 48, 65, 0.42);
   --top-header-breadcrumb-active-color: #0f172a;
-  --top-header-breadcrumb-font-size: 11px;
+  --top-header-breadcrumb-font-size: 12px;
   --top-header-breadcrumb-separator-size: 10px;
   --top-header-breadcrumb-label-max-width: 180px;
 
-  --tags-view-height: 38px;
-  --tags-view-tool-width: 36px;
+  --tags-view-height: 32px;
+  --tags-view-tool-width: 30px;
   --tags-view-item-font-size: 11px;
-  --tags-view-item-inline-padding: 18px;
-  --tags-view-close-size: 18px;
-  --tags-view-close-right: 6px;
-  --tags-view-item-max-width: 200px;
-  --tags-view-active-indicator-width: 26px;
-  --tags-view-active-indicator-offset: -9px;
-  --tags-view-border-color: rgba(116, 134, 160, 0.1);
-  --tags-view-tool-color: rgba(36, 48, 65, 0.58);
+  --tags-view-item-inline-padding: 14px;
+  --tags-view-close-size: 16px;
+  --tags-view-close-right: 5px;
+  --tags-view-item-max-width: 180px;
+  --tags-view-active-indicator-width: 22px;
+  --tags-view-active-indicator-offset: -7px;
+  --tags-view-border-color: rgba(148, 163, 184, 0.14);
+  --tags-view-tool-color: rgba(36, 48, 65, 0.56);
   --tags-view-tool-hover-color: rgba(36, 48, 65, 0.9);
   --tags-view-tool-hover-bg: color-mix(in srgb, var(--el-color-primary) 5%, transparent);
-  --tags-view-item-bg: rgba(255, 255, 255, 0.72);
-  --tags-view-item-border-color: rgba(148, 163, 184, 0.1);
-  --tags-view-item-color: #3d4f6a;
-  --tags-view-item-hover-bg: #ffffff;
+  --tags-view-item-bg: transparent;
+  --tags-view-item-border-color: transparent;
+  --tags-view-item-color: #475569;
+  --tags-view-item-hover-bg: #f1f5f9;
   --tags-view-item-hover-color: #0f172a;
   --tags-view-item-active-bg: transparent;
   --tags-view-item-active-border-color: color-mix(
@@ -127,37 +127,37 @@ html.light {
   --tags-view-item-active-color: var(--el-color-primary);
   --tags-view-item-shadow: none;
 
-  --tab-menu-max-width: 80px;
-  --tab-menu-min-width: 30px;
-  --tab-menu-collapse-height: 36px;
+  --tab-menu-max-width: 72px;
+  --tab-menu-min-width: 28px;
+  --tab-menu-collapse-height: 32px;
 
-  --app-content-padding: 16px;
-  --app-content-bg-color: #f7f9fc;
+  --app-content-padding: 12px;
+  --app-content-bg-color: #f8fafc;
   --app-content-surface-color: #ffffff;
-  --app-content-surface-muted-color: #f7f9fc;
-  --app-content-border-color: rgba(148, 163, 184, 0.22);
-  --app-content-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
-  --app-content-highlight-color: rgba(255, 255, 255, 0.45);
-  --app-overlay-color: rgba(15, 23, 42, 0.16);
-  --app-scrollbar-thumb-color: rgba(125, 138, 159, 0.46);
-  --app-scrollbar-thumb-hover-color: rgba(100, 116, 139, 0.72);
-  --folder-tree-node-height: 38px;
-  --folder-tree-node-radius: 10px;
-  --folder-tree-node-hover-bg: #f3f7fc;
-  --folder-tree-node-hover-border-color: rgba(148, 163, 184, 0.18);
-  --folder-tree-node-hover-shadow: 0 8px 16px rgba(148, 163, 184, 0.12);
+  --app-content-surface-muted-color: #f8fafc;
+  --app-content-border-color: rgba(148, 163, 184, 0.2);
+  --app-content-shadow: none;
+  --app-content-highlight-color: transparent;
+  --app-overlay-color: rgba(15, 23, 42, 0.18);
+  --app-scrollbar-thumb-color: rgba(125, 138, 159, 0.36);
+  --app-scrollbar-thumb-hover-color: rgba(100, 116, 139, 0.62);
+  --folder-tree-node-height: 30px;
+  --folder-tree-node-radius: 6px;
+  --folder-tree-node-hover-bg: #f1f5f9;
+  --folder-tree-node-hover-border-color: transparent;
+  --folder-tree-node-hover-shadow: none;
   --folder-tree-node-active-bg: color-mix(
     in srgb,
-    var(--el-color-primary) 10%,
+    var(--el-color-primary) 9%,
     transparent
   );
   --folder-tree-node-active-border-color: color-mix(
     in srgb,
-    var(--el-color-primary) 22%,
+    var(--el-color-primary) 20%,
     transparent
   );
   --folder-tree-node-active-color: var(--el-color-primary);
-  --folder-tree-node-active-shadow: 0 10px 20px color-mix(in srgb, var(--el-color-primary) 12%, transparent);
+  --folder-tree-node-active-shadow: none;
   --folder-tree-node-drop-bg: color-mix(in srgb, var(--el-color-primary) 8%, transparent);
   --folder-tree-node-drop-border-color: color-mix(
     in srgb,
@@ -165,13 +165,13 @@ html.light {
     transparent
   );
   --folder-tree-node-drop-color: var(--el-color-primary);
-  --folder-tree-node-drop-shadow: 0 10px 18px color-mix(in srgb, var(--el-color-primary) 12%, transparent);
+  --folder-tree-node-drop-shadow: none;
   --folder-tree-node-accent-color: var(--el-color-primary);
-  --folder-tree-toggle-bg: rgba(255, 255, 255, 0.96);
-  --folder-tree-toggle-hover-bg: #f3f7fc;
+  --folder-tree-toggle-bg: #ffffff;
+  --folder-tree-toggle-hover-bg: #f1f5f9;
   --folder-tree-toggle-color: #64748b;
   --folder-tree-toggle-hover-color: var(--el-color-primary);
-  --folder-tree-toggle-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  --folder-tree-toggle-shadow: none;
   --folder-tree-action-icon-bg: rgba(255, 255, 255, 0.78);
   --folder-tree-action-icon-color: #64748b;
   --folder-tree-action-icon-hover-bg: color-mix(
@@ -470,83 +470,83 @@ html.dark {
 
   --logo-title-text-color: #f3f4f6;
 
-  --top-header-bg-color: rgba(16, 16, 16, 0.94);
+  --top-header-bg-color: rgba(16, 16, 16, 0.96);
   --top-header-text-color: #d8dde6;
-  --top-header-hover-color: #181818;
-  --top-tool-border-color: #242424;
+  --top-header-hover-color: #1c1c20;
+  --top-tool-border-color: #242428;
   --top-header-shadow: none;
   --top-header-breadcrumb-color: rgba(255, 255, 255, 0.52);
   --top-header-breadcrumb-muted-color: rgba(255, 255, 255, 0.24);
-  --top-header-breadcrumb-active-color: rgba(255, 255, 255, 0.88);
+  --top-header-breadcrumb-active-color: rgba(255, 255, 255, 0.9);
 
-  --header-glass-bg: rgba(30, 30, 30, 0.65);
+  --header-glass-bg: rgba(24, 24, 28, 0.85);
   --header-glass-border: rgba(255, 255, 255, 0.08);
-  --header-glass-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-  --header-glass-blur: blur(12px) saturate(180%);
-  --header-action-size: 34px;
-  --header-action-radius: 8px;
-  --header-action-bar-radius: 99rem;
-  --header-action-hover-bg: rgba(0, 0, 0, 0.06);
+  --header-glass-shadow: none;
+  --header-glass-blur: blur(8px);
+  --header-action-size: 28px;
+  --header-action-radius: 6px;
+  --header-action-bar-radius: 8px;
+  --header-action-hover-bg: rgba(255, 255, 255, 0.06);
 
-  --tags-view-border-color: rgba(255, 255, 255, 0.04);
+  --tags-view-border-color: rgba(255, 255, 255, 0.06);
   --tags-view-tool-color: rgba(255, 255, 255, 0.44);
-  --tags-view-tool-hover-color: rgba(255, 255, 255, 0.7);
-  --tags-view-tool-hover-bg: rgba(255, 255, 255, 0.01);
-  --tags-view-item-bg: rgba(255, 255, 255, 0.018);
-  --tags-view-item-border-color: rgba(255, 255, 255, 0.03);
-  --tags-view-item-color: rgba(255, 255, 255, 0.68);
-  --tags-view-item-hover-bg: rgba(255, 255, 255, 0.035);
+  --tags-view-tool-hover-color: rgba(255, 255, 255, 0.8);
+  --tags-view-tool-hover-bg: rgba(255, 255, 255, 0.04);
+  --tags-view-item-bg: transparent;
+  --tags-view-item-border-color: transparent;
+  --tags-view-item-color: rgba(255, 255, 255, 0.64);
+  --tags-view-item-hover-bg: rgba(255, 255, 255, 0.04);
   --tags-view-item-hover-color: rgba(255, 255, 255, 0.95);
   --tags-view-item-active-bg: transparent;
-  --tags-view-item-active-border-color: rgba(125, 176, 255, 0.14);
-  --tags-view-item-active-color: #d6e6ff;
+  --tags-view-item-active-border-color: color-mix(in srgb, var(--el-color-primary) 28%, transparent);
+  --tags-view-item-active-color: color-mix(in srgb, var(--el-color-primary) 50%, #ffffff);
   --tags-view-item-shadow: none;
 
   --app-content-bg-color: var(--left-menu-bg-color);
-  --app-content-surface-color: #151515;
-  --app-content-surface-muted-color: #1b1b1c;
+  --app-content-surface-color: #141417;
+  --app-content-surface-muted-color: #1a1a1e;
   --app-content-border-color: rgba(255, 255, 255, 0.08);
-  --app-content-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
-  --app-content-highlight-color: rgba(255, 255, 255, 0.03);
-  --app-overlay-color: rgba(0, 0, 0, 0.45);
-  --app-scrollbar-thumb-color: rgba(143, 154, 173, 0.45);
-  --app-scrollbar-thumb-hover-color: rgba(143, 154, 173, 0.7);
-  --folder-tree-node-hover-bg: rgba(255, 255, 255, 0.035);
-  --folder-tree-node-hover-border-color: rgba(255, 255, 255, 0.08);
-  --folder-tree-node-hover-shadow: 0 10px 20px rgba(0, 0, 0, 0.22);
-  --folder-tree-node-active-bg: rgba(125, 176, 255, 0.12);
-  --folder-tree-node-active-border-color: rgba(125, 176, 255, 0.22);
-  --folder-tree-node-active-color: #d6e6ff;
-  --folder-tree-node-active-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
-  --folder-tree-node-drop-bg: rgba(125, 176, 255, 0.14);
-  --folder-tree-node-drop-border-color: rgba(125, 176, 255, 0.28);
-  --folder-tree-node-drop-color: #d6e6ff;
-  --folder-tree-node-drop-shadow: 0 10px 18px rgba(0, 0, 0, 0.18);
-  --folder-tree-node-accent-color: #7db0ff;
-  --folder-tree-toggle-bg: #1a1a1a;
-  --folder-tree-toggle-hover-bg: #212121;
+  --app-content-shadow: none;
+  --app-content-highlight-color: transparent;
+  --app-overlay-color: rgba(0, 0, 0, 0.5);
+  --app-scrollbar-thumb-color: rgba(143, 154, 173, 0.34);
+  --app-scrollbar-thumb-hover-color: rgba(143, 154, 173, 0.6);
+  --folder-tree-node-hover-bg: rgba(255, 255, 255, 0.04);
+  --folder-tree-node-hover-border-color: transparent;
+  --folder-tree-node-hover-shadow: none;
+  --folder-tree-node-active-bg: color-mix(in srgb, var(--el-color-primary) 14%, transparent);
+  --folder-tree-node-active-border-color: color-mix(in srgb, var(--el-color-primary) 28%, transparent);
+  --folder-tree-node-active-color: color-mix(in srgb, var(--el-color-primary) 50%, #ffffff);
+  --folder-tree-node-active-shadow: none;
+  --folder-tree-node-drop-bg: color-mix(in srgb, var(--el-color-primary) 16%, transparent);
+  --folder-tree-node-drop-border-color: color-mix(in srgb, var(--el-color-primary) 36%, transparent);
+  --folder-tree-node-drop-color: color-mix(in srgb, var(--el-color-primary) 50%, #ffffff);
+  --folder-tree-node-drop-shadow: none;
+  --folder-tree-node-accent-color: color-mix(in srgb, var(--el-color-primary) 55%, #ffffff);
+  --folder-tree-toggle-bg: #18181b;
+  --folder-tree-toggle-hover-bg: #222226;
   --folder-tree-toggle-color: rgba(255, 255, 255, 0.64);
   --folder-tree-toggle-hover-color: #ffffff;
-  --folder-tree-toggle-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+  --folder-tree-toggle-shadow: none;
   --folder-tree-action-icon-bg: rgba(255, 255, 255, 0.04);
   --folder-tree-action-icon-color: rgba(255, 255, 255, 0.64);
-  --folder-tree-action-icon-hover-bg: rgba(125, 176, 255, 0.14);
-  --folder-tree-action-icon-hover-color: #d6e6ff;
+  --folder-tree-action-icon-hover-bg: color-mix(in srgb, var(--el-color-primary) 16%, transparent);
+  --folder-tree-action-icon-hover-color: color-mix(in srgb, var(--el-color-primary) 50%, #ffffff);
 
   --table-row-drag-handle-color: rgba(255, 255, 255, 0.42);
-  --table-row-drag-handle-hover-color: #d6e6ff;
-  --table-row-drag-handle-active-color: #d6e6ff;
+  --table-row-drag-handle-hover-color: color-mix(in srgb, var(--el-color-primary) 50%, #ffffff);
+  --table-row-drag-handle-active-color: color-mix(in srgb, var(--el-color-primary) 50%, #ffffff);
   --table-row-drag-handle-bg: rgba(255, 255, 255, 0.03);
-  --table-row-drag-handle-hover-bg: rgba(125, 176, 255, 0.14);
-  --table-row-drag-handle-active-bg: rgba(125, 176, 255, 0.18);
+  --table-row-drag-handle-hover-bg: color-mix(in srgb, var(--el-color-primary) 14%, transparent);
+  --table-row-drag-handle-active-bg: color-mix(in srgb, var(--el-color-primary) 18%, transparent);
   --table-row-drag-handle-border-color: rgba(255, 255, 255, 0.08);
-  --table-row-drag-handle-hover-border-color: rgba(125, 176, 255, 0.22);
-  --table-row-drag-handle-shadow: 0 6px 14px rgba(0, 0, 0, 0.18);
-  --table-row-drag-handle-hover-shadow: 0 10px 20px rgba(0, 0, 0, 0.24);
-  --table-row-drag-handle-active-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
-  --table-row-drag-active-bg: rgba(125, 176, 255, 0.1);
-  --table-row-drag-active-border-color: rgba(125, 176, 255, 0.2);
-  --table-row-drag-ghost-bg: rgba(125, 176, 255, 0.12);
+  --table-row-drag-handle-hover-border-color: color-mix(in srgb, var(--el-color-primary) 28%, transparent);
+  --table-row-drag-handle-shadow: none;
+  --table-row-drag-handle-hover-shadow: none;
+  --table-row-drag-handle-active-shadow: none;
+  --table-row-drag-active-bg: color-mix(in srgb, var(--el-color-primary) 10%, transparent);
+  --table-row-drag-active-border-color: color-mix(in srgb, var(--el-color-primary) 24%, transparent);
+  --table-row-drag-ghost-bg: color-mix(in srgb, var(--el-color-primary) 12%, transparent);
 
   --app-form-label-color: rgba(255, 255, 255, 0.66);
 }

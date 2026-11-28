@@ -472,13 +472,12 @@
         v-loading="loadingBatch"
         element-loading-text="正在加载发布配置..."
       >
-        <!-- 顶栏：标题 + 推荐状态 + 右上角专属关闭按钮 -->
+        <!-- 顶栏：极简标题 + 选中计数 + 关闭 -->
         <div class="pqr__side-header">
           <div class="pqr__side-title-row">
-            <span class="pqr__side-title">发布任务配置</span>
-            <span v-if="current" class="pqr__count-badge">{{ displayConfigs.length }} 项</span>
-            <span v-if="current && matchedCount" class="pqr__count-badge pqr__count-badge--success">
-              推荐匹配 {{ matchedCount }}
+            <span class="pqr__side-title">发布配置</span>
+            <span v-if="current && selectedVisibleConfigIds.length" class="pqr__header-selected">
+              已选 {{ selectedVisibleConfigIds.length }}
             </span>
           </div>
 
@@ -487,84 +486,116 @@
           </button>
         </div>
 
-        <div class="pqr__config-search">
-          <el-icon aria-hidden="true"><Search /></el-icon>
-          <input
-            v-model="configSearch"
-            type="search"
-            aria-label="搜索发布配置"
-            placeholder="搜索配置名称或平台"
-            autocomplete="off"
-            :spellcheck="false"
-          />
-          <button
-            v-if="configSearch"
-            type="button"
-            class="pqr__config-search-clear"
-            aria-label="清空配置搜索"
-            title="清空搜索"
-            @click="configSearch = ''"
-          >
-            <el-icon aria-hidden="true"><Close /></el-icon>
-          </button>
-        </div>
-
-        <!-- 快捷操作栏：仅选匹配 / 全选 -->
-        <div class="pqr__side-subbar">
-          <div class="pqr__side-actions">
+        <!-- 紧凑统一工具区：搜索 + 单行视图与批量操作 -->
+        <div class="pqr__side-toolbar">
+          <div class="pqr__config-search">
+            <el-icon class="pqr__config-search-icon" aria-hidden="true"><Search /></el-icon>
+            <input
+              ref="configSearchInputRef"
+              v-model="configSearch"
+              type="search"
+              aria-label="搜索发布配置"
+              placeholder="搜索配置名称或平台..."
+              autocomplete="off"
+              :spellcheck="false"
+              @keydown="handleSearchKeydown"
+            />
+            <kbd v-if="!configSearch" class="pqr__search-kbd" title="按 / 键快速搜索">/</kbd>
             <button
-              v-if="matchedCount > 0"
+              v-else
               type="button"
-              class="pqr__action-link"
-              :disabled="loadingBatch || !current"
-              title="一键重置为仅勾选推荐匹配项"
-              @click="selectOnlyMatched"
+              class="pqr__config-search-clear"
+              aria-label="清空配置搜索"
+              title="清空搜索 (Esc)"
+              @click="configSearch = ''"
             >
-              仅选匹配 ({{ matchedCount }})
-            </button>
-            <button
-              type="button"
-              class="pqr__action-link"
-              :disabled="loadingBatch || !current || !displayConfigs.length"
-              @click="toggleSelectAll"
-            >
-              {{ isAllSelected ? '取消全选' : (configSearchKeyword ? '全选当前' : '全选所有') }}
+              <el-icon aria-hidden="true"><Close /></el-icon>
             </button>
           </div>
-          <span
-            class="pqr__side-sub-count"
-            :title="hiddenSelectedCount ? `${hiddenSelectedCount} 项已勾选但被搜索词隐藏，不会创建任务` : ''"
-            >已选 {{ selectedVisibleConfigIds.length }} 项<em v-if="hiddenSelectedCount" class="pqr__side-sub-hidden">
-              · {{ hiddenSelectedCount }} 项已隐藏</em
-            ></span
-          >
+
+          <!-- 单行合体控制条：左侧视图筛选，右侧批量勾选 -->
+          <div v-if="current" class="pqr__side-bar">
+            <div class="pqr__side-tabs" role="tablist" aria-label="配置视图筛选">
+              <button
+                type="button"
+                role="tab"
+                class="pqr__side-tab"
+                :class="{ 'is-active': configFilterTab === 'all' }"
+                :aria-selected="configFilterTab === 'all'"
+                @click="configFilterTab = 'all'"
+              >
+                全部 <em>{{ allSearchedConfigs.length }}</em>
+              </button>
+              <button
+                type="button"
+                role="tab"
+                class="pqr__side-tab"
+                :class="{ 'is-active': configFilterTab === 'matched' }"
+                :aria-selected="configFilterTab === 'matched'"
+                @click="configFilterTab = 'matched'"
+              >
+                推荐 <em>{{ totalMatchedInSearchCount }}</em>
+              </button>
+              <button
+                type="button"
+                role="tab"
+                class="pqr__side-tab"
+                :class="{ 'is-active': configFilterTab === 'selected' }"
+                :aria-selected="configFilterTab === 'selected'"
+                @click="configFilterTab = 'selected'"
+              >
+                已选 <em>{{ totalSelectedInSearchCount }}</em>
+              </button>
+            </div>
+
+            <div class="pqr__side-actions">
+              <button
+                v-if="matchedCount > 0"
+                type="button"
+                class="pqr__action-link"
+                :disabled="loadingBatch"
+                title="仅勾选推荐匹配项"
+                @click="selectOnlyMatched"
+              >
+                仅匹配
+              </button>
+              <button
+                type="button"
+                class="pqr__action-link"
+                :disabled="loadingBatch || !displayConfigs.length"
+                @click="toggleSelectAll"
+              >
+                {{ isAllSelected ? '全不选' : '全选' }}
+              </button>
+              <button
+                v-if="selectedVisibleConfigIds.length > 0 && !isAllSelected"
+                type="button"
+                class="pqr__action-link pqr__action-link--muted"
+                :disabled="loadingBatch"
+                @click="clearSelectedConfigs"
+              >
+                清空
+              </button>
+            </div>
+          </div>
         </div>
 
-        <!-- 配置列表：按契合度与近似比例从高到低从上到下排序 -->
-        <div class="pqr__config-scroll">
+        <!-- 配置列表：无框留白扁平行，名称完整展示、可划选、悬停一键复制 -->
+        <div ref="configScrollRef" class="pqr__config-scroll">
           <template v-if="current && displayConfigs.length > 0">
-            <template v-for="(item, index) in displayConfigs" :key="item.id">
-              <!-- 当进入不匹配区域时展示分隔提示 -->
+            <!-- 推荐匹配区域 -->
+            <template v-if="matchedDisplayConfigs.length > 0">
               <div
-                v-if="!item.isMatched && (index === 0 || displayConfigs[index - 1]?.isMatched)"
-                class="pqr__config-divider"
-              >
-                <span class="pqr__config-divider-line"></span>
-                <span class="pqr__config-divider-text">其他配置 · 按近似比例排序</span>
-                <span class="pqr__config-divider-line"></span>
-              </div>
-
-              <div
-                class="pqr__config-card"
+                v-for="item in matchedDisplayConfigs"
+                :key="item.id"
+                class="pqr__config-row"
                 :class="{
                   'is-selected': selectedConfigIds.includes(item.id),
-                  'is-published': isItemPublished(item.id),
-                  'is-mismatch': !item.isMatched && !isItemPublished(item.id)
+                  'is-published': isItemPublished(item.id)
                 }"
                 @click="handleCardClick(item)"
               >
-                <!-- 勾选指示器：未选=空心圈 / 选中=蓝色实心勾 / 已发布=绿色实心勾 -->
-                <span class="pqr__check">
+                <span class="pqr__check" :class="{ 'is-published': isItemPublished(item.id) }">
                   <el-icon
                     v-if="isItemPublished(item.id) || selectedConfigIds.includes(item.id)"
                     :size="11"
@@ -574,63 +605,168 @@
                 </span>
 
                 <div class="pqr__config-main">
-                  <!-- 第一行：配置名称 + 醒目的独立比例徽章 -->
                   <div class="pqr__config-head">
-                    <span class="pqr__config-name" :title="item.name">
-                      <em v-if="platformPrefix(item)" class="pqr__config-platform">{{ platformPrefix(item) }}</em>
-                      {{ item.name }}
-                    </span>
-
-                    <!-- ⚡ 简洁清晰的比例显示：告别tag边框底色，直接以专属形态配色文字呈现，清爽直观 -->
-                    <span
-                      class="pqr__ratio-text"
-                      :class="[
-                        item.isMatched ? 'pqr__ratio-text--matched' : 'pqr__ratio-text--mismatch',
-                        `pqr__ratio-text--${getRatioBadgeKind(item)}`
-                      ]"
-                      :title="item.targetAspectRatio ? `目标宽高比：${item.targetAspectRatio}:1` : '不限比例'"
-                    >
-                      {{ item.aspectRatioLabel }}
-                    </span>
+                    <span class="pqr__config-name">{{ item.name }}</span>
+                    <div class="pqr__row-right">
+                      <span
+                        class="pqr__ratio-text"
+                        :class="`pqr__ratio-text--${getRatioBadgeKind(item)}`"
+                        :title="item.targetAspectRatio ? `目标宽高比：${item.targetAspectRatio}:1` : '不限比例'"
+                      >
+                        {{ item.aspectRatioLabel }}
+                      </span>
+                      <button
+                        type="button"
+                        class="pqr__copy-btn"
+                        :class="{ 'is-copied': copiedConfigId === item.id }"
+                        :title="copiedConfigId === item.id ? '已复制' : '复制配置名称'"
+                        @click.stop="copyConfigName(item)"
+                      >
+                        <el-icon :size="13">
+                          <Check v-if="copiedConfigId === item.id" />
+                          <CopyDocument v-else />
+                        </el-icon>
+                      </button>
+                    </div>
                   </div>
 
-                  <!-- 第二行：分辨率要求 + 匹配/发布状态徽标 -->
                   <div class="pqr__config-meta">
+                    <span v-if="isItemPublished(item.id)" class="pqr__score-text pqr__score-text--published">
+                      已发布
+                    </span>
+                    <span
+                      v-else
+                      class="pqr__score-text"
+                      :class="`pqr__score-text--${item.matchStatus}`"
+                      :title="item.mismatchReason || ''"
+                    >
+                      {{ getMatchStatusBadgeText(item) }}
+                    </span>
+
                     <span v-if="item.minWidth && item.minHeight" class="pqr__spec-text">
                       ≥{{ item.minWidth }}×{{ item.minHeight }}
                     </span>
                     <span v-else class="pqr__spec-text">通用分辨率</span>
 
-                    <i class="pqr__meta-dot"></i>
-
-                    <span v-if="isItemPublished(item.id)" class="pqr__score-pill pqr__score-pill--published">
-                      已发布
-                    </span>
-                    <span
-                      v-else
-                      class="pqr__score-pill"
-                      :class="`pqr__score-pill--${item.matchStatus}`"
-                      :title="!item.isMatched && item.mismatchReason ? item.mismatchReason : ''"
-                    >
-                      {{ getMatchStatusBadgeText(item) }}
-                    </span>
+                    <span v-if="platformPrefix(item)" class="pqr__meta-platform">{{ platformPrefix(item) }}</span>
                   </div>
                 </div>
               </div>
             </template>
+
+            <!-- 其他配置分组（极简静音标题，点击折叠/展开） -->
+            <template v-if="mismatchedDisplayConfigs.length > 0">
+              <button
+                v-if="configFilterTab === 'all' && matchedDisplayConfigs.length > 0"
+                type="button"
+                class="pqr__config-section"
+                :class="{ 'is-collapsed': !showMismatchedConfigs }"
+                @click="showMismatchedConfigs = !showMismatchedConfigs"
+              >
+                <el-icon class="pqr__section-arrow"><ArrowDown /></el-icon>
+                <span>其他配置 ({{ mismatchedDisplayConfigs.length }})</span>
+              </button>
+              <div
+                v-else-if="configFilterTab === 'all'"
+                class="pqr__config-section pqr__config-section--static"
+              >
+                <span>其他配置 · 按近似比例排序</span>
+              </div>
+
+              <template v-if="showMismatchedConfigs || configFilterTab !== 'all' || matchedDisplayConfigs.length === 0">
+                <div
+                  v-for="item in mismatchedDisplayConfigs"
+                  :key="item.id"
+                  class="pqr__config-row"
+                  :class="{
+                    'is-selected': selectedConfigIds.includes(item.id),
+                    'is-published': isItemPublished(item.id),
+                    'is-mismatch': !isItemPublished(item.id)
+                  }"
+                  @click="handleCardClick(item)"
+                >
+                  <span class="pqr__check" :class="{ 'is-published': isItemPublished(item.id) }">
+                    <el-icon
+                      v-if="isItemPublished(item.id) || selectedConfigIds.includes(item.id)"
+                      :size="11"
+                    >
+                      <Check />
+                    </el-icon>
+                  </span>
+
+                  <div class="pqr__config-main">
+                    <div class="pqr__config-head">
+                      <span class="pqr__config-name">{{ item.name }}</span>
+                      <div class="pqr__row-right">
+                        <span
+                          class="pqr__ratio-text pqr__ratio-text--mismatch"
+                          :class="`pqr__ratio-text--${getRatioBadgeKind(item)}`"
+                          :title="item.targetAspectRatio ? `目标宽高比：${item.targetAspectRatio}:1` : '不限比例'"
+                        >
+                          {{ item.aspectRatioLabel }}
+                        </span>
+                        <button
+                          type="button"
+                          class="pqr__copy-btn"
+                          :class="{ 'is-copied': copiedConfigId === item.id }"
+                          :title="copiedConfigId === item.id ? '已复制' : '复制配置名称'"
+                          @click.stop="copyConfigName(item)"
+                        >
+                          <el-icon :size="13">
+                            <Check v-if="copiedConfigId === item.id" />
+                            <CopyDocument v-else />
+                          </el-icon>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div class="pqr__config-meta">
+                      <span v-if="isItemPublished(item.id)" class="pqr__score-text pqr__score-text--published">
+                        已发布
+                      </span>
+                      <span
+                        v-else
+                        class="pqr__score-text"
+                        :class="`pqr__score-text--${item.matchStatus}`"
+                        :title="item.mismatchReason || ''"
+                      >
+                        {{ getMatchStatusBadgeText(item) }}
+                      </span>
+
+                      <span v-if="item.minWidth && item.minHeight" class="pqr__spec-text">
+                        ≥{{ item.minWidth }}×{{ item.minHeight }}
+                      </span>
+                      <span v-else class="pqr__spec-text">通用分辨率</span>
+
+                      <span v-if="platformPrefix(item)" class="pqr__meta-platform">{{ platformPrefix(item) }}</span>
+                    </div>
+                  </div>
+                </div>
+              </template>
+            </template>
           </template>
-          <div v-else-if="current && configSearchKeyword && !loadingBatch" class="pqr__side-empty" role="status">
-            无匹配配置
+
+          <div v-else-if="current && (configSearchKeyword || configFilterTab !== 'all') && !loadingBatch" class="pqr__side-empty" role="status">
+            <p class="pqr__side-empty-text">
+              {{ configSearchKeyword ? `未找到包含「${configSearch.trim()}」的配置` : (configFilterTab === 'matched' ? '当前图片暂无推荐匹配配置' : '暂未勾选任何配置') }}
+            </p>
+            <button type="button" class="pqr__side-empty-btn" @click="resetConfigFilters">
+              查看全部配置
+            </button>
           </div>
           <div v-else-if="!loadingBatch" class="pqr__side-empty">
             <el-empty description="暂无可配置素材" :image-size="64" />
           </div>
         </div>
 
-        <!-- 侧边栏底部提交栏（贴底） -->
+        <!-- 侧边栏底部提交栏 -->
         <div class="pqr__side-footer">
+          <div v-if="hiddenSelectedCount > 0" class="pqr__hidden-warn" role="status">
+            <span>{{ hiddenSelectedCount }} 项已选被筛选隐藏（不会派发）</span>
+            <button type="button" class="pqr__hidden-warn-btn" @click="resetConfigFilters">显示全部</button>
+          </div>
           <div v-if="createQueue.length" class="pqr__create-pending" role="status">
-            后台创建中 · 待派发 {{ createQueue.length }} 单
+            后台派发中 · 剩余 {{ createQueue.length }} 单
           </div>
           <el-button
             type="primary"
@@ -639,7 +775,7 @@
             title="一键创建选中的发布任务并看下一张 (快捷键：↵ Enter)"
             @click="actCreateAndNext"
           >
-            <span>{{ current && selectedVisibleConfigIds.length ? `一键创建并看下一张 (${selectedVisibleConfigIds.length})` : (loadingBatch ? '正在加载配置...' : (current ? '请勾选配置' : '暂无可配置素材')) }}</span>
+            <span>{{ current && selectedVisibleConfigIds.length ? `一键创建并下一张 (${selectedVisibleConfigIds.length})` : (loadingBatch ? '正在加载配置...' : (current ? '请先勾选配置' : '暂无可配置素材')) }}</span>
             <kbd v-if="current && selectedVisibleConfigIds.length" class="pqr__kbd-hint">↵ Enter</kbd>
           </el-button>
         </div>
@@ -651,10 +787,12 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import {
+  ArrowDown,
   ArrowLeft,
   ArrowRight,
   Check,
   Close,
+  CopyDocument,
   Operation,
   Refresh,
   Search,
@@ -1445,7 +1583,13 @@ async function checkAndPrefetchQueue(): Promise<void> {
 }
 
 // ==================== 当前素材的配置匹配与勾选 ====================
+type ConfigFilterTab = 'all' | 'matched' | 'selected'
+
+const configSearchInputRef = ref<HTMLInputElement | null>(null)
+const configScrollRef = ref<HTMLElement | null>(null)
 const configSearch = ref('')
+const configFilterTab = ref<ConfigFilterTab>('all')
+const showMismatchedConfigs = ref(true)
 const configSearchKeyword = computed(() => configSearch.value.trim().toLowerCase())
 const selectedConfigIds = ref<string[]>([])
 let selectionTouched = false
@@ -1461,13 +1605,59 @@ const matchResult = ref<QuickPublishMatchResult>({
   errors: []
 })
 
-const displayConfigs = computed<MatchedPublishConfigItem[]>(() => {
+/** 搜索词过滤后的配置全集（未套用分段 Tab，用于 Tab 计数） */
+const allSearchedConfigs = computed<MatchedPublishConfigItem[]>(() => {
   const all = matchResult.value?.allConfigs || []
   const keyword = configSearchKeyword.value
   if (!keyword) return all
   return all.filter((item) =>
     `${item.name} ${item.platform || ''} ${formatPlatform(item.platform)}`.toLowerCase().includes(keyword)
   )
+})
+
+const totalMatchedInSearchCount = computed(() =>
+  allSearchedConfigs.value.filter((item) => item.isMatched && !isItemPublished(item.id)).length
+)
+
+const totalSelectedInSearchCount = computed(() =>
+  allSearchedConfigs.value.filter((item) => !isItemPublished(item.id) && selectedConfigIds.value.includes(item.id)).length
+)
+
+const displayConfigs = computed<MatchedPublishConfigItem[]>(() => {
+  const list = allSearchedConfigs.value
+  if (configFilterTab.value === 'matched') {
+    return list.filter((item) => item.isMatched)
+  }
+  if (configFilterTab.value === 'selected') {
+    return list.filter((item) => !isItemPublished(item.id) && selectedConfigIds.value.includes(item.id))
+  }
+  return list
+})
+
+const matchedDisplayConfigs = computed(() => displayConfigs.value.filter((item) => item.isMatched))
+const mismatchedDisplayConfigs = computed(() => displayConfigs.value.filter((item) => !item.isMatched))
+
+/** 当前实际展开可见的列表（供数字键 1-9 快捷勾选对齐视觉顺序） */
+const visibleCardList = computed<MatchedPublishConfigItem[]>(() => {
+  const showMismatch =
+    showMismatchedConfigs.value || configFilterTab.value !== 'all' || matchedDisplayConfigs.value.length === 0
+  return showMismatch
+    ? [...matchedDisplayConfigs.value, ...mismatchedDisplayConfigs.value]
+    : matchedDisplayConfigs.value
+})
+
+/** 前 9 个可选配置与数字快捷键 1-9 的映射 */
+const shortcutIndexMap = computed<Map<string, number>>(() => {
+  const map = new Map<string, number>()
+  let num = 1
+  for (const item of visibleCardList.value) {
+    if (num > 9) break
+    if (!isItemPublished(item.id)) {
+      map.set(item.id, num)
+      num++
+    }
+  }
+  return map
 })
 
 const selectedVisibleConfigIds = computed(() => {
@@ -1477,7 +1667,7 @@ const selectedVisibleConfigIds = computed(() => {
   return selectedConfigIds.value.filter((id) => visibleIds.has(id))
 })
 
-/** 已勾选但被搜索词隐藏的配置数：这些不会进入创建请求，需要明确提示 */
+/** 已勾选但被搜索/视图筛选隐藏的配置数：这些不会进入创建请求，需要明确提示 */
 const hiddenSelectedCount = computed(() => selectedConfigIds.value.length - selectedVisibleConfigIds.value.length)
 
 /** 推荐匹配的数量（排除已发布的） */
@@ -1557,6 +1747,7 @@ function initQueue() {
 function syncCurrentMaterial() {
   const sticker = current.value
   selectionTouched = false
+  configScrollRef.value?.scrollTo({ top: 0 })
   if (!sticker) {
     displayUrl.value = ''
     deckPending.value = false
@@ -1653,9 +1844,42 @@ watch(currentIndex, () => {
 })
 
 // ==================== 交互动作与状态变更 ====================
+const copiedConfigId = ref<string>('')
+let copiedResetTimer: ReturnType<typeof setTimeout> | null = null
+
 function handleCardClick(item: MatchedPublishConfigItem) {
+  // 划选复制名称时不误触勾选
+  const selectionText = typeof window !== 'undefined' ? window.getSelection()?.toString().trim() : ''
+  if (selectionText) return
   if (isItemPublished(item.id)) return
   toggleConfig(item.id)
+}
+
+async function copyConfigName(item: MatchedPublishConfigItem) {
+  const text = String(item?.name || '').trim()
+  if (!text) return
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text)
+    } else {
+      const ta = document.createElement('textarea')
+      ta.value = text
+      ta.style.position = 'fixed'
+      ta.style.opacity = '0'
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+    }
+    copiedConfigId.value = item.id
+    if (copiedResetTimer) clearTimeout(copiedResetTimer)
+    copiedResetTimer = setTimeout(() => {
+      if (copiedConfigId.value === item.id) copiedConfigId.value = ''
+    }, 1200)
+    ElMessage.success({ message: '已复制配置名称', duration: 1200, grouping: true })
+  } catch {
+    ElMessage.error('复制失败，请手动划选复制')
+  }
 }
 
 function toggleConfig(id: string) {
@@ -1686,6 +1910,34 @@ function toggleSelectAll() {
     selectedConfigIds.value = displayConfigs.value
       .filter((item) => !isItemPublished(item.id))
       .map((item) => item.id)
+  }
+}
+
+function clearSelectedConfigs() {
+  selectionTouched = true
+  selectedConfigIds.value = []
+}
+
+function resetConfigFilters() {
+  configSearch.value = ''
+  configFilterTab.value = 'all'
+  showMismatchedConfigs.value = true
+}
+
+function handleSearchKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' || e.code === 'Escape') {
+    e.preventDefault()
+    e.stopPropagation()
+    if (configSearch.value) {
+      configSearch.value = ''
+    } else {
+      configSearchInputRef.value?.blur()
+    }
+    return
+  }
+  if (e.key === 'Enter' || e.code === 'Enter') {
+    e.preventDefault()
+    configSearchInputRef.value?.blur()
   }
 }
 
@@ -1959,6 +2211,25 @@ function handleKeydown(e: KeyboardEvent) {
 
   // 加载批次中不响应其他快捷键
   if (loadingBatch.value) return
+
+  // 1.5 快速聚焦配置搜索框 (/)
+  if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    e.preventDefault()
+    configSearchInputRef.value?.focus()
+    return
+  }
+
+  // 1.6 数字键 1-9 快速勾选/取消对应顺位的可选配置
+  if (!e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && /^[1-9]$/.test(e.key)) {
+    const targetNum = Number(e.key)
+    for (const [cfgId, num] of shortcutIndexMap.value.entries()) {
+      if (num === targetNum) {
+        e.preventDefault()
+        toggleConfig(cfgId)
+        return
+      }
+    }
+  }
 
   // 2. 一键创建选中的发布任务并看下一张：Enter / NumpadEnter
   if (e.key === 'Enter' || e.code === 'Enter' || e.code === 'NumpadEnter') {
@@ -2568,7 +2839,7 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
 }
 
 .pqr__image {
-  max-width: min(calc(100vw - 390px - 80px), 1100px);
+  max-width: min(calc(100vw - 480px - 80px), 1100px);
   max-height: calc(100vh - 160px);
   object-fit: contain;
   border: none;
@@ -2685,13 +2956,6 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   }
 }
 
-.pqr__side-empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 48px 0;
-  color: var(--el-text-color-secondary);
-}
 
 .pqr__empty {
   text-align: center;
@@ -2712,9 +2976,9 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   color: var(--el-text-color-secondary);
 }
 
-/* ================= 右侧面板（纯粹负责配置） ================= */
+/* ================= 右侧面板（现代极简扁平设计） ================= */
 .pqr__side {
-  width: 390px;
+  width: 480px;
   flex-shrink: 0;
   height: 100%;
   display: flex;
@@ -2723,36 +2987,36 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   position: relative;
   background: var(--app-content-surface-color, var(--el-bg-color));
   border-left: 1px solid var(--app-content-border-color, var(--el-border-color-lighter));
-  padding: 14px 14px 0;
-  gap: 10px;
+  box-sizing: border-box;
 }
 
 .pqr__side-header {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: 2px;
+  padding: 18px 20px 12px;
 }
 
 .pqr__side-title-row {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
 }
 
 .pqr__side-title {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
+  letter-spacing: -0.015em;
   color: var(--el-text-color-primary);
 }
 
-.pqr__count-badge {
-  font-size: 11px;
-  color: var(--el-text-color-secondary);
-
-  &--success {
-    color: var(--el-color-success);
-  }
+.pqr__header-selected {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pqr-primary-on-tint);
+  font-variant-numeric: tabular-nums;
 }
 
 .pqr__side-close {
@@ -2769,11 +3033,22 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   font-size: 15px;
   position: relative;
   z-index: 2005;
-  transition: color 0.15s ease;
+  transition: color 0.14s ease, background-color 0.14s ease;
 
   &:hover {
-    color: var(--el-color-danger, #f56c6c);
+    color: var(--el-text-color-primary);
+    background: var(--el-fill-color-light);
   }
+}
+
+/* 紧凑工具区：搜索 + 单行合体控制条 */
+.pqr__side-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 20px 12px;
+  border-bottom: 1px solid var(--el-border-color-extra-light);
 }
 
 .pqr__config-search {
@@ -2782,16 +3057,16 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   padding: 0 10px;
   color: var(--el-text-color-placeholder);
   background: var(--el-fill-color-light);
-  border: 1px solid var(--el-border-color-lighter);
+  border: 1px solid transparent;
   border-radius: 8px;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.14s ease, background-color 0.14s ease;
   flex-shrink: 0;
   align-items: center;
   gap: 8px;
 
   &:focus-within {
+    background: var(--el-bg-color);
     border-color: var(--pqr-primary-on-tint);
-    box-shadow: 0 0 0 2px var(--pqr-primary-tint);
   }
 
   input {
@@ -2815,10 +3090,24 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   }
 }
 
+.pqr__config-search-icon {
+  flex-shrink: 0;
+  font-size: 14px;
+  color: var(--el-text-color-placeholder);
+}
+
+.pqr__search-kbd {
+  flex-shrink: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--el-text-color-placeholder);
+  padding: 0 4px;
+}
+
 .pqr__config-search-clear {
   display: inline-flex;
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
   padding: 0;
   color: var(--el-text-color-secondary);
   cursor: pointer;
@@ -2828,55 +3117,99 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
+  font-size: 12px;
 
   &:hover {
     color: var(--el-text-color-primary);
-    background: var(--el-fill-color);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--pqr-primary-on-tint);
-    outline-offset: 2px;
   }
 }
 
-.pqr__side-subbar {
+/* 单行合体控制条：左视图、右批量操作 */
+.pqr__side-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 2px 2px 4px;
+  gap: 10px;
+}
+
+.pqr__side-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pqr__side-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.14s ease, background-color 0.14s ease;
+  white-space: nowrap;
+
+  em {
+    font-style: normal;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.72;
+  }
+
+  &:hover:not(.is-active) {
+    color: var(--el-text-color-primary);
+    background: var(--el-fill-color-lighter);
+  }
+
+  &.is-active {
+    color: var(--pqr-primary-on-tint);
+    background: var(--pqr-primary-tint);
+    font-weight: 600;
+
+    em {
+      opacity: 1;
+    }
+  }
 }
 
 .pqr__side-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
 .pqr__action-link {
-  background: none;
+  padding: 0;
   border: none;
-  color: var(--el-color-primary);
+  background: transparent;
+  color: var(--el-text-color-secondary);
   font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
-  padding: 2px 4px;
-  border-radius: 3px;
+  transition: color 0.14s ease;
+  white-space: nowrap;
 
-  &:hover {
-    background: var(--el-fill-color-light);
+  &:hover:not(:disabled) {
+    color: var(--pqr-primary-on-tint);
+  }
+
+  &:disabled {
+    opacity: 0.38;
+    cursor: not-allowed;
+  }
+
+  &--muted:hover:not(:disabled) {
+    color: var(--el-text-color-primary);
   }
 }
 
-.pqr__side-sub-count {
-  font-size: 11px;
-  color: var(--el-text-color-secondary);
-}
-
-.pqr__side-sub-hidden {
-  font-style: normal;
-  color: var(--el-color-warning);
-}
-
+/* 配置滚动区：无框留白扁平列表 + 细滚动条 */
 .pqr__config-scroll {
   flex: 1;
   min-height: 0;
@@ -2884,54 +3217,93 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin: 0 -8px;
-  padding: 0 8px;
+  padding: 10px 12px 18px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--el-border-color) transparent;
+
+  &::-webkit-scrollbar {
+    width: 5px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--el-text-color-placeholder) 30%, transparent);
+    border-radius: 999px;
+
+    &:hover {
+      background: color-mix(in srgb, var(--el-text-color-placeholder) 55%, transparent);
+    }
+  }
 }
 
-/* 分隔提示条：其他配置 · 按近似比例排序 */
-.pqr__config-divider {
+/* 极简静音分组标题 */
+.pqr__config-section {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: 8px 4px 4px;
-  padding: 0 2px;
-}
-
-.pqr__config-divider-line {
-  flex: 1;
-  height: 1px;
-  background: var(--el-border-color-lighter);
-}
-
-.pqr__config-divider-text {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--el-text-color-placeholder);
-  letter-spacing: 0.3px;
-  white-space: nowrap;
-}
-
-/* ---------- 配置行：无边框，仅靠底色区分状态 ---------- */
-.pqr__config-card {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px;
-  border-radius: 4px;
+  gap: 5px;
+  width: 100%;
+  padding: 16px 10px 6px;
   background: transparent;
   border: none;
   cursor: pointer;
-  transition: background-color 0.12s ease;
-  user-select: none;
+  color: var(--el-text-color-placeholder);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-align: left;
+  transition: color 0.14s ease;
 
   &:hover {
-    background: var(--el-fill-color-light);
+    color: var(--el-text-color-secondary);
   }
 
-  /* ---------- 选中：淡色底 + 主色名称 + 实心勾 ---------- */
+  &.is-collapsed .pqr__section-arrow {
+    transform: rotate(-90deg);
+  }
+
+  &--static {
+    cursor: default;
+
+    &:hover {
+      color: var(--el-text-color-placeholder);
+    }
+  }
+}
+
+.pqr__section-arrow {
+  font-size: 11px;
+  transition: transform 0.16s ease;
+}
+
+/* ---------- 现代极简扁平配置行：无外框、无分割线、留白呼吸感 ---------- */
+.pqr__config-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 11px 10px;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 0.14s ease, opacity 0.14s ease;
+
+  &:hover {
+    background: var(--el-fill-color-lighter);
+
+    .pqr__copy-btn {
+      opacity: 1;
+    }
+  }
+
+  /* 选中态：柔和主色浅底 + 主色名称 */
   &.is-selected {
     background: color-mix(in srgb, var(--el-color-primary) 8%, transparent);
+
+    &:hover {
+      background: color-mix(in srgb, var(--el-color-primary) 11%, transparent);
+    }
 
     .pqr__check {
       background: var(--el-color-primary);
@@ -2945,16 +3317,10 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
     }
   }
 
-  /* ---------- 已发布：不可选，弱化 + 绿勾 ---------- */
+  /* 已发布态：轻柔弱化 */
   &.is-published {
     cursor: default;
-    background: transparent;
-
-    .pqr__check {
-      background: var(--el-color-success);
-      border-color: var(--el-color-success);
-      color: #fff;
-    }
+    opacity: 0.56;
 
     .pqr__config-name {
       color: var(--el-text-color-secondary);
@@ -2966,7 +3332,7 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
     }
   }
 
-  /* ---------- 比例不符且未选：适度弱化，悬停清晰，支持自由勾选 ---------- */
+  /* 不匹配且未选：自然降权，悬停清晰 */
   &.is-mismatch:not(.is-selected) {
     opacity: 0.72;
 
@@ -2978,16 +3344,24 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
 
 .pqr__check {
   flex-shrink: 0;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
+  width: 17px;
+  height: 17px;
+  margin-top: 2px;
+  border-radius: 5px;
   border: 1.5px solid var(--el-border-color);
-  background: var(--el-bg-color);
+  background: transparent;
   color: transparent;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.12s ease;
+  transition: background-color 0.14s ease, border-color 0.14s ease;
+
+  &.is-published {
+    border-radius: 50%;
+    background: var(--el-color-success);
+    border-color: var(--el-color-success);
+    color: #fff;
+  }
 }
 
 .pqr__config-main {
@@ -2995,63 +3369,60 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 5px;
 }
 
 .pqr__config-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 8px;
+  gap: 12px;
 }
 
+/* 名称完整展示，自动换行绝不截断，支持直接划选复制 */
 .pqr__config-name {
   flex: 1;
   min-width: 0;
-  font-size: 13px;
-  font-weight: 550;
-  line-height: 1.4;
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.45;
+  letter-spacing: -0.01em;
   color: var(--el-text-color-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-word;
+  user-select: text;
+  cursor: text;
 }
 
-/* ⚡ 简洁清晰的比例显示：告别臃肿 tag，采用纯净专属彩色文字 */
-.pqr__ratio-text {
+.pqr__row-right {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  padding: 0;
-  font-size: 11.5px;
-  font-weight: 700;
-  letter-spacing: 0.25px;
-  line-height: 1.3;
-  white-space: nowrap;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  background: transparent;
-  border: none;
-  transition: all 0.12s ease;
+  gap: 6px;
+  padding-top: 1px;
+}
 
-  /* 竖版：紫罗兰色 (Violet) */
+/* 比例纯文字：等宽对齐，按形态配色 */
+.pqr__ratio-text {
+  font-size: 11.5px;
+  font-weight: 600;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  white-space: nowrap;
+
   &--portrait {
     color: #7c3aed;
   }
-  /* 横版：青碧色 (Teal) */
   &--landscape {
     color: #0d9488;
   }
-  /* 正方：天蓝色 (Sky Blue) */
   &--square {
     color: #0284c7;
   }
-  /* 通用：暖琥珀金 (Amber) */
   &--generic {
     color: #d97706;
   }
-
   &--mismatch {
-    opacity: 0.55;
+    opacity: 0.6;
   }
 }
 
@@ -3075,41 +3446,54 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   color: #fcd34d;
 }
 
-.pqr__config-platform {
-  font-style: normal;
-  font-size: 11px;
+/* 悬停显现的一键复制按钮：静默态完全隐藏，保持列表零噪点 */
+.pqr__copy-btn {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
   color: var(--el-text-color-secondary);
-  margin-right: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.14s ease, color 0.14s ease, background-color 0.14s ease;
+
+  &:hover {
+    color: var(--pqr-primary-on-tint);
+    background: var(--el-fill-color);
+  }
+
+  &.is-copied {
+    opacity: 1;
+    color: var(--el-color-success);
+  }
 }
 
+/* 第二行元数据：去杂乱中点，靠舒适间距自然分组 */
 .pqr__config-meta {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  line-height: 1.4;
-  white-space: nowrap;
-  overflow: hidden;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 12px;
+  line-height: 1.35;
+  user-select: text;
 }
 
-.pqr__meta-dot {
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: var(--el-text-color-placeholder);
-  flex-shrink: 0;
-}
-
-.pqr__score-pill {
+.pqr__score-text {
   font-weight: 500;
-  font-size: 11px;
 
   &--perfect {
     color: var(--el-color-success);
   }
 
   &--qualified {
-    color: var(--el-color-primary);
+    color: var(--pqr-primary-on-tint);
   }
 
   &--warning {
@@ -3117,7 +3501,7 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   }
 
   &--generic {
-    color: var(--el-text-color-regular);
+    color: var(--el-text-color-secondary);
   }
 
   &--mismatch {
@@ -3131,32 +3515,102 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
 
 .pqr__spec-text {
   color: var(--el-text-color-secondary);
+  font-variant-numeric: tabular-nums;
 }
 
-/* 侧边栏底部操作：贴底 */
+.pqr__meta-platform {
+  color: var(--el-text-color-placeholder);
+}
+
+.pqr__side-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 56px 20px;
+  color: var(--el-text-color-secondary);
+  text-align: center;
+}
+
+.pqr__side-empty-text {
+  margin: 0;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+
+.pqr__side-empty-btn {
+  padding: 5px 14px;
+  border-radius: 6px;
+  border: none;
+  background: var(--pqr-primary-tint);
+  color: var(--pqr-primary-on-tint);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.14s ease;
+
+  &:hover {
+    opacity: 0.85;
+  }
+}
+
+/* 侧边栏底部提交区 */
 .pqr__side-footer {
   flex-shrink: 0;
-  padding: 10px 0 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 20px 18px;
+  border-top: 1px solid var(--el-border-color-extra-light);
+  background: var(--app-content-surface-color, var(--el-bg-color));
+}
+
+.pqr__hidden-warn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--el-color-warning);
+  background: color-mix(in srgb, var(--el-color-warning) 10%, transparent);
+}
+
+.pqr__hidden-warn-btn {
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .pqr__create-pending {
-  padding: 0 0 6px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--el-text-color-secondary);
   text-align: center;
 }
 
 .pqr__submit {
   width: 100%;
-  height: 40px;
-  font-size: 14px;
+  height: 42px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
 }
 
 .pqr__kbd-hint {
-  margin-left: 6px;
+  margin-left: 8px;
   font-size: 11px;
-  font-family: inherit;
-  color: rgba(255, 255, 255, 0.72);
+  font-weight: 500;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: rgba(255, 255, 255, 0.78);
 }
 
 /* ================= 底部极简浮动 Dock ================= */
@@ -3253,7 +3707,7 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
 /* ── 平板：侧栏收窄，仍保持左右分栏 ── */
 @media (width <= 1100px) {
   .pqr__side {
-    width: 340px;
+    width: 390px;
   }
 
   .pqr__stat-name {
@@ -3261,7 +3715,7 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
   }
 
   .pqr__image {
-    max-width: min(calc(100vw - 340px - 60px), 1100px);
+    max-width: min(calc(100vw - 390px - 60px), 1100px);
   }
 }
 
@@ -3330,16 +3784,36 @@ function platformPrefix(item: MatchedPublishConfigItem): string {
     flex: 0 0 auto;
     border-left: none;
     border-top: 1px solid var(--app-content-border-color, var(--el-border-color-lighter));
-    padding: 10px 14px 0;
-    gap: 8px;
+  }
+
+  .pqr__side-header {
+    padding: 10px 14px 6px;
+  }
+
+  .pqr__side-toolbar {
+    padding: 0 14px 8px;
+    gap: 6px;
+  }
+
+  .pqr__config-scroll {
+    padding: 8px 14px 10px;
   }
 
   .pqr__config-search input {
     font-size: 16px;
   }
 
+  .pqr__search-kbd,
+  .pqr__row-kbd {
+    display: none;
+  }
+
+  .pqr__copy-btn {
+    opacity: 0.75;
+  }
+
   .pqr__side-footer {
-    padding: 8px 0 max(10px, env(safe-area-inset-bottom));
+    padding: 8px 14px max(10px, env(safe-area-inset-bottom));
   }
 
   .pqr__dock {

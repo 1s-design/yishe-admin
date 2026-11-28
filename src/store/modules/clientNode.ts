@@ -16,6 +16,7 @@ import {
 } from "@/services/websocketClient";
 
 export type ClientPluginKey =
+  | "client-agent"
   | "browser-automation"
   | "ps-automation"
   | "google-art"
@@ -222,6 +223,26 @@ const mergeServiceRuntime = (
     activeJobId: nextDetails.activeJobId ?? prevDetails.activeJobId,
   };
 
+  // client-agent：服务端 summary 视图会省略空数组，若本帧 activeCount/queuedCount 为 0 或 state 为 idle，必须清空旧 activeRuns，防止任务结束后残留
+  const isClientAgent =
+    next.pluginKey === "client-agent" ||
+    prev.pluginKey === "client-agent" ||
+    Object.prototype.hasOwnProperty.call(nextDetails, "activeCount") ||
+    Object.prototype.hasOwnProperty.call(nextDetails, "activeRuns");
+  if (isClientAgent) {
+    const nextState = String(next.state || "").trim().toLowerCase();
+    const hasNextActiveRuns = Array.isArray(nextDetails.activeRuns);
+    const reportedActive = Number(nextDetails.activeCount ?? mergedDetails.activeCount ?? 0);
+    const reportedQueued = Number(nextDetails.queuedCount ?? mergedDetails.queuedCount ?? 0);
+    if (hasNextActiveRuns) {
+      mergedDetails.activeRuns = nextDetails.activeRuns;
+    } else if (nextState === "idle" || (reportedActive === 0 && reportedQueued === 0)) {
+      mergedDetails.activeCount = 0;
+      mergedDetails.queuedCount = 0;
+      mergedDetails.activeRuns = [];
+    }
+  }
+
   const merged: Record<string, any> = {
     ...prev,
     ...next,
@@ -394,6 +415,9 @@ export const getClientServiceRuntime = (
   pluginKey: ClientPluginKey,
 ) => {
   const services = client?.clientInfo?.services || {};
+  if (pluginKey === "client-agent") {
+    return services["client-agent"] || null;
+  }
   if (pluginKey === "browser-automation") {
     return services["browser-automation"] || services.uploader || null;
   }
@@ -545,6 +569,7 @@ export const useClientNodeStore = defineStore("client-node", () => {
 
   const pluginStatusMap = computed<Record<ClientPluginKey, ClientPluginSummary>>(() => {
     const summary: Record<ClientPluginKey, ClientPluginSummary> = {
+      "client-agent": "offline",
       "browser-automation": "offline",
       "ps-automation": "offline",
       "google-art": "offline",
@@ -629,6 +654,7 @@ export const useClientNodeStore = defineStore("client-node", () => {
 
     (
       [
+        "client-agent",
         "browser-automation",
         "ps-automation",
         "google-art",

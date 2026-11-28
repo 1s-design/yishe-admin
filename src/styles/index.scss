@@ -53,8 +53,8 @@
 
 /* WebKit 浏览器 */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -134,18 +134,14 @@ html.light {
   }
 }
 
-.el-card,
 .el-dialog,
 .el-drawer,
 .el-message-box,
 .el-dropdown-menu,
 .el-popper.is-light,
-.vxe-table,
-.vxe-table--render-wrapper,
-.vxe-table--main-wrapper,
 .vxe-modal--content,
 .vxe-modal--box {
-  box-shadow: var(--app-content-shadow);
+  box-shadow: var(--ep-cover-shadow-md);
 }
 
 html.light {
@@ -153,23 +149,23 @@ html.light {
   --el-bg-color-overlay: #ffffff;
   --el-bg-color-page: var(--app-content-bg-color);
   --el-fill-color-blank: #ffffff;
-  --el-fill-color-light: #f7f9fc;
-  --el-fill-color-lighter: #f3f6fb;
-  --el-fill-color-extra-light: #edf2f8;
-  --el-fill-color-dark: #e3ebf4;
-  --el-border-color: #d9e1ec;
-  --el-border-color-light: #e7edf5;
-  --el-border-color-lighter: #edf2f8;
-  --el-border-color-extra-light: #f4f7fb;
-  --el-text-color-primary: #1f2937;
-  --el-text-color-regular: #475569;
+  --el-fill-color-light: #f8fafc;
+  --el-fill-color-lighter: #f1f5f9;
+  --el-fill-color-extra-light: #f8fafc;
+  --el-fill-color-dark: #e2e8f0;
+  --el-border-color: #e2e8f0;
+  --el-border-color-light: #e8edf4;
+  --el-border-color-lighter: #eef2f6;
+  --el-border-color-extra-light: #f4f6f9;
+  --el-text-color-primary: #0f172a;
+  --el-text-color-regular: #334155;
   --el-text-color-secondary: #64748b;
   --el-text-color-placeholder: #94a3b8;
-  --el-mask-color: rgba(15, 23, 42, 0.2);
+  --el-mask-color: rgba(15, 23, 42, 0.24);
   --el-mask-color-extra-light: rgba(15, 23, 42, 0.06);
-  --el-box-shadow-light: 0 12px 30px rgba(15, 23, 42, 0.08);
-  --el-box-shadow: 0 18px 40px rgba(15, 23, 42, 0.1);
-  --el-box-shadow-dark: 0 24px 50px rgba(15, 23, 42, 0.16);
+  --el-box-shadow-light: 0 4px 16px rgba(15, 23, 42, 0.07);
+  --el-box-shadow: 0 8px 24px rgba(15, 23, 42, 0.09);
+  --el-box-shadow-dark: 0 12px 32px rgba(15, 23, 42, 0.14);
   --el-overlay-color-lighter: rgba(15, 23, 42, 0.14);
   --el-overlay-color-light: rgba(15, 23, 42, 0.18);
   --el-overlay-color: rgba(15, 23, 42, 0.22);

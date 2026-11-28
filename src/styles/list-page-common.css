@@ -2,40 +2,40 @@
 
 :root,
 html.light {
-  --list-page-base-bg: #f7f9fc;
+  --list-page-base-bg: #f8fafc;
   --list-page-surface-bg: #ffffff;
-  --list-page-surface-bg-soft: #f7f9fc;
+  --list-page-surface-bg-soft: #f8fafc;
   --list-page-panel-bg: var(--list-page-surface-bg);
-  --list-page-panel-border: rgba(148, 163, 184, 0.22);
-  --list-page-panel-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
-  --list-page-panel-radius: 16px;
+  --list-page-panel-border: rgba(148, 163, 184, 0.2);
+  --list-page-panel-shadow: none;
+  --list-page-panel-radius: 8px;
   --list-page-muted-text: #475569;
 }
 
 html.dark {
-  --list-page-base-bg: #0f0f10;
-  --list-page-surface-bg: #151515;
-  --list-page-surface-bg-soft: #1b1b1c;
+  --list-page-base-bg: #101010;
+  --list-page-surface-bg: #141417;
+  --list-page-surface-bg-soft: #1a1a1e;
   --list-page-panel-bg: var(--list-page-surface-bg);
   --list-page-panel-border: rgba(255, 255, 255, 0.08);
-  --list-page-panel-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+  --list-page-panel-shadow: none;
   --list-page-muted-text: rgba(255, 255, 255, 0.55);
 }
 
 .list-page-filter {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 14px 16px;
+  gap: 10px;
+  padding: 10px 12px;
   border: 1px solid var(--list-page-panel-border);
   border-radius: var(--list-page-panel-radius);
   background: var(--list-page-panel-bg);
-  box-shadow: var(--list-page-panel-shadow);
+  box-shadow: none;
 }
 
 .list-page-filter--flat {
-  gap: 10px;
-  padding: 0 0 12px;
+  gap: 8px;
+  padding: 0 0 10px;
   border: 0;
   border-bottom: 1px solid var(--list-page-panel-border);
   border-radius: 0;
@@ -48,7 +48,7 @@ html.dark {
   flex-wrap: wrap;
   align-items: flex-start;
   justify-content: flex-start;
-  gap: 14px;
+  gap: 10px;
 }
 
 .list-page-filter__fields {
@@ -56,12 +56,12 @@ html.dark {
   min-width: 0;
   flex: 1;
   flex-wrap: wrap;
-  gap: 12px 14px;
+  gap: 8px 10px;
 }
 
 .list-page-filter__fields--grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
 }
 
 .list-page-filter__actions {
@@ -69,7 +69,7 @@ html.dark {
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-start;
-  gap: 10px;
+  gap: 6px;
 }
 
 .list-page-search-form {

@@ -93,6 +93,9 @@
       </div>
     </section>
 
+    <!-- 1.5 客户端 Agent 实时运行态 -->
+    <ClientAgentStatusPanel />
+
     <!-- 2. Quick Links -->
     <section class="home-section">
       <div class="section-title-bar">
@@ -353,6 +356,7 @@ import {
   type BrowserAutomationClientVO,
 } from "@/api/external/browserAutomation";
 import { useAppStore } from "@/store/modules/app";
+import ClientAgentStatusPanel from "./components/ClientAgentStatusPanel.vue";
 
 defineOptions({ name: "HomeIndex" });
 
